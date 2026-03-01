@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -34,4 +34,48 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   @apply bg-stone-300;
+}
+
+/* Tipografía responsiva: escala con el viewport (contenedor fijo para no escalar la sección de imagen) */
+.slide-content {
+  --slide-title-chapter: clamp(2rem, 5vw, 4.5rem);
+  --slide-title: clamp(1.5rem, 3.5vw, 2.75rem);
+  --slide-subtitle: clamp(1rem, 2vw, 1.5rem);
+  --slide-label: clamp(0.65rem, 1vw, 0.8rem);
+  --slide-body: clamp(0.9375rem, 1.15vw, 1.25rem);
+}
+
+.slide-content .prose,
+.slide-content .prose p,
+.slide-content .prose li {
+  font-size: var(--slide-body);
+}
+
+/* Modo presentación a pantalla completa: escalas más grandes */
+.preview-slide {
+  --slide-title-chapter: clamp(3rem, 7vw, 7rem);
+  --slide-title: clamp(2rem, 4.5vw, 4rem);
+  --slide-subtitle: clamp(1.25rem, 2.5vw, 2.25rem);
+  --slide-label: clamp(0.75rem, 1.2vw, 0.9rem);
+  --slide-body: clamp(1.125rem, 1.5vw, 1.5rem);
+}
+
+.preview-slide .prose,
+.preview-slide .prose p,
+.preview-slide .prose li {
+  font-size: var(--slide-body);
+}
+
+/* Encabezados dentro del contenido de la diapositiva */
+.slide-content .prose h1,
+.preview-slide .prose h1 {
+  font-size: clamp(1.25em, 1.4em, 1.5em);
+}
+.slide-content .prose h2,
+.preview-slide .prose h2 {
+  font-size: clamp(1.1em, 1.2em, 1.35em);
+}
+.slide-content .prose h3,
+.preview-slide .prose h3 {
+  font-size: clamp(1.05em, 1.1em, 1.2em);
 }

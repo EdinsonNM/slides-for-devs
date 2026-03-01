@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { clsx, type ClassValue } from "clsx";
@@ -127,6 +128,7 @@ export default function App() {
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
     IMAGE_STYLES[0]
   );
+  const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -143,7 +145,6 @@ export default function App() {
   const [homeTab, setHomeTab] = useState<"recent" | "mine" | "templates">(
     "recent"
   );
-  const videoLogoRef = useRef<HTMLVideoElement>(null);
 
   const currentSlide = slides[currentIndex];
   const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
@@ -240,7 +241,6 @@ export default function App() {
     e.preventDefault();
     if (!topic.trim()) return;
 
-    videoLogoRef.current?.play();
     setIsLoading(true);
     try {
       const generatedSlides = await generatePresentation(topic);
@@ -262,8 +262,12 @@ export default function App() {
 
   const formatMarkdown = (content: string) => {
     if (!content) return "";
-    // Reemplaza \n literal por saltos de línea reales
-    return content.replace(/\\n/g, "\n");
+    let out = content.replace(/\\n/g, "\n");
+    // Normalizar saltos de línea Windows
+    out = out.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    // Cuando la API devuelve viñetas en una sola línea ("texto • ítem • ítem"), poner cada una en su línea
+    out = out.replace(/\s*•\s+/g, "\n• ");
+    return out;
   };
 
   const handleImageGenerate = async () => {
@@ -277,7 +281,8 @@ export default function App() {
       const imageUrl = await generateImage(
         slideContext,
         imagePrompt,
-        selectedStyle.prompt
+        selectedStyle.prompt,
+        includeBackground
       );
       if (imageUrl) {
         const updatedSlides = [...slides];
@@ -469,8 +474,8 @@ export default function App() {
             <div className="space-y-4">
               <div className="inline-flex items-center justify-center w-64 h-64 rounded-3xl overflow-hidden mb-4 bg-transparent">
                 <video
-                  ref={videoLogoRef}
                   src="./video-logo 2.mp4"
+                  autoPlay
                   loop
                   muted
                   playsInline
@@ -788,7 +793,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
               className={cn(
-                "w-full max-w-5xl aspect-video bg-white shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200",
+                "slide-content w-full max-w-5xl aspect-video bg-white shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200",
                 currentSlide.type === "chapter"
                   ? "justify-center items-center"
                   : ""
@@ -806,15 +811,22 @@ export default function App() {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="text-6xl font-serif italic text-stone-900 leading-tight text-center bg-transparent border-b border-stone-200 focus:outline-none focus:border-emerald-500 w-full"
+                      className="font-serif italic text-stone-900 leading-tight text-center bg-transparent border-b border-stone-200 focus:outline-none focus:border-emerald-500 w-full"
+                      style={{ fontSize: "var(--slide-title-chapter)" }}
                     />
                   ) : (
-                    <h1 className="text-6xl font-serif italic text-stone-900 leading-tight">
+                    <h1
+                      className="font-serif italic text-stone-900 leading-tight"
+                      style={{ fontSize: "var(--slide-title-chapter)" }}
+                    >
                       {currentSlide.title}
                     </h1>
                   )}
                   {currentSlide.subtitle && (
-                    <p className="text-2xl text-stone-500 font-light tracking-wide uppercase">
+                    <p
+                      className="text-stone-500 font-light tracking-wide uppercase"
+                      style={{ fontSize: "var(--slide-subtitle)" }}
+                    >
                       {currentSlide.subtitle}
                     </p>
                   )}
@@ -832,7 +844,10 @@ export default function App() {
                   <div className="flex-1 p-12 flex flex-col overflow-hidden">
                     <div className="mb-8 shrink-0 flex items-start justify-between">
                       <div className="flex-1 mr-4">
-                        <span className="text-xs uppercase tracking-[0.2em] text-emerald-600 font-bold mb-2 block">
+                        <span
+                          className="uppercase tracking-[0.2em] text-emerald-600 font-bold mb-2 block"
+                          style={{ fontSize: "var(--slide-label)" }}
+                        >
                           Sección {currentIndex + 1}
                         </span>
                         {isEditing ? (
@@ -840,10 +855,14 @@ export default function App() {
                             type="text"
                             value={editTitle}
                             onChange={(e) => setEditTitle(e.target.value)}
-                            className="text-4xl font-serif italic text-stone-900 leading-tight bg-transparent border-b border-stone-200 focus:outline-none focus:border-emerald-500 w-full"
+                            className="font-serif italic text-stone-900 leading-tight bg-transparent border-b border-stone-200 focus:outline-none focus:border-emerald-500 w-full"
+                            style={{ fontSize: "var(--slide-title)" }}
                           />
                         ) : (
-                          <h2 className="text-4xl font-serif italic text-stone-900 leading-tight">
+                          <h2
+                            className="font-serif italic text-stone-900 leading-tight"
+                            style={{ fontSize: "var(--slide-title)" }}
+                          >
                             {currentSlide.title}
                           </h2>
                         )}
@@ -906,7 +925,7 @@ export default function App() {
                           className="w-full h-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none font-sans text-lg"
                         />
                       ) : (
-                        <ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkBreaks]}>
                           {formatMarkdown(currentSlide.content)}
                         </ReactMarkdown>
                       )}
@@ -1312,6 +1331,19 @@ export default function App() {
                   </div>
                 </div>
 
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={includeBackground}
+                    onChange={(e) => setIncludeBackground(e.target.checked)}
+                    disabled={isGeneratingImage}
+                    className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-stone-600 group-hover:text-stone-900">
+                    Incluir fondo
+                  </span>
+                </label>
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
                     Contexto del Slide
@@ -1604,7 +1636,7 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className={cn(
-                  "w-full max-w-7xl aspect-video bg-white flex relative",
+                  "preview-slide w-full max-w-7xl 2xl:max-w-[1600px] aspect-video bg-white flex relative",
                   currentSlide.type === "chapter"
                     ? "justify-center items-center"
                     : ""
@@ -1613,11 +1645,17 @@ export default function App() {
                 {currentSlide.type === "chapter" ? (
                   <div className="text-center space-y-8">
                     <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
-                    <h1 className="text-8xl font-serif italic text-stone-900 leading-tight">
+                    <h1
+                      className="font-serif italic text-stone-900 leading-tight"
+                      style={{ fontSize: "var(--slide-title-chapter)" }}
+                    >
                       {currentSlide.title}
                     </h1>
                     {currentSlide.subtitle && (
-                      <p className="text-4xl text-stone-400 font-light tracking-widest uppercase">
+                      <p
+                        className="text-stone-400 font-light tracking-widest uppercase"
+                        style={{ fontSize: "var(--slide-subtitle)" }}
+                      >
                         {currentSlide.subtitle}
                       </p>
                     )}
@@ -1626,13 +1664,16 @@ export default function App() {
                   <>
                     <div className="flex-1 p-12 flex flex-col overflow-hidden">
                       <div className="mb-8 shrink-0">
-                        <h2 className="text-5xl font-serif italic text-stone-900 leading-tight mb-4">
+                        <h2
+                          className="font-serif italic text-stone-900 leading-tight mb-4"
+                          style={{ fontSize: "var(--slide-title)" }}
+                        >
                           {currentSlide.title}
                         </h2>
                         <div className="h-1.5 w-20 bg-emerald-600 rounded-full" />
                       </div>
-                      <div className="flex-1 prose prose-xl prose-stone max-w-none prose-p:text-stone-600 prose-li:text-stone-600 overflow-y-auto pr-4 custom-scrollbar">
-                        <ReactMarkdown>
+                      <div className="flex-1 prose prose-stone max-w-none prose-p:text-stone-600 prose-li:text-stone-600 overflow-y-auto pr-4 custom-scrollbar">
+                        <ReactMarkdown remarkPlugins={[remarkBreaks]}>
                           {formatMarkdown(currentSlide.content)}
                         </ReactMarkdown>
                       </div>
@@ -1679,9 +1720,11 @@ export default function App() {
                                     margin: 0,
                                     padding: "2rem",
                                     background: "transparent",
-                                    fontSize: `${
-                                      (currentSlide.fontSize || 14) * 1.5
-                                    }px`,
+                                    fontSize: `clamp(${
+                                      (currentSlide.fontSize || 14) * 1.2
+                                    }px, 1.4vw, ${
+                                      (currentSlide.fontSize || 14) * 2.2
+                                    }px)`,
                                     lineHeight: "1.6",
                                   }}
                                 >

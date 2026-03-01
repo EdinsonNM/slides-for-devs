@@ -7,7 +7,7 @@ export async function generatePresentation(topic: string): Promise<Slide[]> {
   // Intentar extraer el número de diapositivas del prompt del usuario
   const slideCountMatch = topic.match(/(\d+)\s+diapositivas/i);
   const requestedCount = slideCountMatch ? parseInt(slideCountMatch[1]) : 10;
-  const countInstruction = slideCountMatch 
+  const countInstruction = slideCountMatch
     ? `La presentación debe tener exactamente ${requestedCount} diapositivas.`
     : `La presentación debe tener entre 8 y 12 diapositivas.`;
 
@@ -40,18 +40,21 @@ export async function generatePresentation(topic: string): Promise<Slide[]> {
             title: { type: Type.STRING },
             subtitle: { type: Type.STRING },
             content: { type: Type.STRING },
-            imagePrompt: { type: Type.STRING, description: "Sugerencia de prompt para generar una imagen" }
+            imagePrompt: {
+              type: Type.STRING,
+              description: "Sugerencia de prompt para generar una imagen",
+            },
           },
-          required: ["id", "type", "title", "content"]
-        }
-      }
-    }
+          required: ["id", "type", "title", "content"],
+        },
+      },
+    },
   });
 
   const text = response.text || "[]";
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   const jsonStr = jsonMatch ? jsonMatch[0] : text;
-  
+
   try {
     return JSON.parse(jsonStr);
   } catch (e) {
@@ -60,24 +63,32 @@ export async function generatePresentation(topic: string): Promise<Slide[]> {
   }
 }
 
-export async function generateImage(slideContext: string, userPrompt: string, stylePrompt: string = ""): Promise<string | undefined> {
+export async function generateImage(
+  slideContext: string,
+  userPrompt: string,
+  stylePrompt: string = "",
+  includeBackground: boolean = true
+): Promise<string | undefined> {
+  const noTextRule =
+    "REGLA OBLIGATORIA: La imagen NO debe contener ningún texto, leyendas, etiquetas, palabras ni caracteres. Solo elementos puramente visuales e ilustrativos.";
+  const backgroundRule = includeBackground
+    ? ""
+    : " La imagen debe mostrarse SIN fondo decorativo: fondo transparente o blanco puro, solo el sujeto o concepto principal, sin escenario, ambiente ni elementos de fondo. Ignora cualquier indicación de fondo en el estilo.";
   const fullPrompt = `Contexto de la diapositiva: ${slideContext}. 
   Características adicionales solicitadas: ${userPrompt}. 
-  Estilo visual: ${stylePrompt}.
-  REGLA CRÍTICA: La imagen debe ser puramente visual y representar el concepto solicitado de forma artística o técnica. Evita texto innecesario o ilegible, pero puedes incluir etiquetas técnicas simples si el estilo lo requiere (como nombres de lenguajes o comandos breves) siempre que se mantengan minimalistas y limpias.`;
+  Estilo visual: ${stylePrompt}.${backgroundRule}
+  ${noTextRule}`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-image",
     contents: {
-      parts: [
-        { text: fullPrompt }
-      ]
+      parts: [{ text: fullPrompt }],
     },
     config: {
       imageConfig: {
         aspectRatio: "1:1",
-      }
-    }
+      },
+    },
   });
 
   for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -88,7 +99,10 @@ export async function generateImage(slideContext: string, userPrompt: string, st
   return undefined;
 }
 
-export async function splitSlide(slide: Slide, prompt: string): Promise<Slide[]> {
+export async function splitSlide(
+  slide: Slide,
+  prompt: string
+): Promise<Slide[]> {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `El usuario quiere profundizar en el tema de esta diapositiva y dividirla en 2 o más diapositivas.
@@ -111,18 +125,18 @@ export async function splitSlide(slide: Slide, prompt: string): Promise<Slide[]>
             type: { type: Type.STRING, enum: ["content"] },
             title: { type: Type.STRING },
             content: { type: Type.STRING },
-            imagePrompt: { type: Type.STRING }
+            imagePrompt: { type: Type.STRING },
           },
-          required: ["id", "type", "title", "content"]
-        }
-      }
-    }
+          required: ["id", "type", "title", "content"],
+        },
+      },
+    },
   });
 
   const text = response.text || "[]";
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   const jsonStr = jsonMatch ? jsonMatch[0] : text;
-  
+
   try {
     return JSON.parse(jsonStr);
   } catch (e) {
@@ -131,7 +145,10 @@ export async function splitSlide(slide: Slide, prompt: string): Promise<Slide[]>
   }
 }
 
-export async function rewriteSlide(slide: Slide, prompt: string): Promise<{ title: string, content: string }> {
+export async function rewriteSlide(
+  slide: Slide,
+  prompt: string
+): Promise<{ title: string; content: string }> {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Reescribe el contenido de esta diapositiva según la instrucción del usuario.
@@ -148,11 +165,11 @@ export async function rewriteSlide(slide: Slide, prompt: string): Promise<{ titl
         type: Type.OBJECT,
         properties: {
           title: { type: Type.STRING },
-          content: { type: Type.STRING }
+          content: { type: Type.STRING },
         },
-        required: ["title", "content"]
-      }
-    }
+        required: ["title", "content"],
+      },
+    },
   });
 
   try {
