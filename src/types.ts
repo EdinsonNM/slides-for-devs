@@ -1,4 +1,4 @@
-export type SlideType = 'content' | 'chapter';
+export type SlideType = "content" | "chapter";
 
 export interface ImageStyle {
   id: string;
@@ -18,9 +18,13 @@ export interface Slide {
   language?: string;
   fontSize?: number;
   videoUrl?: string;
-  contentType?: 'image' | 'code' | 'video';
+  contentType?: "image" | "code" | "video";
   /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a este slide. */
   imageWidthPercent?: number;
+  /** Notas del presentador (solo visibles en modo presentador) */
+  presenterNotes?: string;
+  /** Guion o speech sugerido para esta diapositiva */
+  speech?: string;
 }
 
 export interface Presentation {

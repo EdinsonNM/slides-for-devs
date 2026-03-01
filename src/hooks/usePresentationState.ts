@@ -6,6 +6,10 @@ import {
   generateImage,
   splitSlide,
   rewriteSlide,
+  generatePresenterNotes as generatePresenterNotesApi,
+  generateSpeechForSlide as generateSpeechForSlideApi,
+  generateSpeechForAll as generateSpeechForAllApi,
+  refinePresenterNotes as refinePresenterNotesApi,
 } from "../services/gemini";
 import {
   savePresentation,
@@ -53,6 +57,9 @@ export function usePresentationState() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<HomeTab>("recent");
+  const [showSpeechModal, setShowSpeechModal] = useState(false);
+  const [speechGeneralPrompt, setSpeechGeneralPrompt] = useState("");
+  const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
 
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
@@ -364,6 +371,89 @@ export function usePresentationState() {
     setShowImageModal(true);
   };
 
+  const setPresenterNotesForCurrentSlide = (notes: string) => {
+    if (!currentSlide) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = {
+        ...updated[currentIndex],
+        presenterNotes: notes,
+      };
+      return updated;
+    });
+  };
+
+  const handleGeneratePresenterNotes = async () => {
+    if (!currentSlide) return;
+    setIsProcessing(true);
+    try {
+      const notes = await generatePresenterNotesApi(currentSlide);
+      setPresenterNotesForCurrentSlide(notes);
+    } catch (e) {
+      console.error(e);
+      alert("Error al generar las notas del presentador.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGenerateSpeechForCurrentSlide = async (prompt?: string) => {
+    if (!currentSlide) return;
+    setIsGeneratingSpeech(true);
+    try {
+      const text = await generateSpeechForSlideApi(currentSlide, prompt);
+      setPresenterNotesForCurrentSlide(text);
+    } catch (e) {
+      console.error(e);
+      alert("Error al generar el contenido.");
+    } finally {
+      setIsGeneratingSpeech(false);
+    }
+  };
+
+  const handleRefinePresenterNotes = async () => {
+    if (!currentSlide) return;
+    const current = (currentSlide.presenterNotes ?? "").trim();
+    if (!current) {
+      alert("Escribe o genera primero el contenido para refinar.");
+      return;
+    }
+    setIsGeneratingSpeech(true);
+    try {
+      const refined = await refinePresenterNotesApi(currentSlide, current);
+      setPresenterNotesForCurrentSlide(refined);
+    } catch (e) {
+      console.error(e);
+      alert("Error al refinar las notas.");
+    } finally {
+      setIsGeneratingSpeech(false);
+    }
+  };
+
+  const handleGenerateSpeechForAll = async () => {
+    if (slides.length === 0 || !speechGeneralPrompt.trim()) return;
+    setIsGeneratingSpeech(true);
+    try {
+      const results = await generateSpeechForAllApi(
+        slides,
+        speechGeneralPrompt
+      );
+      setSlides((prev) =>
+        prev.map((s, i) => ({
+          ...s,
+          presenterNotes: results[i] ?? s.presenterNotes ?? "",
+        }))
+      );
+      setShowSpeechModal(false);
+      setSpeechGeneralPrompt("");
+    } catch (e) {
+      console.error(e);
+      alert("Error al generar para todas las diapositivas.");
+    } finally {
+      setIsGeneratingSpeech(false);
+    }
+  };
+
   return {
     topic,
     setTopic,
@@ -437,6 +527,16 @@ export function usePresentationState() {
     nextSlide,
     prevSlide,
     openImageModal,
+    setPresenterNotesForCurrentSlide,
+    handleGeneratePresenterNotes,
+    handleGenerateSpeechForCurrentSlide,
+    handleRefinePresenterNotes,
+    handleGenerateSpeechForAll,
+    showSpeechModal,
+    setShowSpeechModal,
+    speechGeneralPrompt,
+    setSpeechGeneralPrompt,
+    isGeneratingSpeech,
   };
 }
 

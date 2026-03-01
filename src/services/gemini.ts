@@ -179,3 +179,66 @@ export async function rewriteSlide(
     return { title: slide.title, content: slide.content };
   }
 }
+
+/** Genera notas del presentador para una diapositiva */
+export async function generatePresenterNotes(slide: Slide): Promise<string> {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Genera notas breves para el presentador de esta diapositiva. Incluye puntos clave a recordar, transiciones sugeridas y datos o frases que no deben olvidarse. Sé conciso (2-4 líneas).
+    Título: ${slide.title}
+    Contenido: ${slide.content}
+    Responde solo el texto de las notas, sin título ni formato adicional.`,
+  });
+  return (response.text || "").trim();
+}
+
+/** Genera speech/guion para una diapositiva con prompt opcional (específico o vacío para estándar) */
+export async function generateSpeechForSlide(
+  slide: Slide,
+  customPrompt?: string
+): Promise<string> {
+  const instruction = customPrompt?.trim()
+    ? `Instrucción adicional del presentador: ${customPrompt}.`
+    : "Genera un guion natural y conciso que un presentador podría decir al mostrar esta diapositiva (2-5 frases).";
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Diapositiva:
+    Título: ${slide.title}
+    Contenido: ${slide.content}
+    ${instruction}
+    Responde solo el texto del guion, sin etiquetas.`,
+  });
+  return (response.text || "").trim();
+}
+
+/** Genera speech para todas las diapositivas usando un prompt general */
+export async function generateSpeechForAll(
+  slides: Slide[],
+  generalPrompt: string
+): Promise<string[]> {
+  const results: string[] = [];
+  for (const slide of slides) {
+    const text = await generateSpeechForSlide(slide, generalPrompt);
+    results.push(text);
+  }
+  return results;
+}
+
+/** Refina el texto de las notas del presentador manteniendo el sentido y mejorando claridad y tono */
+export async function refinePresenterNotes(
+  slide: Slide,
+  currentNotes: string
+): Promise<string> {
+  if (!currentNotes.trim()) return currentNotes;
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Refina y mejora el siguiente texto de notas para el presentador. Mantén el mismo contenido y sentido, pero mejora la claridad, el tono y la estructura. No añadas contenido nuevo que no esté implícito.
+    Contexto de la diapositiva - Título: ${
+      slide.title
+    }. Contenido (resumen): ${slide.content.slice(0, 300)}...
+    Texto actual del presentador:
+    ${currentNotes}
+    Responde solo el texto refinado, sin explicaciones ni etiquetas.`,
+  });
+  return (response.text || currentNotes).trim();
+}

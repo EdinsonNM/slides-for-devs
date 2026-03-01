@@ -4,6 +4,7 @@ import { cn } from "../../utils/cn";
 import { SlideContentChapter } from "./SlideContentChapter";
 import { SlideContentDefault } from "./SlideContentDefault";
 import { NavigationControls } from "./NavigationControls";
+import { PresenterNotesPanel } from "./PresenterNotesPanel";
 
 export function SlideEditor() {
   const { currentSlide, currentIndex } = usePresentation();
@@ -33,6 +34,7 @@ export function SlideEditor() {
       </AnimatePresence>
 
       <NavigationControls />
+      <PresenterNotesPanel />
     </section>
   );
 }

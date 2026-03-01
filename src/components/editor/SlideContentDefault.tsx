@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { Pencil, Check, Save, RefreshCw, Split } from "lucide-react";
+import { Pencil, Check, Save, RefreshCw, Split, Mic } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideRightPanel } from "./SlideRightPanel";
@@ -19,6 +19,7 @@ export function SlideContentDefault() {
     handleSaveManualEdit,
     setShowRewriteModal,
     setShowSplitModal,
+    setShowSpeechModal,
   } = usePresentation();
 
   if (!currentSlide) return null;
@@ -51,7 +52,7 @@ export function SlideContentDefault() {
               </h2>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => {
                 if (isEditing) {
@@ -61,37 +62,35 @@ export function SlideContentDefault() {
                 }
               }}
               className={cn(
-                "p-2 rounded-lg transition-all shadow-sm group relative",
+                "p-1.5 rounded-md transition-colors",
                 isEditing
                   ? "bg-emerald-600 text-white"
-                  : "bg-stone-100 text-stone-600 hover:bg-emerald-100 hover:text-emerald-600"
+                  : "text-stone-500 hover:bg-stone-100 hover:text-emerald-600"
               )}
-              title={isEditing ? "Guardar cambios" : "Editar manualmente"}
+              title={isEditing ? "Guardar cambios" : "Editar"}
             >
-              {isEditing ? <Check size={18} /> : <Pencil size={18} />}
-              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                {isEditing ? "Guardar" : "Editar"}
-              </span>
+              {isEditing ? <Check size={16} /> : <Pencil size={16} />}
+            </button>
+            <button
+              onClick={() => setShowSpeechModal(true)}
+              className="p-1.5 rounded-md text-stone-500 hover:bg-stone-100 hover:text-violet-600 transition-colors"
+              title="Prompt general (notas para todas)"
+            >
+              <Mic size={16} />
             </button>
             <button
               onClick={() => setShowRewriteModal(true)}
-              className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-emerald-100 hover:text-emerald-600 transition-all shadow-sm group relative"
-              title="Replantear contenido"
+              className="p-1.5 rounded-md text-stone-500 hover:bg-stone-100 hover:text-amber-600 transition-colors"
+              title="Replantear"
             >
-              <RefreshCw size={18} />
-              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                Replantear
-              </span>
+              <RefreshCw size={16} />
             </button>
             <button
               onClick={() => setShowSplitModal(true)}
-              className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-emerald-100 hover:text-emerald-600 transition-all shadow-sm group relative"
-              title="Dividir diapositiva"
+              className="p-1.5 rounded-md text-stone-500 hover:bg-stone-100 hover:text-amber-600 transition-colors"
+              title="Dividir"
             >
-              <Split size={18} />
-              <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                Dividir
-              </span>
+              <Split size={16} />
             </button>
           </div>
         </div>
@@ -112,10 +111,10 @@ export function SlideContentDefault() {
           <div className="mt-4 flex justify-end">
             <button
               onClick={handleSaveManualEdit}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm"
             >
-              <Save size={18} />
-              Guardar Cambios
+              <Save size={16} />
+              Guardar cambios
             </button>
           </div>
         )}

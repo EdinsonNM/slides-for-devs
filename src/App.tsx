@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { usePresentation } from "./context/PresentationContext";
 import { Header } from "./components/layout/Header";
 import { SlideSidebar } from "./components/layout/SlideSidebar";
@@ -8,10 +9,26 @@ import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
 import { VideoUrlModal } from "./components/modals/VideoUrlModal";
 import { SplitSlideModal } from "./components/modals/SplitSlideModal";
 import { RewriteSlideModal } from "./components/modals/RewriteSlideModal";
+import { SpeechModal } from "./components/modals/SpeechModal";
 import { PreviewOverlay } from "./components/preview/PreviewOverlay";
+import { PresenterView } from "./components/presenter/PresenterView";
 
 export default function App() {
   const { slides } = usePresentation();
+  const [isPresenterWindow, setIsPresenterWindow] = useState(
+    () => window.location.hash === "#/presenter"
+  );
+
+  useEffect(() => {
+    const onHash = () =>
+      setIsPresenterWindow(window.location.hash === "#/presenter");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  if (isPresenterWindow) {
+    return <PresenterView />;
+  }
 
   if (slides.length === 0) {
     return <HomeScreen />;
@@ -29,6 +46,7 @@ export default function App() {
       <VideoUrlModal />
       <SplitSlideModal />
       <RewriteSlideModal />
+      <SpeechModal />
       <PreviewOverlay />
     </div>
   );

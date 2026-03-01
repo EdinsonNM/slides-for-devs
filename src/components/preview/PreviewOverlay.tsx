@@ -3,7 +3,14 @@ import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { X, ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { useRef, useEffect } from "react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  Monitor,
+} from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { LANGUAGES } from "../../constants/languages";
@@ -16,6 +23,8 @@ function getEmbedUrl(url: string): string {
   return url;
 }
 
+const getOrigin = () => window.location.origin;
+
 export function PreviewOverlay() {
   const {
     isPreviewMode,
@@ -23,11 +32,52 @@ export function PreviewOverlay() {
     currentSlide,
     currentIndex,
     slides,
+    topic,
     imageWidthPercent,
     formatMarkdown,
     prevSlide,
     nextSlide,
   } = usePresentation();
+  const nextSlideRef = useRef(nextSlide);
+  const prevSlideRef = useRef(prevSlide);
+  const stateRef = useRef({ slides, currentIndex, topic });
+  nextSlideRef.current = nextSlide;
+  prevSlideRef.current = prevSlide;
+  stateRef.current = { slides, currentIndex, topic };
+  const presenterWindowRef = useRef<Window | null>(null);
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.origin !== getOrigin()) return;
+      if (e.data?.type === "PRESENTER_READY" && e.source) {
+        presenterWindowRef.current = e.source as Window;
+        const { slides: s, currentIndex: i, topic: t } = stateRef.current;
+        (e.source as Window).postMessage(
+          {
+            type: "PRESENTATION_STATE",
+            payload: { slides: s, currentIndex: i, topic: t || "Presentación" },
+          },
+          getOrigin()
+        );
+      }
+      if (e.data?.type === "PRESENTER_NEXT") nextSlideRef.current();
+      if (e.data?.type === "PRESENTER_PREV") prevSlideRef.current();
+      if (e.data?.type === "PRESENTER_CLOSE") presenterWindowRef.current = null;
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [slides, currentIndex, topic]);
+
+  useEffect(() => {
+    if (!isPreviewMode) {
+      presenterWindowRef.current = null;
+      return;
+    }
+    const win = presenterWindowRef.current;
+    if (win) {
+      win.postMessage({ type: "SLIDE_CHANGED", currentIndex }, getOrigin());
+    }
+  }, [currentIndex, isPreviewMode]);
 
   if (!isPreviewMode || !currentSlide) return null;
 
@@ -43,6 +93,23 @@ export function PreviewOverlay() {
           <span className="px-3 py-1 bg-stone-100 rounded-full text-xs font-medium text-stone-500">
             {currentIndex + 1} / {slides.length}
           </span>
+          <button
+            onClick={() => {
+              const url = `${getOrigin()}${window.location.pathname || "/"}${
+                window.location.search || ""
+              }#/presenter`;
+              window.open(
+                url,
+                "presenter",
+                "width=900,height=700,menubar=no,toolbar=no"
+              );
+            }}
+            className="flex items-center gap-2 px-4 py-3 bg-stone-700 text-white rounded-full hover:bg-stone-600 transition-colors shadow-lg"
+            title="Abrir modo presentador (notas y controles en otra ventana)"
+          >
+            <Monitor size={22} />
+            <span className="text-sm font-medium">Presentador</span>
+          </button>
           <button
             onClick={() => setIsPreviewMode(false)}
             className="p-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg"
