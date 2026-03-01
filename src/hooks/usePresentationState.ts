@@ -1,0 +1,443 @@
+import { useState, useEffect } from "react";
+import type { Slide, ImageStyle, SavedPresentationMeta } from "../types";
+import { formatMarkdown } from "../utils/markdown";
+import {
+  generatePresentation,
+  generateImage,
+  splitSlide,
+  rewriteSlide,
+} from "../services/gemini";
+import {
+  savePresentation,
+  updatePresentation,
+  listPresentations,
+  loadPresentation,
+  deletePresentation,
+} from "../services/storage";
+import { IMAGE_STYLES } from "../constants/imageStyles";
+
+const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
+
+export type HomeTab = "recent" | "mine" | "templates";
+
+export function usePresentationState() {
+  const [topic, setTopic] = useState("");
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [showRewriteModal, setShowRewriteModal] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [splitPrompt, setSplitPrompt] = useState("");
+  const [rewritePrompt, setRewritePrompt] = useState("");
+  const [videoUrlInput, setVideoUrlInput] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
+    IMAGE_STYLES[0]
+  );
+  const [includeBackground, setIncludeBackground] = useState(true);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editCode, setEditCode] = useState("");
+  const [editLanguage, setEditLanguage] = useState("javascript");
+  const [editFontSize, setEditFontSize] = useState(14);
+  const [isResizing, setIsResizing] = useState(false);
+  const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
+  const [showSavedListModal, setShowSavedListModal] = useState(false);
+  const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [homeTab, setHomeTab] = useState<HomeTab>("recent");
+
+  const currentSlide = slides[currentIndex];
+  const imageWidthPercent =
+    currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
+
+  useEffect(() => {
+    if (slides.length === 0) {
+      listPresentations()
+        .then(setSavedList)
+        .catch(() => setSavedList([]));
+    }
+  }, [slides.length]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const container = document.getElementById("slide-container");
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.min(Math.max(15, 100 - (x / rect.width) * 100), 85);
+      setSlides((prev) => {
+        const idx = currentIndex;
+        if (idx < 0 || idx >= prev.length) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], imageWidthPercent: percent };
+        return updated;
+      });
+    };
+
+    const handleMouseUp = () => setIsResizing(false);
+
+    if (isResizing) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+    } else {
+      document.body.style.cursor = "default";
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, currentIndex]);
+
+  useEffect(() => {
+    if (currentSlide) {
+      setEditTitle(currentSlide.title);
+      setEditContent(formatMarkdown(currentSlide.content));
+      setEditCode(currentSlide.code || "");
+      setEditLanguage(currentSlide.language || "javascript");
+      setEditFontSize(currentSlide.fontSize || 14);
+      setIsEditing(false);
+    }
+  }, [currentIndex, currentSlide?.id]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        isEditing
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
+        e.preventDefault();
+        if (currentIndex < slides.length - 1) setCurrentIndex(currentIndex + 1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
+      } else if (e.key === "Escape" && isPreviewMode) {
+        setIsPreviewMode(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, slides.length, isEditing, isPreviewMode]);
+
+  const handleSaveManualEdit = () => {
+    if (!currentSlide) return;
+    setSlides((prevSlides) => {
+      const updated = [...prevSlides];
+      updated[currentIndex] = {
+        ...updated[currentIndex],
+        title: editTitle,
+        content: editContent,
+        code: editCode,
+        language: editLanguage,
+        fontSize: editFontSize,
+      };
+      return updated;
+    });
+    setIsEditing(false);
+  };
+
+  const toggleContentType = () => {
+    if (!currentSlide) return;
+    let newType: "image" | "code" | "video" = "code";
+    if (currentSlide.contentType === "code") newType = "video";
+    else if (currentSlide.contentType === "video") newType = "image";
+    else newType = "code";
+
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, contentType: newType };
+      return updated;
+    });
+  };
+
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!topic.trim()) return;
+    setIsLoading(true);
+    try {
+      const generatedSlides = await generatePresentation(topic);
+      const cleanedSlides = generatedSlides.map((slide) => ({
+        ...slide,
+        content: formatMarkdown(slide.content),
+      }));
+      setSlides(cleanedSlides);
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error("Error generating presentation:", error);
+      alert(
+        "Hubo un error al generar la presentación. Por favor intenta de nuevo."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImageGenerate = async () => {
+    if (!imagePrompt.trim() || !currentSlide) return;
+    setIsGeneratingImage(true);
+    const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
+    try {
+      const imageUrl = await generateImage(
+        slideContext,
+        imagePrompt,
+        selectedStyle.prompt,
+        includeBackground
+      );
+      if (imageUrl) {
+        setSlides((prev) => {
+          const updated = [...prev];
+          updated[currentIndex] = { ...currentSlide, imageUrl };
+          return updated;
+        });
+        setShowImageModal(false);
+        setImagePrompt("");
+      }
+    } catch (error) {
+      console.error("Error generating image:", error);
+      alert("Error al generar la imagen.");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleSplitSlide = async () => {
+    if (!splitPrompt.trim() || !currentSlide) return;
+    setIsProcessing(true);
+    try {
+      const newSlides = await splitSlide(currentSlide, splitPrompt);
+      if (newSlides.length > 0) {
+        const cleanedNewSlides = newSlides.map((slide) => ({
+          ...slide,
+          content: formatMarkdown(slide.content),
+        }));
+        setSlides((prev) => {
+          const updated = [...prev];
+          updated.splice(currentIndex, 1, ...cleanedNewSlides);
+          return updated;
+        });
+        setShowSplitModal(false);
+        setSplitPrompt("");
+      }
+    } catch (error) {
+      console.error("Error splitting slide:", error);
+      alert("Error al dividir la diapositiva.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRewriteSlide = async () => {
+    if (!rewritePrompt.trim() || !currentSlide) return;
+    setIsProcessing(true);
+    try {
+      const result = await rewriteSlide(currentSlide, rewritePrompt);
+      setSlides((prev) => {
+        const updated = [...prev];
+        updated[currentIndex] = {
+          ...currentSlide,
+          title: result.title,
+          content: formatMarkdown(result.content),
+        };
+        return updated;
+      });
+      setShowRewriteModal(false);
+      setRewritePrompt("");
+    } catch (error) {
+      console.error("Error rewriting slide:", error);
+      alert("Error al replantear la diapositiva.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveVideoUrl = () => {
+    if (!videoUrlInput.trim() || !currentSlide) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = {
+        ...currentSlide,
+        videoUrl: videoUrlInput.trim(),
+        contentType: "video",
+      };
+      return updated;
+    });
+    setShowVideoModal(false);
+    setVideoUrlInput("");
+  };
+
+  const handleSave = async () => {
+    if (slides.length === 0) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      const presentation = { topic: topic || "Sin título", slides };
+      if (currentSavedId) {
+        await updatePresentation(currentSavedId, presentation);
+        setSaveMessage("Guardado");
+      } else {
+        const id = await savePresentation(presentation);
+        setCurrentSavedId(id);
+        setSaveMessage("Guardado");
+      }
+      setTimeout(() => setSaveMessage(null), 2000);
+    } catch (e) {
+      console.error(e);
+      setSaveMessage("Error al guardar");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openSavedListModal = async () => {
+    setShowSavedListModal(true);
+    try {
+      const list = await listPresentations();
+      setSavedList(list);
+    } catch (e) {
+      console.error(e);
+      setSavedList([]);
+    }
+  };
+
+  const handleOpenSaved = async (id: string) => {
+    try {
+      const saved = await loadPresentation(id);
+      setTopic(saved.topic);
+      setSlides(saved.slides);
+      setCurrentIndex(0);
+      setCurrentSavedId(saved.id);
+      setShowSavedListModal(false);
+    } catch (e) {
+      console.error(e);
+      alert("No se pudo abrir la presentación.");
+    }
+  };
+
+  const handleDeleteSaved = async (id: string) => {
+    if (!confirm("¿Eliminar esta presentación guardada?")) return;
+    try {
+      await deletePresentation(id);
+      if (currentSavedId === id) {
+        setCurrentSavedId(null);
+        setTopic("");
+        setSlides([]);
+      }
+      setSavedList((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert("Error al eliminar.");
+    }
+  };
+
+  const goHome = () => {
+    setSlides([]);
+    setTopic("");
+    setCurrentSavedId(null);
+  };
+
+  const nextSlide = () => {
+    if (currentIndex < slides.length - 1) setCurrentIndex(currentIndex + 1);
+  };
+
+  const prevSlide = () => {
+    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
+  };
+
+  const openImageModal = () => {
+    setImagePrompt(currentSlide?.imagePrompt || "");
+    setShowImageModal(true);
+  };
+
+  return {
+    topic,
+    setTopic,
+    slides,
+    setSlides,
+    currentIndex,
+    setCurrentIndex,
+    currentSlide,
+    imageWidthPercent,
+    DEFAULT_IMAGE_WIDTH_PERCENT,
+    isLoading,
+    isGeneratingImage,
+    isProcessing,
+    showImageModal,
+    setShowImageModal,
+    showSplitModal,
+    setShowSplitModal,
+    showRewriteModal,
+    setShowRewriteModal,
+    showVideoModal,
+    setShowVideoModal,
+    imagePrompt,
+    setImagePrompt,
+    splitPrompt,
+    setSplitPrompt,
+    rewritePrompt,
+    setRewritePrompt,
+    videoUrlInput,
+    setVideoUrlInput,
+    selectedStyle,
+    setSelectedStyle,
+    includeBackground,
+    setIncludeBackground,
+    isPreviewMode,
+    setIsPreviewMode,
+    isEditing,
+    setIsEditing,
+    editTitle,
+    setEditTitle,
+    editContent,
+    setEditContent,
+    editCode,
+    setEditCode,
+    editLanguage,
+    setEditLanguage,
+    editFontSize,
+    setEditFontSize,
+    isResizing,
+    setIsResizing,
+    currentSavedId,
+    showSavedListModal,
+    setShowSavedListModal,
+    savedList,
+    isSaving,
+    saveMessage,
+    homeTab,
+    setHomeTab,
+    formatMarkdown,
+    handleSaveManualEdit,
+    toggleContentType,
+    handleGenerate,
+    handleImageGenerate,
+    handleSplitSlide,
+    handleRewriteSlide,
+    handleSaveVideoUrl,
+    handleSave,
+    openSavedListModal,
+    handleOpenSaved,
+    handleDeleteSaved,
+    goHome,
+    nextSlide,
+    prevSlide,
+    openImageModal,
+  };
+}
+
+export type PresentationState = ReturnType<typeof usePresentationState>;

@@ -1,0 +1,212 @@
+import { motion, AnimatePresence } from "motion/react";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { X, ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { usePresentation } from "../../context/PresentationContext";
+import { cn } from "../../utils/cn";
+import { LANGUAGES } from "../../constants/languages";
+
+function getEmbedUrl(url: string): string {
+  if (url.includes("youtube.com") || url.includes("youtu.be")) {
+    const v = url.split("v=")[1]?.split("&")[0] || url.split("/").pop();
+    return `https://www.youtube.com/embed/${v}`;
+  }
+  return url;
+}
+
+export function PreviewOverlay() {
+  const {
+    isPreviewMode,
+    setIsPreviewMode,
+    currentSlide,
+    currentIndex,
+    slides,
+    imageWidthPercent,
+    formatMarkdown,
+    prevSlide,
+    nextSlide,
+  } = usePresentation();
+
+  if (!isPreviewMode || !currentSlide) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] bg-white flex flex-col"
+      >
+        <div className="absolute top-6 right-6 z-[110] flex items-center gap-3">
+          <span className="px-3 py-1 bg-stone-100 rounded-full text-xs font-medium text-stone-500">
+            {currentIndex + 1} / {slides.length}
+          </span>
+          <button
+            onClick={() => setIsPreviewMode(false)}
+            className="p-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-12">
+          <motion.div
+            key={currentIndex}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className={cn(
+              "preview-slide w-full max-w-7xl 2xl:max-w-[1600px] aspect-video bg-white flex relative",
+              currentSlide.type === "chapter"
+                ? "justify-center items-center"
+                : ""
+            )}
+          >
+            {currentSlide.type === "chapter" ? (
+              <div className="text-center space-y-8">
+                <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
+                <h1
+                  className="font-serif italic text-stone-900 leading-tight"
+                  style={{ fontSize: "var(--slide-title-chapter)" }}
+                >
+                  {currentSlide.title}
+                </h1>
+                {currentSlide.subtitle && (
+                  <p
+                    className="text-stone-400 font-light tracking-widest uppercase"
+                    style={{ fontSize: "var(--slide-subtitle)" }}
+                  >
+                    {currentSlide.subtitle}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 p-12 flex flex-col overflow-hidden">
+                  <div className="mb-8 shrink-0">
+                    <h2
+                      className="font-serif italic text-stone-900 leading-tight mb-4"
+                      style={{ fontSize: "var(--slide-title)" }}
+                    >
+                      {currentSlide.title}
+                    </h2>
+                    <div className="h-1.5 w-20 bg-emerald-600 rounded-full" />
+                  </div>
+                  <div className="flex-1 prose prose-stone max-w-none prose-p:text-stone-600 prose-li:text-stone-600 overflow-y-auto pr-4 custom-scrollbar">
+                    <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                      {formatMarkdown(currentSlide.content)}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+                <div
+                  className="flex flex-col relative"
+                  style={{ width: `${imageWidthPercent}%` }}
+                >
+                  <div className="w-full h-full p-8 flex items-center justify-center">
+                    {currentSlide.contentType === "code" ? (
+                      <div className="w-full h-full bg-[#1e1e1e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+                        <div className="h-12 bg-[#2d2d2d] px-6 flex items-center gap-2 shrink-0">
+                          <div className="w-3.5 h-3.5 rounded-full bg-[#ff5f56]" />
+                          <div className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e]" />
+                          <div className="w-3.5 h-3.5 rounded-full bg-[#27c93f]" />
+                          <div className="ml-auto text-xs text-stone-400 font-mono uppercase tracking-widest flex items-center gap-4">
+                            <span className="text-[10px] opacity-50">
+                              {currentSlide.fontSize || 14}px
+                            </span>
+                            <span>
+                              {LANGUAGES.find(
+                                (l) => l.id === currentSlide.language
+                              )?.name ||
+                                currentSlide.language ||
+                                "JavaScript"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex-1 p-0 font-mono overflow-y-auto custom-scrollbar bg-[#1e1e1e]">
+                          {currentSlide.code ? (
+                            <SyntaxHighlighter
+                              language={currentSlide.language || "javascript"}
+                              style={vscDarkPlus}
+                              codeTagProps={{
+                                style: {
+                                  fontSize: "inherit",
+                                  lineHeight: "inherit",
+                                  fontFamily: "inherit",
+                                },
+                              }}
+                              customStyle={{
+                                margin: 0,
+                                padding: "2rem",
+                                background: "transparent",
+                                fontSize: `clamp(${
+                                  (currentSlide.fontSize || 14) * 1.2
+                                }px, 1.4vw, ${
+                                  (currentSlide.fontSize || 14) * 2.2
+                                }px)`,
+                                lineHeight: "1.6",
+                              }}
+                            >
+                              {currentSlide.code}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <div className="p-8 text-stone-500 italic">
+                              // Sin código
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : currentSlide.contentType === "video" ? (
+                      <div className="w-full h-full bg-stone-900 rounded-2xl overflow-hidden border border-white/10">
+                        {currentSlide.videoUrl ? (
+                          <iframe
+                            src={getEmbedUrl(currentSlide.videoUrl)}
+                            className="w-full h-full"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-stone-500 italic">
+                            // Sin video
+                          </div>
+                        )}
+                      </div>
+                    ) : currentSlide.imageUrl ? (
+                      <img
+                        src={currentSlide.imageUrl}
+                        alt={currentSlide.title}
+                        className="w-full h-full object-cover rounded-2xl"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-300">
+                        <ImageIcon size={120} strokeWidth={1} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </motion.div>
+        </div>
+
+        <div
+          className="absolute inset-y-0 left-0 w-32 cursor-pointer group flex items-center justify-center"
+          onClick={prevSlide}
+        >
+          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
+            <ChevronLeft size={32} />
+          </div>
+        </div>
+        <div
+          className="absolute inset-y-0 right-0 w-32 cursor-pointer group flex items-center justify-center"
+          onClick={nextSlide}
+        >
+          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
+            <ChevronRight size={32} />
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
