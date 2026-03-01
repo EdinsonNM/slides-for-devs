@@ -726,7 +726,7 @@ export default function App() {
                     ) : currentSlide.contentType === 'video' ? (
                       <div className="flex-1 p-8 flex items-center justify-center">
                         {currentSlide.videoUrl ? (
-                          <div className="w-full aspect-video bg-stone-900 rounded-2xl shadow-2xl overflow-hidden border border-white/10 relative group/video">
+                          <div className="w-full aspect-video bg-stone-900 rounded-2xl overflow-hidden border border-white/10 relative group/video">
                             <iframe
                               src={currentSlide.videoUrl.includes('youtube.com') || currentSlide.videoUrl.includes('youtu.be') 
                                 ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split('v=')[1]?.split('&')[0] || currentSlide.videoUrl.split('/').pop()}`
@@ -1216,7 +1216,7 @@ export default function App() {
                             </div>
                           </div>
                         ) : currentSlide.contentType === 'video' ? (
-                          <div className="w-full h-full bg-stone-900 rounded-2xl shadow-2xl overflow-hidden border border-white/10">
+                          <div className="w-full h-full bg-stone-900 rounded-2xl overflow-hidden border border-white/10">
                             {currentSlide.videoUrl ? (
                               <iframe
                                 src={currentSlide.videoUrl.includes('youtube.com') || currentSlide.videoUrl.includes('youtu.be') 
@@ -1235,7 +1235,7 @@ export default function App() {
                           <img 
                             src={currentSlide.imageUrl} 
                             alt={currentSlide.title}
-                            className="w-full h-full object-cover rounded-2xl shadow-2xl"
+                            className="w-full h-full object-cover rounded-2xl"
                             referrerPolicy="no-referrer"
                           />
                         ) : (
