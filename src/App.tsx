@@ -125,7 +125,7 @@ export default function App() {
   const [rewritePrompt, setRewritePrompt] = useState("");
   const [videoUrlInput, setVideoUrlInput] = useState("");
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
-    IMAGE_STYLES[0],
+    IMAGE_STYLES[0]
   );
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -141,7 +141,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<"recent" | "mine" | "templates">(
-    "recent",
+    "recent"
   );
 
   const currentSlide = slides[currentIndex];
@@ -251,7 +251,7 @@ export default function App() {
     } catch (error) {
       console.error("Error generating presentation:", error);
       alert(
-        "Hubo un error al generar la presentación. Por favor intenta de nuevo.",
+        "Hubo un error al generar la presentación. Por favor intenta de nuevo."
       );
     } finally {
       setIsLoading(false);
@@ -275,7 +275,7 @@ export default function App() {
       const imageUrl = await generateImage(
         slideContext,
         imagePrompt,
-        selectedStyle.prompt,
+        selectedStyle.prompt
       );
       if (imageUrl) {
         const updatedSlides = [...slides];
@@ -467,7 +467,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="inline-flex items-center justify-center w-32 h-32 rounded-3xl overflow-hidden mb-4 bg-transparent">
                 <video
-                  src="/video-logo.mp4"
+                  src="./video-logo.mp4"
                   autoPlay
                   loop
                   muted
@@ -548,7 +548,7 @@ export default function App() {
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                       homeTab === tab.id
                         ? "bg-stone-100 text-stone-900"
-                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-50",
+                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
                     )}
                   >
                     {tab.label}
@@ -754,7 +754,7 @@ export default function App() {
                 "w-full aspect-video rounded-lg border-2 transition-all overflow-hidden relative group shrink-0",
                 currentIndex === index
                   ? "border-emerald-600 ring-2 ring-emerald-500/20"
-                  : "border-stone-300 hover:border-stone-400",
+                  : "border-stone-300 hover:border-stone-400"
               )}
             >
               <div className="absolute inset-0 bg-white p-2 flex flex-col">
@@ -789,7 +789,7 @@ export default function App() {
                 "w-full max-w-5xl aspect-video bg-white shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200",
                 currentSlide.type === "chapter"
                   ? "justify-center items-center"
-                  : "",
+                  : ""
               )}
             >
               {currentSlide.type === "chapter" ? (
@@ -859,7 +859,7 @@ export default function App() {
                             "p-2 rounded-lg transition-all shadow-sm group relative",
                             isEditing
                               ? "bg-emerald-600 text-white"
-                              : "bg-stone-100 text-stone-600 hover:bg-emerald-100 hover:text-emerald-600",
+                              : "bg-stone-100 text-stone-600 hover:bg-emerald-100 hover:text-emerald-600"
                           )}
                           title={
                             isEditing ? "Guardar cambios" : "Editar manualmente"
@@ -990,7 +990,7 @@ export default function App() {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setEditFontSize((prev) =>
-                                          Math.max(8, prev - 2),
+                                          Math.max(8, prev - 2)
                                         );
                                       }}
                                       className="w-7 h-7 flex items-center justify-center hover:bg-stone-700 rounded text-stone-300 transition-colors border border-stone-700"
@@ -1007,7 +1007,7 @@ export default function App() {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setEditFontSize((prev) =>
-                                          Math.min(64, prev + 2),
+                                          Math.min(64, prev + 2)
                                         );
                                       }}
                                       className="w-7 h-7 flex items-center justify-center hover:bg-stone-700 rounded text-stone-300 transition-colors border border-stone-700"
@@ -1062,7 +1062,7 @@ export default function App() {
                                   </span>
                                   <span className="bg-stone-800 px-1.5 py-0.5 rounded">
                                     {LANGUAGES.find(
-                                      (l) => l.id === currentSlide.language,
+                                      (l) => l.id === currentSlide.language
                                     )?.name ||
                                       currentSlide.language ||
                                       "JavaScript"}
@@ -1113,7 +1113,9 @@ export default function App() {
                                       margin: 0,
                                       padding: "1.5rem",
                                       background: "transparent",
-                                      fontSize: `${currentSlide.fontSize || 14}px`,
+                                      fontSize: `${
+                                        currentSlide.fontSize || 14
+                                      }px`,
                                       lineHeight: "1.5",
                                     }}
                                   >
@@ -1147,7 +1149,12 @@ export default function App() {
                               src={
                                 currentSlide.videoUrl.includes("youtube.com") ||
                                 currentSlide.videoUrl.includes("youtu.be")
-                                  ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split("v=")[1]?.split("&")[0] || currentSlide.videoUrl.split("/").pop()}`
+                                  ? `https://www.youtube.com/embed/${
+                                      currentSlide.videoUrl
+                                        .split("v=")[1]
+                                        ?.split("&")[0] ||
+                                      currentSlide.videoUrl.split("/").pop()
+                                    }`
                                   : currentSlide.videoUrl
                               }
                               className="w-full h-full"
@@ -1294,7 +1301,7 @@ export default function App() {
                           "px-3 py-2 rounded-lg text-xs font-medium border transition-all",
                           selectedStyle.id === style.id
                             ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
-                            : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500",
+                            : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
                         )}
                       >
                         {style.name}
@@ -1598,7 +1605,7 @@ export default function App() {
                   "w-full max-w-7xl aspect-video bg-white flex relative",
                   currentSlide.type === "chapter"
                     ? "justify-center items-center"
-                    : "",
+                    : ""
                 )}
               >
                 {currentSlide.type === "chapter" ? (
@@ -1645,7 +1652,7 @@ export default function App() {
                                 </span>
                                 <span>
                                   {LANGUAGES.find(
-                                    (l) => l.id === currentSlide.language,
+                                    (l) => l.id === currentSlide.language
                                   )?.name ||
                                     currentSlide.language ||
                                     "JavaScript"}
@@ -1670,7 +1677,9 @@ export default function App() {
                                     margin: 0,
                                     padding: "2rem",
                                     background: "transparent",
-                                    fontSize: `${(currentSlide.fontSize || 14) * 1.5}px`,
+                                    fontSize: `${
+                                      (currentSlide.fontSize || 14) * 1.5
+                                    }px`,
                                     lineHeight: "1.6",
                                   }}
                                 >
@@ -1689,10 +1698,15 @@ export default function App() {
                               <iframe
                                 src={
                                   currentSlide.videoUrl.includes(
-                                    "youtube.com",
+                                    "youtube.com"
                                   ) ||
                                   currentSlide.videoUrl.includes("youtu.be")
-                                    ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split("v=")[1]?.split("&")[0] || currentSlide.videoUrl.split("/").pop()}`
+                                    ? `https://www.youtube.com/embed/${
+                                        currentSlide.videoUrl
+                                          .split("v=")[1]
+                                          ?.split("&")[0] ||
+                                        currentSlide.videoUrl.split("/").pop()
+                                      }`
                                     : currentSlide.videoUrl
                                 }
                                 className="w-full h-full"
