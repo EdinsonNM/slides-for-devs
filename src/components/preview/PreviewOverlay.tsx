@@ -41,10 +41,10 @@ export function PreviewOverlay() {
   const nextSlideRef = useRef(nextSlide);
   const prevSlideRef = useRef(prevSlide);
   const stateRef = useRef({ slides, currentIndex, topic });
+  const presenterWindowRef = useRef<Window | null>(null);
   nextSlideRef.current = nextSlide;
   prevSlideRef.current = prevSlide;
   stateRef.current = { slides, currentIndex, topic };
-  const presenterWindowRef = useRef<Window | null>(null);
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -60,13 +60,63 @@ export function PreviewOverlay() {
           getOrigin()
         );
       }
-      if (e.data?.type === "PRESENTER_NEXT") nextSlideRef.current();
-      if (e.data?.type === "PRESENTER_PREV") prevSlideRef.current();
+      if (
+        e.data?.type === "PRESENTER_NEXT" ||
+        e.data?.type === "presenter-next"
+      )
+        nextSlideRef.current();
+      if (
+        e.data?.type === "PRESENTER_PREV" ||
+        e.data?.type === "presenter-prev"
+      )
+        prevSlideRef.current();
       if (e.data?.type === "PRESENTER_CLOSE") presenterWindowRef.current = null;
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [slides, currentIndex, topic]);
+
+  const tauriEventRef = useRef<{
+    emitTo: (target: string, event: string, payload?: unknown) => Promise<void>;
+  } | null>(null);
+
+  useEffect(() => {
+    let unlisten: Array<() => void> = [];
+    (async () => {
+      try {
+        const eventApi = await import("@tauri-apps/api/event");
+        tauriEventRef.current = { emitTo: eventApi.emitTo };
+        unlisten.push(
+          await eventApi.listen("presenter-ready", () => {
+            const { slides: s, currentIndex: i, topic: t } = stateRef.current;
+            eventApi.emitTo("presenter", "presentation-state", {
+              payload: {
+                slides: s,
+                currentIndex: i,
+                topic: t || "Presentación",
+              },
+            });
+          })
+        );
+        unlisten.push(
+          await eventApi.listen("presenter-next", () => {
+            nextSlideRef.current();
+          })
+        );
+        unlisten.push(
+          await eventApi.listen("presenter-prev", () => {
+            prevSlideRef.current();
+          })
+        );
+      } catch {
+        tauriEventRef.current = null;
+      }
+    })();
+    return () => {
+      unlisten.forEach((u) => u());
+      tauriEventRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPreviewMode) {
@@ -77,9 +127,36 @@ export function PreviewOverlay() {
     if (win) {
       win.postMessage({ type: "SLIDE_CHANGED", currentIndex }, getOrigin());
     }
+    tauriEventRef.current?.emitTo("presenter", "slide-changed", {
+      currentIndex,
+    });
   }, [currentIndex, isPreviewMode]);
 
   if (!isPreviewMode || !currentSlide) return null;
+
+  const openPresenterWindow = async () => {
+    const path = window.location.pathname || "/";
+    const search = window.location.search || "";
+    const url = `${getOrigin()}${path}${search}#/presenter`;
+    try {
+      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      const w = new WebviewWindow("presenter", {
+        url,
+        title: "Modo presentador",
+        width: 900,
+        height: 700,
+      });
+      w.once("tauri://error", (e) => {
+        console.error("Error abriendo ventana presentador:", e);
+      });
+    } catch {
+      window.open(
+        url,
+        "presenter",
+        "width=900,height=700,menubar=no,toolbar=no,noopener,noreferrer"
+      );
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -89,33 +166,29 @@ export function PreviewOverlay() {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[100] bg-white flex flex-col"
       >
-        <div className="absolute top-6 right-6 z-[110] flex items-center gap-3">
-          <span className="px-3 py-1 bg-stone-100 rounded-full text-xs font-medium text-stone-500">
-            {currentIndex + 1} / {slides.length}
-          </span>
-          <button
-            onClick={() => {
-              const url = `${getOrigin()}${window.location.pathname || "/"}${
-                window.location.search || ""
-              }#/presenter`;
-              window.open(
-                url,
-                "presenter",
-                "width=900,height=700,menubar=no,toolbar=no"
-              );
-            }}
-            className="flex items-center gap-2 px-4 py-3 bg-stone-700 text-white rounded-full hover:bg-stone-600 transition-colors shadow-lg"
-            title="Abrir modo presentador (notas y controles en otra ventana)"
-          >
-            <Monitor size={22} />
-            <span className="text-sm font-medium">Presentador</span>
-          </button>
-          <button
-            onClick={() => setIsPreviewMode(false)}
-            className="p-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg"
-          >
-            <X size={24} />
-          </button>
+        {/* Barra superior: iconos solo visibles al pasar el mouse por la parte superior */}
+        <div className="fixed top-0 left-0 right-0 h-20 z-[110] group/bar">
+          <div className="absolute inset-0 flex items-center justify-end gap-2 pr-6 opacity-0 group-hover/bar:opacity-100 transition-opacity duration-200">
+            <span className="px-2.5 py-1 bg-stone-200/90 backdrop-blur rounded-full text-xs font-medium text-stone-600">
+              {currentIndex + 1} / {slides.length}
+            </span>
+            <button
+              type="button"
+              onClick={openPresenterWindow}
+              className="p-2.5 bg-stone-600/90 backdrop-blur text-white rounded-full hover:bg-stone-700 transition-colors shadow-lg"
+              title="Abrir ventana de modo presentador"
+            >
+              <Monitor size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPreviewMode(false)}
+              className="p-2.5 bg-stone-800/90 backdrop-blur text-white rounded-full hover:bg-stone-900 transition-colors shadow-lg"
+              title="Salir de vista previa"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 flex items-center justify-center p-12">

@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": ["main"],
+  "description": "Capability for the main window including create webview window",
+  "windows": ["main", "presenter"],
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
     "fs:default",
     "fs:allow-appdata-read",
     "fs:allow-appdata-write",

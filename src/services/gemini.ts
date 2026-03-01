@@ -242,3 +242,25 @@ export async function refinePresenterNotes(
   });
   return (response.text || currentNotes).trim();
 }
+
+/** Chat para consultas durante la presentación: responde en markdown con contexto del tema y slide actual */
+export async function presenterChat(
+  topic: string,
+  currentSlideTitle: string,
+  currentSlideContent: string,
+  userMessage: string
+): Promise<string> {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Eres un asistente durante una presentación. El tema de la presentación es: "${topic}". La diapositiva actual tiene título: "${currentSlideTitle}" y contenido: ${currentSlideContent.slice(
+      0,
+      500
+    )}.
+
+El presentador o alguien del público hace la siguiente pregunta o pide que ahondes en el tema:
+"${userMessage}"
+
+Responde de forma clara y concisa. Si incluyes código, formátalo en bloques markdown con la sintaxis correcta (por ejemplo \`\`\`javascript ... \`\`\`). Usa listas, negritas y párrafos cuando ayude. Responde solo el contenido útil, sin preámbulos tipo "Claro, ..." a menos que sea natural.`,
+  });
+  return (response.text || "").trim();
+}
