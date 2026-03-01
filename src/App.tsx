@@ -21,7 +21,8 @@ import {
   Code2,
   Terminal,
   Video,
-  Type as TypeIcon
+  Type as TypeIcon,
+  FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -31,6 +32,8 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Slide, SlideType, ImageStyle } from './types';
 import { generatePresentation, generateImage, splitSlide, rewriteSlide } from './services/gemini';
+import { savePresentation, updatePresentation, listPresentations, loadPresentation, deletePresentation } from './services/storage';
+import type { SavedPresentationMeta } from './types';
 
 const IMAGE_STYLES: ImageStyle[] = [
   { id: 'minimalist', name: 'Minimalista', prompt: 'estilo minimalista, limpio, fondo neutro, alta calidad, profesional' },
@@ -88,10 +91,23 @@ export default function App() {
   const [editCode, setEditCode] = useState('');
   const [editLanguage, setEditLanguage] = useState('javascript');
   const [editFontSize, setEditFontSize] = useState(14);
-  const [imageWidthPercent, setImageWidthPercent] = useState(40);
   const [isResizing, setIsResizing] = useState(false);
+  const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
+  const [showSavedListModal, setShowSavedListModal] = useState(false);
+  const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [homeTab, setHomeTab] = useState<'recent' | 'mine' | 'templates'>('recent');
 
   const currentSlide = slides[currentIndex];
+  const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
+  const imageWidthPercent = currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
+
+  useEffect(() => {
+    if (slides.length === 0) {
+      listPresentations().then(setSavedList).catch(() => setSavedList([]));
+    }
+  }, [slides.length]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -100,8 +116,14 @@ export default function App() {
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const percent = 100 - (x / rect.width) * 100;
-      setImageWidthPercent(Math.min(Math.max(15, percent), 85));
+      const percent = Math.min(Math.max(15, 100 - (x / rect.width) * 100), 85);
+      setSlides(prev => {
+        const idx = currentIndex;
+        if (idx < 0 || idx >= prev.length) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], imageWidthPercent: percent };
+        return updated;
+      });
     };
 
     const handleMouseUp = () => {
@@ -120,7 +142,7 @@ export default function App() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
+  }, [isResizing, currentIndex]);
 
   useEffect(() => {
     if (currentSlide) {
@@ -275,6 +297,70 @@ export default function App() {
     setVideoUrlInput('');
   };
 
+  const handleSave = async () => {
+    if (slides.length === 0) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      const presentation = { topic: topic || 'Sin título', slides };
+      if (currentSavedId) {
+        await updatePresentation(currentSavedId, presentation);
+        setSaveMessage('Guardado');
+      } else {
+        const id = await savePresentation(presentation);
+        setCurrentSavedId(id);
+        setSaveMessage('Guardado');
+      }
+      setTimeout(() => setSaveMessage(null), 2000);
+    } catch (e) {
+      console.error(e);
+      setSaveMessage('Error al guardar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openSavedListModal = async () => {
+    setShowSavedListModal(true);
+    try {
+      const list = await listPresentations();
+      setSavedList(list);
+    } catch (e) {
+      console.error(e);
+      setSavedList([]);
+    }
+  };
+
+  const handleOpenSaved = async (id: string) => {
+    try {
+      const saved = await loadPresentation(id);
+      setTopic(saved.topic);
+      setSlides(saved.slides);
+      setCurrentIndex(0);
+      setCurrentSavedId(saved.id);
+      setShowSavedListModal(false);
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo abrir la presentación.');
+    }
+  };
+
+  const handleDeleteSaved = async (id: string) => {
+    if (!confirm('¿Eliminar esta presentación guardada?')) return;
+    try {
+      await deletePresentation(id);
+      if (currentSavedId === id) {
+        setCurrentSavedId(null);
+        setTopic('');
+        setSlides([]);
+      }
+      setSavedList(prev => prev.filter(p => p.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert('Error al eliminar.');
+    }
+  };
+
   const nextSlide = () => {
     if (currentIndex < slides.length - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -314,54 +400,140 @@ export default function App() {
   }, [currentIndex, slides.length, isEditing, isPreviewMode]);
 
   if (slides.length === 0) {
+    const displayList = homeTab === 'templates' ? [] : savedList;
     return (
-      <div className="min-h-screen bg-[#F5F5F0] flex flex-col items-center justify-center p-6 font-sans">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl w-full text-center space-y-8"
-        >
-          <div className="space-y-4">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-emerald-600 text-white mb-4 shadow-xl">
-              <Layout size={40} />
+      <div className="min-h-screen bg-[#F5F5F0] flex flex-col font-sans">
+        {/* Chat / Entrada principal (centrado como al inicio) */}
+        <div className="min-h-[55vh] flex flex-col items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-2xl w-full text-center space-y-8"
+          >
+            <div className="space-y-4">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-emerald-600 text-white mb-4 shadow-xl">
+                <Layout size={40} />
+              </div>
+              <h1 className="text-5xl font-medium tracking-tight text-stone-900 font-serif italic">SlideAI</h1>
+              <p className="text-stone-600 text-lg max-w-md mx-auto">
+                Transforma tus ideas en presentaciones profesionales con el poder de la Inteligencia Artificial.
+              </p>
             </div>
-            <h1 className="text-5xl font-medium tracking-tight text-stone-900 font-serif italic">SlideAI</h1>
-            <p className="text-stone-600 text-lg max-w-md mx-auto">
-              Transforma tus ideas en presentaciones profesionales con el poder de la Inteligencia Artificial.
-            </p>
-          </div>
-
-          <form onSubmit={handleGenerate} className="relative group">
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="¿Sobre qué quieres hablar hoy?"
-              className="w-full px-8 py-6 bg-white rounded-2xl shadow-sm border border-stone-200 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all pr-32"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !topic.trim()}
-              className="absolute right-3 top-3 bottom-3 px-6 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
-              {isLoading ? 'Generando...' : 'Crear'}
-            </button>
-          </form>
-
-          <div className="flex flex-wrap justify-center gap-2 pt-4">
-            {['Historia del Arte', 'Futuro de la IA', 'Cocina Mediterránea', 'Exploración Espacial'].map((suggestion) => (
+            <form onSubmit={handleGenerate} className="relative group">
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="¿Sobre qué quieres hablar hoy?"
+                className="w-full px-8 py-6 bg-white rounded-2xl shadow-sm border border-stone-200 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all pr-32"
+                disabled={isLoading}
+              />
               <button
-                key={suggestion}
-                onClick={() => setTopic(suggestion)}
-                className="px-4 py-2 bg-white border border-stone-200 rounded-full text-sm text-stone-600 hover:border-emerald-500 hover:text-emerald-600 transition-all"
+                type="submit"
+                disabled={isLoading || !topic.trim()}
+                className="absolute right-3 top-3 bottom-3 px-6 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
-                {suggestion}
+                {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+                {isLoading ? 'Generando...' : 'Crear'}
               </button>
-            ))}
-          </div>
-        </motion.div>
+            </form>
+            <div className="flex flex-wrap justify-center gap-2 pt-4">
+              {['Historia del Arte', 'Futuro de la IA', 'Cocina Mediterránea', 'Exploración Espacial'].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => setTopic(suggestion)}
+                  className="px-4 py-2 bg-white border border-stone-200 rounded-full text-sm text-stone-600 hover:border-emerald-500 hover:text-emerald-600 transition-all"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Panel de diapositivas creadas */}
+        <div className="flex-1 min-h-[280px] px-6 pb-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="h-full max-w-6xl mx-auto bg-white rounded-2xl border border-stone-200 shadow-sm flex flex-col overflow-hidden"
+          >
+            {/* Pestañas y Explorar todo */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 flex-shrink-0">
+              <div className="flex gap-1">
+                {[
+                  { id: 'recent' as const, label: 'Vistos recientemente' },
+                  { id: 'mine' as const, label: 'Mis presentaciones' },
+                  { id: 'templates' as const, label: 'Plantillas' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setHomeTab(tab.id)}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                      homeTab === tab.id
+                        ? 'bg-stone-100 text-stone-900'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={openSavedListModal}
+                className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors"
+              >
+                Explorar todo →
+              </button>
+            </div>
+
+            {/* Carrusel de tarjetas */}
+            <div className="flex-1 overflow-x-auto overflow-y-hidden p-5">
+              {homeTab === 'templates' ? (
+                <div className="h-full flex items-center justify-center text-stone-500">
+                  Próximamente: plantillas reutilizables
+                </div>
+              ) : displayList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-stone-500 gap-2">
+                  <FolderOpen size={48} className="opacity-50" />
+                  <p>No hay presentaciones guardadas.</p>
+                  <p className="text-sm">Crea una arriba y guárdala para verla aquí.</p>
+                </div>
+              ) : (
+                <div className="flex gap-5 pb-2 h-full">
+                  {displayList.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleOpenSaved(p.id)}
+                      className="flex-shrink-0 w-72 rounded-xl bg-stone-50 border border-stone-200 overflow-hidden hover:border-emerald-500/50 hover:shadow-md transition-all text-left group"
+                    >
+                      <div className="aspect-video bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center p-4 relative">
+                        <Layout className="text-stone-400 group-hover:text-emerald-500 transition-colors" size={48} />
+                        <span className="absolute bottom-2 right-2 text-xs font-medium text-stone-400">
+                          {p.slideCount} slides
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-stone-900 truncate">{p.topic}</h3>
+                        <p className="text-xs text-stone-500 mt-1">
+                          {p.slideCount} diapositivas · {new Date(p.savedAt).toLocaleDateString()}
+                        </p>
+                        <span className="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-600 group-hover:text-emerald-700">
+                          Abrir
+                          <ChevronRight size={16} />
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -377,14 +549,33 @@ export default function App() {
       <header className="h-16 bg-white border-b border-stone-300 px-6 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => setSlides([])}
+            onClick={() => { setSlides([]); setTopic(''); setCurrentSavedId(null); }}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-600"
           >
             <ChevronLeft size={20} />
           </button>
-          <h2 className="font-serif italic text-xl text-stone-900">SlideAI: {topic}</h2>
+          <h2 className="font-serif italic text-xl text-stone-900">SlideAI: {topic || 'Nueva presentación'}</h2>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={openSavedListModal}
+            className="px-4 py-2 bg-stone-100 text-stone-700 rounded-lg flex items-center gap-2 hover:bg-stone-200 transition-colors"
+          >
+            <FolderOpen size={18} />
+            Mis presentaciones
+          </button>
+          {slides.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 disabled:opacity-70 transition-colors"
+            >
+              {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              {saveMessage || (currentSavedId ? 'Guardar cambios' : 'Guardar')}
+            </button>
+          )}
           <button 
             onClick={() => setIsPreviewMode(true)}
             className="px-4 py-2 bg-stone-900 text-white rounded-lg flex items-center gap-2 hover:bg-stone-800 transition-colors"
@@ -394,6 +585,38 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Modal: Mis presentaciones */}
+      {showSavedListModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowSavedListModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-stone-200 flex items-center justify-between">
+              <h3 className="font-semibold text-stone-900">Mis presentaciones</h3>
+              <button onClick={() => setShowSavedListModal(false)} className="p-2 hover:bg-stone-100 rounded-lg"><X size={20} /></button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              {savedList.length === 0 ? (
+                <p className="text-stone-500 text-center py-8">No hay presentaciones guardadas.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {savedList.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-4 p-3 rounded-lg bg-stone-50 border border-stone-200">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-stone-900 truncate">{p.topic}</p>
+                        <p className="text-xs text-stone-500">{p.slideCount} diapositivas · {new Date(p.savedAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => handleOpenSaved(p.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Abrir</button>
+                        <button onClick={() => handleDeleteSaved(p.id)} className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 flex overflow-hidden">
         {/* Sidebar - Thumbnails */}
