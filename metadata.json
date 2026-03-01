@@ -1,0 +1,5 @@
+{
+  "name": "SlideAI - Generador de Presentaciones",
+  "description": "Crea presentaciones completas con IA. Genera contenido, estructura diapositivas y crea imágenes personalizadas para cada slide.",
+  "requestFramePermissions": []
+}
