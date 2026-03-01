@@ -88,10 +88,11 @@ export default function App() {
   const [editCode, setEditCode] = useState('');
   const [editLanguage, setEditLanguage] = useState('javascript');
   const [editFontSize, setEditFontSize] = useState(14);
-  const [imageWidthPercent, setImageWidthPercent] = useState(40);
   const [isResizing, setIsResizing] = useState(false);
+  const resizingSlideIndexRef = useRef(0);
 
   const currentSlide = slides[currentIndex];
+  const sectionWidthPercent = currentSlide?.sectionWidthPercent ?? 40;
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -100,8 +101,13 @@ export default function App() {
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const percent = 100 - (x / rect.width) * 100;
-      setImageWidthPercent(Math.min(Math.max(15, percent), 85));
+      const percent = Math.min(Math.max(15, 100 - (x / rect.width) * 100), 85);
+      const index = resizingSlideIndexRef.current;
+      setSlides(prev => {
+        const next = [...prev];
+        if (next[index]) next[index] = { ...next[index], sectionWidthPercent: percent };
+        return next;
+      });
     };
 
     const handleMouseUp = () => {
@@ -555,11 +561,11 @@ export default function App() {
                   </div>
                   <div 
                     className="bg-white border-l border-stone-200 flex flex-col relative group"
-                    style={{ width: `${imageWidthPercent}%` }}
+                    style={{ width: `${sectionWidthPercent}%` }}
                   >
                     {/* Resize Handle */}
                     <div 
-                      onMouseDown={(e) => { e.preventDefault(); setIsResizing(true); }}
+                      onMouseDown={(e) => { e.preventDefault(); resizingSlideIndexRef.current = currentIndex; setIsResizing(true); }}
                       className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/30 transition-colors z-30 flex items-center justify-center group/handle"
                     >
                       <div className="w-0.5 h-8 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
@@ -1172,7 +1178,7 @@ export default function App() {
                     </div>
                     <div 
                       className="flex flex-col relative"
-                      style={{ width: `${imageWidthPercent}%` }}
+                      style={{ width: `${sectionWidthPercent}%` }}
                     >
                       <div className="w-full h-full p-8 flex items-center justify-center">
                         {currentSlide.contentType === 'code' ? (

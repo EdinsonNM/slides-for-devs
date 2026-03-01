@@ -19,6 +19,8 @@ export interface Slide {
   fontSize?: number;
   videoUrl?: string;
   contentType?: 'image' | 'code' | 'video';
+  /** Ancho de la sección derecha (imagen/código/video) en %, por diapositiva. */
+  sectionWidthPercent?: number;
 }
 
 export interface Presentation {
