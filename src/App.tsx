@@ -143,6 +143,7 @@ export default function App() {
   const [homeTab, setHomeTab] = useState<"recent" | "mine" | "templates">(
     "recent"
   );
+  const videoLogoRef = useRef<HTMLVideoElement>(null);
 
   const currentSlide = slides[currentIndex];
   const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
@@ -239,6 +240,7 @@ export default function App() {
     e.preventDefault();
     if (!topic.trim()) return;
 
+    videoLogoRef.current?.play();
     setIsLoading(true);
     try {
       const generatedSlides = await generatePresentation(topic);
@@ -456,7 +458,7 @@ export default function App() {
   if (slides.length === 0) {
     const displayList = homeTab === "templates" ? [] : savedList;
     return (
-      <div className="min-h-screen bg-white flex flex-col font-sans">
+      <div className="min-h-screen bg-[#F6F6F6] flex flex-col font-sans">
         {/* Chat / Entrada principal (centrado como al inicio) */}
         <div className="min-h-[55vh] flex flex-col items-center justify-center p-6">
           <motion.div
@@ -465,10 +467,10 @@ export default function App() {
             className="max-w-2xl w-full text-center space-y-8"
           >
             <div className="space-y-4">
-              <div className="inline-flex items-center justify-center w-32 h-32 rounded-3xl overflow-hidden mb-4 bg-transparent">
+              <div className="inline-flex items-center justify-center w-64 h-64 rounded-3xl overflow-hidden mb-4 bg-transparent">
                 <video
-                  src="./video-logo.mp4"
-                  autoPlay
+                  ref={videoLogoRef}
+                  src="./video-logo 2.mp4"
                   loop
                   muted
                   playsInline
