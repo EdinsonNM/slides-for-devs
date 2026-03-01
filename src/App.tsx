@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  Sparkles, 
-  ChevronLeft, 
-  ChevronRight, 
-  Image as ImageIcon, 
-  Layout, 
-  Maximize2, 
-  Download, 
-  Trash2, 
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Plus,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  Layout,
+  Maximize2,
+  Download,
+  Trash2,
   Loader2,
   X,
   Send,
@@ -22,46 +22,87 @@ import {
   Terminal,
   Video,
   Type as TypeIcon,
-  FolderOpen
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { Slide, SlideType, ImageStyle } from './types';
-import { generatePresentation, generateImage, splitSlide, rewriteSlide } from './services/gemini';
-import { savePresentation, updatePresentation, listPresentations, loadPresentation, deletePresentation } from './services/storage';
-import type { SavedPresentationMeta } from './types';
+  FolderOpen,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { Slide, SlideType, ImageStyle } from "./types";
+import {
+  generatePresentation,
+  generateImage,
+  splitSlide,
+  rewriteSlide,
+} from "./services/gemini";
+import {
+  savePresentation,
+  updatePresentation,
+  listPresentations,
+  loadPresentation,
+  deletePresentation,
+} from "./services/storage";
+import type { SavedPresentationMeta } from "./types";
 
 const IMAGE_STYLES: ImageStyle[] = [
-  { id: 'minimalist', name: 'Minimalista', prompt: 'estilo minimalista, limpio, fondo neutro, alta calidad, profesional' },
-  { id: 'cinematic', name: 'Cinematográfico', prompt: 'estilo cinematográfico, iluminación dramática, 8k, hiperdetallado, realista' },
-  { id: 'illustration', name: 'Ilustración', prompt: 'estilo ilustración moderna, colores planos, arte digital, limpio, vectorial' },
-  { id: '3d', name: 'Render 3D', prompt: 'estilo render 3D, suave, iluminación global, estilo Apple, materiales premium' },
-  { id: 'abstract', name: 'Abstracto', prompt: 'estilo abstracto, formas geométricas, conceptual, artístico, colores vibrantes' },
-  { id: 'tech-cartoon', name: 'Tech Stickman', prompt: 'estilo ilustración de personajes tipo stickman con volumen, caras simples con ojos de puntos, líneas negras gruesas y muy limpias, colores planos vibrantes, fondo blanco puro, estética de blog de tecnología moderna, personajes con sudaderas y gafas, estilo vectorial minimalista, sin sombras complejas, muy limpio' },
+  {
+    id: "minimalist",
+    name: "Minimalista",
+    prompt:
+      "estilo minimalista, limpio, fondo neutro, alta calidad, profesional",
+  },
+  {
+    id: "cinematic",
+    name: "Cinematográfico",
+    prompt:
+      "estilo cinematográfico, iluminación dramática, 8k, hiperdetallado, realista",
+  },
+  {
+    id: "illustration",
+    name: "Ilustración",
+    prompt:
+      "estilo ilustración moderna, colores planos, arte digital, limpio, vectorial",
+  },
+  {
+    id: "3d",
+    name: "Render 3D",
+    prompt:
+      "estilo render 3D, suave, iluminación global, estilo Apple, materiales premium",
+  },
+  {
+    id: "abstract",
+    name: "Abstracto",
+    prompt:
+      "estilo abstracto, formas geométricas, conceptual, artístico, colores vibrantes",
+  },
+  {
+    id: "tech-cartoon",
+    name: "Tech Stickman",
+    prompt:
+      "estilo ilustración de personajes tipo stickman con volumen, caras simples con ojos de puntos, líneas negras gruesas y muy limpias, colores planos vibrantes, fondo blanco puro, estética de blog de tecnología moderna, personajes con sudaderas y gafas, estilo vectorial minimalista, sin sombras complejas, muy limpio",
+  },
 ];
 
 const LANGUAGES = [
-  { id: 'javascript', name: 'JavaScript' },
-  { id: 'typescript', name: 'TypeScript' },
-  { id: 'python', name: 'Python' },
-  { id: 'php', name: 'PHP' },
-  { id: 'java', name: 'Java' },
-  { id: 'csharp', name: 'C#' },
-  { id: 'cpp', name: 'C++' },
-  { id: 'go', name: 'Go' },
-  { id: 'ruby', name: 'Ruby' },
-  { id: 'rust', name: 'Rust' },
-  { id: 'bash', name: 'Bash' },
-  { id: 'sql', name: 'SQL' },
-  { id: 'html', name: 'HTML' },
-  { id: 'css', name: 'CSS' },
-  { id: 'json', name: 'JSON' },
-  { id: 'yaml', name: 'YAML' },
-  { id: 'markdown', name: 'Markdown' },
+  { id: "javascript", name: "JavaScript" },
+  { id: "typescript", name: "TypeScript" },
+  { id: "python", name: "Python" },
+  { id: "php", name: "PHP" },
+  { id: "java", name: "Java" },
+  { id: "csharp", name: "C#" },
+  { id: "cpp", name: "C++" },
+  { id: "go", name: "Go" },
+  { id: "ruby", name: "Ruby" },
+  { id: "rust", name: "Rust" },
+  { id: "bash", name: "Bash" },
+  { id: "sql", name: "SQL" },
+  { id: "html", name: "HTML" },
+  { id: "css", name: "CSS" },
+  { id: "json", name: "JSON" },
+  { id: "yaml", name: "YAML" },
+  { id: "markdown", name: "Markdown" },
 ];
 
 function cn(...inputs: ClassValue[]) {
@@ -69,7 +110,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function App() {
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,17 +120,19 @@ export default function App() {
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [showRewriteModal, setShowRewriteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
-  const [imagePrompt, setImagePrompt] = useState('');
-  const [splitPrompt, setSplitPrompt] = useState('');
-  const [rewritePrompt, setRewritePrompt] = useState('');
-  const [videoUrlInput, setVideoUrlInput] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(IMAGE_STYLES[0]);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [splitPrompt, setSplitPrompt] = useState("");
+  const [rewritePrompt, setRewritePrompt] = useState("");
+  const [videoUrlInput, setVideoUrlInput] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
+    IMAGE_STYLES[0],
+  );
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editContent, setEditContent] = useState('');
-  const [editCode, setEditCode] = useState('');
-  const [editLanguage, setEditLanguage] = useState('javascript');
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editCode, setEditCode] = useState("");
+  const [editLanguage, setEditLanguage] = useState("javascript");
   const [editFontSize, setEditFontSize] = useState(14);
   const [isResizing, setIsResizing] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
@@ -97,27 +140,32 @@ export default function App() {
   const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [homeTab, setHomeTab] = useState<'recent' | 'mine' | 'templates'>('recent');
+  const [homeTab, setHomeTab] = useState<"recent" | "mine" | "templates">(
+    "recent",
+  );
 
   const currentSlide = slides[currentIndex];
   const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
-  const imageWidthPercent = currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
+  const imageWidthPercent =
+    currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
 
   useEffect(() => {
     if (slides.length === 0) {
-      listPresentations().then(setSavedList).catch(() => setSavedList([]));
+      listPresentations()
+        .then(setSavedList)
+        .catch(() => setSavedList([]));
     }
   }, [slides.length]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      const container = document.getElementById('slide-container');
+      const container = document.getElementById("slide-container");
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const percent = Math.min(Math.max(15, 100 - (x / rect.width) * 100), 85);
-      setSlides(prev => {
+      setSlides((prev) => {
         const idx = currentIndex;
         if (idx < 0 || idx >= prev.length) return prev;
         const updated = [...prev];
@@ -131,16 +179,16 @@ export default function App() {
     };
 
     if (isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
     } else {
-      document.body.style.cursor = 'default';
+      document.body.style.cursor = "default";
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing, currentIndex]);
 
@@ -148,8 +196,8 @@ export default function App() {
     if (currentSlide) {
       setEditTitle(currentSlide.title);
       setEditContent(formatMarkdown(currentSlide.content));
-      setEditCode(currentSlide.code || '');
-      setEditLanguage(currentSlide.language || 'javascript');
+      setEditCode(currentSlide.code || "");
+      setEditLanguage(currentSlide.language || "javascript");
       setEditFontSize(currentSlide.fontSize || 14);
       setIsEditing(false);
     }
@@ -157,8 +205,8 @@ export default function App() {
 
   const handleSaveManualEdit = () => {
     if (!currentSlide) return;
-    
-    setSlides(prevSlides => {
+
+    setSlides((prevSlides) => {
       const updated = [...prevSlides];
       updated[currentIndex] = {
         ...updated[currentIndex],
@@ -166,7 +214,7 @@ export default function App() {
         content: editContent,
         code: editCode,
         language: editLanguage,
-        fontSize: editFontSize
+        fontSize: editFontSize,
       };
       return updated;
     });
@@ -175,14 +223,14 @@ export default function App() {
 
   const toggleContentType = () => {
     const updatedSlides = [...slides];
-    let newType: 'image' | 'code' | 'video' = 'code';
-    if (currentSlide.contentType === 'code') newType = 'video';
-    else if (currentSlide.contentType === 'video') newType = 'image';
-    else newType = 'code';
-    
+    let newType: "image" | "code" | "video" = "code";
+    if (currentSlide.contentType === "code") newType = "video";
+    else if (currentSlide.contentType === "video") newType = "image";
+    else newType = "code";
+
     updatedSlides[currentIndex] = {
       ...currentSlide,
-      contentType: newType
+      contentType: newType,
     };
     setSlides(updatedSlides);
   };
@@ -194,41 +242,47 @@ export default function App() {
     setIsLoading(true);
     try {
       const generatedSlides = await generatePresentation(topic);
-      const cleanedSlides = generatedSlides.map(slide => ({
+      const cleanedSlides = generatedSlides.map((slide) => ({
         ...slide,
-        content: formatMarkdown(slide.content)
+        content: formatMarkdown(slide.content),
       }));
       setSlides(cleanedSlides);
       setCurrentIndex(0);
     } catch (error) {
       console.error("Error generating presentation:", error);
-      alert("Hubo un error al generar la presentación. Por favor intenta de nuevo.");
+      alert(
+        "Hubo un error al generar la presentación. Por favor intenta de nuevo.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatMarkdown = (content: string) => {
-    if (!content) return '';
+    if (!content) return "";
     // Reemplaza \n literal por saltos de línea reales
-    return content.replace(/\\n/g, '\n');
+    return content.replace(/\\n/g, "\n");
   };
 
   const handleImageGenerate = async () => {
     if (!imagePrompt.trim()) return;
-    
+
     setIsGeneratingImage(true);
     const currentSlide = slides[currentIndex];
     const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
-    
+
     try {
-      const imageUrl = await generateImage(slideContext, imagePrompt, selectedStyle.prompt);
+      const imageUrl = await generateImage(
+        slideContext,
+        imagePrompt,
+        selectedStyle.prompt,
+      );
       if (imageUrl) {
         const updatedSlides = [...slides];
         updatedSlides[currentIndex] = { ...currentSlide, imageUrl };
         setSlides(updatedSlides);
         setShowImageModal(false);
-        setImagePrompt('');
+        setImagePrompt("");
       }
     } catch (error) {
       console.error("Error generating image:", error);
@@ -244,15 +298,15 @@ export default function App() {
     try {
       const newSlides = await splitSlide(slides[currentIndex], splitPrompt);
       if (newSlides.length > 0) {
-        const cleanedNewSlides = newSlides.map(slide => ({
+        const cleanedNewSlides = newSlides.map((slide) => ({
           ...slide,
-          content: formatMarkdown(slide.content)
+          content: formatMarkdown(slide.content),
         }));
         const updatedSlides = [...slides];
         updatedSlides.splice(currentIndex, 1, ...cleanedNewSlides);
         setSlides(updatedSlides);
         setShowSplitModal(false);
-        setSplitPrompt('');
+        setSplitPrompt("");
       }
     } catch (error) {
       console.error("Error splitting slide:", error);
@@ -268,14 +322,14 @@ export default function App() {
     try {
       const result = await rewriteSlide(slides[currentIndex], rewritePrompt);
       const updatedSlides = [...slides];
-      updatedSlides[currentIndex] = { 
-        ...slides[currentIndex], 
+      updatedSlides[currentIndex] = {
+        ...slides[currentIndex],
         title: result.title,
-        content: formatMarkdown(result.content)
+        content: formatMarkdown(result.content),
       };
       setSlides(updatedSlides);
       setShowRewriteModal(false);
-      setRewritePrompt('');
+      setRewritePrompt("");
     } catch (error) {
       console.error("Error rewriting slide:", error);
       alert("Error al replantear la diapositiva.");
@@ -287,14 +341,14 @@ export default function App() {
   const handleSaveVideoUrl = () => {
     if (!videoUrlInput.trim()) return;
     const updatedSlides = [...slides];
-    updatedSlides[currentIndex] = { 
-      ...currentSlide, 
+    updatedSlides[currentIndex] = {
+      ...currentSlide,
       videoUrl: videoUrlInput.trim(),
-      contentType: 'video'
+      contentType: "video",
     };
     setSlides(updatedSlides);
     setShowVideoModal(false);
-    setVideoUrlInput('');
+    setVideoUrlInput("");
   };
 
   const handleSave = async () => {
@@ -302,19 +356,19 @@ export default function App() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const presentation = { topic: topic || 'Sin título', slides };
+      const presentation = { topic: topic || "Sin título", slides };
       if (currentSavedId) {
         await updatePresentation(currentSavedId, presentation);
-        setSaveMessage('Guardado');
+        setSaveMessage("Guardado");
       } else {
         const id = await savePresentation(presentation);
         setCurrentSavedId(id);
-        setSaveMessage('Guardado');
+        setSaveMessage("Guardado");
       }
       setTimeout(() => setSaveMessage(null), 2000);
     } catch (e) {
       console.error(e);
-      setSaveMessage('Error al guardar');
+      setSaveMessage("Error al guardar");
     } finally {
       setIsSaving(false);
     }
@@ -341,23 +395,23 @@ export default function App() {
       setShowSavedListModal(false);
     } catch (e) {
       console.error(e);
-      alert('No se pudo abrir la presentación.');
+      alert("No se pudo abrir la presentación.");
     }
   };
 
   const handleDeleteSaved = async (id: string) => {
-    if (!confirm('¿Eliminar esta presentación guardada?')) return;
+    if (!confirm("¿Eliminar esta presentación guardada?")) return;
     try {
       await deletePresentation(id);
       if (currentSavedId === id) {
         setCurrentSavedId(null);
-        setTopic('');
+        setTopic("");
         setSlides([]);
       }
-      setSavedList(prev => prev.filter(p => p.id !== id));
+      setSavedList((prev) => prev.filter((p) => p.id !== id));
     } catch (e) {
       console.error(e);
-      alert('Error al eliminar.');
+      alert("Error al eliminar.");
     }
   };
 
@@ -377,32 +431,32 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't navigate if user is typing in an input or textarea
       if (
-        document.activeElement?.tagName === 'INPUT' || 
-        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
         isEditing
       ) {
         return;
       }
 
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
         e.preventDefault();
         nextSlide();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
         prevSlide();
-      } else if (e.key === 'Escape' && isPreviewMode) {
+      } else if (e.key === "Escape" && isPreviewMode) {
         setIsPreviewMode(false);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentIndex, slides.length, isEditing, isPreviewMode]);
 
   if (slides.length === 0) {
-    const displayList = homeTab === 'templates' ? [] : savedList;
+    const displayList = homeTab === "templates" ? [] : savedList;
     return (
-      <div className="min-h-screen bg-[#F5F5F0] flex flex-col font-sans">
+      <div className="min-h-screen bg-white flex flex-col font-sans">
         {/* Chat / Entrada principal (centrado como al inicio) */}
         <div className="min-h-[55vh] flex flex-col items-center justify-center p-6">
           <motion.div
@@ -411,12 +465,23 @@ export default function App() {
             className="max-w-2xl w-full text-center space-y-8"
           >
             <div className="space-y-4">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-emerald-600 text-white mb-4 shadow-xl">
-                <Layout size={40} />
+              <div className="inline-flex items-center justify-center w-32 h-32 rounded-3xl overflow-hidden mb-4 bg-transparent">
+                <video
+                  src="/video-logo.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-contain"
+                  aria-hidden
+                />
               </div>
-              <h1 className="text-5xl font-medium tracking-tight text-stone-900 font-serif italic">SlideAI</h1>
+              <h1 className="text-5xl font-medium tracking-tight text-stone-900 font-serif italic">
+                Sl<span className="text-emerald-600">ai</span>m
+              </h1>
               <p className="text-stone-600 text-lg max-w-md mx-auto">
-                Transforma tus ideas en presentaciones profesionales con el poder de la Inteligencia Artificial.
+                Transforma tus ideas en presentaciones profesionales con el
+                poder de la Inteligencia Artificial.
               </p>
             </div>
             <form onSubmit={handleGenerate} className="relative group">
@@ -433,12 +498,21 @@ export default function App() {
                 disabled={isLoading || !topic.trim()}
                 className="absolute right-3 top-3 bottom-3 px-6 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
-                {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
-                {isLoading ? 'Generando...' : 'Crear'}
+                {isLoading ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <Sparkles size={20} />
+                )}
+                {isLoading ? "Generando..." : "Crear"}
               </button>
             </form>
             <div className="flex flex-wrap justify-center gap-2 pt-4">
-              {['Historia del Arte', 'Futuro de la IA', 'Cocina Mediterránea', 'Exploración Espacial'].map((suggestion) => (
+              {[
+                "Historia del Arte",
+                "Futuro de la IA",
+                "Cocina Mediterránea",
+                "Exploración Espacial",
+              ].map((suggestion) => (
                 <button
                   key={suggestion}
                   onClick={() => setTopic(suggestion)}
@@ -463,18 +537,18 @@ export default function App() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 flex-shrink-0">
               <div className="flex gap-1">
                 {[
-                  { id: 'recent' as const, label: 'Vistos recientemente' },
-                  { id: 'mine' as const, label: 'Mis presentaciones' },
-                  { id: 'templates' as const, label: 'Plantillas' },
+                  { id: "recent" as const, label: "Vistos recientemente" },
+                  { id: "mine" as const, label: "Mis presentaciones" },
+                  { id: "templates" as const, label: "Plantillas" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setHomeTab(tab.id)}
                     className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                       homeTab === tab.id
-                        ? 'bg-stone-100 text-stone-900'
-                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                        ? "bg-stone-100 text-stone-900"
+                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-50",
                     )}
                   >
                     {tab.label}
@@ -492,7 +566,7 @@ export default function App() {
 
             {/* Carrusel de tarjetas */}
             <div className="flex-1 overflow-x-auto overflow-y-hidden p-5">
-              {homeTab === 'templates' ? (
+              {homeTab === "templates" ? (
                 <div className="h-full flex items-center justify-center text-stone-500">
                   Próximamente: plantillas reutilizables
                 </div>
@@ -500,7 +574,9 @@ export default function App() {
                 <div className="h-full flex flex-col items-center justify-center text-stone-500 gap-2">
                   <FolderOpen size={48} className="opacity-50" />
                   <p>No hay presentaciones guardadas.</p>
-                  <p className="text-sm">Crea una arriba y guárdala para verla aquí.</p>
+                  <p className="text-sm">
+                    Crea una arriba y guárdala para verla aquí.
+                  </p>
                 </div>
               ) : (
                 <div className="flex gap-5 pb-2 h-full">
@@ -512,15 +588,21 @@ export default function App() {
                       className="flex-shrink-0 w-72 rounded-xl bg-stone-50 border border-stone-200 overflow-hidden hover:border-emerald-500/50 hover:shadow-md transition-all text-left group"
                     >
                       <div className="aspect-video bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center p-4 relative">
-                        <Layout className="text-stone-400 group-hover:text-emerald-500 transition-colors" size={48} />
+                        <Layout
+                          className="text-stone-400 group-hover:text-emerald-500 transition-colors"
+                          size={48}
+                        />
                         <span className="absolute bottom-2 right-2 text-xs font-medium text-stone-400">
                           {p.slideCount} slides
                         </span>
                       </div>
                       <div className="p-4">
-                        <h3 className="font-semibold text-stone-900 truncate">{p.topic}</h3>
+                        <h3 className="font-semibold text-stone-900 truncate">
+                          {p.topic}
+                        </h3>
                         <p className="text-xs text-stone-500 mt-1">
-                          {p.slideCount} diapositivas · {new Date(p.savedAt).toLocaleDateString()}
+                          {p.slideCount} diapositivas ·{" "}
+                          {new Date(p.savedAt).toLocaleDateString()}
                         </p>
                         <span className="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-600 group-hover:text-emerald-700">
                           Abrir
@@ -539,7 +621,7 @@ export default function App() {
   }
 
   const openImageModal = () => {
-    setImagePrompt(currentSlide.imagePrompt || '');
+    setImagePrompt(currentSlide.imagePrompt || "");
     setShowImageModal(true);
   };
 
@@ -548,13 +630,19 @@ export default function App() {
       {/* Header */}
       <header className="h-16 bg-white border-b border-stone-300 px-6 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => { setSlides([]); setTopic(''); setCurrentSavedId(null); }}
+          <button
+            onClick={() => {
+              setSlides([]);
+              setTopic("");
+              setCurrentSavedId(null);
+            }}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-600"
           >
             <ChevronLeft size={20} />
           </button>
-          <h2 className="font-serif italic text-xl text-stone-900">SlideAI: {topic || 'Nueva presentación'}</h2>
+          <h2 className="font-serif italic text-xl text-stone-900">
+            SlideAI: {topic || "Nueva presentación"}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -572,11 +660,15 @@ export default function App() {
               disabled={isSaving}
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 disabled:opacity-70 transition-colors"
             >
-              {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-              {saveMessage || (currentSavedId ? 'Guardar cambios' : 'Guardar')}
+              {isSaving ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Save size={18} />
+              )}
+              {saveMessage || (currentSavedId ? "Guardar cambios" : "Guardar")}
             </button>
           )}
-          <button 
+          <button
             onClick={() => setIsPreviewMode(true)}
             className="px-4 py-2 bg-stone-900 text-white rounded-lg flex items-center gap-2 hover:bg-stone-800 transition-colors"
           >
@@ -588,26 +680,59 @@ export default function App() {
 
       {/* Modal: Mis presentaciones */}
       {showSavedListModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowSavedListModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowSavedListModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-stone-200 flex items-center justify-between">
-              <h3 className="font-semibold text-stone-900">Mis presentaciones</h3>
-              <button onClick={() => setShowSavedListModal(false)} className="p-2 hover:bg-stone-100 rounded-lg"><X size={20} /></button>
+              <h3 className="font-semibold text-stone-900">
+                Mis presentaciones
+              </h3>
+              <button
+                onClick={() => setShowSavedListModal(false)}
+                className="p-2 hover:bg-stone-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {savedList.length === 0 ? (
-                <p className="text-stone-500 text-center py-8">No hay presentaciones guardadas.</p>
+                <p className="text-stone-500 text-center py-8">
+                  No hay presentaciones guardadas.
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {savedList.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between gap-4 p-3 rounded-lg bg-stone-50 border border-stone-200">
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-4 p-3 rounded-lg bg-stone-50 border border-stone-200"
+                    >
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-stone-900 truncate">{p.topic}</p>
-                        <p className="text-xs text-stone-500">{p.slideCount} diapositivas · {new Date(p.savedAt).toLocaleDateString()}</p>
+                        <p className="font-medium text-stone-900 truncate">
+                          {p.topic}
+                        </p>
+                        <p className="text-xs text-stone-500">
+                          {p.slideCount} diapositivas ·{" "}
+                          {new Date(p.savedAt).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => handleOpenSaved(p.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Abrir</button>
-                        <button onClick={() => handleDeleteSaved(p.id)} className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                        <button
+                          onClick={() => handleOpenSaved(p.id)}
+                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"
+                        >
+                          Abrir
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSaved(p.id)}
+                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
                     </li>
                   ))}
@@ -627,11 +752,15 @@ export default function App() {
               onClick={() => setCurrentIndex(index)}
               className={cn(
                 "w-full aspect-video rounded-lg border-2 transition-all overflow-hidden relative group shrink-0",
-                currentIndex === index ? "border-emerald-600 ring-2 ring-emerald-500/20" : "border-stone-300 hover:border-stone-400"
+                currentIndex === index
+                  ? "border-emerald-600 ring-2 ring-emerald-500/20"
+                  : "border-stone-300 hover:border-stone-400",
               )}
             >
               <div className="absolute inset-0 bg-white p-2 flex flex-col">
-                <span className="text-[8px] uppercase tracking-widest text-stone-400 mb-1">Slide {index + 1}</span>
+                <span className="text-[8px] uppercase tracking-widest text-stone-400 mb-1">
+                  Slide {index + 1}
+                </span>
                 <span className="text-[10px] font-medium text-stone-900 line-clamp-2 text-left leading-tight">
                   {slide.title}
                 </span>
@@ -658,10 +787,12 @@ export default function App() {
               exit={{ opacity: 0, scale: 1.02 }}
               className={cn(
                 "w-full max-w-5xl aspect-video bg-white shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200",
-                currentSlide.type === 'chapter' ? 'justify-center items-center' : ''
+                currentSlide.type === "chapter"
+                  ? "justify-center items-center"
+                  : "",
               )}
             >
-              {currentSlide.type === 'chapter' ? (
+              {currentSlide.type === "chapter" ? (
                 <div className="text-center p-12 space-y-6 overflow-y-auto max-h-full w-full">
                   <motion.div
                     initial={{ width: 0 }}
@@ -716,7 +847,7 @@ export default function App() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           onClick={() => {
                             if (isEditing) {
                               handleSaveManualEdit();
@@ -726,30 +857,42 @@ export default function App() {
                           }}
                           className={cn(
                             "p-2 rounded-lg transition-all shadow-sm group relative",
-                            isEditing ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600 hover:bg-emerald-100 hover:text-emerald-600"
+                            isEditing
+                              ? "bg-emerald-600 text-white"
+                              : "bg-stone-100 text-stone-600 hover:bg-emerald-100 hover:text-emerald-600",
                           )}
-                          title={isEditing ? "Guardar cambios" : "Editar manualmente"}
+                          title={
+                            isEditing ? "Guardar cambios" : "Editar manualmente"
+                          }
                         >
-                          {isEditing ? <Check size={18} /> : <Pencil size={18} />}
+                          {isEditing ? (
+                            <Check size={18} />
+                          ) : (
+                            <Pencil size={18} />
+                          )}
                           <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                             {isEditing ? "Guardar" : "Editar"}
                           </span>
                         </button>
-                        <button 
+                        <button
                           onClick={() => setShowRewriteModal(true)}
                           className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-emerald-100 hover:text-emerald-600 transition-all shadow-sm group relative"
                           title="Replantear contenido"
                         >
                           <RefreshCw size={18} />
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Replantear</span>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            Replantear
+                          </span>
                         </button>
-                        <button 
+                        <button
                           onClick={() => setShowSplitModal(true)}
                           className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-emerald-100 hover:text-emerald-600 transition-all shadow-sm group relative"
                           title="Dividir diapositiva"
                         >
                           <Split size={18} />
-                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Dividir</span>
+                          <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            Dividir
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -761,7 +904,9 @@ export default function App() {
                           className="w-full h-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none font-sans text-lg"
                         />
                       ) : (
-                        <ReactMarkdown>{formatMarkdown(currentSlide.content)}</ReactMarkdown>
+                        <ReactMarkdown>
+                          {formatMarkdown(currentSlide.content)}
+                        </ReactMarkdown>
                       )}
                     </div>
                     {isEditing && (
@@ -776,13 +921,16 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                  <div 
+                  <div
                     className="bg-white border-l border-stone-200 flex flex-col relative group"
                     style={{ width: `${imageWidthPercent}%` }}
                   >
                     {/* Resize Handle */}
-                    <div 
-                      onMouseDown={(e) => { e.preventDefault(); setIsResizing(true); }}
+                    <div
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsResizing(true);
+                      }}
                       className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/30 transition-colors z-30 flex items-center justify-center group/handle"
                     >
                       <div className="w-0.5 h-8 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
@@ -797,26 +945,32 @@ export default function App() {
                       className="absolute top-4 right-4 z-20 p-2 bg-white/80 backdrop-blur-sm border border-stone-200 rounded-lg text-stone-600 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm opacity-0 group-hover:opacity-100 flex items-center gap-2"
                       title="Cambiar tipo de contenido"
                     >
-                      {currentSlide.contentType === 'code' ? (
+                      {currentSlide.contentType === "code" ? (
                         <>
                           <Video size={18} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Video</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">
+                            Video
+                          </span>
                         </>
-                      ) : currentSlide.contentType === 'video' ? (
+                      ) : currentSlide.contentType === "video" ? (
                         <>
                           <ImageIcon size={18} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Imagen</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">
+                            Imagen
+                          </span>
                         </>
                       ) : (
                         <>
                           <Code2 size={18} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Código</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">
+                            Código
+                          </span>
                         </>
                       )}
                     </button>
 
-                    {currentSlide.contentType === 'code' ? (
-                      <div 
+                    {currentSlide.contentType === "code" ? (
+                      <div
                         className="flex-1 p-6 flex items-center justify-center overflow-hidden cursor-text"
                         onClick={() => !isEditing && setIsEditing(true)}
                       >
@@ -832,42 +986,68 @@ export default function App() {
                               {isEditing ? (
                                 <>
                                   <div className="flex items-center gap-1 border-r border-stone-700 pr-2 mr-1">
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); setEditFontSize(prev => Math.max(8, prev - 2)); }}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditFontSize((prev) =>
+                                          Math.max(8, prev - 2),
+                                        );
+                                      }}
                                       className="w-7 h-7 flex items-center justify-center hover:bg-stone-700 rounded text-stone-300 transition-colors border border-stone-700"
                                       title="Disminuir fuente"
                                     >
-                                      <span className="text-[10px] font-bold">-</span>
+                                      <span className="text-[10px] font-bold">
+                                        -
+                                      </span>
                                     </button>
-                                    <span className="w-10 text-center text-[11px] font-bold text-emerald-500">{editFontSize}px</span>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); setEditFontSize(prev => Math.min(64, prev + 2)); }}
+                                    <span className="w-10 text-center text-[11px] font-bold text-emerald-500">
+                                      {editFontSize}px
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditFontSize((prev) =>
+                                          Math.min(64, prev + 2),
+                                        );
+                                      }}
                                       className="w-7 h-7 flex items-center justify-center hover:bg-stone-700 rounded text-stone-300 transition-colors border border-stone-700"
                                       title="Aumentar fuente"
                                     >
-                                      <span className="text-[10px] font-bold">+</span>
+                                      <span className="text-[10px] font-bold">
+                                        +
+                                      </span>
                                     </button>
                                   </div>
-                                  <select 
+                                  <select
                                     value={editLanguage}
-                                    onChange={(e) => setEditLanguage(e.target.value)}
+                                    onChange={(e) =>
+                                      setEditLanguage(e.target.value)
+                                    }
                                     onClick={(e) => e.stopPropagation()}
                                     className="bg-stone-800 border border-stone-700 focus:outline-none text-center w-32 text-emerald-500 rounded px-2 py-1 cursor-pointer text-[10px] font-bold appearance-none"
                                   >
-                                    {LANGUAGES.map(lang => (
-                                      <option key={lang.id} value={lang.id}>{lang.name}</option>
+                                    {LANGUAGES.map((lang) => (
+                                      <option key={lang.id} value={lang.id}>
+                                        {lang.name}
+                                      </option>
                                     ))}
                                   </select>
                                   <div className="flex items-center gap-1 ml-2">
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); handleSaveManualEdit(); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSaveManualEdit();
+                                      }}
                                       className="p-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-white transition-colors shadow-lg"
                                       title="Guardar (Enter)"
                                     >
                                       <Check size={14} />
                                     </button>
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsEditing(false);
+                                      }}
                                       className="p-1.5 bg-stone-700 hover:bg-stone-600 rounded text-stone-300 transition-colors"
                                       title="Cancelar (Esc)"
                                     >
@@ -877,8 +1057,16 @@ export default function App() {
                                 </>
                               ) : (
                                 <>
-                                  <span className="text-[9px] opacity-50 bg-stone-800 px-1.5 py-0.5 rounded">{currentSlide.fontSize || 14}px</span>
-                                  <span className="bg-stone-800 px-1.5 py-0.5 rounded">{LANGUAGES.find(l => l.id === currentSlide.language)?.name || currentSlide.language || 'JavaScript'}</span>
+                                  <span className="text-[9px] opacity-50 bg-stone-800 px-1.5 py-0.5 rounded">
+                                    {currentSlide.fontSize || 14}px
+                                  </span>
+                                  <span className="bg-stone-800 px-1.5 py-0.5 rounded">
+                                    {LANGUAGES.find(
+                                      (l) => l.id === currentSlide.language,
+                                    )?.name ||
+                                      currentSlide.language ||
+                                      "JavaScript"}
+                                  </span>
                                 </>
                               )}
                             </div>
@@ -892,10 +1080,13 @@ export default function App() {
                                 onChange={(e) => setEditCode(e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                  if (
+                                    e.key === "Enter" &&
+                                    (e.ctrlKey || e.metaKey)
+                                  ) {
                                     handleSaveManualEdit();
                                   }
-                                  if (e.key === 'Escape') {
+                                  if (e.key === "Escape") {
                                     setIsEditing(false);
                                   }
                                 }}
@@ -907,21 +1098,23 @@ export default function App() {
                               <div className="h-full">
                                 {currentSlide.code ? (
                                   <SyntaxHighlighter
-                                    language={currentSlide.language || 'javascript'}
+                                    language={
+                                      currentSlide.language || "javascript"
+                                    }
                                     style={vscDarkPlus}
                                     codeTagProps={{
                                       style: {
-                                        fontSize: 'inherit',
-                                        lineHeight: 'inherit',
-                                        fontFamily: 'inherit'
-                                      }
+                                        fontSize: "inherit",
+                                        lineHeight: "inherit",
+                                        fontFamily: "inherit",
+                                      },
                                     }}
                                     customStyle={{
                                       margin: 0,
-                                      padding: '1.5rem',
-                                      background: 'transparent',
+                                      padding: "1.5rem",
+                                      background: "transparent",
                                       fontSize: `${currentSlide.fontSize || 14}px`,
-                                      lineHeight: '1.5',
+                                      lineHeight: "1.5",
                                     }}
                                   >
                                     {currentSlide.code}
@@ -934,7 +1127,7 @@ export default function App() {
                               </div>
                             )}
                           </div>
-                          
+
                           {/* Quick Edit Overlay */}
                           {!isEditing && (
                             <div className="absolute inset-0 bg-emerald-600/0 group-hover/window:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover/window:opacity-100 pointer-events-none">
@@ -946,20 +1139,23 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                    ) : currentSlide.contentType === 'video' ? (
+                    ) : currentSlide.contentType === "video" ? (
                       <div className="flex-1 p-8 flex items-center justify-center">
                         {currentSlide.videoUrl ? (
                           <div className="w-full aspect-video bg-stone-900 rounded-2xl overflow-hidden border border-white/10 relative group/video">
                             <iframe
-                              src={currentSlide.videoUrl.includes('youtube.com') || currentSlide.videoUrl.includes('youtu.be') 
-                                ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split('v=')[1]?.split('&')[0] || currentSlide.videoUrl.split('/').pop()}`
-                                : currentSlide.videoUrl}
+                              src={
+                                currentSlide.videoUrl.includes("youtube.com") ||
+                                currentSlide.videoUrl.includes("youtu.be")
+                                  ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split("v=")[1]?.split("&")[0] || currentSlide.videoUrl.split("/").pop()}`
+                                  : currentSlide.videoUrl
+                              }
                               className="w-full h-full"
                               allowFullScreen
                             />
                             <button
                               onClick={() => {
-                                setVideoUrlInput(currentSlide.videoUrl || '');
+                                setVideoUrlInput(currentSlide.videoUrl || "");
                                 setShowVideoModal(true);
                               }}
                               className="absolute bottom-4 right-4 p-2 bg-white/80 backdrop-blur-sm border border-stone-200 rounded-lg text-stone-600 hover:text-emerald-600 transition-all shadow-lg opacity-0 group-hover/video:opacity-100"
@@ -977,19 +1173,21 @@ export default function App() {
                             </div>
                             <div className="text-center">
                               <p className="font-medium">Agregar Video</p>
-                              <p className="text-xs">YouTube, Vimeo o URL directa</p>
+                              <p className="text-xs">
+                                YouTube, Vimeo o URL directa
+                              </p>
                             </div>
                           </button>
                         )}
                       </div>
                     ) : (
-                      <div 
+                      <div
                         className="flex-1 flex items-center justify-center relative cursor-pointer h-full"
                         onClick={openImageModal}
                       >
                         {currentSlide.imageUrl ? (
-                          <img 
-                            src={currentSlide.imageUrl} 
+                          <img
+                            src={currentSlide.imageUrl}
                             alt={currentSlide.title}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
@@ -1007,7 +1205,9 @@ export default function App() {
                         <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                           <div className="px-4 py-2 bg-white rounded-full shadow-lg text-emerald-600 font-medium flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform">
                             <Sparkles size={16} />
-                            {currentSlide.imageUrl ? 'Cambiar Imagen' : 'Generar Imagen'}
+                            {currentSlide.imageUrl
+                              ? "Cambiar Imagen"
+                              : "Generar Imagen"}
                           </div>
                         </div>
                       </div>
@@ -1020,7 +1220,7 @@ export default function App() {
 
           {/* Controls */}
           <div className="mt-8 flex items-center gap-6">
-            <button 
+            <button
               onClick={prevSlide}
               disabled={currentIndex === 0}
               className="w-12 h-12 rounded-full bg-white border border-stone-300 flex items-center justify-center hover:bg-stone-50 disabled:opacity-30 transition-all shadow-sm"
@@ -1030,7 +1230,7 @@ export default function App() {
             <div className="px-4 py-2 bg-white border border-stone-300 rounded-full text-sm font-medium text-stone-600 shadow-sm">
               {currentIndex + 1} / {slides.length}
             </div>
-            <button 
+            <button
               onClick={nextSlide}
               disabled={currentIndex === slides.length - 1}
               className="w-12 h-12 rounded-full bg-white border border-stone-300 flex items-center justify-center hover:bg-stone-50 disabled:opacity-30 transition-all shadow-sm"
@@ -1064,11 +1264,15 @@ export default function App() {
                     <Sparkles size={20} />
                   </div>
                   <div>
-                    <h3 className="font-medium text-stone-900">Generar Imagen con IA</h3>
-                    <p className="text-xs text-stone-500">Describe lo que quieres ver en este slide</p>
+                    <h3 className="font-medium text-stone-900">
+                      Generar Imagen con IA
+                    </h3>
+                    <p className="text-xs text-stone-500">
+                      Describe lo que quieres ver en este slide
+                    </p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowImageModal(false)}
                   className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-400"
                   disabled={isGeneratingImage}
@@ -1078,7 +1282,9 @@ export default function App() {
               </div>
               <div className="p-6 space-y-6">
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">Estilo de Imagen</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Estilo de Imagen
+                  </label>
                   <div className="grid grid-cols-3 gap-2">
                     {IMAGE_STYLES.map((style) => (
                       <button
@@ -1086,9 +1292,9 @@ export default function App() {
                         onClick={() => setSelectedStyle(style)}
                         className={cn(
                           "px-3 py-2 rounded-lg text-xs font-medium border transition-all",
-                          selectedStyle.id === style.id 
-                            ? "bg-emerald-600 border-emerald-600 text-white shadow-md" 
-                            : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
+                          selectedStyle.id === style.id
+                            ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
+                            : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500",
                         )}
                       >
                         {style.name}
@@ -1098,13 +1304,17 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">Contexto del Slide</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Contexto del Slide
+                  </label>
                   <div className="p-3 bg-stone-50 rounded-lg border border-stone-200 text-sm text-stone-600 italic">
                     "{currentSlide.title}"
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">Tu Prompt</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Tu Prompt
+                  </label>
                   <textarea
                     value={imagePrompt}
                     onChange={(e) => setImagePrompt(e.target.value)}
@@ -1159,11 +1369,15 @@ export default function App() {
                     <Video size={20} />
                   </div>
                   <div>
-                    <h3 className="font-medium text-stone-900">Agregar Video</h3>
-                    <p className="text-xs text-stone-500">YouTube, Vimeo o URL directa</p>
+                    <h3 className="font-medium text-stone-900">
+                      Agregar Video
+                    </h3>
+                    <p className="text-xs text-stone-500">
+                      YouTube, Vimeo o URL directa
+                    </p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowVideoModal(false)}
                   className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-400"
                 >
@@ -1172,7 +1386,9 @@ export default function App() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">URL del Video</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    URL del Video
+                  </label>
                   <input
                     type="text"
                     value={videoUrlInput}
@@ -1180,9 +1396,12 @@ export default function App() {
                     placeholder="https://www.youtube.com/watch?v=..."
                     className="w-full p-4 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm"
                     autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveVideoUrl()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveVideoUrl()}
                   />
-                  <p className="text-[10px] text-stone-400">Pega el link de YouTube, Vimeo o una URL directa a un archivo de video.</p>
+                  <p className="text-[10px] text-stone-400">
+                    Pega el link de YouTube, Vimeo o una URL directa a un
+                    archivo de video.
+                  </p>
                 </div>
                 <button
                   onClick={handleSaveVideoUrl}
@@ -1221,11 +1440,15 @@ export default function App() {
                     <Split size={20} />
                   </div>
                   <div>
-                    <h3 className="font-medium text-stone-900">Dividir Diapositiva</h3>
-                    <p className="text-xs text-stone-500">Profundiza en este tema dividiéndolo</p>
+                    <h3 className="font-medium text-stone-900">
+                      Dividir Diapositiva
+                    </h3>
+                    <p className="text-xs text-stone-500">
+                      Profundiza en este tema dividiéndolo
+                    </p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowSplitModal(false)}
                   className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-400"
                   disabled={isProcessing}
@@ -1235,7 +1458,9 @@ export default function App() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">Instrucciones para dividir</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Instrucciones para dividir
+                  </label>
                   <textarea
                     value={splitPrompt}
                     onChange={(e) => setSplitPrompt(e.target.value)}
@@ -1290,11 +1515,15 @@ export default function App() {
                     <RefreshCw size={20} />
                   </div>
                   <div>
-                    <h3 className="font-medium text-stone-900">Replantear Contenido</h3>
-                    <p className="text-xs text-stone-500">Cambia el tono o enfoque del texto</p>
+                    <h3 className="font-medium text-stone-900">
+                      Replantear Contenido
+                    </h3>
+                    <p className="text-xs text-stone-500">
+                      Cambia el tono o enfoque del texto
+                    </p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowRewriteModal(false)}
                   className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-400"
                   disabled={isProcessing}
@@ -1304,7 +1533,9 @@ export default function App() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">Instrucciones para replantear</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Instrucciones para replantear
+                  </label>
                   <textarea
                     value={rewritePrompt}
                     onChange={(e) => setRewritePrompt(e.target.value)}
@@ -1349,7 +1580,7 @@ export default function App() {
               <span className="px-3 py-1 bg-stone-100 rounded-full text-xs font-medium text-stone-500">
                 {currentIndex + 1} / {slides.length}
               </span>
-              <button 
+              <button
                 onClick={() => setIsPreviewMode(false)}
                 className="p-3 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg"
               >
@@ -1365,10 +1596,12 @@ export default function App() {
                 exit={{ opacity: 0, x: -20 }}
                 className={cn(
                   "w-full max-w-7xl aspect-video bg-white flex relative",
-                  currentSlide.type === 'chapter' ? 'justify-center items-center' : ''
+                  currentSlide.type === "chapter"
+                    ? "justify-center items-center"
+                    : "",
                 )}
               >
-                {currentSlide.type === 'chapter' ? (
+                {currentSlide.type === "chapter" ? (
                   <div className="text-center space-y-8">
                     <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
                     <h1 className="text-8xl font-serif italic text-stone-900 leading-tight">
@@ -1390,43 +1623,55 @@ export default function App() {
                         <div className="h-1.5 w-20 bg-emerald-600 rounded-full" />
                       </div>
                       <div className="flex-1 prose prose-xl prose-stone max-w-none prose-p:text-stone-600 prose-li:text-stone-600 overflow-y-auto pr-4 custom-scrollbar">
-                        <ReactMarkdown>{formatMarkdown(currentSlide.content)}</ReactMarkdown>
+                        <ReactMarkdown>
+                          {formatMarkdown(currentSlide.content)}
+                        </ReactMarkdown>
                       </div>
                     </div>
-                    <div 
+                    <div
                       className="flex flex-col relative"
                       style={{ width: `${imageWidthPercent}%` }}
                     >
                       <div className="w-full h-full p-8 flex items-center justify-center">
-                        {currentSlide.contentType === 'code' ? (
+                        {currentSlide.contentType === "code" ? (
                           <div className="w-full h-full bg-[#1e1e1e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
                             <div className="h-12 bg-[#2d2d2d] px-6 flex items-center gap-2 shrink-0">
                               <div className="w-3.5 h-3.5 rounded-full bg-[#ff5f56]" />
                               <div className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e]" />
                               <div className="w-3.5 h-3.5 rounded-full bg-[#27c93f]" />
                               <div className="ml-auto text-xs text-stone-400 font-mono uppercase tracking-widest flex items-center gap-4">
-                                <span className="text-[10px] opacity-50">{currentSlide.fontSize || 14}px</span>
-                                <span>{LANGUAGES.find(l => l.id === currentSlide.language)?.name || currentSlide.language || 'JavaScript'}</span>
+                                <span className="text-[10px] opacity-50">
+                                  {currentSlide.fontSize || 14}px
+                                </span>
+                                <span>
+                                  {LANGUAGES.find(
+                                    (l) => l.id === currentSlide.language,
+                                  )?.name ||
+                                    currentSlide.language ||
+                                    "JavaScript"}
+                                </span>
                               </div>
                             </div>
                             <div className="flex-1 p-0 font-mono overflow-y-auto custom-scrollbar bg-[#1e1e1e]">
                               {currentSlide.code ? (
                                 <SyntaxHighlighter
-                                  language={currentSlide.language || 'javascript'}
+                                  language={
+                                    currentSlide.language || "javascript"
+                                  }
                                   style={vscDarkPlus}
                                   codeTagProps={{
                                     style: {
-                                      fontSize: 'inherit',
-                                      lineHeight: 'inherit',
-                                      fontFamily: 'inherit'
-                                    }
+                                      fontSize: "inherit",
+                                      lineHeight: "inherit",
+                                      fontFamily: "inherit",
+                                    },
                                   }}
                                   customStyle={{
                                     margin: 0,
-                                    padding: '2rem',
-                                    background: 'transparent',
+                                    padding: "2rem",
+                                    background: "transparent",
                                     fontSize: `${(currentSlide.fontSize || 14) * 1.5}px`,
-                                    lineHeight: '1.6',
+                                    lineHeight: "1.6",
                                   }}
                                 >
                                   {currentSlide.code}
@@ -1438,13 +1683,18 @@ export default function App() {
                               )}
                             </div>
                           </div>
-                        ) : currentSlide.contentType === 'video' ? (
+                        ) : currentSlide.contentType === "video" ? (
                           <div className="w-full h-full bg-stone-900 rounded-2xl overflow-hidden border border-white/10">
                             {currentSlide.videoUrl ? (
                               <iframe
-                                src={currentSlide.videoUrl.includes('youtube.com') || currentSlide.videoUrl.includes('youtu.be') 
-                                  ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split('v=')[1]?.split('&')[0] || currentSlide.videoUrl.split('/').pop()}`
-                                  : currentSlide.videoUrl}
+                                src={
+                                  currentSlide.videoUrl.includes(
+                                    "youtube.com",
+                                  ) ||
+                                  currentSlide.videoUrl.includes("youtu.be")
+                                    ? `https://www.youtube.com/embed/${currentSlide.videoUrl.split("v=")[1]?.split("&")[0] || currentSlide.videoUrl.split("/").pop()}`
+                                    : currentSlide.videoUrl
+                                }
                                 className="w-full h-full"
                                 allowFullScreen
                               />
@@ -1455,8 +1705,8 @@ export default function App() {
                             )}
                           </div>
                         ) : currentSlide.imageUrl ? (
-                          <img 
-                            src={currentSlide.imageUrl} 
+                          <img
+                            src={currentSlide.imageUrl}
                             alt={currentSlide.title}
                             className="w-full h-full object-cover rounded-2xl"
                             referrerPolicy="no-referrer"
@@ -1474,7 +1724,7 @@ export default function App() {
             </div>
 
             {/* Navigation Hotspots */}
-            <div 
+            <div
               className="absolute inset-y-0 left-0 w-32 cursor-pointer group flex items-center justify-center"
               onClick={prevSlide}
             >
@@ -1482,7 +1732,7 @@ export default function App() {
                 <ChevronLeft size={32} />
               </div>
             </div>
-            <div 
+            <div
               className="absolute inset-y-0 right-0 w-32 cursor-pointer group flex items-center justify-center"
               onClick={nextSlide}
             >
