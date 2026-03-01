@@ -4,7 +4,6 @@ import { cn } from "../../utils/cn";
 import { SlideContentChapter } from "./SlideContentChapter";
 import { SlideContentDefault } from "./SlideContentDefault";
 import { NavigationControls } from "./NavigationControls";
-import { PresenterNotesPanel } from "./PresenterNotesPanel";
 
 export function SlideEditor() {
   const { currentSlide, currentIndex } = usePresentation();
@@ -12,7 +11,7 @@ export function SlideEditor() {
   if (!currentSlide) return null;
 
   return (
-    <section className="flex-1 flex flex-col p-8 relative overflow-hidden items-center justify-center bg-stone-200/50">
+    <section className="flex-1 flex flex-col p-6 min-w-0 relative overflow-hidden items-center justify-center bg-stone-200/50">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentIndex}
@@ -34,7 +33,6 @@ export function SlideEditor() {
       </AnimatePresence>
 
       <NavigationControls />
-      <PresenterNotesPanel />
     </section>
   );
 }

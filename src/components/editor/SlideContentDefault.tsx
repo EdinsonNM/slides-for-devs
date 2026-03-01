@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { Pencil, Check, Save, RefreshCw, Split, Mic } from "lucide-react";
+import { Pencil, Check, Save, RefreshCw, Split } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideRightPanel } from "./SlideRightPanel";
@@ -19,7 +19,6 @@ export function SlideContentDefault() {
     handleSaveManualEdit,
     setShowRewriteModal,
     setShowSplitModal,
-    setShowSpeechModal,
   } = usePresentation();
 
   if (!currentSlide) return null;
@@ -70,13 +69,6 @@ export function SlideContentDefault() {
               title={isEditing ? "Guardar cambios" : "Editar"}
             >
               {isEditing ? <Check size={16} /> : <Pencil size={16} />}
-            </button>
-            <button
-              onClick={() => setShowSpeechModal(true)}
-              className="p-1.5 rounded-md text-stone-500 hover:bg-stone-100 hover:text-violet-600 transition-colors"
-              title="Prompt general (notas para todas)"
-            >
-              <Mic size={16} />
             </button>
             <button
               onClick={() => setShowRewriteModal(true)}

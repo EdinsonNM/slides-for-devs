@@ -5,14 +5,17 @@ import {
   Sparkles,
   Mic,
   PenLine,
-  ChevronDown,
-  ChevronUp,
+  ChevronRight,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+
+const PANEL_WIDTH = 280;
 
 export function PresenterNotesPanel() {
   const {
     currentSlide,
+    isNotesPanelOpen,
+    setIsNotesPanelOpen,
     setPresenterNotesForCurrentSlide,
     handleGeneratePresenterNotes,
     handleGenerateSpeechForCurrentSlide,
@@ -20,95 +23,86 @@ export function PresenterNotesPanel() {
     isProcessing,
     isGeneratingSpeech,
   } = usePresentation();
-  const [expanded, setExpanded] = useState(true);
   const [prompt, setPrompt] = useState("");
 
+  if (!isNotesPanelOpen) return null;
   if (!currentSlide) return null;
 
   const busy = isProcessing || isGeneratingSpeech;
 
   return (
-    <div className="mt-6 w-full max-w-5xl bg-white/80 backdrop-blur border border-stone-200 rounded-xl overflow-hidden shadow-sm">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-6 py-3 flex items-center justify-between text-left hover:bg-stone-50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <StickyNote size={18} className="text-amber-600" />
-          <span className="font-medium text-stone-800 text-sm">
-            Notas del presentador
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronUp size={18} className="text-stone-400" />
-        ) : (
-          <ChevronDown size={18} className="text-stone-400" />
-        )}
-      </button>
-      {expanded && (
-        <div className="px-6 pb-5 border-t border-stone-100 pt-4">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-stone-500">
-              Contenido (notas y/o speech)
-            </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleGeneratePresenterNotes}
-                disabled={busy}
-                className="p-2 rounded-lg text-stone-500 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50 transition-colors"
-                title="Generar notas con IA"
-              >
-                {isProcessing ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Sparkles size={16} />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleGenerateSpeechForCurrentSlide(
-                    prompt.trim() || undefined
-                  )
-                }
-                disabled={busy}
-                className="p-2 rounded-lg text-stone-500 hover:bg-violet-50 hover:text-violet-600 disabled:opacity-50 transition-colors"
-                title="Generar speech para esta diapositiva"
-              >
-                {isGeneratingSpeech ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Mic size={16} />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleRefinePresenterNotes}
-                disabled={busy}
-                className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-700 disabled:opacity-50 transition-colors"
-                title="Refinar contenido con IA"
-              >
-                <PenLine size={16} />
-              </button>
-            </div>
-          </div>
-          <input
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Prompt opcional para generar (ej: tono informal)"
-            className="w-full mb-3 px-3 py-1.5 text-xs border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+    <aside
+      className="bg-white border-l border-stone-200 shrink-0 flex flex-col overflow-hidden"
+      style={{ width: PANEL_WIDTH }}
+    >
+      <div className="shrink-0 px-2 py-2 border-b border-stone-100 flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1">
+          <StickyNote size={12} />
+          Notas
+        </span>
+        <button
+          onClick={() => setIsNotesPanelOpen(false)}
+          className="p-1.5 rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
+          title="Cerrar panel"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div className="flex-1 flex flex-col overflow-hidden p-2">
+        <div className="flex gap-1 mb-1.5">
+          <button
+            type="button"
+            onClick={handleGeneratePresenterNotes}
             disabled={busy}
-          />
-          <textarea
-            value={currentSlide.presenterNotes ?? ""}
-            onChange={(e) => setPresenterNotesForCurrentSlide(e.target.value)}
-            placeholder="Notas, guion o speech para esta diapositiva. Usa los botones para generar o refinar con IA."
-            className="w-full h-28 p-3 bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm resize-none"
-          />
+            className="p-1.5 rounded-md text-stone-400 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50 transition-colors"
+            title="Generar notas"
+          >
+            {isProcessing ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              handleGenerateSpeechForCurrentSlide(prompt.trim() || undefined)
+            }
+            disabled={busy}
+            className="p-1.5 rounded-md text-stone-400 hover:bg-violet-50 hover:text-violet-600 disabled:opacity-50 transition-colors"
+            title="Generar speech"
+          >
+            {isGeneratingSpeech ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Mic size={14} />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleRefinePresenterNotes}
+            disabled={busy}
+            className="p-1.5 rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-600 disabled:opacity-50 transition-colors"
+            title="Refinar"
+          >
+            <PenLine size={14} />
+          </button>
         </div>
-      )}
-    </div>
+        <input
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Prompt opcional"
+          className="w-full mb-2 px-2 py-1 text-[11px] border border-stone-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500"
+          disabled={busy}
+        />
+        <textarea
+          value={currentSlide.presenterNotes ?? ""}
+          onChange={(e) => setPresenterNotesForCurrentSlide(e.target.value)}
+          placeholder="Notas o speech para esta diapositiva…"
+          className="flex-1 min-h-0 w-full p-2 text-[12px] bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500 resize-none"
+        />
+      </div>
+    </aside>
   );
 }

@@ -60,6 +60,8 @@ export function usePresentationState() {
   const [showSpeechModal, setShowSpeechModal] = useState(false);
   const [speechGeneralPrompt, setSpeechGeneralPrompt] = useState("");
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
 
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
@@ -537,6 +539,10 @@ export function usePresentationState() {
     speechGeneralPrompt,
     setSpeechGeneralPrompt,
     isGeneratingSpeech,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    isNotesPanelOpen,
+    setIsNotesPanelOpen,
   };
 }
 

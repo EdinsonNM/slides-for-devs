@@ -4,6 +4,7 @@ import { Header } from "./components/layout/Header";
 import { SlideSidebar } from "./components/layout/SlideSidebar";
 import { HomeScreen } from "./components/home/HomeScreen";
 import { SlideEditor } from "./components/editor/SlideEditor";
+import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
 import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
 import { VideoUrlModal } from "./components/modals/VideoUrlModal";
@@ -37,9 +38,10 @@ export default function App() {
   return (
     <div className="h-screen bg-[#E4E3E0] flex flex-col font-sans overflow-hidden">
       <Header />
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden min-w-0">
         <SlideSidebar />
         <SlideEditor />
+        <PresenterNotesPanel />
       </main>
       <SavedListModal />
       <ImageGenerationModal />
