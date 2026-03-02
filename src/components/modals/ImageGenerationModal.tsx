@@ -13,6 +13,8 @@ export function ImageGenerationModal() {
     setImagePrompt,
     selectedStyle,
     setSelectedStyle,
+    imageProvider,
+    setImageProvider,
     includeBackground,
     setIncludeBackground,
     isGeneratingImage,
@@ -61,6 +63,37 @@ export function ImageGenerationModal() {
               </button>
             </div>
             <div className="p-6 space-y-6">
+              <div className="space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  Proveedor de IA
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setImageProvider("gemini")}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-xs font-medium border transition-all",
+                      imageProvider === "gemini"
+                        ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
+                        : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
+                    )}
+                  >
+                    Google Gemini
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageProvider("openai")}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-xs font-medium border transition-all",
+                      imageProvider === "openai"
+                        ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
+                        : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
+                    )}
+                  >
+                    OpenAI (DALL·E 3)
+                  </button>
+                </div>
+              </div>
               <div className="space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
                   Estilo de Imagen

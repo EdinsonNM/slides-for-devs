@@ -1,4 +1,4 @@
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, Sparkles } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { usePresentation } from "../../context/PresentationContext";
@@ -16,6 +16,7 @@ export function CodeBlock() {
     editFontSize,
     setEditFontSize,
     handleSaveManualEdit,
+    openCodeGenModal,
   } = usePresentation();
 
   if (!currentSlide) return null;
@@ -76,6 +77,16 @@ export function CodeBlock() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      openCodeGenModal();
+                    }}
+                    className="p-1.5 bg-stone-700 hover:bg-emerald-600/80 rounded text-stone-300 hover:text-white transition-colors"
+                    title="Generar código con IA"
+                  >
+                    <Sparkles size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleSaveManualEdit();
                     }}
                     className="p-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-white transition-colors shadow-lg"
@@ -106,6 +117,17 @@ export function CodeBlock() {
                     currentSlide.language ||
                     "JavaScript"}
                 </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openCodeGenModal();
+                  }}
+                  className="ml-2 px-2 py-1 rounded bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-bold flex items-center gap-1"
+                  title="Generar código con IA según el slide"
+                >
+                  <Sparkles size={10} />
+                  IA
+                </button>
               </>
             )}
           </div>
@@ -153,8 +175,20 @@ export function CodeBlock() {
                   {currentSlide.code}
                 </SyntaxHighlighter>
               ) : (
-                <div className="p-6 text-stone-500 italic">
-                  // Haz clic para escribir código...
+                <div className="p-6 flex flex-col items-center justify-center gap-3 text-stone-500">
+                  <span className="italic">
+                    // Haz clic para escribir código...
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openCodeGenModal();
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-2 transition-colors"
+                  >
+                    <Sparkles size={12} />
+                    Generar código con IA
+                  </button>
                 </div>
               )}
             </div>

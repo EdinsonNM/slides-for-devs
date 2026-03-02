@@ -5,6 +5,7 @@ import {
   generatePresentation,
   generateImage,
   generateImagePromptAlternatives,
+  generateCodeForSlide as generateCodeForSlideApi,
   splitSlide,
   rewriteSlide,
   generatePresenterNotes as generatePresenterNotesApi,
@@ -12,6 +13,7 @@ import {
   generateSpeechForAll as generateSpeechForAllApi,
   refinePresenterNotes as refinePresenterNotesApi,
 } from "../services/gemini";
+import { generateImageOpenAI } from "../services/openai";
 import {
   savePresentation,
   updatePresentation,
@@ -46,6 +48,9 @@ export function usePresentationState() {
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
     IMAGE_STYLES[0]
   );
+  const [imageProvider, setImageProvider] = useState<"gemini" | "openai">(
+    "gemini"
+  );
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -66,6 +71,10 @@ export function usePresentationState() {
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
+  const [showCodeGenModal, setShowCodeGenModal] = useState(false);
+  const [codeGenPrompt, setCodeGenPrompt] = useState("");
+  const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
 
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
@@ -217,8 +226,10 @@ export function usePresentationState() {
     if (!imagePrompt.trim() || !currentSlide) return;
     setIsGeneratingImage(true);
     const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
+    const generate =
+      imageProvider === "openai" ? generateImageOpenAI : generateImage;
     try {
-      const imageUrl = await generateImage(
+      const imageUrl = await generate(
         slideContext,
         imagePrompt,
         selectedStyle.prompt,
@@ -414,6 +425,43 @@ export function usePresentationState() {
     setShowImageModal(true);
   };
 
+  const openCodeGenModal = () => {
+    setCodeGenLanguage(currentSlide?.language || "javascript");
+    setCodeGenPrompt("");
+    setShowCodeGenModal(true);
+  };
+
+  const handleGenerateCode = async () => {
+    if (!currentSlide) return;
+    setIsGeneratingCode(true);
+    try {
+      const { code } = await generateCodeForSlideApi(
+        currentSlide,
+        codeGenLanguage,
+        codeGenPrompt.trim() || undefined
+      );
+      setSlides((prev) => {
+        const updated = [...prev];
+        updated[currentIndex] = {
+          ...currentSlide,
+          code,
+          language: codeGenLanguage,
+          contentType: "code",
+        };
+        return updated;
+      });
+      setEditCode(code);
+      setEditLanguage(codeGenLanguage);
+      setShowCodeGenModal(false);
+      setCodeGenPrompt("");
+    } catch (error) {
+      console.error("Error generating code:", error);
+      alert("Error al generar el código. Intenta de nuevo.");
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
   const setPresenterNotesForCurrentSlide = (notes: string) => {
     if (!currentSlide) return;
     setSlides((prev) => {
@@ -529,6 +577,8 @@ export function usePresentationState() {
     setVideoUrlInput,
     selectedStyle,
     setSelectedStyle,
+    imageProvider,
+    setImageProvider,
     includeBackground,
     setIncludeBackground,
     isPreviewMode,
@@ -572,6 +622,15 @@ export function usePresentationState() {
     nextSlide,
     prevSlide,
     openImageModal,
+    showCodeGenModal,
+    setShowCodeGenModal,
+    codeGenPrompt,
+    setCodeGenPrompt,
+    codeGenLanguage,
+    setCodeGenLanguage,
+    isGeneratingCode,
+    openCodeGenModal,
+    handleGenerateCode,
     setPresenterNotesForCurrentSlide,
     handleGeneratePresenterNotes,
     handleGenerateSpeechForCurrentSlide,

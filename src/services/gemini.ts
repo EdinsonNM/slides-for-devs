@@ -282,6 +282,39 @@ export async function refinePresenterNotes(
   return (response.text || currentNotes).trim();
 }
 
+/** Genera código para el slide según título, contenido y lenguaje. Opcional: prompt extra del usuario. */
+export async function generateCodeForSlide(
+  slide: Slide,
+  language: string,
+  customPrompt?: string
+): Promise<{ code: string }> {
+  const context = `Título: ${slide.title}\nContenido: ${slide.content}`;
+  const instruction = customPrompt?.trim()
+    ? `Instrucción adicional del usuario: ${customPrompt}.`
+    : "Genera código de ejemplo breve y claro que ilustre el concepto de esta diapositiva. Solo el código, sin explicaciones alrededor.";
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Eres un experto en programación. Genera código de ejemplo para una diapositiva de presentación.
+
+Contexto de la diapositiva:
+---
+${context}
+---
+
+Lenguaje de programación: ${language}.
+${instruction}
+
+Responde ÚNICAMENTE con el bloque de código, sin markdown (sin \`\`\`), sin explicaciones antes ni después. El código debe ser conciso, correcto y fácil de leer en una slide.`,
+  });
+  const text = (response.text || "").trim();
+  // Quitar posibles bloques markdown que el modelo haya añadido
+  const code = text
+    .replace(/^```[\w]*\n?/, "")
+    .replace(/\n?```\s*$/, "")
+    .trim();
+  return { code: code || "// Sin código generado" };
+}
+
 /** Chat para consultas durante la presentación: responde en markdown con contexto del tema y slide actual */
 export async function presenterChat(
   topic: string,

@@ -7,6 +7,7 @@ import { SlideEditor } from "./components/editor/SlideEditor";
 import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
 import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
+import { CodeGenerationModal } from "./components/modals/CodeGenerationModal";
 import { VideoUrlModal } from "./components/modals/VideoUrlModal";
 import { SplitSlideModal } from "./components/modals/SplitSlideModal";
 import { RewriteSlideModal } from "./components/modals/RewriteSlideModal";
@@ -45,6 +46,7 @@ export default function App() {
       </main>
       <SavedListModal />
       <ImageGenerationModal />
+      <CodeGenerationModal />
       <VideoUrlModal />
       <SplitSlideModal />
       <RewriteSlideModal />
