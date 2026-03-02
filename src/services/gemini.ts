@@ -99,6 +99,45 @@ export async function generateImage(
   return undefined;
 }
 
+/** Genera una alternativa de prompt para imagen considerando estilo y contexto del slide actual */
+export async function generateImagePromptAlternatives(
+  slideContext: string,
+  currentPrompt: string,
+  styleName: string,
+  stylePrompt: string
+): Promise<string> {
+  const hasExistingPrompt = currentPrompt.trim().length > 0;
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Eres un experto en crear prompts para imágenes. Genera UNA descripción en español para una imagen que ilustre ESTA diapositiva.
+
+PROHIBIDO: La imagen NO debe contener ningún texto: ni títulos del slide, ni palabras, ni etiquetas, ni leyendas, ni números ni caracteres. Solo elementos puramente visuales. Tu prompt NUNCA debe pedir o describir que aparezca texto en la imagen.
+
+REGLA PRINCIPAL: La imagen debe representar el TEMA CONCRETO de la diapositiva (título y contenido) de forma visual: escena, metáfora, objetos o personajes que transmitan el concepto. Extrae el concepto clave y dibuja ESA idea en la escena, sin escribir nada. No uses escenas genéricas (consolas, cubos que se transforman, arcos de energía) a menos que el contenido de la diapositiva hable de eso.
+
+Contenido de la diapositiva (título y texto) — úsalo solo para entender el tema, NO para copiar texto en la imagen:
+---
+${slideContext}
+---
+
+Estilo visual a usar: "${styleName}" (${stylePrompt})
+
+MUY IMPORTANTE: No describas el estilo visual ni la forma del personaje (por ejemplo \"stickman\", \"3D\", \"minimalista\", \"realista\", \"ilustración vectorial\", etc.). Eso ya está definido por el estilo visual anterior y se añadirá aparte. Tu descripción debe centrarse SOLO en:
+- el escenario o lugar donde ocurre la escena,
+- la acción de los personajes,
+- los objetos o elementos que aparecen y cómo se relacionan entre sí.
+
+${
+  hasExistingPrompt
+    ? `El usuario ya tiene esta sugerencia y ha pedido OTRA alternativa. Genera una idea DIFERENTE: otra escena, otro momento o otro enfoque visual para el mismo tema de la diapositiva. No repitas personajes en consola, cubos/esferas ni arcos de energía a menos que el tema del slide lo exija. Prompt actual (evita algo parecido): ${currentPrompt}`
+    : "Genera una descripción visual concreta que ilustre el tema de esta diapositiva en el estilo indicado."
+}
+
+Responde ÚNICAMENTE el texto del prompt, sin comillas ni explicaciones. El prompt debe describir solo elementos visuales, escenarios, acciones y objetos; no expliques estilos de dibujo ni pidas texto (por ejemplo, evita frases como "con el título...", "mostrando el texto...", "con la leyenda...", "texto sobre la pantalla", etc.).`,
+  });
+  return (response.text || "").trim();
+}
+
 export async function splitSlide(
   slide: Slide,
   prompt: string

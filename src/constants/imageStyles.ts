@@ -33,8 +33,8 @@ export const IMAGE_STYLES: ImageStyle[] = [
   },
   {
     id: "tech-cartoon",
-    name: "Tech Stickman",
+    name: "Tech Cartoon",
     prompt:
-      "estilo ilustración de personajes tipo stickman con volumen, caras simples con ojos de puntos, líneas negras gruesas y muy limpias, colores planos vibrantes, fondo blanco puro, estética de blog de tecnología moderna, personajes con sudaderas y gafas, estilo vectorial minimalista, sin sombras complejas, muy limpio",
+      "estilo cartoon 2D profesional, no realista, no 3D, no anime, no hiperrealista, no acuarela, no sketch, sin textura fotográfica, estilo limpio y plano con sombreado simple",
   },
 ];

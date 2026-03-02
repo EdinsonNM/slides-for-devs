@@ -24,3 +24,7 @@ log = "0.4"
 tauri = { version = "2.10.0", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+base64 = "0.22"
+uuid = { version = "1.11", features = ["v4"] }
+chrono = "0.4"

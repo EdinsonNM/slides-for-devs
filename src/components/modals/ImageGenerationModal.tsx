@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, X, Send, Loader2 } from "lucide-react";
+import { Sparkles, X, Send, Loader2, Wand2 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { IMAGE_STYLES } from "../../constants/imageStyles";
 import { cn } from "../../utils/cn";
@@ -17,6 +17,8 @@ export function ImageGenerationModal() {
     setIncludeBackground,
     isGeneratingImage,
     handleImageGenerate,
+    isGeneratingPromptAlternatives,
+    handleGeneratePromptAlternatives,
   } = usePresentation();
 
   return (
@@ -105,9 +107,30 @@ export function ImageGenerationModal() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                      Tu Prompt
-                    </label>
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                        Tu Prompt
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGeneratePromptAlternatives}
+                        disabled={
+                          isGeneratingImage || isGeneratingPromptAlternatives
+                        }
+                        title="Generar alternativa de prompt según estilo y contexto"
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isGeneratingPromptAlternatives ? (
+                          <Loader2
+                            className="animate-spin"
+                            size={18}
+                            aria-hidden
+                          />
+                        ) : (
+                          <Wand2 size={18} aria-hidden />
+                        )}
+                      </button>
+                    </div>
                     <textarea
                       value={imagePrompt}
                       onChange={(e) => setImagePrompt(e.target.value)}

@@ -4,6 +4,7 @@ import { formatMarkdown } from "../utils/markdown";
 import {
   generatePresentation,
   generateImage,
+  generateImagePromptAlternatives,
   splitSlide,
   rewriteSlide,
   generatePresenterNotes as generatePresenterNotesApi,
@@ -17,6 +18,7 @@ import {
   listPresentations,
   loadPresentation,
   deletePresentation,
+  migrateJsonPresentations,
 } from "../services/storage";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 
@@ -30,6 +32,8 @@ export function usePresentationState() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingPromptAlternatives, setIsGeneratingPromptAlternatives] =
+    useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showSplitModal, setShowSplitModal] = useState(false);
@@ -66,6 +70,11 @@ export function usePresentationState() {
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
     currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
+
+  // Migrar presentaciones en JSON (formato antiguo) a SQLite una vez al cargar
+  useEffect(() => {
+    migrateJsonPresentations().catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (slides.length === 0) {
@@ -118,6 +127,13 @@ export function usePresentationState() {
       setIsEditing(false);
     }
   }, [currentIndex, currentSlide?.id]);
+
+  // Al cambiar de diapositiva con el modal de imagen abierto, resetear el prompt al del slide actual
+  useEffect(() => {
+    if (showImageModal && currentSlide) {
+      setImagePrompt(currentSlide.imagePrompt || "");
+    }
+  }, [showImageModal, currentIndex, currentSlide?.id]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -209,9 +225,14 @@ export function usePresentationState() {
         includeBackground
       );
       if (imageUrl) {
+        const promptUsed = imagePrompt.trim();
         setSlides((prev) => {
           const updated = [...prev];
-          updated[currentIndex] = { ...currentSlide, imageUrl };
+          updated[currentIndex] = {
+            ...currentSlide,
+            imageUrl,
+            imagePrompt: promptUsed,
+          };
           return updated;
         });
         setShowImageModal(false);
@@ -222,6 +243,26 @@ export function usePresentationState() {
       alert("Error al generar la imagen.");
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const handleGeneratePromptAlternatives = async () => {
+    if (!currentSlide) return;
+    setIsGeneratingPromptAlternatives(true);
+    const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
+    try {
+      const alternative = await generateImagePromptAlternatives(
+        slideContext,
+        imagePrompt,
+        selectedStyle.name,
+        selectedStyle.prompt
+      );
+      if (alternative) setImagePrompt(alternative);
+    } catch (error) {
+      console.error("Error generating prompt alternatives:", error);
+      alert("No se pudo generar una alternativa de prompt.");
+    } finally {
+      setIsGeneratingPromptAlternatives(false);
     }
   };
 
@@ -468,6 +509,7 @@ export function usePresentationState() {
     DEFAULT_IMAGE_WIDTH_PERCENT,
     isLoading,
     isGeneratingImage,
+    isGeneratingPromptAlternatives,
     isProcessing,
     showImageModal,
     setShowImageModal,
@@ -518,6 +560,7 @@ export function usePresentationState() {
     toggleContentType,
     handleGenerate,
     handleImageGenerate,
+    handleGeneratePromptAlternatives,
     handleSplitSlide,
     handleRewriteSlide,
     handleSaveVideoUrl,
