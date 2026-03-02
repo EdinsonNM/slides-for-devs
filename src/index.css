@@ -20,8 +20,35 @@
   @apply list-disc list-inside space-y-2;
 }
 
+/* Scrollbar minimalista global (WebKit) */
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.25);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 113, 108, 0.4);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 113, 108, 0.3) transparent;
+}
+
+/* Clase opcional para mantener compatibilidad */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -29,11 +56,12 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-stone-200 rounded-full;
+  background: rgba(120, 113, 108, 0.25);
+  border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  @apply bg-stone-300;
+  background: rgba(120, 113, 108, 0.4);
 }
 
 /* Tipografía responsiva: escala con el viewport (contenedor fijo para no escalar la sección de imagen) */

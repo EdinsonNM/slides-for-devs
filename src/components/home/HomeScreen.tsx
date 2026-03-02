@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import {
   Sparkles,
@@ -5,6 +6,7 @@ import {
   FolderOpen,
   Layout,
   ChevronRight,
+  History,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -19,7 +21,6 @@ const TOPIC_SUGGESTIONS = [
 const HOME_TABS = [
   { id: "recent" as const, label: "Vistos recientemente" },
   { id: "mine" as const, label: "Mis presentaciones" },
-  { id: "templates" as const, label: "Plantillas" },
 ];
 
 export function HomeScreen() {
@@ -35,7 +36,8 @@ export function HomeScreen() {
     handleOpenSaved,
   } = usePresentation();
 
-  const displayList = homeTab === "templates" ? [] : savedList;
+  const [showHistory, setShowHistory] = useState(false);
+  const displayList = savedList;
 
   return (
     <div className="min-h-screen bg-[#F6F6F6] flex flex-col font-sans">
@@ -98,93 +100,99 @@ export function HomeScreen() {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            className="inline-flex items-center gap-2 text-sm text-stone-500 hover:text-emerald-600 transition-colors"
+          >
+            <History size={18} />
+            {showHistory ? "Ocultar historial" : "Ver historial"}
+          </button>
         </motion.div>
       </div>
 
-      <div className="flex-1 min-h-[280px] px-6 pb-8">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="h-full max-w-6xl mx-auto bg-white rounded-2xl border border-stone-200 shadow-sm flex flex-col overflow-hidden"
-        >
-          <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 flex-shrink-0">
-            <div className="flex gap-1">
-              {HOME_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setHomeTab(tab.id)}
-                  className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                    homeTab === tab.id
-                      ? "bg-stone-100 text-stone-900"
-                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={openSavedListModal}
-              className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors"
-            >
-              Explorar todo →
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-5">
-            {homeTab === "templates" ? (
-              <div className="h-full flex items-center justify-center text-stone-500">
-                Próximamente: plantillas reutilizables
-              </div>
-            ) : displayList.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-stone-500 gap-2">
-                <FolderOpen size={48} className="opacity-50" />
-                <p>No hay presentaciones guardadas.</p>
-                <p className="text-sm">
-                  Crea una arriba y guárdala para verla aquí.
-                </p>
-              </div>
-            ) : (
-              <div className="flex gap-5 pb-2 h-full">
-                {displayList.map((p) => (
+      {showHistory && (
+        <div className="flex-1 min-h-[280px] px-6 pb-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="h-full max-w-6xl mx-auto bg-white rounded-2xl border border-stone-200 shadow-sm flex flex-col overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 flex-shrink-0">
+              <div className="flex gap-1">
+                {HOME_TABS.map((tab) => (
                   <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleOpenSaved(p.id)}
-                    className="flex-shrink-0 w-72 rounded-xl bg-stone-50 border border-stone-200 overflow-hidden hover:border-emerald-500/50 hover:shadow-md transition-all text-left group"
+                    key={tab.id}
+                    onClick={() => setHomeTab(tab.id)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                      homeTab === tab.id
+                        ? "bg-stone-100 text-stone-900"
+                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
+                    )}
                   >
-                    <div className="aspect-video bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center p-4 relative">
-                      <Layout
-                        className="text-stone-400 group-hover:text-emerald-500 transition-colors"
-                        size={48}
-                      />
-                      <span className="absolute bottom-2 right-2 text-xs font-medium text-stone-400">
-                        {p.slideCount} slides
-                      </span>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-stone-900 truncate">
-                        {p.topic}
-                      </h3>
-                      <p className="text-xs text-stone-500 mt-1">
-                        {p.slideCount} diapositivas ·{" "}
-                        {new Date(p.savedAt).toLocaleDateString()}
-                      </p>
-                      <span className="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-600 group-hover:text-emerald-700">
-                        Abrir
-                        <ChevronRight size={16} />
-                      </span>
-                    </div>
+                    {tab.label}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-        </motion.div>
-      </div>
+              <button
+                type="button"
+                onClick={openSavedListModal}
+                className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors"
+              >
+                Explorar todo →
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-x-auto overflow-y-hidden p-5">
+              {displayList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-stone-500 gap-2">
+                  <FolderOpen size={48} className="opacity-50" />
+                  <p>No hay presentaciones guardadas.</p>
+                  <p className="text-sm">
+                    Crea una arriba y guárdala para verla aquí.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex gap-5 pb-2 h-full">
+                  {displayList.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleOpenSaved(p.id)}
+                      className="flex-shrink-0 w-72 rounded-xl bg-stone-50 border border-stone-200 overflow-hidden hover:border-emerald-500/50 hover:shadow-md transition-all text-left group"
+                    >
+                      <div className="aspect-video bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center p-4 relative">
+                        <Layout
+                          className="text-stone-400 group-hover:text-emerald-500 transition-colors"
+                          size={48}
+                        />
+                        <span className="absolute bottom-2 right-2 text-xs font-medium text-stone-400">
+                          {p.slideCount} slides
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-stone-900 truncate">
+                          {p.topic}
+                        </h3>
+                        <p className="text-xs text-stone-500 mt-1">
+                          {p.slideCount} diapositivas ·{" "}
+                          {new Date(p.savedAt).toLocaleDateString()}
+                        </p>
+                        <span className="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-600 group-hover:text-emerald-700">
+                          Abrir
+                          <ChevronRight size={16} />
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
