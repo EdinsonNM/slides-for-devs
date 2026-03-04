@@ -17,6 +17,8 @@ export interface Slide {
   code?: string;
   language?: string;
   fontSize?: number;
+  /** Altura del bloque de código en px (solo para slides con código). */
+  editorHeight?: number;
   videoUrl?: string;
   contentType?: "image" | "code" | "video";
   /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a este slide. */

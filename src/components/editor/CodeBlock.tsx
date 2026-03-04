@@ -1,8 +1,12 @@
-import { Pencil, Check, X, Sparkles } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { Pencil, Check, X, Sparkles, GripHorizontal } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { usePresentation } from "../../context/PresentationContext";
 import { LANGUAGES } from "../../constants/languages";
+
+const MIN_EDITOR_HEIGHT = 120;
+const MAX_EDITOR_HEIGHT = 560;
 
 export function CodeBlock() {
   const {
@@ -15,9 +19,38 @@ export function CodeBlock() {
     setEditLanguage,
     editFontSize,
     setEditFontSize,
+    editEditorHeight,
+    setEditorHeightForCurrentSlide,
     handleSaveManualEdit,
     openCodeGenModal,
   } = usePresentation();
+
+  const [isResizing, setIsResizing] = useState(false);
+  const startYRef = useRef(0);
+  const startHeightRef = useRef(280);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const onMove = (e: MouseEvent) => {
+      const delta = e.clientY - startYRef.current;
+      const newHeight = Math.min(
+        MAX_EDITOR_HEIGHT,
+        Math.max(MIN_EDITOR_HEIGHT, startHeightRef.current + delta)
+      );
+      setEditorHeightForCurrentSlide(newHeight);
+    };
+    const onUp = () => setIsResizing(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing, setEditorHeightForCurrentSlide]);
 
   if (!currentSlide) return null;
 
@@ -26,7 +59,10 @@ export function CodeBlock() {
       className="flex-1 p-6 flex items-center justify-center overflow-hidden cursor-text"
       onClick={() => !isEditing && setIsEditing(true)}
     >
-      <div className="w-full max-w-md bg-[#1e1e1e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col h-[80%] relative group/window">
+      <div
+        className="w-full min-w-0 max-h-[90vh] bg-[#1e1e1e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col relative group/window"
+        style={{ height: "fit-content" }}
+      >
         <div className="h-9 bg-[#2d2d2d] px-4 flex items-center justify-between shrink-0">
           <div className="flex gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
@@ -133,7 +169,10 @@ export function CodeBlock() {
           </div>
           <div className="w-12" />
         </div>
-        <div className="flex-1 p-0 font-mono overflow-y-auto custom-scrollbar bg-[#1e1e1e]">
+        <div
+          className="min-h-[80px] p-0 font-mono overflow-auto custom-scrollbar bg-[#1e1e1e] shrink-0"
+          style={{ height: editEditorHeight, maxHeight: "calc(90vh - 3rem)" }}
+        >
           {isEditing ? (
             <textarea
               value={editCode}
@@ -147,12 +186,12 @@ export function CodeBlock() {
                   setIsEditing(false);
                 }
               }}
-              className="w-full h-full bg-transparent text-stone-300 p-4 border-none focus:outline-none resize-none leading-relaxed"
+              className="w-full min-h-[80px] bg-transparent text-stone-300 p-4 border-none focus:outline-none resize-none leading-relaxed block"
               style={{ fontSize: `${editFontSize}px` }}
               placeholder="// Escribe tu código aquí... (Ctrl+Enter para guardar)"
             />
           ) : (
-            <div className="h-full">
+            <div>
               {currentSlide.code ? (
                 <SyntaxHighlighter
                   language={currentSlide.language || "javascript"}
@@ -170,6 +209,9 @@ export function CodeBlock() {
                     background: "transparent",
                     fontSize: `${currentSlide.fontSize || 14}px`,
                     lineHeight: "1.5",
+                    overflow: "visible",
+                    width: "max-content",
+                    minWidth: "100%",
                   }}
                 >
                   {currentSlide.code}
@@ -193,6 +235,23 @@ export function CodeBlock() {
               )}
             </div>
           )}
+        </div>
+        <div
+          role="separator"
+          aria-label="Redimensionar alto del editor"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startYRef.current = e.clientY;
+            startHeightRef.current = editEditorHeight;
+            setIsResizing(true);
+          }}
+          className="h-3 shrink-0 bg-[#2d2d2d] border-t border-white/10 flex items-center justify-center cursor-ns-resize hover:bg-stone-600 transition-colors group/resize"
+        >
+          <GripHorizontal
+            className="w-4 h-4 text-stone-500 group-hover/resize:text-stone-400"
+            strokeWidth={2}
+          />
         </div>
         {!isEditing && (
           <div className="absolute inset-0 bg-emerald-600/0 group-hover/window:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover/window:opacity-100 pointer-events-none">

@@ -59,6 +59,7 @@ export function usePresentationState() {
   const [editCode, setEditCode] = useState("");
   const [editLanguage, setEditLanguage] = useState("javascript");
   const [editFontSize, setEditFontSize] = useState(14);
+  const [editEditorHeight, setEditEditorHeight] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
   const [showSavedListModal, setShowSavedListModal] = useState(false);
@@ -133,6 +134,7 @@ export function usePresentationState() {
       setEditCode(currentSlide.code || "");
       setEditLanguage(currentSlide.language || "javascript");
       setEditFontSize(currentSlide.fontSize || 14);
+      setEditEditorHeight(currentSlide.editorHeight ?? 280);
       setIsEditing(false);
     }
   }, [currentIndex, currentSlide?.id]);
@@ -180,10 +182,27 @@ export function usePresentationState() {
         code: editCode,
         language: editLanguage,
         fontSize: editFontSize,
+        editorHeight: editEditorHeight,
       };
       return updated;
     });
     setIsEditing(false);
+  };
+
+  const setEditorHeightForCurrentSlide = (height: number) => {
+    const clamped = Math.min(560, Math.max(120, height));
+    setEditEditorHeight(clamped);
+    if (currentSlide == null) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      if (currentIndex >= 0 && currentIndex < updated.length) {
+        updated[currentIndex] = {
+          ...updated[currentIndex],
+          editorHeight: clamped,
+        };
+      }
+      return updated;
+    });
   };
 
   const toggleContentType = () => {
@@ -595,6 +614,9 @@ export function usePresentationState() {
     setEditLanguage,
     editFontSize,
     setEditFontSize,
+    editEditorHeight,
+    setEditEditorHeight,
+    setEditorHeightForCurrentSlide,
     isResizing,
     setIsResizing,
     currentSavedId,
