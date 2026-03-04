@@ -60,9 +60,51 @@ ${noTextRule}`;
   return `data:image/png;base64,${b64}`;
 }
 
+const MIN_SLIDES = 3;
+const MAX_SLIDES = 50;
+const DEFAULT_SLIDES = 10;
+
 const PRESENTATION_SYSTEM = `Eres un experto en crear presentaciones. Genera siempre un JSON válido con un objeto que tenga una clave "slides" que sea un array de diapositivas.
 Cada diapositiva tiene: id (string), type ("content" o "chapter"), title (string), content (string, markdown), imagePrompt (string, opcional), subtitle (string, opcional).
 Las de tipo "chapter" tienen solo título impactante; las de tipo "content" tienen title, content en markdown e imagePrompt para ilustrar.`;
+
+/**
+ * Pide al modelo que interprete cuántas diapositivas quiere el usuario.
+ * Acepta frases como "unas 20", "presentación larga", "cortita", etc.
+ */
+async function parseRequestedSlideCountOpenAI(
+  topic: string,
+  model: string,
+  key: string
+): Promise<number> {
+  const res = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key.trim()}`,
+    },
+    body: JSON.stringify({
+      model: model || "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: `Mensaje del usuario para crear una presentación: "${topic}"
+
+Interpreta cuántas diapositivas quiere. Ejemplos: "20 diapositivas"→20, "unas 15"→15, "presentación larga"→22, "cortita"→6, "muchas"→28. Si no está claro → 10.
+Responde ÚNICAMENTE con un número entero entre ${MIN_SLIDES} y ${MAX_SLIDES}.`,
+        },
+      ],
+      max_tokens: 10,
+    }),
+  });
+  if (!res.ok) return DEFAULT_SLIDES;
+  const data = await res.json().catch(() => ({}));
+  const text = (data?.choices?.[0]?.message?.content ?? "").trim();
+  const numMatch = text.match(/\d+/);
+  if (!numMatch) return DEFAULT_SLIDES;
+  const n = parseInt(numMatch[0], 10);
+  return Math.min(MAX_SLIDES, Math.max(MIN_SLIDES, n));
+}
 
 /**
  * Genera una presentación con un modelo de OpenAI (GPT).
@@ -79,15 +121,25 @@ export async function generatePresentationOpenAI(
     );
   }
 
-  const slideCountMatch = topic.match(/(\d+)\s+diapositivas/i);
-  const requestedCount = slideCountMatch ? parseInt(slideCountMatch[1]) : 10;
-  const countInstruction = slideCountMatch
-    ? `La presentación debe tener exactamente ${requestedCount} diapositivas.`
+  const slideCountMatch = topic.match(/(\d+)\s*(diapositivas?|slides?)\b/i);
+  let requestedCount: number;
+  if (slideCountMatch) {
+    requestedCount = Math.min(
+      MAX_SLIDES,
+      Math.max(MIN_SLIDES, parseInt(slideCountMatch[1], 10))
+    );
+  } else {
+    requestedCount = await parseRequestedSlideCountOpenAI(topic, model, key);
+  }
+
+  const explicitCount = requestedCount !== DEFAULT_SLIDES;
+  const countInstruction = explicitCount
+    ? `IMPORTANTE: La presentación debe tener EXACTAMENTE ${requestedCount} diapositivas. Genera las ${requestedCount} diapositivas, ni más ni menos.`
     : `La presentación debe tener entre 8 y 12 diapositivas.`;
 
   const userContent = `Genera una presentación profesional sobre: "${topic}".
 ${countInstruction}
-Estructura: 1 diapositiva 'chapter' de título, luego diapositivas 'content' con title, content (markdown) e imagePrompt. Puedes usar más 'chapter' para separar secciones. Una 'content' de conclusión.
+Estructura: 1 diapositiva 'chapter' de título, luego diapositivas 'content' con title, content (markdown) e imagePrompt. Puedes usar más 'chapter' para separar secciones. Una 'content' de conclusión. El array "slides" debe contener ${explicitCount ? `exactamente ${requestedCount} elementos` : "entre 8 y 12 elementos"}.
 Responde ÚNICAMENTE un JSON con esta forma: { "slides": [ { "id": "...", "type": "content"|"chapter", "title": "...", "content": "...", "imagePrompt": "..." }, ... ] }`;
 
   const res = await fetch(CHAT_URL, {

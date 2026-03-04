@@ -35,123 +35,153 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F6F6] flex flex-col items-center justify-center p-6 font-sans">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-emerald-100 text-emerald-600 mb-4">
-            <KeyRound size={40} />
+    <div className="min-h-screen flex flex-col lg:flex-row font-sans">
+      {/* Izquierda: fondo claro + video con bordes desvanecidos */}
+      <div className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen bg-[#F6F6F6] flex flex-col items-center justify-center p-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="flex items-center justify-center w-full max-w-sm relative"
+        >
+          <div className="rounded-3xl overflow-hidden aspect-square max-h-[320px] flex items-center justify-center relative">
+            <video
+              src="./video-logo.webm"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-contain"
+              aria-hidden
+            />
           </div>
-          <h1 className="text-2xl font-semibold text-stone-900">
-            Configura tu API
-          </h1>
-          <p className="text-stone-600 mt-2">
-            Para generar presentaciones necesitas al menos una clave de API.
-            Puedes usar Gemini, OpenAI o ambas.
-          </p>
-        </div>
+        </motion.div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label
-              htmlFor="gemini-key"
-              className="block text-sm font-medium text-stone-700 mb-1.5"
-            >
-              API Key de Google Gemini
-            </label>
-            <div className="relative">
-              <input
-                id="gemini-key"
-                type="password"
-                value={geminiKey}
-                onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder="Ej: AIza..."
-                className={cn(
-                  "w-full px-4 py-3 rounded-xl border bg-white text-stone-900 placeholder:text-stone-400",
-                  "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
-                  "border-stone-200"
-                )}
-                autoComplete="off"
-              />
-              {hasGemini && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
-                  <Check size={18} />
-                </span>
-              )}
+      {/* Derecha: formulario con fondo verde agua */}
+      <div className="flex-1 min-h-screen bg-[#B8E6E0] flex flex-col items-center justify-center p-6 lg:p-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="w-full max-w-md"
+        >
+          <div className="mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/80 text-teal-700 shadow-sm mb-4">
+              <KeyRound size={28} />
             </div>
-            <p className="text-xs text-stone-500 mt-1">
-              Generación de presentaciones e imágenes. Obtén una en{" "}
-              <a
-                href="https://aistudio.google.com/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-600 hover:underline"
+            <h1 className="text-2xl font-semibold text-stone-900">
+              Configura tu API
+            </h1>
+            <p className="text-stone-600 mt-2">
+              Para generar presentaciones necesitas al menos una clave de API.
+              Puedes usar Gemini, OpenAI o ambas.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label
+                htmlFor="gemini-key"
+                className="block text-sm font-medium text-stone-700 mb-1.5"
               >
-                Google AI Studio
-              </a>
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="openai-key"
-              className="block text-sm font-medium text-stone-700 mb-1.5"
-            >
-              API Key de OpenAI (opcional)
-            </label>
-            <div className="relative">
-              <input
-                id="openai-key"
-                type="password"
-                value={openaiKey}
-                onChange={(e) => setOpenaiKey(e.target.value)}
-                placeholder="Ej: sk-..."
-                className={cn(
-                  "w-full px-4 py-3 rounded-xl border bg-white text-stone-900 placeholder:text-stone-400",
-                  "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
-                  "border-stone-200"
+                API Key de Google Gemini
+              </label>
+              <div className="relative">
+                <input
+                  id="gemini-key"
+                  type="password"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="Ej: AIza..."
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl border bg-white/95 text-stone-900 placeholder:text-stone-400",
+                    "focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500",
+                    "border-stone-200/80 shadow-sm",
+                  )}
+                  autoComplete="off"
+                />
+                {hasGemini && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-600">
+                    <Check size={18} />
+                  </span>
                 )}
-                autoComplete="off"
-              />
-              {hasOpenAI && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
-                  <Check size={18} />
-                </span>
-              )}
+              </div>
+              <p className="text-xs text-stone-600 mt-1">
+                Generación de presentaciones e imágenes. Obtén una en{" "}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-700 hover:underline font-medium"
+                >
+                  Google AI Studio
+                </a>
+              </p>
             </div>
-            <p className="text-xs text-stone-500 mt-1">
-              Para generar imágenes con DALL·E 3 en lugar de Gemini.
-            </p>
-          </div>
 
-          {touched && !canContinue && (
-            <p className="text-sm text-amber-600">
-              Añade al menos una clave (Gemini u OpenAI) para continuar.
-            </p>
-          )}
+            <div>
+              <label
+                htmlFor="openai-key"
+                className="block text-sm font-medium text-stone-700 mb-1.5"
+              >
+                API Key de OpenAI (opcional)
+              </label>
+              <div className="relative">
+                <input
+                  id="openai-key"
+                  type="password"
+                  value={openaiKey}
+                  onChange={(e) => setOpenaiKey(e.target.value)}
+                  placeholder="Ej: sk-..."
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl border bg-white/95 text-stone-900 placeholder:text-stone-400",
+                    "focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500",
+                    "border-stone-200/80 shadow-sm",
+                  )}
+                  autoComplete="off"
+                />
+                {hasOpenAI && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-600">
+                    <Check size={18} />
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-600 mt-1">
+                Para generar imágenes con DALL·E 3 en lugar de Gemini.
+              </p>
+            </div>
 
-          <button
-            type="submit"
-            disabled={!canContinue || isSaving}
-            className="w-full py-3.5 px-4 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <span className="inline-block w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-                Guardando…
-              </>
-            ) : (
-              <>
-                <Sparkles size={20} />
-                Continuar
-              </>
+            {touched && !canContinue && (
+              <p className="text-sm text-amber-700 bg-amber-100/80 px-3 py-2 rounded-lg">
+                Añade al menos una clave (Gemini u OpenAI) para continuar.
+              </p>
             )}
-          </button>
-        </form>
-      </motion.div>
+
+            <button
+              type="submit"
+              disabled={!canContinue || isSaving}
+              className={cn(
+                "w-full py-3.5 px-4 rounded-xl font-medium transition-colors flex items-center justify-center gap-2",
+                "bg-teal-600 text-white hover:bg-teal-700",
+                "disabled:opacity-50 disabled:cursor-not-allowed shadow-sm",
+              )}
+            >
+              {isSaving ? (
+                <>
+                  <span className="inline-block w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                  Guardando…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={20} />
+                  Continuar
+                </>
+              )}
+            </button>
+          </form>
+        </motion.div>
+      </div>
     </div>
   );
 }

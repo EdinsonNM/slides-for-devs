@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Slide, ImageStyle, SavedPresentationMeta } from "../types";
 import { formatMarkdown } from "../utils/markdown";
 import {
@@ -17,6 +17,10 @@ import {
   generateImageOpenAI,
   generatePresentationOpenAI,
 } from "../services/openai";
+import {
+  getGeminiApiKey,
+  getOpenAIApiKey,
+} from "../services/apiConfig";
 import {
   savePresentation,
   updatePresentation,
@@ -94,6 +98,18 @@ export function usePresentationState() {
     DEFAULT_PRESENTATION_MODEL_ID
   );
 
+  const hasGemini = !!getGeminiApiKey();
+  const hasOpenAI = !!getOpenAIApiKey();
+  const presentationModels = useMemo(
+    () =>
+      PRESENTATION_MODELS.filter(
+        (m) =>
+          (m.provider === "gemini" && hasGemini) ||
+          (m.provider === "openai" && hasOpenAI)
+      ),
+    [hasGemini, hasOpenAI]
+  );
+
   const presentationModelOption = PRESENTATION_MODELS.find(
     (m) => m.id === presentationModelId
   );
@@ -105,6 +121,17 @@ export function usePresentationState() {
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
     currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
+
+  // Ajustar modelo seleccionado si no está entre los permitidos (solo APIs configuradas)
+  useEffect(() => {
+    const allowedIds = presentationModels.map((m) => m.id);
+    if (
+      presentationModels.length > 0 &&
+      !allowedIds.includes(presentationModelId)
+    ) {
+      setPresentationModelId(presentationModels[0].id);
+    }
+  }, [presentationModels, presentationModelId]);
 
   // Migrar presentaciones en JSON (formato antiguo) a SQLite una vez al cargar
   useEffect(() => {
@@ -629,7 +656,7 @@ export function usePresentationState() {
     setTopic,
     presentationModelId,
     setPresentationModelId,
-    presentationModels: PRESENTATION_MODELS,
+    presentationModels,
     effectiveGeminiModel,
     slides,
     setSlides,

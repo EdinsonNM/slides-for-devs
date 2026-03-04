@@ -2,6 +2,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Slide } from "../types";
 import { getGeminiApiKey } from "./apiConfig";
 
+const MIN_SLIDES = 3;
+const MAX_SLIDES = 50;
+const DEFAULT_SLIDES = 10;
+
 function getClient(): GoogleGenAI {
   const key = getGeminiApiKey();
   if (!key) {
@@ -12,26 +16,65 @@ function getClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: key });
 }
 
+/**
+ * Pide al modelo que interprete cuántas diapositivas quiere el usuario.
+ * Acepta frases como "unas 20", "presentación larga", "cortita", "alrededor de 15", etc.
+ */
+async function parseRequestedSlideCountGemini(
+  topic: string,
+  model: string
+): Promise<number> {
+  const client = getClient();
+  const res = await client.models.generateContent({
+    model: model || "gemini-2.5-flash",
+    contents: `Mensaje del usuario para crear una presentación: "${topic}"
+
+Interpreta cuántas diapositivas quiere. Ejemplos:
+- "20 diapositivas" / "20 slides" → 20
+- "unas 15" / "alrededor de 15" → 15
+- "presentación larga" / "bien completa" → 20-25
+- "cortita" / "breve" / "poca cosa" → 5-8
+- "muchas" / "extensa" → 25-30
+- Si no dice nada o no está claro → 10
+
+Responde ÚNICAMENTE con un número entero entre ${MIN_SLIDES} y ${MAX_SLIDES}, sin texto ni explicación.`,
+  });
+  const text = (res.text || "").trim();
+  const numMatch = text.match(/\d+/);
+  if (!numMatch) return DEFAULT_SLIDES;
+  const n = parseInt(numMatch[0], 10);
+  return Math.min(MAX_SLIDES, Math.max(MIN_SLIDES, n));
+}
+
 export async function generatePresentation(
   topic: string,
   model: string = "gemini-2.5-flash"
 ): Promise<Slide[]> {
-  // Intentar extraer el número de diapositivas del prompt del usuario
-  const slideCountMatch = topic.match(/(\d+)\s+diapositivas/i);
-  const requestedCount = slideCountMatch ? parseInt(slideCountMatch[1]) : 10;
-  const countInstruction = slideCountMatch
-    ? `La presentación debe tener exactamente ${requestedCount} diapositivas.`
-    : `La presentación debe tener entre 8 y 12 diapositivas.`;
+  // 1) Regex por si dice "20 diapositivas" o "20 slides"
+  const slideCountMatch = topic.match(/(\d+)\s*(diapositivas?|slides?)\b/i);
+  let requestedCount: number;
+  if (slideCountMatch) {
+    requestedCount = Math.min(MAX_SLIDES, Math.max(MIN_SLIDES, parseInt(slideCountMatch[1], 10)));
+  } else {
+    requestedCount = await parseRequestedSlideCountGemini(topic, model);
+  }
+  const countInstruction =
+    requestedCount !== DEFAULT_SLIDES
+      ? `IMPORTANTE: La presentación debe tener EXACTAMENTE ${requestedCount} diapositivas. Genera las ${requestedCount} diapositivas, ni más ni menos.`
+      : `La presentación debe tener entre 8 y 12 diapositivas.`;
+
+  const explicitCount = requestedCount !== DEFAULT_SLIDES;
 
   const response = await getClient().models.generateContent({
     model: model || "gemini-2.5-flash",
     contents: `Genera una presentación profesional y estructurada sobre el tema: "${topic}". 
     ${countInstruction}
-    Sigue esta estructura:
+    Sigue esta estructura${explicitCount ? ` (total: exactamente ${requestedCount} diapositivas en el array)` : ""}:
     1. Una diapositiva de tipo 'chapter' para el título principal.
     2. Diapositivas de tipo 'content' para la introducción y puntos clave.
     3. Diapositivas de tipo 'chapter' para separar secciones temáticas si es necesario.
     4. Una diapositiva de tipo 'content' para la conclusión.
+    ${explicitCount ? `Devuelve un array JSON con exactamente ${requestedCount} objetos de diapositivas.` : ""}
     
     Las diapositivas de tipo 'chapter' solo tienen un título central impactante.
     Las diapositivas de tipo 'content' tienen:

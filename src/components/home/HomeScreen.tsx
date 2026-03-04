@@ -69,7 +69,7 @@ export function HomeScreen(props: HomeScreenProps) {
           <div className="space-y-4">
             <div className="inline-flex items-center justify-center w-64 h-64 rounded-3xl overflow-hidden mb-4 bg-transparent">
               <video
-                src="./video-logo 2.mp4"
+                src="./video-logo.webm"
                 autoPlay
                 loop
                 muted
@@ -164,7 +164,7 @@ export function HomeScreen(props: HomeScreenProps) {
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                       homeTab === tab.id
                         ? "bg-stone-100 text-stone-900"
-                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
+                        : "text-stone-600 hover:text-stone-900 hover:bg-stone-50",
                     )}
                   >
                     {tab.label}
