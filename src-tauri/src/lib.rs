@@ -1,3 +1,4 @@
+mod api_keys;
 mod db;
 
 use std::path::PathBuf;
@@ -52,6 +53,35 @@ fn delete_presentation(db_path: tauri::State<DbPath>, id: String) -> Result<(), 
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
     db::delete_presentation(&conn, &id).map_err(|e| e.to_string())
 }
+
+// --- API keys (keychain seguro) ---
+
+#[tauri::command]
+fn get_gemini_api_key() -> Result<Option<String>, String> {
+    api_keys::get_gemini_api_key()
+}
+
+#[tauri::command]
+fn set_gemini_api_key(key: String) -> Result<(), String> {
+    api_keys::set_gemini_api_key(&key)
+}
+
+#[tauri::command]
+fn get_openai_api_key() -> Result<Option<String>, String> {
+    api_keys::get_openai_api_key()
+}
+
+#[tauri::command]
+fn set_openai_api_key(key: String) -> Result<(), String> {
+    api_keys::set_openai_api_key(&key)
+}
+
+#[tauri::command]
+fn has_any_api_configured() -> Result<bool, String> {
+    api_keys::has_any_api_configured()
+}
+
+// --- Presentaciones ---
 
 /// Migrates existing JSON presentation files (AppData/presentations/*.json) into SQLite.
 /// Call once on startup or via a button. Deletes each JSON file after successful import.
@@ -123,6 +153,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_gemini_api_key,
+            set_gemini_api_key,
+            get_openai_api_key,
+            set_openai_api_key,
+            has_any_api_configured,
             save_presentation,
             update_presentation,
             load_presentation,

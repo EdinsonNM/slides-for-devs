@@ -1,9 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Slide } from "../types";
+import { getGeminiApiKey } from "./apiConfig";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getClient(): GoogleGenAI {
+  const key = getGeminiApiKey();
+  if (!key) {
+    throw new Error(
+      "No hay API key de Gemini configurada. Configura al menos una API en la pantalla de inicio."
+    );
+  }
+  return new GoogleGenAI({ apiKey: key });
+}
 
-export async function generatePresentation(topic: string): Promise<Slide[]> {
+export async function generatePresentation(
+  topic: string,
+  model: string = "gemini-2.5-flash"
+): Promise<Slide[]> {
   // Intentar extraer el número de diapositivas del prompt del usuario
   const slideCountMatch = topic.match(/(\d+)\s+diapositivas/i);
   const requestedCount = slideCountMatch ? parseInt(slideCountMatch[1]) : 10;
@@ -11,8 +23,8 @@ export async function generatePresentation(topic: string): Promise<Slide[]> {
     ? `La presentación debe tener exactamente ${requestedCount} diapositivas.`
     : `La presentación debe tener entre 8 y 12 diapositivas.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || "gemini-2.5-flash",
     contents: `Genera una presentación profesional y estructurada sobre el tema: "${topic}". 
     ${countInstruction}
     Sigue esta estructura:
@@ -63,11 +75,14 @@ export async function generatePresentation(topic: string): Promise<Slide[]> {
   }
 }
 
+const DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image";
+
 export async function generateImage(
   slideContext: string,
   userPrompt: string,
   stylePrompt: string = "",
-  includeBackground: boolean = true
+  includeBackground: boolean = true,
+  model: string = DEFAULT_IMAGE_MODEL
 ): Promise<string | undefined> {
   const noTextRule =
     "REGLA OBLIGATORIA: La imagen NO debe contener ningún texto, leyendas, etiquetas, palabras ni caracteres. Solo elementos puramente visuales e ilustrativos.";
@@ -79,8 +94,8 @@ export async function generateImage(
   Estilo visual: ${stylePrompt}.${backgroundRule}
   ${noTextRule}`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_IMAGE_MODEL,
     contents: {
       parts: [{ text: fullPrompt }],
     },
@@ -99,16 +114,19 @@ export async function generateImage(
   return undefined;
 }
 
+const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
+
 /** Genera una alternativa de prompt para imagen considerando estilo y contexto del slide actual */
 export async function generateImagePromptAlternatives(
   slideContext: string,
   currentPrompt: string,
   styleName: string,
-  stylePrompt: string
+  stylePrompt: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
   const hasExistingPrompt = currentPrompt.trim().length > 0;
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Eres un experto en crear prompts para imágenes. Genera UNA descripción en español para una imagen que ilustre ESTA diapositiva.
 
 PROHIBIDO: La imagen NO debe contener ningún texto: ni títulos del slide, ni palabras, ni etiquetas, ni leyendas, ni números ni caracteres. Solo elementos puramente visuales. Tu prompt NUNCA debe pedir o describir que aparezca texto en la imagen.
@@ -140,10 +158,11 @@ Responde ÚNICAMENTE el texto del prompt, sin comillas ni explicaciones. El prom
 
 export async function splitSlide(
   slide: Slide,
-  prompt: string
+  prompt: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<Slide[]> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `El usuario quiere profundizar en el tema de esta diapositiva y dividirla en 2 o más diapositivas.
     Diapositiva original:
     Título: ${slide.title}
@@ -186,10 +205,11 @@ export async function splitSlide(
 
 export async function rewriteSlide(
   slide: Slide,
-  prompt: string
+  prompt: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<{ title: string; content: string }> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Reescribe el contenido de esta diapositiva según la instrucción del usuario.
     Diapositiva original:
     Título: ${slide.title}
@@ -220,9 +240,12 @@ export async function rewriteSlide(
 }
 
 /** Genera notas del presentador para una diapositiva */
-export async function generatePresenterNotes(slide: Slide): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+export async function generatePresenterNotes(
+  slide: Slide,
+  model: string = DEFAULT_TEXT_MODEL
+): Promise<string> {
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Genera notas breves para el presentador de esta diapositiva. Incluye puntos clave a recordar, transiciones sugeridas y datos o frases que no deben olvidarse. Sé conciso (2-4 líneas).
     Título: ${slide.title}
     Contenido: ${slide.content}
@@ -234,13 +257,14 @@ export async function generatePresenterNotes(slide: Slide): Promise<string> {
 /** Genera speech/guion para una diapositiva con prompt opcional (específico o vacío para estándar) */
 export async function generateSpeechForSlide(
   slide: Slide,
-  customPrompt?: string
+  customPrompt?: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
   const instruction = customPrompt?.trim()
     ? `Instrucción adicional del presentador: ${customPrompt}.`
     : "Genera un guion natural y conciso que un presentador podría decir al mostrar esta diapositiva (2-5 frases).";
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Diapositiva:
     Título: ${slide.title}
     Contenido: ${slide.content}
@@ -253,11 +277,12 @@ export async function generateSpeechForSlide(
 /** Genera speech para todas las diapositivas usando un prompt general */
 export async function generateSpeechForAll(
   slides: Slide[],
-  generalPrompt: string
+  generalPrompt: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<string[]> {
   const results: string[] = [];
   for (const slide of slides) {
-    const text = await generateSpeechForSlide(slide, generalPrompt);
+    const text = await generateSpeechForSlide(slide, generalPrompt, model);
     results.push(text);
   }
   return results;
@@ -266,11 +291,12 @@ export async function generateSpeechForAll(
 /** Refina el texto de las notas del presentador manteniendo el sentido y mejorando claridad y tono */
 export async function refinePresenterNotes(
   slide: Slide,
-  currentNotes: string
+  currentNotes: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
   if (!currentNotes.trim()) return currentNotes;
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Refina y mejora el siguiente texto de notas para el presentador. Mantén el mismo contenido y sentido, pero mejora la claridad, el tono y la estructura. No añadas contenido nuevo que no esté implícito.
     Contexto de la diapositiva - Título: ${
       slide.title
@@ -286,14 +312,15 @@ export async function refinePresenterNotes(
 export async function generateCodeForSlide(
   slide: Slide,
   language: string,
-  customPrompt?: string
+  customPrompt?: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<{ code: string }> {
   const context = `Título: ${slide.title}\nContenido: ${slide.content}`;
   const instruction = customPrompt?.trim()
     ? `Instrucción adicional del usuario: ${customPrompt}.`
     : "Genera código de ejemplo breve y claro que ilustre el concepto de esta diapositiva. Solo el código, sin explicaciones alrededor.";
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Eres un experto en programación. Genera código de ejemplo para una diapositiva de presentación.
 
 Contexto de la diapositiva:
@@ -320,10 +347,11 @@ export async function presenterChat(
   topic: string,
   currentSlideTitle: string,
   currentSlideContent: string,
-  userMessage: string
+  userMessage: string,
+  model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
     contents: `Eres un asistente durante una presentación. El tema de la presentación es: "${topic}". La diapositiva actual tiene título: "${currentSlideTitle}" y contenido: ${currentSlideContent.slice(
       0,
       500

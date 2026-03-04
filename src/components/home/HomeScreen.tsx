@@ -7,6 +7,7 @@ import {
   Layout,
   ChevronRight,
   History,
+  Settings,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -23,7 +24,12 @@ const HOME_TABS = [
   { id: "mine" as const, label: "Mis presentaciones" },
 ];
 
-export function HomeScreen() {
+interface HomeScreenProps {
+  onOpenConfig?: () => void;
+}
+
+export function HomeScreen(props: HomeScreenProps) {
+  const { onOpenConfig } = props;
   const {
     topic,
     setTopic,
@@ -34,13 +40,26 @@ export function HomeScreen() {
     openSavedListModal,
     savedList,
     handleOpenSaved,
+    presentationModelId,
+    setPresentationModelId,
+    presentationModels,
   } = usePresentation();
 
   const [showHistory, setShowHistory] = useState(false);
   const displayList = savedList;
 
   return (
-    <div className="min-h-screen bg-[#F6F6F6] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F6F6F6] flex flex-col font-sans relative">
+      {onOpenConfig && (
+        <button
+          type="button"
+          onClick={onOpenConfig}
+          className="absolute top-4 right-4 p-2 rounded-lg text-stone-500 hover:bg-stone-200/60 hover:text-stone-700 transition-colors z-10"
+          title="Configuración (API keys)"
+        >
+          <Settings size={20} />
+        </button>
+      )}
       <div className="min-h-[55vh] flex flex-col items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -89,6 +108,22 @@ export function HomeScreen() {
               {isLoading ? "Generando..." : "Crear"}
             </button>
           </form>
+          <div className="flex items-center justify-center gap-1 -mt-5">
+            <span className="text-xs text-stone-500">Modelo:</span>
+            <select
+              value={presentationModelId}
+              onChange={(e) => setPresentationModelId(e.target.value)}
+              disabled={isLoading}
+              className="text-xs text-stone-600 bg-[#F6F6F6] border-0 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer min-w-[180px]"
+              aria-label="Modelo para generar la presentación"
+            >
+              {presentationModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-wrap justify-center gap-2 pt-4">
             {TOPIC_SUGGESTIONS.map((suggestion) => (
               <button

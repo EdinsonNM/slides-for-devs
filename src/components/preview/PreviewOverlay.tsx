@@ -37,25 +37,41 @@ export function PreviewOverlay() {
     formatMarkdown,
     prevSlide,
     nextSlide,
+    effectiveGeminiModel,
   } = usePresentation();
   const nextSlideRef = useRef(nextSlide);
   const prevSlideRef = useRef(prevSlide);
-  const stateRef = useRef({ slides, currentIndex, topic });
+  const stateRef = useRef({
+    slides,
+    currentIndex,
+    topic,
+    effectiveGeminiModel,
+  });
   const presenterWindowRef = useRef<Window | null>(null);
   nextSlideRef.current = nextSlide;
   prevSlideRef.current = prevSlide;
-  stateRef.current = { slides, currentIndex, topic };
+  stateRef.current = { slides, currentIndex, topic, effectiveGeminiModel };
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.origin !== getOrigin()) return;
       if (e.data?.type === "PRESENTER_READY" && e.source) {
         presenterWindowRef.current = e.source as Window;
-        const { slides: s, currentIndex: i, topic: t } = stateRef.current;
+        const {
+          slides: s,
+          currentIndex: i,
+          topic: t,
+          effectiveGeminiModel: m,
+        } = stateRef.current;
         (e.source as Window).postMessage(
           {
             type: "PRESENTATION_STATE",
-            payload: { slides: s, currentIndex: i, topic: t || "Presentación" },
+            payload: {
+              slides: s,
+              currentIndex: i,
+              topic: t || "Presentación",
+              effectiveGeminiModel: m,
+            },
           },
           getOrigin()
         );
@@ -74,7 +90,7 @@ export function PreviewOverlay() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [slides, currentIndex, topic]);
+  }, [slides, currentIndex, topic, effectiveGeminiModel]);
 
   const tauriEventRef = useRef<{
     emitTo: (target: string, event: string, payload?: unknown) => Promise<void>;
@@ -88,12 +104,18 @@ export function PreviewOverlay() {
         tauriEventRef.current = { emitTo: eventApi.emitTo };
         unlisten.push(
           await eventApi.listen("presenter-ready", () => {
-            const { slides: s, currentIndex: i, topic: t } = stateRef.current;
+            const {
+              slides: s,
+              currentIndex: i,
+              topic: t,
+              effectiveGeminiModel: m,
+            } = stateRef.current;
             eventApi.emitTo("presenter", "presentation-state", {
               payload: {
                 slides: s,
                 currentIndex: i,
                 topic: t || "Presentación",
+                effectiveGeminiModel: m,
               },
             });
           })

@@ -13,7 +13,10 @@ import {
   generateSpeechForAll as generateSpeechForAllApi,
   refinePresenterNotes as refinePresenterNotesApi,
 } from "../services/gemini";
-import { generateImageOpenAI } from "../services/openai";
+import {
+  generateImageOpenAI,
+  generatePresentationOpenAI,
+} from "../services/openai";
 import {
   savePresentation,
   updatePresentation,
@@ -23,6 +26,14 @@ import {
   migrateJsonPresentations,
 } from "../services/storage";
 import { IMAGE_STYLES } from "../constants/imageStyles";
+import {
+  PRESENTATION_MODELS,
+  DEFAULT_PRESENTATION_MODEL_ID,
+} from "../constants/presentationModels";
+import {
+  GEMINI_IMAGE_MODELS,
+  DEFAULT_GEMINI_IMAGE_MODEL_ID,
+} from "../constants/geminiImageModels";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 
@@ -51,6 +62,9 @@ export function usePresentationState() {
   const [imageProvider, setImageProvider] = useState<"gemini" | "openai">(
     "gemini"
   );
+  const [geminiImageModelId, setGeminiImageModelId] = useState(
+    DEFAULT_GEMINI_IMAGE_MODEL_ID
+  );
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,6 +90,17 @@ export function usePresentationState() {
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
   const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [presentationModelId, setPresentationModelId] = useState(
+    DEFAULT_PRESENTATION_MODEL_ID
+  );
+
+  const presentationModelOption = PRESENTATION_MODELS.find(
+    (m) => m.id === presentationModelId
+  );
+  const effectiveGeminiModel =
+    presentationModelOption?.provider === "gemini"
+      ? presentationModelId
+      : "gemini-2.5-flash";
 
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
@@ -224,7 +249,13 @@ export function usePresentationState() {
     if (!topic.trim()) return;
     setIsLoading(true);
     try {
-      const generatedSlides = await generatePresentation(topic);
+      const option = PRESENTATION_MODELS.find(
+        (m) => m.id === presentationModelId
+      );
+      const generatedSlides =
+        option?.provider === "openai"
+          ? await generatePresentationOpenAI(topic, presentationModelId)
+          : await generatePresentation(topic, presentationModelId);
       const cleanedSlides = generatedSlides.map((slide) => ({
         ...slide,
         content: formatMarkdown(slide.content),
@@ -245,15 +276,22 @@ export function usePresentationState() {
     if (!imagePrompt.trim() || !currentSlide) return;
     setIsGeneratingImage(true);
     const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
-    const generate =
-      imageProvider === "openai" ? generateImageOpenAI : generateImage;
     try {
-      const imageUrl = await generate(
-        slideContext,
-        imagePrompt,
-        selectedStyle.prompt,
-        includeBackground
-      );
+      const imageUrl =
+        imageProvider === "openai"
+          ? await generateImageOpenAI(
+              slideContext,
+              imagePrompt,
+              selectedStyle.prompt,
+              includeBackground
+            )
+          : await generateImage(
+              slideContext,
+              imagePrompt,
+              selectedStyle.prompt,
+              includeBackground,
+              geminiImageModelId
+            );
       if (imageUrl) {
         const promptUsed = imagePrompt.trim();
         setSlides((prev) => {
@@ -285,7 +323,8 @@ export function usePresentationState() {
         slideContext,
         imagePrompt,
         selectedStyle.name,
-        selectedStyle.prompt
+        selectedStyle.prompt,
+        effectiveGeminiModel
       );
       if (alternative) setImagePrompt(alternative);
     } catch (error) {
@@ -300,7 +339,11 @@ export function usePresentationState() {
     if (!splitPrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
     try {
-      const newSlides = await splitSlide(currentSlide, splitPrompt);
+      const newSlides = await splitSlide(
+        currentSlide,
+        splitPrompt,
+        effectiveGeminiModel
+      );
       if (newSlides.length > 0) {
         const cleanedNewSlides = newSlides.map((slide) => ({
           ...slide,
@@ -326,7 +369,11 @@ export function usePresentationState() {
     if (!rewritePrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
     try {
-      const result = await rewriteSlide(currentSlide, rewritePrompt);
+      const result = await rewriteSlide(
+        currentSlide,
+        rewritePrompt,
+        effectiveGeminiModel
+      );
       setSlides((prev) => {
         const updated = [...prev];
         updated[currentIndex] = {
@@ -457,7 +504,8 @@ export function usePresentationState() {
       const { code } = await generateCodeForSlideApi(
         currentSlide,
         codeGenLanguage,
-        codeGenPrompt.trim() || undefined
+        codeGenPrompt.trim() || undefined,
+        effectiveGeminiModel
       );
       setSlides((prev) => {
         const updated = [...prev];
@@ -497,7 +545,10 @@ export function usePresentationState() {
     if (!currentSlide) return;
     setIsProcessing(true);
     try {
-      const notes = await generatePresenterNotesApi(currentSlide);
+      const notes = await generatePresenterNotesApi(
+        currentSlide,
+        effectiveGeminiModel
+      );
       setPresenterNotesForCurrentSlide(notes);
     } catch (e) {
       console.error(e);
@@ -511,7 +562,11 @@ export function usePresentationState() {
     if (!currentSlide) return;
     setIsGeneratingSpeech(true);
     try {
-      const text = await generateSpeechForSlideApi(currentSlide, prompt);
+      const text = await generateSpeechForSlideApi(
+        currentSlide,
+        prompt,
+        effectiveGeminiModel
+      );
       setPresenterNotesForCurrentSlide(text);
     } catch (e) {
       console.error(e);
@@ -530,7 +585,11 @@ export function usePresentationState() {
     }
     setIsGeneratingSpeech(true);
     try {
-      const refined = await refinePresenterNotesApi(currentSlide, current);
+      const refined = await refinePresenterNotesApi(
+        currentSlide,
+        current,
+        effectiveGeminiModel
+      );
       setPresenterNotesForCurrentSlide(refined);
     } catch (e) {
       console.error(e);
@@ -546,7 +605,8 @@ export function usePresentationState() {
     try {
       const results = await generateSpeechForAllApi(
         slides,
-        speechGeneralPrompt
+        speechGeneralPrompt,
+        effectiveGeminiModel
       );
       setSlides((prev) =>
         prev.map((s, i) => ({
@@ -567,6 +627,10 @@ export function usePresentationState() {
   return {
     topic,
     setTopic,
+    presentationModelId,
+    setPresentationModelId,
+    presentationModels: PRESENTATION_MODELS,
+    effectiveGeminiModel,
     slides,
     setSlides,
     currentIndex,
@@ -598,6 +662,9 @@ export function usePresentationState() {
     setSelectedStyle,
     imageProvider,
     setImageProvider,
+    geminiImageModelId,
+    setGeminiImageModelId,
+    geminiImageModels: GEMINI_IMAGE_MODELS,
     includeBackground,
     setIncludeBackground,
     isPreviewMode,

@@ -15,6 +15,9 @@ export function ImageGenerationModal() {
     setSelectedStyle,
     imageProvider,
     setImageProvider,
+    geminiImageModelId,
+    setGeminiImageModelId,
+    geminiImageModels,
     includeBackground,
     setIncludeBackground,
     isGeneratingImage,
@@ -93,6 +96,25 @@ export function ImageGenerationModal() {
                     OpenAI (DALL·E 3)
                   </button>
                 </div>
+                {imageProvider === "gemini" && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                      Modelo Gemini (imagen)
+                    </label>
+                    <select
+                      value={geminiImageModelId}
+                      onChange={(e) => setGeminiImageModelId(e.target.value)}
+                      disabled={isGeneratingImage}
+                      className="w-full text-sm text-stone-700 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer"
+                    >
+                      {geminiImageModels.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-stone-400">

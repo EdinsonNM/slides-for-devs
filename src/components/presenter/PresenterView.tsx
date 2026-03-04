@@ -22,6 +22,7 @@ type PresenterState = {
   slides: Slide[];
   currentIndex: number;
   topic: string;
+  effectiveGeminiModel?: string;
 };
 
 function getOrigin(): string {
@@ -124,9 +125,10 @@ export function PresenterView() {
     );
   }
 
-  const { slides, currentIndex, topic } = state;
+  const { slides, currentIndex, topic, effectiveGeminiModel } = state;
   const currentSlide = slides[currentIndex];
   const nextSlide = slides[currentIndex + 1];
+  const chatModel = effectiveGeminiModel || "gemini-2.5-flash";
 
   const handleSendChat = async () => {
     const text = chatInput.trim();
@@ -139,7 +141,8 @@ export function PresenterView() {
         topic,
         currentSlide.title,
         currentSlide.content,
-        text
+        text,
+        chatModel
       );
       setChatMessages((prev) => [
         ...prev,

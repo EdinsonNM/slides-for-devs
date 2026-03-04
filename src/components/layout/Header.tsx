@@ -6,11 +6,17 @@ import {
   Loader2,
   Mic,
   StickyNote,
+  Settings,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 
-export function Header() {
+interface HeaderProps {
+  onOpenConfig?: () => void;
+}
+
+export function Header(props: HeaderProps) {
+  const { onOpenConfig } = props;
   const {
     topic,
     goHome,
@@ -24,6 +30,9 @@ export function Header() {
     setShowSpeechModal,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    presentationModelId,
+    setPresentationModelId,
+    presentationModels,
   } = usePresentation();
 
   return (
@@ -40,65 +49,89 @@ export function Header() {
           {topic || "Nueva presentación"}
         </h2>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          type="button"
-          onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
-          className={cn(
-            "p-2 rounded-md transition-colors",
-            isNotesPanelOpen
-              ? "bg-amber-100 text-amber-700"
-              : "text-stone-500 hover:bg-stone-100 hover:text-amber-600"
+      <div className="flex items-center gap-2 shrink-0">
+        <select
+          value={presentationModelId}
+          onChange={(e) => setPresentationModelId(e.target.value)}
+          className="text-xs text-stone-500 bg-transparent border-0 rounded px-2 py-1 focus:outline-none focus:ring-0 cursor-pointer max-w-[200px] hover:text-stone-700"
+          title="Modelo para texto (presentación, reescribir, código, notas, chat)"
+        >
+          {presentationModels.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-1 shrink-0">
+          {onOpenConfig && (
+            <button
+              type="button"
+              onClick={onOpenConfig}
+              className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors"
+              title="Configuración (API keys)"
+            >
+              <Settings size={18} />
+            </button>
           )}
-          title={isNotesPanelOpen ? "Ocultar notas" : "Mostrar notas"}
-        >
-          <StickyNote size={18} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowSpeechModal(true)}
-          className="p-2 rounded-md text-stone-500 hover:bg-violet-100 hover:text-violet-600 transition-colors"
-          title="Prompt general (generar speech para toda la presentación)"
-        >
-          <Mic size={18} />
-        </button>
-        <button
-          type="button"
-          onClick={openSavedListModal}
-          className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors hidden sm:inline-flex"
-          title="Mis presentaciones"
-        >
-          <FolderOpen size={18} />
-        </button>
-        {slides.length > 0 && (
           <button
             type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="p-2 rounded-md text-emerald-600 hover:bg-emerald-50 disabled:opacity-60 transition-colors"
-            title={currentSavedId ? "Guardar cambios" : "Guardar"}
-          >
-            {isSaving ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Save size={18} />
+            onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
+            className={cn(
+              "p-2 rounded-md transition-colors",
+              isNotesPanelOpen
+                ? "bg-amber-100 text-amber-700"
+                : "text-stone-500 hover:bg-stone-100 hover:text-amber-600"
             )}
-          </button>
-        )}
-        {slides.length > 0 && (
-          <button
-            onClick={() => setIsPreviewMode(true)}
-            className="p-2 rounded-md bg-stone-800 text-white hover:bg-stone-700 transition-colors"
-            title="Vista previa"
+            title={isNotesPanelOpen ? "Ocultar notas" : "Mostrar notas"}
           >
-            <Maximize2 size={18} />
+            <StickyNote size={18} />
           </button>
-        )}
-        {saveMessage && (
-          <span className="text-[10px] text-stone-500 font-medium px-1">
-            {saveMessage}
-          </span>
-        )}
+          <button
+            type="button"
+            onClick={() => setShowSpeechModal(true)}
+            className="p-2 rounded-md text-stone-500 hover:bg-violet-100 hover:text-violet-600 transition-colors"
+            title="Prompt general (generar speech para toda la presentación)"
+          >
+            <Mic size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={openSavedListModal}
+            className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors hidden sm:inline-flex"
+            title="Mis presentaciones"
+          >
+            <FolderOpen size={18} />
+          </button>
+          {slides.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="p-2 rounded-md text-emerald-600 hover:bg-emerald-50 disabled:opacity-60 transition-colors"
+              title={currentSavedId ? "Guardar cambios" : "Guardar"}
+            >
+              {isSaving ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Save size={18} />
+              )}
+            </button>
+          )}
+          {slides.length > 0 && (
+            <button
+              onClick={() => setIsPreviewMode(true)}
+              className="p-2 rounded-md bg-stone-800 text-white hover:bg-stone-700 transition-colors"
+              title="Vista previa"
+            >
+              <Maximize2 size={18} />
+            </button>
+          )}
+          {saveMessage && (
+            <span className="text-[10px] text-stone-500 font-medium px-1">
+              {saveMessage}
+            </span>
+          )}
+        </div>
       </div>
     </header>
   );
