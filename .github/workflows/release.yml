@@ -111,9 +111,10 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
-      # tauri-action detecta pnpm por pnpm-lock.yaml y ejecuta "pnpm"; debe estar en PATH
-      - name: ensure pnpm in PATH for tauri-action
-        run: npm install -g pnpm@9
+      # tauri-action elige el comando por el lockfile; si ve pnpm-lock.yaml intenta ejecutar "pnpm" (no está en PATH).
+      # Ocultamos pnpm-lock.yaml para que use npm (package-lock.json existe; npm sí está en el runner).
+      - name: use npm for tauri-action
+        run: node -e "const fs=require('fs'); if(fs.existsSync('pnpm-lock.yaml')) fs.renameSync('pnpm-lock.yaml', '.pnpm-lock.yaml.bak');"
 
       - name: build and publish
         uses: tauri-apps/tauri-action@v0
@@ -128,7 +129,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-          tauriScript: "npx tauri"
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
