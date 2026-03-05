@@ -93,8 +93,10 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
 
-      - name: enable pnpm
-        run: corepack enable
+      - name: setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
