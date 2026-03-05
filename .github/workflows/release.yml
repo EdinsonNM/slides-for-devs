@@ -111,6 +111,10 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
+      # tauri-action detecta pnpm por pnpm-lock.yaml y ejecuta "pnpm"; debe estar en PATH
+      - name: ensure pnpm in PATH for tauri-action
+        run: npm install -g pnpm@9
+
       - name: build and publish
         uses: tauri-apps/tauri-action@v0
         env:
@@ -124,7 +128,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-          tauriScript: npx tauri
+          tauriScript: "npx tauri"
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
