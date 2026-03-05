@@ -64,12 +64,16 @@ jobs:
         include:
           - platform: macos-latest
             args: "--target aarch64-apple-darwin"
+            platform_key: darwin-aarch64
           - platform: macos-latest
             args: "--target x86_64-apple-darwin"
+            platform_key: darwin-x86_64
           - platform: ubuntu-22.04
             args: ""
+            platform_key: linux-x86_64
           - platform: windows-latest
             args: ""
+            platform_key: windows-x86_64
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -111,27 +115,88 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
-      # tauri-action elige el comando por el lockfile; si ve pnpm-lock.yaml intenta ejecutar "pnpm" (no está en PATH).
-      # Ocultamos pnpm-lock.yaml para que use npm (package-lock.json existe; npm sí está en el runner).
-      - name: use npm for tauri-action
-        run: node -e "const fs=require('fs'); if(fs.existsSync('pnpm-lock.yaml')) fs.renameSync('pnpm-lock.yaml', '.pnpm-lock.yaml.bak');"
+      - name: get release tag
+        id: tag
+        run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            VER=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            echo "tag=v${VER}" >> $GITHUB_OUTPUT
+          fi
 
-      - name: build and publish
-        uses: tauri-apps/tauri-action@v0
+      - name: build Tauri app
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build ${{ matrix.args }}
+
+      - name: list release artifacts
+        id: artifacts
+        run: |
+          echo "list<<EOF" >> $GITHUB_OUTPUT
+          node scripts/glob-release-artifacts.js >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v__VERSION__' }}
-          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('Slaim {0}', github.ref_name) || 'Slaim v__VERSION__' }}
-          releaseBody: "Ver los assets para descargar esta versión e instalar."
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
-          uploadUpdaterJson: true
-          uploadUpdaterSignatures: true
-          updaterJsonPreferNsis: true
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Slaim ${{ steps.tag.outputs.tag }}
+          body: "Ver los assets para descargar esta versión e instalar."
+          draft: true
+          files: ${{ steps.artifacts.outputs.list }}
+
+      - name: generate platform manifest
+        run: node scripts/release-manifest.js ${{ matrix.platform_key }} > manifest.json
+
+      - name: upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ matrix.platform_key }}
+          path: manifest.json
+
+  upload-latest-json:
+    needs: [prepare-version, publish-tauri]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: manifest-*
+          path: manifests
+          merge-multiple: true
+
+      - name: get tag
+        id: tag
+        run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v${{ needs.prepare-version.outputs.new_version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: build latest.json
+        run: |
+          node scripts/build-latest-json.js \
+            "https://github.com/EdinsonNM/slides-for-devs/releases/download" \
+            "${{ steps.tag.outputs.tag }}" \
+            ./manifests \
+            > latest.json
+
+      - name: upload latest.json to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: latest.json
 
   commit-version:
     if: github.ref == 'refs/heads/release' && github.event_name == 'push'
