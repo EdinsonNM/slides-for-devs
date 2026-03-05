@@ -113,6 +113,7 @@ jobs:
 
       - name: get release tag
         id: tag
+        shell: bash
         run: |
           if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
             echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
@@ -129,6 +130,7 @@ jobs:
 
       - name: list release artifacts
         id: artifacts
+        shell: bash
         run: |
           echo "list<<EOF" >> $GITHUB_OUTPUT
           node scripts/glob-release-artifacts.js >> $GITHUB_OUTPUT
@@ -146,6 +148,7 @@ jobs:
           files: ${{ steps.artifacts.outputs.list }}
 
       - name: generate platform manifest
+        shell: bash
         run: node scripts/release-manifest.js ${{ matrix.platform_key }} > manifest.json
 
       - name: upload manifest artifact
