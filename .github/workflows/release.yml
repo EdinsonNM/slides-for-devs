@@ -93,6 +93,9 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
 
+      - name: enable pnpm
+        run: corepack enable
+
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
