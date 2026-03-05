@@ -1,0 +1,150 @@
+# Build and release Slaim (Tauri) for Windows, macOS and Linux.
+# Trigger: push tag v* (e.g. v0.1.0) o push a rama 'release'.
+# - Push a release: sube la versión patch automáticamente, build y publica, y hace commit del nuevo número.
+# - Push de tag v*: publica la versión que tenga tauri.conf.json en ese tag.
+# Requisites: TAURI_SIGNING_PRIVATE_KEY (y opcionalmente TAURI_SIGNING_PRIVATE_KEY_PASSWORD) en secretos del repo.
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release
+    tags:
+      - "v*"
+
+jobs:
+  prepare-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: set or bump version
+        id: version
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/release" ]; then
+            VER=$(node -p "const c=require('./src-tauri/tauri.conf.json'); const v=c.version.split('.'); v[2]=String(Number(v[2]||0)+1); v.join('.')")
+            VER="$VER" node -e "
+              const fs=require('fs');
+              const ver=process.env.VER;
+              const tauri=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
+              tauri.version=ver;
+              fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(tauri,null,2));
+              const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+              pkg.version=ver;
+              fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
+            "
+            echo "Bumped to $VER"
+          else
+            VER=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          fi
+          echo "new_version=$VER" >> $GITHUB_OUTPUT
+
+      - name: upload versioned files
+        uses: actions/upload-artifact@v4
+        with:
+          name: versioned-files
+          path: |
+            src-tauri/tauri.conf.json
+            package.json
+
+  publish-tauri:
+    needs: [prepare-version]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: use versioned files
+        uses: actions/download-artifact@v4
+        with:
+          name: versioned-files
+          path: .
+
+      - name: install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "pnpm"
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: install frontend dependencies
+        run: pnpm install
+
+      - name: build and publish
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v__VERSION__' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('Slaim {0}', github.ref_name) || 'Slaim v__VERSION__' }}
+          releaseBody: "Ver los assets para descargar esta versión e instalar."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          tauriScript: pnpm tauri
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true
+
+  commit-version:
+    if: github.ref == 'refs/heads/release' && github.event_name == 'push'
+    needs: [prepare-version, publish-tauri]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: versioned-files
+          path: .
+
+      - name: commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/tauri.conf.json package.json
+          git diff --staged --quiet || git commit -m "chore(release): v${{ needs.prepare-version.outputs.new_version }} [skip ci]"
+          git push

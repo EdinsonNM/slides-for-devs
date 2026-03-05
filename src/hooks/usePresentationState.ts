@@ -505,6 +505,30 @@ export function usePresentationState() {
     setCurrentSavedId(null);
   };
 
+  const deleteSlideAt = (index: number) => {
+    if (index < 0 || index >= slides.length || slides.length <= 1) return;
+    setSlides((prev) => prev.filter((_, i) => i !== index));
+    setCurrentIndex((prev) => {
+      if (prev === index) return Math.max(0, index - 1);
+      if (prev > index) return prev - 1;
+      return prev;
+    });
+  };
+
+  const insertSlideAfter = (index: number) => {
+    const newSlide: Slide = {
+      id: crypto.randomUUID(),
+      type: "content",
+      title: "Nueva diapositiva",
+      content: "",
+    };
+    setSlides((prev) => {
+      const next = index + 1;
+      return [...prev.slice(0, next), newSlide, ...prev.slice(next)];
+    });
+    setCurrentIndex(index + 1);
+  };
+
   const nextSlide = () => {
     if (currentIndex < slides.length - 1) setCurrentIndex(currentIndex + 1);
   };
@@ -735,6 +759,8 @@ export function usePresentationState() {
     handleOpenSaved,
     handleDeleteSaved,
     goHome,
+    deleteSlideAt,
+    insertSlideAfter,
     nextSlide,
     prevSlide,
     openImageModal,

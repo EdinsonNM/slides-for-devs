@@ -1,4 +1,5 @@
-import { ChevronLeft, PanelLeftOpen } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, PanelLeftOpen, Trash2, Plus } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 
@@ -11,7 +12,27 @@ export function SlideSidebar() {
     setCurrentIndex,
     isSidebarOpen,
     setIsSidebarOpen,
+    deleteSlideAt,
+    insertSlideAfter,
   } = usePresentation();
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    index: number;
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      close();
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [contextMenu]);
 
   if (!isSidebarOpen) {
     return (
@@ -44,11 +65,18 @@ export function SlideSidebar() {
           <ChevronLeft size={16} />
         </button>
       </div>
-      <div className="p-2 space-y-2 overflow-y-auto">
+      <div className="p-2 space-y-2 overflow-y-auto relative">
         {slides.map((slide, index) => (
           <button
             key={slide.id}
-            onClick={() => setCurrentIndex(index)}
+            onClick={() => {
+              setContextMenu(null);
+              setCurrentIndex(index);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY, index });
+            }}
             className={cn(
               "w-full aspect-video rounded-lg border-2 transition-all overflow-hidden relative group shrink-0",
               currentIndex === index
@@ -74,6 +102,43 @@ export function SlideSidebar() {
           </button>
         ))}
       </div>
+
+      {contextMenu !== null && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[180px] py-1 bg-white border border-stone-200 rounded-lg shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              insertSlideAfter(contextMenu.index);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-100 flex items-center gap-2"
+          >
+            <Plus size={14} />
+            Añadir diapositiva después
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              deleteSlideAt(contextMenu.index);
+              setContextMenu(null);
+            }}
+            disabled={slides.length <= 1}
+            className={cn(
+              "w-full px-3 py-2 text-left text-sm flex items-center gap-2",
+              slides.length <= 1
+                ? "text-stone-400 cursor-not-allowed"
+                : "text-red-700 hover:bg-red-50"
+            )}
+          >
+            <Trash2 size={14} />
+            Eliminar
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

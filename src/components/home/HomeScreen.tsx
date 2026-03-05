@@ -87,18 +87,18 @@ export function HomeScreen(props: HomeScreenProps) {
             </p>
           </div>
           <form onSubmit={handleGenerate} className="relative group">
-            <input
-              type="text"
+            <textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="¿Sobre qué quieres hablar hoy?"
-              className="w-full px-8 py-6 bg-white rounded-2xl shadow-sm border border-stone-200 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all pr-32"
+              placeholder="¿Sobre qué quieres hablar hoy? Puedes escribir varias líneas."
+              rows={3}
+              className="w-full px-8 py-6 bg-white rounded-2xl shadow-sm border border-stone-200 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all pr-32 resize-y min-h-[88px]"
               disabled={isLoading}
             />
             <button
               type="submit"
               disabled={isLoading || !topic.trim()}
-              className="absolute right-3 top-3 bottom-3 px-6 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="absolute right-3 bottom-3 px-6 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isLoading ? (
                 <Loader2 className="animate-spin" size={20} />

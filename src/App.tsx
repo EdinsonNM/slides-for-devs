@@ -4,6 +4,7 @@ import {
   hasAnyApiConfiguredSync,
   hasAnyApiConfiguredAsync,
 } from "./services/apiConfig";
+import { checkForAppUpdates } from "./services/updater";
 import { Header } from "./components/layout/Header";
 import { SlideSidebar } from "./components/layout/SlideSidebar";
 import { HomeScreen } from "./components/home/HomeScreen";
@@ -47,6 +48,13 @@ export default function App() {
     if (apiConfigured !== null) return;
     hasAnyApiConfiguredAsync().then(setApiConfigured);
   }, [apiConfigured]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      checkForAppUpdates();
+    }, 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   if (isPresenterWindow) {
     return <PresenterView />;
