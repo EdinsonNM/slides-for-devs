@@ -4,8 +4,8 @@
  * Uso: node scripts/build-latest-json.js <releasesBaseUrl> <tag> <dirWithManifests>
  * Ej: node scripts/build-latest-json.js https://github.com/EdinsonNM/slides-for-devs/releases/download v0.1.0 ./manifests
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const baseUrl = process.argv[2];
 const tag = process.argv[3];

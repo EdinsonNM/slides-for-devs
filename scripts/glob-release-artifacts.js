@@ -3,9 +3,11 @@
  * Lista los artefactos de build de Tauri para subir al release.
  * Salida: una ruta por línea (relativa a la raíz del repo).
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const targetRoot = path.join(__dirname, '..', 'src-tauri', 'target');
 const ext = ['.exe', '.sig', '.tar.gz', '.AppImage'];
 const seen = new Set();

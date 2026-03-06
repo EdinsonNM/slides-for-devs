@@ -3,9 +3,11 @@
  * Uso: node scripts/release-manifest.js <platformKey>
  * Escribe a stdout: { platform, version, assets: [{ name, signature }] }
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const platformKey = process.argv[2];
 if (!platformKey) {
   process.stderr.write('Usage: node release-manifest.js <platformKey>\n');
