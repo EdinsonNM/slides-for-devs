@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Slaim",
-  "version": "0.1.0",
+  "productName": "slai",
+  "version": "0.1.1",
   "identifier": "com.slaim.app",
   "build": {
     "frontendDist": "../dist",
@@ -22,7 +22,9 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {
