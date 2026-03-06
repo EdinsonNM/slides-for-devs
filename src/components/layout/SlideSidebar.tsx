@@ -88,17 +88,50 @@ export function SlideSidebar() {
               <span className="text-[8px] uppercase tracking-widest text-stone-400 mb-0.5">
                 {index + 1}
               </span>
-              <span className="text-[10px] font-medium text-stone-900 line-clamp-2 text-left leading-tight">
-                {slide.title}
-              </span>
-              <div className="mt-auto flex gap-1">
-                <div className="h-0.5 w-6 bg-stone-200 rounded-full" />
-                <div className="h-0.5 w-3 bg-stone-200 rounded-full" />
-              </div>
+              {slide.type === "chapter" ? (
+                <>
+                  <span className="text-[10px] font-medium text-stone-900 line-clamp-2 text-center leading-tight flex-1 flex items-center justify-center px-0.5">
+                    {slide.title}
+                  </span>
+                  <div className="flex justify-center gap-1">
+                    <div className="h-0.5 w-3 bg-stone-200 rounded-full animate-pulse" />
+                    <div className="h-0.5 w-8 bg-stone-200 rounded-full animate-pulse" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex gap-1 min-h-0">
+                  <div className="flex-1 flex flex-col gap-0.5 min-w-0 min-h-0">
+                    <span className="text-[10px] font-medium text-stone-900 line-clamp-2 text-left leading-tight">
+                      {slide.title}
+                    </span>
+                    <div className="h-0.5 w-full max-w-[70%] bg-stone-100 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[85%] bg-stone-100 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[60%] bg-stone-100 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[75%] bg-stone-100 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[90%] bg-stone-100 rounded animate-pulse" />
+                    <div className="h-0.5 w-10 bg-stone-100 rounded animate-pulse mt-auto" />
+                  </div>
+                  <div
+                    className={cn(
+                      "rounded shrink-0 overflow-hidden",
+                      !slide.imageUrl && "bg-stone-100 animate-pulse",
+                      !slide.imageUrl && slide.contentType === "code" && "bg-amber-100/80",
+                      !slide.imageUrl && slide.contentType === "video" && "bg-sky-100/80"
+                    )}
+                    style={{ width: "36%" }}
+                  >
+                    {slide.imageUrl ? (
+                      <img
+                        src={slide.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              )}
             </div>
-            {slide.imageUrl && (
-              <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
-            )}
           </button>
         ))}
       </div>
