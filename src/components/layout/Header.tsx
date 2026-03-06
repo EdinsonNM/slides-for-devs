@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import {
   ChevronLeft,
   FolderOpen,
@@ -19,6 +20,7 @@ export function Header(props: HeaderProps) {
   const { onOpenConfig } = props;
   const {
     topic,
+    setTopic,
     goHome,
     openSavedListModal,
     slides,
@@ -35,6 +37,27 @@ export function Header(props: HeaderProps) {
     presentationModels,
   } = usePresentation();
 
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState(topic || "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditTitleValue(topic || "");
+  }, [topic]);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditingTitle]);
+
+  const saveTitle = () => {
+    const trimmed = editTitleValue.trim();
+    setTopic(trimmed || "");
+    setIsEditingTitle(false);
+  };
+
   return (
     <header className="h-14 bg-white border-b border-stone-200 px-4 flex items-center justify-between z-10 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
@@ -45,9 +68,37 @@ export function Header(props: HeaderProps) {
         >
           <ChevronLeft size={18} />
         </button>
-        <h2 className="font-serif italic text-lg text-stone-900 truncate">
-          {topic || "Nueva presentación"}
-        </h2>
+        {isEditingTitle ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editTitleValue}
+            onChange={(e) => setEditTitleValue(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveTitle();
+              }
+              if (e.key === "Escape") {
+                setEditTitleValue(topic || "");
+                setIsEditingTitle(false);
+                inputRef.current?.blur();
+              }
+            }}
+            className="font-serif italic text-lg text-stone-900 bg-stone-50 border border-stone-300 rounded px-2 py-0.5 min-w-0 max-w-[40vw] focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+            placeholder="Título de la presentación"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsEditingTitle(true)}
+            className="font-serif italic text-lg text-stone-900 truncate text-left hover:bg-stone-50 rounded px-1 py-0.5 -mx-1 min-w-0 max-w-[40vw]"
+            title="Clic para cambiar el título"
+          >
+            {topic || "Nueva presentación"}
+          </button>
+        )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <select

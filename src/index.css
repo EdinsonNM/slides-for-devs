@@ -64,6 +64,13 @@
   background: rgba(120, 113, 108, 0.4);
 }
 
+.carousel-no-scrollbar {
+  scrollbar-width: none;
+}
+.carousel-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Tipografía responsiva: escala con el viewport (contenedor fijo para no escalar la sección de imagen) */
 .slide-content {
   --slide-title-chapter: clamp(2rem, 5vw, 4.5rem);

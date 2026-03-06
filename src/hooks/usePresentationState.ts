@@ -94,6 +94,8 @@ export function usePresentationState() {
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
   const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
+  const [coverImageCache, setCoverImageCache] = useState<Record<string, string>>({});
   const [presentationModelId, setPresentationModelId] = useState(
     DEFAULT_PRESENTATION_MODEL_ID
   );
@@ -477,6 +479,10 @@ export function usePresentationState() {
       setCurrentIndex(0);
       setCurrentSavedId(saved.id);
       setShowSavedListModal(false);
+      const firstImage = saved.slides[0]?.imageUrl;
+      if (firstImage) {
+        setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
+      }
     } catch (e) {
       console.error(e);
       alert("No se pudo abrir la presentación.");
@@ -493,9 +499,60 @@ export function usePresentationState() {
         setSlides([]);
       }
       setSavedList((prev) => prev.filter((p) => p.id !== id));
+      setCoverImageCache((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (e) {
       console.error(e);
       alert("Error al eliminar.");
+    }
+  };
+
+  const handleGenerateCoverForPresentation = async (id: string) => {
+    setGeneratingCoverId(id);
+    try {
+      const saved = await loadPresentation(id);
+      if (!saved.slides.length) {
+        alert("Esta presentación no tiene diapositivas.");
+        return;
+      }
+      const firstSlide = saved.slides[0];
+      const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
+      const coverPrompt = "Portada profesional y moderna para esta presentación, estilo minimalista y atractivo, sin texto.";
+      const imageUrl =
+        imageProvider === "openai"
+          ? await generateImageOpenAI(
+              slideContext,
+              coverPrompt,
+              selectedStyle.prompt,
+              includeBackground
+            )
+          : await generateImage(
+              slideContext,
+              coverPrompt,
+              selectedStyle.prompt,
+              includeBackground,
+              geminiImageModelId
+            );
+      if (imageUrl) {
+        const updatedSlides = [...saved.slides];
+        updatedSlides[0] = {
+          ...firstSlide,
+          imageUrl,
+          imagePrompt: coverPrompt,
+        };
+        await updatePresentation(id, { topic: saved.topic, slides: updatedSlides });
+        setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
+      } else {
+        alert("No se pudo generar la imagen. Comprueba tu API key de Gemini o OpenAI.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error al generar la portada. Comprueba la consola y tu configuración de API.");
+    } finally {
+      setGeneratingCoverId(null);
     }
   };
 
@@ -758,6 +815,9 @@ export function usePresentationState() {
     openSavedListModal,
     handleOpenSaved,
     handleDeleteSaved,
+    generatingCoverId,
+    handleGenerateCoverForPresentation,
+    coverImageCache,
     goHome,
     deleteSlideAt,
     insertSlideAfter,
