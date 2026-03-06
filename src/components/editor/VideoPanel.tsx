@@ -1,13 +1,6 @@
 import { Video, Pencil } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
-
-function getEmbedUrl(url: string): string {
-  if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const v = url.split("v=")[1]?.split("&")[0] || url.split("/").pop();
-    return `https://www.youtube.com/embed/${v}`;
-  }
-  return url;
-}
+import { getEmbedUrl } from "../../utils/video";
 
 export function VideoPanel() {
   const { currentSlide, setVideoUrlInput, setShowVideoModal } =

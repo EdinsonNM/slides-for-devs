@@ -186,7 +186,7 @@ export function CodeBlock() {
                   setIsEditing(false);
                 }
               }}
-              className="w-full min-h-[80px] bg-transparent text-stone-300 p-4 border-none focus:outline-none resize-none leading-relaxed block"
+              className="w-full h-full min-h-[80px] bg-transparent text-stone-300 p-4 border-none focus:outline-none resize-none leading-relaxed block"
               style={{ fontSize: `${editFontSize}px` }}
               placeholder="// Escribe tu código aquí... (Ctrl+Enter para guardar)"
             />

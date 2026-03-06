@@ -37,4 +37,10 @@ export const IMAGE_STYLES: ImageStyle[] = [
     prompt:
       "estilo cartoon 2D profesional, no realista, no 3D, no anime, no hiperrealista, no acuarela, no sketch, sin textura fotográfica, estilo limpio y plano con sombreado simple",
   },
+  {
+    id: "realistic-diagram",
+    name: "Diagrama realista",
+    prompt:
+      "diagrama 2D estilo Excalidraw, dibujo a mano alzada, líneas sketch suaves, cajas rectangulares redondeadas, flechas y conectores, fondo blanco o claro, aspecto hand-drawn limpio, sin 3D ni sombras pesadas, ideal para flujos, arquitectura y esquemas técnicos",
+  },
 ];

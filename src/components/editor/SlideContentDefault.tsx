@@ -1,8 +1,7 @@
-import ReactMarkdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
 import { Pencil, Check, Save, RefreshCw, Split } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideRightPanel } from "./SlideRightPanel";
 
 export function SlideContentDefault() {
@@ -86,17 +85,20 @@ export function SlideContentDefault() {
             </button>
           </div>
         </div>
-        <div className="flex-1 prose prose-stone max-w-none prose-p:text-stone-600 prose-li:text-stone-600 overflow-y-auto pr-4 custom-scrollbar">
+        <div
+          className={cn(
+            "flex-1 min-h-0 pr-4 flex flex-col",
+            !isEditing && "overflow-y-auto custom-scrollbar"
+          )}
+        >
           {isEditing ? (
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full h-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none font-sans text-lg"
+              className="flex-1 min-h-0 w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none font-sans text-lg"
             />
           ) : (
-            <ReactMarkdown remarkPlugins={[remarkBreaks]}>
-              {formatMarkdown(currentSlide.content)}
-            </ReactMarkdown>
+            <SlideMarkdown>{formatMarkdown(currentSlide.content)}</SlideMarkdown>
           )}
         </div>
         {isEditing && (
