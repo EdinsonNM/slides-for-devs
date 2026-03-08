@@ -25,7 +25,7 @@ export async function generateImageOpenAI(
     "The image must NOT contain any text, labels, words or characters. Only purely visual elements.";
   const backgroundRule = includeBackground
     ? ""
-    : " Show the subject on a plain white or transparent background, no scenery or environment.";
+    : " Show the subject on a plain white background only, no scenery, environment or transparency.";
   const fullPrompt = `Slide context: ${slideContext}. 
 Additional details: ${userPrompt}. 
 Visual style: ${stylePrompt}.${backgroundRule}
@@ -66,7 +66,8 @@ const DEFAULT_SLIDES = 10;
 
 const PRESENTATION_SYSTEM = `Eres un experto en crear presentaciones. Genera siempre un JSON válido con un objeto que tenga una clave "slides" que sea un array de diapositivas.
 Cada diapositiva tiene: id (string), type ("content" o "chapter"), title (string), content (string, markdown), imagePrompt (string, opcional), subtitle (string, opcional).
-Las de tipo "chapter" tienen solo título impactante; las de tipo "content" tienen title, content en markdown e imagePrompt para ilustrar.`;
+Las de tipo "chapter" tienen solo título impactante; las de tipo "content" tienen title, content en markdown e imagePrompt para ilustrar.
+En el campo content (markdown) es OBLIGATORIO: para títulos o subtítulos de sección usa encabezados con numeral (# ## ###), por ejemplo "## Problemas Comunes" o "### Detalles"; no uses "* **Título:**" como subtítulo. Cada viñeta (* o -) y cada ítem numerado (1. 2. 3.) en su propia línea. Usa ** solo para destacar términos dentro de una línea, no para encabezados. Ejemplo: "## Sección\\n* **A:** texto\\n* **B:** texto".`;
 
 /**
  * Pide al modelo que interprete cuántas diapositivas quiere el usuario.
@@ -140,6 +141,7 @@ export async function generatePresentationOpenAI(
   const userContent = `Genera una presentación profesional sobre: "${topic}".
 ${countInstruction}
 Estructura: 1 diapositiva 'chapter' de título, luego diapositivas 'content' con title, content (markdown) e imagePrompt. Puedes usar más 'chapter' para separar secciones. Una 'content' de conclusión. El array "slides" debe contener ${explicitCount ? `exactamente ${requestedCount} elementos` : "entre 8 y 12 elementos"}.
+En "content" usa encabezados con # ## ### para títulos/subtítulos de sección (no uses "* **Título:**" como subtítulo). Una viñeta o ítem numerado por línea.
 Responde ÚNICAMENTE un JSON con esta forma: { "slides": [ { "id": "...", "type": "content"|"chapter", "title": "...", "content": "...", "imagePrompt": "..." }, ... ] }`;
 
   const res = await fetch(CHAT_URL, {

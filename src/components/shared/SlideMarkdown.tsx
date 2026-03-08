@@ -1,6 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 import { cn } from "../../utils/cn";
 
 interface SlideMarkdownProps {
@@ -11,13 +12,22 @@ interface SlideMarkdownProps {
 }
 
 /**
- * Wrapper consistente de ReactMarkdown + remarkBreaks para contenido de slides.
- * Usado en editor, preview y presentador.
+ * Wrapper consistente de ReactMarkdown + remarkBreaks + remarkGfm para contenido de slides.
+ * Soporta listas, negritas, tablas, tachado y saltos de línea. Usado en editor, preview y presentador.
  */
 export function SlideMarkdown({ children, className, components }: SlideMarkdownProps) {
   return (
-    <div className={cn("prose prose-stone max-w-none prose-p:text-stone-600 prose-li:text-stone-600", className)}>
-      <ReactMarkdown remarkPlugins={[remarkBreaks]} components={components}>
+    <div
+      className={cn(
+        "prose prose-stone max-w-none",
+        "prose-p:text-stone-600 prose-li:text-stone-600 prose-ul:my-3 prose-ol:my-3 prose-li:my-1",
+        "prose-h1:font-bold prose-h1:text-stone-900 prose-h1:mt-4 prose-h1:mb-2",
+        "prose-h2:font-semibold prose-h2:text-stone-800 prose-h2:mt-4 prose-h2:mb-2 prose-h2:text-xl",
+        "prose-h3:font-semibold prose-h3:text-stone-800 prose-h3:mt-3 prose-h3:mb-1 prose-h3:text-lg",
+        className
+      )}
+    >
+      <ReactMarkdown remarkPlugins={[remarkBreaks, remarkGfm]} components={components}>
         {children}
       </ReactMarkdown>
     </div>

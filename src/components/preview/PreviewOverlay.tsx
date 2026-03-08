@@ -179,7 +179,7 @@ export function PreviewOverlay() {
           onClose={() => setIsPreviewMode(false)}
         />
 
-        <div className="flex-1 flex items-center justify-center p-12">
+        <div className="flex-1 flex items-end justify-center p-12 min-h-0">
           <PreviewSlideContent
             slide={currentSlide}
             formatMarkdown={formatMarkdown}

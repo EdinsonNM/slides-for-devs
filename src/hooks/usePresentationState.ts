@@ -135,6 +135,12 @@ export function usePresentationState() {
     }
   }, [presentationModels, presentationModelId]);
 
+  // Sincronizar proveedor de imagen con API keys disponibles (no mostrar opción sin key)
+  useEffect(() => {
+    if (imageProvider === "openai" && !hasOpenAI) setImageProvider("gemini");
+    if (imageProvider === "gemini" && !hasGemini) setImageProvider("openai");
+  }, [hasGemini, hasOpenAI]);
+
   // Migrar presentaciones en JSON (formato antiguo) a SQLite una vez al cargar
   useEffect(() => {
     migrateJsonPresentations().catch(() => {});
@@ -475,7 +481,12 @@ export function usePresentationState() {
     try {
       const saved = await loadPresentation(id);
       setTopic(saved.topic);
-      setSlides(saved.slides);
+      setSlides(
+        saved.slides.map((s) => ({
+          ...s,
+          content: formatMarkdown(s.content ?? ""),
+        }))
+      );
       setCurrentIndex(0);
       setCurrentSavedId(saved.id);
       setShowSavedListModal(false);
@@ -597,6 +608,24 @@ export function usePresentationState() {
   const openImageModal = () => {
     setImagePrompt(currentSlide?.imagePrompt || "");
     setShowImageModal(true);
+  };
+
+  const handleImageUpload = (file: File) => {
+    if (!currentSlide) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setSlides((prev) => {
+        const updated = [...prev];
+        updated[currentIndex] = {
+          ...currentSlide,
+          imageUrl: dataUrl,
+        };
+        return updated;
+      });
+      setShowImageModal(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const openCodeGenModal = () => {
@@ -824,6 +853,9 @@ export function usePresentationState() {
     nextSlide,
     prevSlide,
     openImageModal,
+    handleImageUpload,
+    hasGemini,
+    hasOpenAI,
     showCodeGenModal,
     setShowCodeGenModal,
     codeGenPrompt,

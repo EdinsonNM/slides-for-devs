@@ -79,7 +79,12 @@ export async function generatePresentation(
     Las diapositivas de tipo 'chapter' solo tienen un título central impactante.
     Las diapositivas de tipo 'content' tienen:
     - title: Un título claro.
-    - content: Desarrollo en formato markdown (usa viñetas, negritas, etc.).
+    - content: Desarrollo en formato markdown. REGLAS ESTRICTAS para content:
+      * Títulos y subtítulos de sección: usa encabezados markdown con numeral (# ## ###), NO asteriscos. Ejemplo: "## Problemas Comunes" o "### Detalles". # = nivel principal, ## = subtítulo, ### = sub-subtítulo.
+      * Cada viñeta o elemento de lista debe ir en su propia línea (usa salto de línea \\n entre ítems).
+      * Listas con asterisco: una línea por ítem, por ejemplo "\\n* **Punto 1**\\n* **Punto 2**". Usa ** solo para destacar términos dentro de una línea, no como sustituto de encabezados.
+      * Sublistas numeradas: cada número en su propia línea, por ejemplo "\\n1. **Uno**\\n2. **Dos**".
+      * No concatenes varios ítems en una sola línea. No uses "* **Título de sección:**" para subtítulos; usa "## Título de sección" o "### Título de sección".
     - imagePrompt: Una descripción detallada para generar una imagen artística o técnica que ilustre el contenido.
     
     Responde estrictamente en formato JSON.`,
@@ -131,7 +136,7 @@ export async function generateImage(
     "REGLA OBLIGATORIA: La imagen NO debe contener ningún texto, leyendas, etiquetas, palabras ni caracteres. Solo elementos puramente visuales e ilustrativos.";
   const backgroundRule = includeBackground
     ? ""
-    : " La imagen debe mostrarse SIN fondo decorativo: fondo transparente o blanco puro, solo el sujeto o concepto principal, sin escenario, ambiente ni elementos de fondo. Ignora cualquier indicación de fondo en el estilo.";
+    : " La imagen debe mostrarse con fondo blanco puro únicamente: solo el sujeto o concepto principal sobre fondo blanco, sin transparencia, sin escenario ni elementos de fondo. Ignora cualquier indicación de fondo en el estilo.";
   const fullPrompt = `Contexto de la diapositiva: ${slideContext}. 
   Características adicionales solicitadas: ${userPrompt}. 
   Estilo visual: ${stylePrompt}.${backgroundRule}
@@ -206,15 +211,20 @@ export async function splitSlide(
 ): Promise<Slide[]> {
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: `El usuario quiere profundizar en el tema de esta diapositiva y dividirla en 2 o más diapositivas.
-    Diapositiva original:
-    Título: ${slide.title}
-    Contenido: ${slide.content}
-    
-    Instrucción del usuario: ${prompt}
-    
-    Genera un array de nuevas diapositivas (tipo 'content') que expandan este tema.
-    Responde estrictamente en formato JSON.`,
+    contents: `El usuario quiere DIVIDIR esta diapositiva en 2 o más, según su instrucción. Tu tarea es SEPARAR el contenido existente, no reescribirlo ni ampliarlo.
+
+Diapositiva original:
+Título: ${slide.title}
+Contenido: ${slide.content}
+
+Instrucción del usuario (cómo quiere dividir): ${prompt}
+
+REGLAS ESTRICTAS:
+1. Mantén la esencia y el texto original: reparte el contenido entre las nuevas diapositivas conservando las frases, viñetas e ideas tal cual. No parafrasees, no expandas ni "mejores" el contenido.
+2. Solo añade texto (por ejemplo una frase introductoria corta) si es estrictamente necesario para que una diapositiva quede coherente; en ese caso añade lo mínimo.
+3. Cada diapositiva nueva debe tener un título que refleje su parte del contenido; el contenido debe ser exactamente la porción correspondiente del original, sin inventar puntos nuevos.
+4. Formato markdown en cada 'content': encabezados con # ## ### para subtítulos; cada viñeta (* o -) y cada ítem numerado (1. 2. 3.) en su propia línea. Usa ** solo para énfasis dentro de una línea.
+Responde estrictamente en formato JSON (array de objetos con id, type: "content", title, content, imagePrompt).`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -260,6 +270,7 @@ export async function rewriteSlide(
     
     Instrucción del usuario: ${prompt}
     
+    El campo 'content' debe ser markdown bien formateado: para títulos o subtítulos de sección usa encabezados con numeral (# ## ###), por ejemplo "## Problemas Comunes" o "### Detalles"; no uses "* **Título:**" como subtítulo. Cada viñeta (* o -) y cada ítem numerado (1. 2. 3.) en su propia línea. Usa ** solo para destacar términos dentro de una línea, no para encabezados.
     Responde estrictamente en formato JSON con las propiedades 'title' y 'content'.`,
     config: {
       responseMimeType: "application/json",

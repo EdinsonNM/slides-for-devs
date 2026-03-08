@@ -16,8 +16,21 @@
   @apply text-stone-600 leading-relaxed;
 }
 
+.prose ul,
+.prose ol {
+  @apply list-inside space-y-2;
+}
 .prose ul {
-  @apply list-disc list-inside space-y-2;
+  @apply list-disc;
+}
+.prose ol {
+  @apply list-decimal;
+}
+.prose p + ul,
+.prose p + ol,
+.prose ul + p,
+.prose ol + p {
+  @apply mt-2;
 }
 
 /* Scrollbar minimalista global (WebKit) */
