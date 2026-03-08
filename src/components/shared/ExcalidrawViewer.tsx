@@ -13,7 +13,7 @@ export interface ExcalidrawViewerProps {
   excalidrawData?: string;
   /** Clase CSS para el contenedor */
   className?: string;
-  /** Si true, al cargar hace fit del contenido en la vista y centra (vista previa) */
+  /** Si true, al cargar centra el contenido en la vista manteniendo zoom al 100% (vista previa) */
   fitToViewOnLoad?: boolean;
 }
 
@@ -53,7 +53,7 @@ export function ExcalidrawViewer({
         excalidrawAPI={(api) => {
           if (fitToViewOnLoad && api?.scrollToContent) {
             setTimeout(() => {
-              api.scrollToContent(undefined, { fitToViewport: true, animate: true });
+              api.scrollToContent(undefined, { animate: true });
             }, 80);
           }
         }}
