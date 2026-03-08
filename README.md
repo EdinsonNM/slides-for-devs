@@ -92,4 +92,4 @@ El flujo de release se dispara con push a la rama `release` o con un tag `v*`. L
 
 ## Licencia
 
-Privado / según configuración del repositorio.
+Este proyecto está bajo la [licencia MIT](LICENSE): uso libre (uso, copia, modificación, distribución) manteniendo el aviso de copyright y de la licencia. Los derechos del autor se conservan.
