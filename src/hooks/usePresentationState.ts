@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { Slide, SlideType, ImageStyle, SavedCharacter, SavedPresentationMeta } from "../types";
 import { formatMarkdown } from "../utils/markdown";
 import {
@@ -101,6 +101,8 @@ export function usePresentationState() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
   const [coverImageCache, setCoverImageCache] = useState<Record<string, string>>({});
+  /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
+  const diagramFlushRef = useRef<(() => string | null) | null>(null);
   const [presentationModelId, setPresentationModelId] = useState(
     DEFAULT_PRESENTATION_MODEL_ID
   );
@@ -296,20 +298,31 @@ export function usePresentationState() {
     });
   };
 
-  /** Cambia el tipo de la diapositiva actual: capítulo (solo título) o contenido. */
+  /** Cambia el tipo de la diapositiva actual: capítulo, contenido o diagrama. */
   const setCurrentSlideType = (type: SlideType) => {
     if (!currentSlide || currentSlide.type === type) return;
     setSlides((prev) => {
       const updated = [...prev];
       const next = { ...currentSlide, type };
-      if (type === "chapter") {
+      if (type === "chapter" || type === "diagram") {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
+        if (type === "diagram" && !next.excalidrawData) next.excalidrawData = "{}";
       } else {
         if (!next.contentType) next.contentType = "image";
         if (!next.contentLayout) next.contentLayout = "split";
       }
       updated[currentIndex] = next;
+      return updated;
+    });
+  };
+
+  /** Actualiza los datos del diagrama Excalidraw de la diapositiva actual. Solo para type "diagram". */
+  const setCurrentSlideExcalidrawData = (data: string) => {
+    if (!currentSlide || currentSlide.type !== "diagram") return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, excalidrawData: data };
       return updated;
     });
   };
@@ -350,6 +363,7 @@ export function usePresentationState() {
           : await generatePresentation(topic, presentationModelId);
       const cleanedSlides = generatedSlides.map((slide) => ({
         ...slide,
+        id: crypto.randomUUID(),
         content: formatMarkdown(slide.content),
       }));
       setSlides(cleanedSlides);
@@ -452,6 +466,7 @@ export function usePresentationState() {
       if (newSlides.length > 0) {
         const cleanedNewSlides = newSlides.map((slide) => ({
           ...slide,
+          id: crypto.randomUUID(),
           content: formatMarkdown(slide.content),
         }));
         setSlides((prev) => {
@@ -513,14 +528,25 @@ export function usePresentationState() {
     setVideoUrlInput("");
   };
 
+  const flushDiagramPending = useCallback((): string | null => {
+    return diagramFlushRef.current?.() ?? null;
+  }, []);
+
   const handleSave = async () => {
     if (slides.length === 0) return;
+    const pendingDiagram = flushDiagramPending();
+    const slidesToSave =
+      pendingDiagram != null && currentSlide?.type === "diagram"
+        ? slides.map((s, i) =>
+            i === currentIndex ? { ...s, excalidrawData: pendingDiagram } : s
+          )
+        : slides;
     setIsSaving(true);
     setSaveMessage(null);
     try {
       const presentation = {
         topic: topic || "Sin título",
-        slides,
+        slides: slidesToSave,
         characterId: selectedCharacterId ?? undefined,
       };
       if (currentSavedId) {
@@ -558,6 +584,7 @@ export function usePresentationState() {
       setSlides(
         saved.slides.map((s) => ({
           ...s,
+          id: crypto.randomUUID(),
           content: formatMarkdown(s.content ?? ""),
         }))
       );
@@ -960,6 +987,8 @@ export function usePresentationState() {
     generateCharacterPreview,
     isPreviewMode,
     setIsPreviewMode,
+    diagramFlushRef,
+    flushDiagramPending,
     isEditing,
     setIsEditing,
     editTitle,
@@ -991,6 +1020,7 @@ export function usePresentationState() {
     handleSaveManualEdit,
     toggleContentType,
     setCurrentSlideType,
+    setCurrentSlideExcalidrawData,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     handleGenerate,

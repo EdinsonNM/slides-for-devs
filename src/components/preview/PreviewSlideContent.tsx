@@ -3,6 +3,7 @@ import { Image as ImageIcon } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { CodeDisplay } from "../shared/CodeDisplay";
+import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
 import { getEmbedUrl } from "../../utils/video";
 import type { Slide } from "../../types";
 
@@ -27,7 +28,10 @@ export function PreviewSlideContent({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       className={cn(
-        "preview-slide w-full max-w-7xl 2xl:max-w-[1600px] aspect-video bg-white flex relative max-h-full min-h-0",
+        "preview-slide bg-white flex relative min-h-0",
+        slide.type === "diagram"
+          ? "w-full h-full max-w-none flex-col"
+          : "w-full max-w-7xl 2xl:max-w-[1600px] aspect-video max-h-full",
         slide.type === "chapter" ? "justify-center items-center" : ""
       )}
     >
@@ -48,6 +52,15 @@ export function PreviewSlideContent({
               {slide.subtitle}
             </p>
           )}
+        </div>
+      ) : slide.type === "diagram" ? (
+        <div className="flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden relative">
+          <ExcalidrawViewer
+            key={`${slide.id}-${slide.excalidrawData ? "dirty" : "empty"}`}
+            excalidrawData={slide.excalidrawData}
+            className="absolute inset-0 w-full h-full"
+            fitToViewOnLoad
+          />
         </div>
       ) : (
         <>

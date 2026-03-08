@@ -179,7 +179,13 @@ export function PreviewOverlay() {
           onClose={() => setIsPreviewMode(false)}
         />
 
-        <div className="flex-1 flex items-center justify-center p-12 min-h-0">
+        <div
+          className={
+            currentSlide.type === "diagram"
+              ? "flex-1 flex min-h-0 min-w-0 w-full"
+              : "flex-1 flex items-center justify-center p-12 min-h-0"
+          }
+        >
           <PreviewSlideContent
             slide={currentSlide}
             formatMarkdown={formatMarkdown}
@@ -188,7 +194,7 @@ export function PreviewOverlay() {
         </div>
 
         <div
-          className="absolute inset-y-0 left-0 w-32 cursor-pointer group flex items-center justify-center"
+          className="absolute inset-y-0 left-0 w-32 cursor-pointer group flex items-center justify-center z-10 pointer-events-auto"
           onClick={prevSlide}
         >
           <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
@@ -196,7 +202,7 @@ export function PreviewOverlay() {
           </div>
         </div>
         <div
-          className="absolute inset-y-0 right-0 w-32 cursor-pointer group flex items-center justify-center"
+          className="absolute inset-y-0 right-0 w-32 cursor-pointer group flex items-center justify-center z-10 pointer-events-auto"
           onClick={nextSlide}
         >
           <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">

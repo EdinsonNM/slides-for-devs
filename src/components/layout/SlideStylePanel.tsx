@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { X, Image as ImageIcon, Code2, Video } from "lucide-react";
+import { X, Image as ImageIcon, Code2, Video, PencilRuler } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 
@@ -42,14 +42,26 @@ function PreviewContentFull() {
   );
 }
 
+/** Miniatura: diagrama Excalidraw */
+function PreviewDiagram() {
+  return (
+    <div className="w-full aspect-video bg-white border border-stone-200 rounded-lg overflow-hidden flex items-center justify-center p-1">
+      <div className="w-full h-full border border-dashed border-stone-300 rounded flex items-center justify-center">
+        <PencilRuler className="w-6 h-6 text-stone-400" />
+      </div>
+    </div>
+  );
+}
+
 const TEMPLATES: {
-  id: "title" | "content-split" | "content-full";
+  id: "title" | "content-split" | "content-full" | "diagram";
   label: string;
   Preview: () => JSX.Element;
 }[] = [
   { id: "title", label: "Título", Preview: PreviewTitle },
   { id: "content-split", label: "Contenido (con panel)", Preview: PreviewContentSplit },
   { id: "content-full", label: "Contenido (solo texto)", Preview: PreviewContentFull },
+  { id: "diagram", label: "Diagrama", Preview: PreviewDiagram },
 ];
 
 export function SlideStylePanel() {
@@ -66,14 +78,16 @@ export function SlideStylePanel() {
   if (!showSlideStylePanel || !currentSlide || slides.length === 0) return null;
 
   const isTitle = currentSlide.type === "chapter";
+  const isDiagram = currentSlide.type === "diagram";
   const isContentSplit =
     currentSlide.type === "content" && (currentSlide.contentLayout ?? "split") === "split";
   const isContentFull =
     currentSlide.type === "content" && currentSlide.contentLayout === "full";
   const contentType = currentSlide.contentType ?? "image";
 
-  const getSelectedId = () => {
+  const getSelectedId = (): (typeof TEMPLATES)[number]["id"] => {
     if (isTitle) return "title";
+    if (isDiagram) return "diagram";
     if (isContentFull) return "content-full";
     return "content-split";
   };
@@ -108,6 +122,7 @@ export function SlideStylePanel() {
               type="button"
               onClick={() => {
                 if (id === "title") setCurrentSlideType("chapter");
+                else if (id === "diagram") setCurrentSlideType("diagram");
                 else if (id === "content-split") {
                   setCurrentSlideType("content");
                   setCurrentSlideContentLayout("split");

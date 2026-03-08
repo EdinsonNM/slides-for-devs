@@ -3,6 +3,7 @@ import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideContentChapter } from "./SlideContentChapter";
 import { SlideContentDefault } from "./SlideContentDefault";
+import { SlideContentDiagram } from "./SlideContentDiagram";
 import { NavigationControls } from "./NavigationControls";
 
 export function SlideEditor() {
@@ -26,6 +27,8 @@ export function SlideEditor() {
         >
           {currentSlide.type === "chapter" ? (
             <SlideContentChapter />
+          ) : currentSlide.type === "diagram" ? (
+            <SlideContentDiagram />
           ) : (
             <SlideContentDefault />
           )}

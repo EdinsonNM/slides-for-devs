@@ -98,6 +98,22 @@ export function SlideSidebar() {
                     <div className="h-0.5 w-8 bg-stone-200 rounded-full animate-pulse" />
                   </div>
                 </>
+              ) : slide.type === "diagram" ? (
+                <div className="flex-1 flex flex-col gap-1 min-h-0">
+                  <span className="text-[9px] font-medium text-stone-900 line-clamp-1 text-left leading-tight shrink-0">
+                    {slide.title || "Diagrama"}
+                  </span>
+                  <div className="flex-1 min-h-0 flex items-center justify-center p-1 bg-stone-50 rounded border border-dashed border-stone-200">
+                    <div className="flex items-center gap-0.5 w-full justify-center">
+                      <div className="w-3 h-2.5 rounded-sm bg-stone-200/80 shrink-0" />
+                      <div className="w-1 h-0.5 bg-stone-300 rounded-full shrink-0" />
+                      <div className="w-2.5 h-2.5 rounded-full border border-stone-300 shrink-0" />
+                      <div className="w-1 h-0.5 bg-stone-300 rounded-full shrink-0" />
+                      <div className="w-3 h-2 rounded-sm bg-stone-200/80 shrink-0" />
+                    </div>
+                  </div>
+                  <span className="text-[7px] text-stone-400 uppercase tracking-wider shrink-0">Diagrama</span>
+                </div>
               ) : (
                 <div className="flex-1 flex gap-1 min-h-0">
                   <div className="flex-1 flex flex-col gap-0.5 min-w-0 min-h-0">

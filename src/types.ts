@@ -1,4 +1,4 @@
-export type SlideType = "content" | "chapter";
+export type SlideType = "content" | "chapter" | "diagram";
 
 export interface ImageStyle {
   id: string;
@@ -29,6 +29,8 @@ export interface Slide {
   presenterNotes?: string;
   /** Guion o speech sugerido para esta diapositiva */
   speech?: string;
+  /** Datos del diagrama Excalidraw (JSON: elements, appState, files). Solo cuando type === "diagram". */
+  excalidrawData?: string;
 }
 
 /** Personaje guardado para reutilizar en generaciones de imagen (misma apariencia en todas las escenas). */

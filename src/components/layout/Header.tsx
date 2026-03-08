@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { flushSync } from "react-dom";
 import {
   ChevronLeft,
   FolderOpen,
@@ -31,6 +32,7 @@ export function Header(props: HeaderProps) {
     saveMessage,
     currentSavedId,
     setIsPreviewMode,
+    flushDiagramPending,
     setShowSpeechModal,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
@@ -205,7 +207,12 @@ export function Header(props: HeaderProps) {
           )}
           {slides.length > 0 && (
             <button
-              onClick={() => setIsPreviewMode(true)}
+              onClick={() => {
+                flushSync(() => {
+                  flushDiagramPending();
+                });
+                setIsPreviewMode(true);
+              }}
               className="p-2 rounded-md bg-stone-800 text-white hover:bg-stone-700 transition-colors"
               title="Vista previa"
             >

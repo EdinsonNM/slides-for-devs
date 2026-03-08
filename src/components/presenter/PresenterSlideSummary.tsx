@@ -25,6 +25,8 @@ export function PresenterSlideSummary({ slide }: PresenterSlideSummaryProps) {
               {slide.subtitle}
             </p>
           )
+        ) : slide.type === "diagram" ? (
+          <p className="text-stone-400 text-xs">Diagrama editable</p>
         ) : (
           <p className="text-stone-400 text-xs line-clamp-2 overflow-hidden">
             {slide.content
@@ -35,6 +37,11 @@ export function PresenterSlideSummary({ slide }: PresenterSlideSummaryProps) {
           </p>
         )}
         <div className="flex gap-1 flex-wrap">
+          {slide.type === "diagram" && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              Diagrama
+            </span>
+          )}
           {slide.imageUrl && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Imagen
