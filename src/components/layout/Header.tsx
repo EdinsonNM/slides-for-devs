@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import {
   ChevronLeft,
   FolderOpen,
+  LayoutTemplate,
   Maximize2,
   Save,
   Loader2,
   Mic,
   StickyNote,
   Settings,
+  UserPlus,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -35,6 +37,11 @@ export function Header(props: HeaderProps) {
     presentationModelId,
     setPresentationModelId,
     presentationModels,
+    setShowCharacterCreatorModal,
+    showCharactersPanel,
+    setShowCharactersPanel,
+    showSlideStylePanel,
+    setShowSlideStylePanel,
   } = usePresentation();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -145,6 +152,34 @@ export function Header(props: HeaderProps) {
           >
             <Mic size={18} />
           </button>
+          <button
+            type="button"
+            onClick={() => setShowCharactersPanel(!showCharactersPanel)}
+            className={cn(
+              "p-2 rounded-md transition-colors",
+              showCharactersPanel
+                ? "bg-violet-100 text-violet-600"
+                : "text-stone-500 hover:bg-violet-100 hover:text-violet-600"
+            )}
+            title="Personajes (crear, ver, eliminar)"
+          >
+            <UserPlus size={18} />
+          </button>
+          {slides.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowSlideStylePanel(!showSlideStylePanel)}
+              className={cn(
+                "p-2 rounded-md transition-colors",
+                showSlideStylePanel
+                  ? "bg-emerald-100 text-emerald-600"
+                  : "text-stone-500 hover:bg-emerald-100 hover:text-emerald-600"
+              )}
+              title="Plantilla de la diapositiva"
+            >
+              <LayoutTemplate size={18} />
+            </button>
+          )}
           <button
             type="button"
             onClick={openSavedListModal}

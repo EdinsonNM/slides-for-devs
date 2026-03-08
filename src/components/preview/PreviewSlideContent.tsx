@@ -27,7 +27,7 @@ export function PreviewSlideContent({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       className={cn(
-        "preview-slide w-full max-w-7xl 2xl:max-w-[1600px] aspect-video bg-white flex relative",
+        "preview-slide w-full max-w-7xl 2xl:max-w-[1600px] aspect-video bg-white flex relative max-h-full min-h-0",
         slide.type === "chapter" ? "justify-center items-center" : ""
       )}
     >
@@ -51,8 +51,8 @@ export function PreviewSlideContent({
         </div>
       ) : (
         <>
-          <div className="flex-1 p-12 flex flex-col overflow-hidden">
-            <div className="mb-8 shrink-0">
+          <div className="flex-1 p-12 flex flex-col overflow-hidden min-h-0">
+            <div className="shrink-0 mb-8">
               <h2
                 className="font-serif italic text-stone-900 leading-tight mb-4"
                 style={{ fontSize: "var(--slide-title)" }}
@@ -61,7 +61,7 @@ export function PreviewSlideContent({
               </h2>
               <div className="h-1.5 w-20 bg-emerald-600 rounded-full" />
             </div>
-            <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-4 scrollbar-on-hover">
               <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
             </div>
           </div>

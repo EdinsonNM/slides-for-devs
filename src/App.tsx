@@ -6,6 +6,8 @@ import {
 } from "./services/apiConfig";
 import { checkForAppUpdates } from "./services/updater";
 import { Header } from "./components/layout/Header";
+import { CharactersPanel } from "./components/layout/CharactersPanel";
+import { SlideStylePanel } from "./components/layout/SlideStylePanel";
 import { SlideSidebar } from "./components/layout/SlideSidebar";
 import { HomeScreen } from "./components/home/HomeScreen";
 import { ApiSetupScreen } from "./components/home/ApiSetupScreen";
@@ -13,12 +15,14 @@ import { SlideEditor } from "./components/editor/SlideEditor";
 import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
 import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
+import { ImageUploadModal } from "./components/modals/ImageUploadModal";
 import { CodeGenerationModal } from "./components/modals/CodeGenerationModal";
 import { VideoUrlModal } from "./components/modals/VideoUrlModal";
 import { SplitSlideModal } from "./components/modals/SplitSlideModal";
 import { RewriteSlideModal } from "./components/modals/RewriteSlideModal";
 import { SpeechModal } from "./components/modals/SpeechModal";
 import { ApiConfigModal } from "./components/modals/ApiConfigModal";
+import { CharacterCreatorModal } from "./components/modals/CharacterCreatorModal";
 import { PreviewOverlay } from "./components/preview/PreviewOverlay";
 import { PresenterView } from "./components/presenter/PresenterView";
 
@@ -98,6 +102,8 @@ export default function App() {
   return (
     <div className="h-screen bg-[#E4E3E0] flex flex-col font-sans overflow-hidden">
       <Header onOpenConfig={() => setShowApiConfigModal(true)} />
+      <CharactersPanel />
+      <SlideStylePanel />
       <ApiConfigModal
         isOpen={showApiConfigModal}
         onClose={() => setShowApiConfigModal(false)}
@@ -109,7 +115,9 @@ export default function App() {
         <PresenterNotesPanel />
       </main>
       <SavedListModal />
+      <CharacterCreatorModal />
       <ImageGenerationModal />
+      <ImageUploadModal />
       <CodeGenerationModal />
       <VideoUrlModal />
       <SplitSlideModal />

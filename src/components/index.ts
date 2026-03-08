@@ -4,6 +4,7 @@ export { HomeScreen } from "./home/HomeScreen";
 export { SlideEditor } from "./editor/SlideEditor";
 export { SavedListModal } from "./modals/SavedListModal";
 export { ImageGenerationModal } from "./modals/ImageGenerationModal";
+export { ImageUploadModal } from "./modals/ImageUploadModal";
 export { VideoUrlModal } from "./modals/VideoUrlModal";
 export { SplitSlideModal } from "./modals/SplitSlideModal";
 export { RewriteSlideModal } from "./modals/RewriteSlideModal";

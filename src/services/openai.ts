@@ -12,7 +12,8 @@ export async function generateImageOpenAI(
   slideContext: string,
   userPrompt: string,
   stylePrompt: string = "",
-  includeBackground: boolean = true
+  includeBackground: boolean = true,
+  characterPrompt?: string
 ): Promise<string | undefined> {
   const OPENAI_API_KEY = getOpenAIApiKey();
   if (!OPENAI_API_KEY?.trim()) {
@@ -26,7 +27,10 @@ export async function generateImageOpenAI(
   const backgroundRule = includeBackground
     ? ""
     : " Show the subject on a plain white background only, no scenery, environment or transparency.";
-  const fullPrompt = `Slide context: ${slideContext}. 
+  const characterPrefix = characterPrompt?.trim()
+    ? `Consistent character (same in every scene): ${characterPrompt.trim()}. `
+    : "";
+  const fullPrompt = `${characterPrefix}Slide context: ${slideContext}. 
 Additional details: ${userPrompt}. 
 Visual style: ${stylePrompt}.${backgroundRule}
 ${noTextRule}`;

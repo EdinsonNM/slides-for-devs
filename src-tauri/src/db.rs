@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS slide_images (
 );
 
 CREATE INDEX IF NOT EXISTS idx_slides_presentation ON slides(presentation_id);
+
+CREATE TABLE IF NOT EXISTS saved_characters (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL
+);
 ";
 
 /// Frontend-compatible slide (snake_case for serde with TS).
@@ -76,6 +82,8 @@ pub struct Slide {
 pub struct Presentation {
     pub topic: String,
     pub slides: Vec<Slide>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub character_id: Option<String>,
 }
 
 /// Saved presentation with id and saved_at (for load response).
@@ -86,6 +94,20 @@ pub struct SavedPresentation {
     pub topic: String,
     pub saved_at: String,
     pub slides: Vec<Slide>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub character_id: Option<String>,
+}
+
+/// Saved character for consistent image generation across slides.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedCharacter {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    /// Data URL of the reference image (matches TS referenceImageDataUrl).
+    #[serde(skip_serializing_if = "Option::is_none", rename = "referenceImageDataUrl")]
+    pub reference_image_data_url: Option<String>,
 }
 
 /// Metadata for list (no slides, no images).
@@ -106,6 +128,24 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
     }
     let conn = Connection::open(db_path)?;
     conn.execute_batch(SCHEMA)?;
+    // Migration: add character_id to presentations if missing (existing DBs).
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='character_id'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE presentations ADD COLUMN character_id TEXT", [])?;
+    }
+    // Migration: add reference_image_url to saved_characters if missing.
+    let has_ref: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('saved_characters') WHERE name='reference_image_url'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_ref == 0 {
+        conn.execute("ALTER TABLE saved_characters ADD COLUMN reference_image_url TEXT", [])?;
+    }
     Ok(())
 }
 
@@ -129,8 +169,8 @@ pub fn save_presentation(conn: &Connection, presentation: &Presentation) -> Resu
     let saved_at = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO presentations (id, topic, saved_at) VALUES (?1, ?2, ?3)",
-        params![id, presentation.topic, saved_at],
+        "INSERT INTO presentations (id, topic, saved_at, character_id) VALUES (?1, ?2, ?3, ?4)",
+        params![id, presentation.topic, saved_at, presentation.character_id],
     )?;
 
     for (ordinal, slide) in presentation.slides.iter().enumerate() {
@@ -182,8 +222,8 @@ pub fn import_presentation(
     saved: &SavedPresentation,
 ) -> Result<(), rusqlite::Error> {
     conn.execute(
-        "INSERT OR REPLACE INTO presentations (id, topic, saved_at) VALUES (?1, ?2, ?3)",
-        params![saved.id, saved.topic, saved.saved_at],
+        "INSERT OR REPLACE INTO presentations (id, topic, saved_at, character_id) VALUES (?1, ?2, ?3, ?4)",
+        params![saved.id, saved.topic, saved.saved_at, saved.character_id],
     )?;
 
     conn.execute("DELETE FROM slide_images WHERE presentation_id = ?1", params![saved.id])?;
@@ -240,8 +280,8 @@ pub fn update_presentation(
     let saved_at = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "UPDATE presentations SET topic = ?1, saved_at = ?2 WHERE id = ?3",
-        params![presentation.topic, saved_at, id],
+        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3 WHERE id = ?4",
+        params![presentation.topic, saved_at, presentation.character_id, id],
     )?;
     if conn.changes() == 0 {
         return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -294,10 +334,10 @@ pub fn update_presentation(
 }
 
 pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentation, rusqlite::Error> {
-    let (topic, saved_at): (String, String) = conn.query_row(
-        "SELECT topic, saved_at FROM presentations WHERE id = ?1",
+    let (topic, saved_at, character_id): (String, String, Option<String>) = conn.query_row(
+        "SELECT topic, saved_at, character_id FROM presentations WHERE id = ?1",
         params![id],
-        |row| Ok((row.get(0)?, row.get(1)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     )?;
 
     let mut slides: Vec<Slide> = Vec::new();
@@ -364,6 +404,7 @@ pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentatio
         topic,
         saved_at,
         slides,
+        character_id,
     })
 }
 
@@ -390,5 +431,40 @@ pub fn list_presentations(conn: &Connection) -> Result<Vec<SavedPresentationMeta
 
 pub fn delete_presentation(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
     conn.execute("DELETE FROM presentations WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+// --- Saved characters ---
+
+pub fn list_characters(conn: &Connection) -> Result<Vec<SavedCharacter>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, description, reference_image_url FROM saved_characters ORDER BY name",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(SavedCharacter {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            description: row.get(2)?,
+            reference_image_data_url: row.get(3)?,
+        })
+    })?;
+    rows.collect()
+}
+
+pub fn save_character(conn: &Connection, character: &SavedCharacter) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT OR REPLACE INTO saved_characters (id, name, description, reference_image_url) VALUES (?1, ?2, ?3, ?4)",
+        params![
+            character.id,
+            character.name,
+            character.description,
+            character.reference_image_data_url,
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn delete_character(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
+    conn.execute("DELETE FROM saved_characters WHERE id = ?1", params![id])?;
     Ok(())
 }

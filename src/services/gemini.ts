@@ -130,23 +130,47 @@ export async function generateImage(
   userPrompt: string,
   stylePrompt: string = "",
   includeBackground: boolean = true,
-  model: string = DEFAULT_IMAGE_MODEL
+  model: string = DEFAULT_IMAGE_MODEL,
+  characterPrompt?: string,
+  characterReferenceImageDataUrl?: string
 ): Promise<string | undefined> {
   const noTextRule =
     "REGLA OBLIGATORIA: La imagen NO debe contener ningún texto, leyendas, etiquetas, palabras ni caracteres. Solo elementos puramente visuales e ilustrativos.";
   const backgroundRule = includeBackground
     ? ""
     : " La imagen debe mostrarse con fondo blanco puro únicamente: solo el sujeto o concepto principal sobre fondo blanco, sin transparencia, sin escenario ni elementos de fondo. Ignora cualquier indicación de fondo en el estilo.";
-  const fullPrompt = `Contexto de la diapositiva: ${slideContext}. 
+
+  const parsedReference = characterReferenceImageDataUrl?.trim()
+    ? parseImageDataUrl(characterReferenceImageDataUrl)
+    : null;
+  const hasReference = !!parsedReference;
+  const referenceInstruction = hasReference
+    ? "La imagen adjunta es el personaje de referencia. Genera una nueva imagen mostrando EXACTAMENTE este mismo personaje (misma apariencia, proporciones, colores, estilo) en la siguiente escena. Mantén al personaje idéntico. "
+    : "";
+  const characterPrefixText = characterPrompt?.trim()
+    ? hasReference
+      ? ""
+      : `CRÍTICO - Personaje idéntico en todas las escenas (no cambies su apariencia): ${characterPrompt.trim()}. Repite exactamente este mismo personaje en la escena siguiente. `
+    : "";
+  const fullPrompt = `${referenceInstruction}${characterPrefixText}Contexto de la diapositiva: ${slideContext}. 
   Características adicionales solicitadas: ${userPrompt}. 
   Estilo visual: ${stylePrompt}.${backgroundRule}
   ${noTextRule}`;
 
+  const contents = hasReference && parsedReference
+    ? [
+        {
+          parts: [
+            { inlineData: { mimeType: parsedReference.mimeType, data: parsedReference.data } },
+            { text: fullPrompt },
+          ],
+        },
+      ]
+    : { parts: [{ text: fullPrompt }] };
+
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_IMAGE_MODEL,
-    contents: {
-      parts: [{ text: fullPrompt }],
-    },
+    contents,
     config: {
       imageConfig: {
         aspectRatio: "1:1",
@@ -170,13 +194,17 @@ export async function generateImagePromptAlternatives(
   currentPrompt: string,
   styleName: string,
   stylePrompt: string,
-  model: string = DEFAULT_TEXT_MODEL
+  model: string = DEFAULT_TEXT_MODEL,
+  characterPrompt?: string
 ): Promise<string> {
   const hasExistingPrompt = currentPrompt.trim().length > 0;
+  const characterInstruction = characterPrompt?.trim()
+    ? `\nLa escena debe incluir siempre el mismo personaje, descrito así: ${characterPrompt.trim()}. Tu descripción debe ser coherente con este personaje (mismas acciones, escenario y situación, sin repetir su apariencia).\n`
+    : "";
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
     contents: `Eres un experto en crear prompts para imágenes. Genera UNA descripción en español para una imagen que ilustre ESTA diapositiva.
-
+${characterInstruction}
 PROHIBIDO: La imagen NO debe contener ningún texto: ni títulos del slide, ni palabras, ni etiquetas, ni leyendas, ni números ni caracteres. Solo elementos puramente visuales. Tu prompt NUNCA debe pedir o describir que aparezca texto en la imagen.
 
 REGLA PRINCIPAL: La imagen debe representar el TEMA CONCRETO de la diapositiva (título y contenido) de forma visual: escena, metáfora, objetos o personajes que transmitan el concepto. Extrae el concepto clave y dibuja ESA idea en la escena, sin escribir nada. No uses escenas genéricas (consolas, cubos que se transforman, arcos de energía) a menos que el contenido de la diapositiva hable de eso.
@@ -200,6 +228,68 @@ ${
 }
 
 Responde ÚNICAMENTE el texto del prompt, sin comillas ni explicaciones. El prompt debe describir solo elementos visuales, escenarios, acciones y objetos; no expliques estilos de dibujo ni pidas texto (por ejemplo, evita frases como "con el título...", "mostrando el texto...", "con la leyenda...", "texto sobre la pantalla", etc.).`,
+  });
+  return (response.text || "").trim();
+}
+
+/** Refina la descripción del usuario en un prompt preciso y reutilizable para generar siempre el mismo personaje. */
+export async function refineCharacterPrompt(
+  userDescription: string,
+  model: string = DEFAULT_TEXT_MODEL
+): Promise<string> {
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
+    contents: `Eres un experto en crear prompts para generación de imágenes. El usuario quiere definir un personaje que se reutilizará en muchas escenas de presentaciones.
+
+Descripción que dio el usuario (puede ser breve o imprecisa):
+---
+${userDescription}
+---
+
+Tu tarea: escribe UNA sola descripción en español, detallada y precisa, que sirva como prompt para generar SIEMPRE el mismo personaje en cualquier escena. La descripción debe:
+- Incluir forma del cuerpo y cabeza, colores, rasgos faciales, accesorios (mochila, ropa, etc.), estilo visual (cartoon, vectorial, 3D, etc.).
+- Ser reutilizable: al usarla en distintos contextos ("el personaje señalando", "el personaje con pulgar arriba") el resultado debe ser el mismo personaje.
+- NO pedir texto ni palabras en la imagen.
+- Ser concisa pero completa (2-5 frases).
+
+Responde ÚNICAMENTE la descripción refinada, sin comillas ni explicaciones.`,
+  });
+  return (response.text || "").trim();
+}
+
+/** Extrae base64 y mimeType de un data URL de imagen. */
+function parseImageDataUrl(dataUrl: string): { mimeType: string; data: string } | null {
+  const match = dataUrl.match(/^data:(image\/(png|jpeg|jpg|webp));base64,(.+)$/i);
+  if (!match) return null;
+  const mimeType = match[1].toLowerCase().replace("jpg", "jpeg");
+  return { mimeType, data: match[3] };
+}
+
+/** Describe el personaje de una imagen de referencia para obtener un prompt reutilizable (requiere Gemini con visión). */
+export async function describeCharacterFromImage(
+  imageDataUrl: string,
+  model: string = DEFAULT_TEXT_MODEL
+): Promise<string> {
+  const parsed = parseImageDataUrl(imageDataUrl);
+  if (!parsed) throw new Error("Formato de imagen no válido. Usa PNG, JPEG o WebP.");
+
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
+    contents: [
+      {
+        parts: [
+          { inlineData: { mimeType: parsed.mimeType, data: parsed.data } },
+          {
+            text: `Describe en español el personaje que aparece en esta imagen. Tu respuesta se usará como prompt para generar SIEMPRE el mismo personaje en otras escenas. Incluye:
+- Forma del cuerpo y cabeza, proporciones, colores.
+- Rasgos faciales (ojos, expresión).
+- Accesorios o ropa visibles.
+- Estilo visual (cartoon, ilustración, 3D, etc.).
+Sé preciso y conciso (2-5 frases). No incluyas el fondo ni la escena, solo el personaje. Responde ÚNICAMENTE la descripción, sin comillas ni explicaciones.`,
+          },
+        ],
+      },
+    ],
   });
   return (response.text || "").trim();
 }

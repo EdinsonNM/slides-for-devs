@@ -54,6 +54,30 @@ fn delete_presentation(db_path: tauri::State<DbPath>, id: String) -> Result<(), 
     db::delete_presentation(&conn, &id).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn list_characters(db_path: tauri::State<DbPath>) -> Result<Vec<db::SavedCharacter>, String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::list_characters(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_character(
+    db_path: tauri::State<DbPath>,
+    character: db::SavedCharacter,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::save_character(&conn, &character).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_character(db_path: tauri::State<DbPath>, id: String) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::delete_character(&conn, &id).map_err(|e| e.to_string())
+}
+
 // --- API keys (keychain seguro) ---
 
 #[tauri::command]
@@ -178,6 +202,9 @@ pub fn run() {
             list_presentations,
             delete_presentation,
             migrate_json_presentations,
+            list_characters,
+            save_character,
+            delete_character,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

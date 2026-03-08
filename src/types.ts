@@ -21,6 +21,8 @@ export interface Slide {
   editorHeight?: number;
   videoUrl?: string;
   contentType?: "image" | "code" | "video";
+  /** Distribución del contenido: split = título+texto a la izquierda y panel derecho (imagen/código/video); full = solo título+texto a ancho completo. Solo aplica cuando type === "content". */
+  contentLayout?: "split" | "full";
   /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a este slide. */
   imageWidthPercent?: number;
   /** Notas del presentador (solo visibles en modo presentador) */
@@ -29,9 +31,20 @@ export interface Slide {
   speech?: string;
 }
 
+/** Personaje guardado para reutilizar en generaciones de imagen (misma apariencia en todas las escenas). */
+export interface SavedCharacter {
+  id: string;
+  name: string;
+  description: string;
+  /** Imagen de referencia (data URL) para que Gemini mantenga el personaje idéntico. */
+  referenceImageDataUrl?: string;
+}
+
 export interface Presentation {
   topic: string;
   slides: Slide[];
+  /** Id del personaje asignado a esta presentación (opcional). */
+  characterId?: string;
 }
 
 /** Presentación guardada en disco (incluye id y fecha) */

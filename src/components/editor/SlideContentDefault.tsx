@@ -43,10 +43,15 @@ export function SlideContentDefault() {
               />
             ) : (
               <h2
-                className="font-serif italic text-stone-900 leading-tight"
+                className="font-serif italic text-stone-900 leading-tight cursor-text hover:bg-stone-50 rounded px-1 -mx-1 py-0.5 transition-colors"
                 style={{ fontSize: "var(--slide-title)" }}
+                onClick={() => setIsEditing(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && setIsEditing(true)}
+                title="Clic para editar el título"
               >
-                {currentSlide.title}
+                {currentSlide.title || "Sin título"}
               </h2>
             )}
           </div>
@@ -87,7 +92,7 @@ export function SlideContentDefault() {
         </div>
         <div
           className={cn(
-            "flex-1 min-h-0 pr-4 flex flex-col",
+            "flex-1 min-h-[120px] pr-4 flex flex-col min-w-0",
             !isEditing && "overflow-y-auto custom-scrollbar"
           )}
         >
@@ -95,10 +100,24 @@ export function SlideContentDefault() {
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="flex-1 min-h-0 w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none font-sans text-lg"
+              placeholder="Escribe el contenido de la diapositiva (markdown)..."
+              className="flex-1 min-h-[120px] w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none font-sans text-lg"
             />
           ) : (
-            <SlideMarkdown>{formatMarkdown(currentSlide.content)}</SlideMarkdown>
+            <div
+              className="min-h-[80px] cursor-text rounded-lg hover:bg-stone-50/80 transition-colors -m-1 p-1"
+              onClick={() => setIsEditing(true)}
+              onKeyDown={(e) => e.key === "Enter" && setIsEditing(true)}
+              role="button"
+              tabIndex={0}
+              title="Clic para editar el contenido"
+            >
+              {currentSlide.content?.trim() ? (
+                <SlideMarkdown>{formatMarkdown(currentSlide.content)}</SlideMarkdown>
+              ) : (
+                <p className="text-stone-400 italic p-2">Clic para escribir el contenido…</p>
+              )}
+            </div>
           )}
         </div>
         {isEditing && (
@@ -113,7 +132,7 @@ export function SlideContentDefault() {
           </div>
         )}
       </div>
-      <SlideRightPanel />
+      {(currentSlide.contentLayout ?? "split") === "split" && <SlideRightPanel />}
     </>
   );
 }

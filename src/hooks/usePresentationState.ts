@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { Slide, ImageStyle, SavedPresentationMeta } from "../types";
+import type { Slide, SlideType, ImageStyle, SavedCharacter, SavedPresentationMeta } from "../types";
 import { formatMarkdown } from "../utils/markdown";
 import {
   generatePresentation,
@@ -28,6 +28,9 @@ import {
   loadPresentation,
   deletePresentation,
   migrateJsonPresentations,
+  listCharacters,
+  saveCharacter as saveCharacterStorage,
+  deleteCharacter as deleteCharacterStorage,
 } from "../services/storage";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
@@ -53,6 +56,7 @@ export function usePresentationState() {
     useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [showRewriteModal, setShowRewriteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -73,6 +77,7 @@ export function usePresentationState() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
+  const [editSubtitle, setEditSubtitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editLanguage, setEditLanguage] = useState("javascript");
@@ -99,6 +104,12 @@ export function usePresentationState() {
   const [presentationModelId, setPresentationModelId] = useState(
     DEFAULT_PRESENTATION_MODEL_ID
   );
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
+  const [showCharacterCreatorModal, setShowCharacterCreatorModal] = useState(false);
+  const [showCharactersPanel, setShowCharactersPanel] = useState(false);
+  const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
+  const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] = useState(false);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -155,6 +166,10 @@ export function usePresentationState() {
   }, [slides.length]);
 
   useEffect(() => {
+    listCharacters().then(setSavedCharacters).catch(() => setSavedCharacters([]));
+  }, []);
+
+  useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
       const container = document.getElementById("slide-container");
@@ -190,6 +205,7 @@ export function usePresentationState() {
   useEffect(() => {
     if (currentSlide) {
       setEditTitle(currentSlide.title);
+      setEditSubtitle(currentSlide.subtitle ?? "");
       setEditContent(formatMarkdown(currentSlide.content));
       setEditCode(currentSlide.code || "");
       setEditLanguage(currentSlide.language || "javascript");
@@ -238,6 +254,7 @@ export function usePresentationState() {
       updated[currentIndex] = {
         ...updated[currentIndex],
         title: editTitle,
+        subtitle: editSubtitle.trim() || undefined,
         content: editContent,
         code: editCode,
         language: editLanguage,
@@ -279,6 +296,46 @@ export function usePresentationState() {
     });
   };
 
+  /** Cambia el tipo de la diapositiva actual: capítulo (solo título) o contenido. */
+  const setCurrentSlideType = (type: SlideType) => {
+    if (!currentSlide || currentSlide.type === type) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      const next = { ...currentSlide, type };
+      if (type === "chapter") {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+      } else {
+        if (!next.contentType) next.contentType = "image";
+        if (!next.contentLayout) next.contentLayout = "split";
+      }
+      updated[currentIndex] = next;
+      return updated;
+    });
+  };
+
+  /** Cambia la distribución del contenido: split = con panel derecho; full = solo texto a ancho completo. Solo para type "content". */
+  const setCurrentSlideContentLayout = (contentLayout: "split" | "full") => {
+    if (!currentSlide || currentSlide.type !== "content") return;
+    if (currentSlide.contentLayout === contentLayout) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, contentLayout };
+      return updated;
+    });
+  };
+
+  /** Cambia el tipo de contenido del panel derecho (solo para diapositivas de contenido con layout split). */
+  const setCurrentSlideContentType = (contentType: "image" | "code" | "video") => {
+    if (!currentSlide || currentSlide.type !== "content") return;
+    if (currentSlide.contentType === contentType) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, contentType };
+      return updated;
+    });
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
@@ -311,6 +368,12 @@ export function usePresentationState() {
     if (!imagePrompt.trim() || !currentSlide) return;
     setIsGeneratingImage(true);
     const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
+    const character = selectedCharacterId
+      ? savedCharacters.find((c) => c.id === selectedCharacterId)
+      : undefined;
+    const characterPrompt = character?.description;
+    const characterReferenceImageDataUrl =
+      imageProvider === "gemini" ? character?.referenceImageDataUrl : undefined;
     try {
       const imageUrl =
         imageProvider === "openai"
@@ -318,14 +381,17 @@ export function usePresentationState() {
               slideContext,
               imagePrompt,
               selectedStyle.prompt,
-              includeBackground
+              includeBackground,
+              characterPrompt
             )
           : await generateImage(
               slideContext,
               imagePrompt,
               selectedStyle.prompt,
               includeBackground,
-              geminiImageModelId
+              geminiImageModelId,
+              characterPrompt,
+              characterReferenceImageDataUrl
             );
       if (imageUrl) {
         const promptUsed = imagePrompt.trim();
@@ -353,13 +419,17 @@ export function usePresentationState() {
     if (!currentSlide) return;
     setIsGeneratingPromptAlternatives(true);
     const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
+    const characterPrompt = selectedCharacterId
+      ? savedCharacters.find((c) => c.id === selectedCharacterId)?.description
+      : undefined;
     try {
       const alternative = await generateImagePromptAlternatives(
         slideContext,
         imagePrompt,
         selectedStyle.name,
         selectedStyle.prompt,
-        effectiveGeminiModel
+        effectiveGeminiModel,
+        characterPrompt
       );
       if (alternative) setImagePrompt(alternative);
     } catch (error) {
@@ -448,7 +518,11 @@ export function usePresentationState() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const presentation = { topic: topic || "Sin título", slides };
+      const presentation = {
+        topic: topic || "Sin título",
+        slides,
+        characterId: selectedCharacterId ?? undefined,
+      };
       if (currentSavedId) {
         await updatePresentation(currentSavedId, presentation);
         setSaveMessage("Guardado");
@@ -489,6 +563,7 @@ export function usePresentationState() {
       );
       setCurrentIndex(0);
       setCurrentSavedId(saved.id);
+      setSelectedCharacterId(saved.characterId ?? null);
       setShowSavedListModal(false);
       const firstImage = saved.slides[0]?.imageUrl;
       if (firstImage) {
@@ -532,20 +607,29 @@ export function usePresentationState() {
       const firstSlide = saved.slides[0];
       const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
       const coverPrompt = "Portada profesional y moderna para esta presentación, estilo minimalista y atractivo, sin texto.";
+      const coverCharacter = saved.characterId
+        ? savedCharacters.find((c) => c.id === saved.characterId)
+        : undefined;
+      const characterPrompt = coverCharacter?.description;
+      const characterReferenceImageDataUrl =
+        imageProvider === "gemini" ? coverCharacter?.referenceImageDataUrl : undefined;
       const imageUrl =
         imageProvider === "openai"
           ? await generateImageOpenAI(
               slideContext,
               coverPrompt,
               selectedStyle.prompt,
-              includeBackground
+              includeBackground,
+              characterPrompt
             )
           : await generateImage(
               slideContext,
               coverPrompt,
               selectedStyle.prompt,
               includeBackground,
-              geminiImageModelId
+              geminiImageModelId,
+              characterPrompt,
+              characterReferenceImageDataUrl
             );
       if (imageUrl) {
         const updatedSlides = [...saved.slides];
@@ -554,7 +638,11 @@ export function usePresentationState() {
           imageUrl,
           imagePrompt: coverPrompt,
         };
-        await updatePresentation(id, { topic: saved.topic, slides: updatedSlides });
+        await updatePresentation(id, {
+          topic: saved.topic,
+          slides: updatedSlides,
+          characterId: saved.characterId,
+        });
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
       } else {
         alert("No se pudo generar la imagen. Comprueba tu API key de Gemini o OpenAI.");
@@ -571,6 +659,52 @@ export function usePresentationState() {
     setSlides([]);
     setTopic("");
     setCurrentSavedId(null);
+    setSelectedCharacterId(null);
+  };
+
+  const refreshSavedCharacters = () => {
+    listCharacters().then(setSavedCharacters).catch(() => setSavedCharacters([]));
+  };
+
+  const handleSaveCharacter = async (character: SavedCharacter) => {
+    await saveCharacterStorage(character);
+    refreshSavedCharacters();
+  };
+
+  const handleDeleteCharacter = async (id: string) => {
+    await deleteCharacterStorage(id);
+    if (selectedCharacterId === id) setSelectedCharacterId(null);
+    refreshSavedCharacters();
+  };
+
+  /** Genera una vista previa del personaje (solo la imagen, sin asignar a slide). Contexto fijo para personaje aislado. */
+  const generateCharacterPreview = async (
+    characterDescription: string
+  ): Promise<string | undefined> => {
+    if (!characterDescription.trim()) return undefined;
+    setIsGeneratingCharacterPreview(true);
+    try {
+      const context =
+        "Personaje aislado para usar en presentaciones. Debe ser el mismo personaje en todas las escenas. Fondo limpio.";
+      return imageProvider === "openai"
+        ? await generateImageOpenAI(
+            context,
+            characterDescription.trim(),
+            selectedStyle.prompt,
+            true,
+            undefined
+          )
+        : await generateImage(
+            context,
+            characterDescription.trim(),
+            selectedStyle.prompt,
+            true,
+            geminiImageModelId,
+            undefined
+          );
+    } finally {
+      setIsGeneratingCharacterPreview(false);
+    }
   };
 
   const deleteSlideAt = (index: number) => {
@@ -610,6 +744,10 @@ export function usePresentationState() {
     setShowImageModal(true);
   };
 
+  const openImageUploadModal = () => {
+    setShowImageUploadModal(true);
+  };
+
   const handleImageUpload = (file: File) => {
     if (!currentSlide) return;
     const reader = new FileReader();
@@ -623,7 +761,7 @@ export function usePresentationState() {
         };
         return updated;
       });
-      setShowImageModal(false);
+      setShowImageUploadModal(false);
     };
     reader.readAsDataURL(file);
   };
@@ -781,6 +919,8 @@ export function usePresentationState() {
     isProcessing,
     showImageModal,
     setShowImageModal,
+    showImageUploadModal,
+    setShowImageUploadModal,
     showSplitModal,
     setShowSplitModal,
     showRewriteModal,
@@ -804,12 +944,28 @@ export function usePresentationState() {
     geminiImageModels: GEMINI_IMAGE_MODELS,
     includeBackground,
     setIncludeBackground,
+    selectedCharacterId,
+    setSelectedCharacterId,
+    savedCharacters,
+    refreshSavedCharacters,
+    saveCharacter: handleSaveCharacter,
+    deleteCharacter: handleDeleteCharacter,
+    showCharacterCreatorModal,
+    setShowCharacterCreatorModal,
+    showCharactersPanel,
+    setShowCharactersPanel,
+    showSlideStylePanel,
+    setShowSlideStylePanel,
+    isGeneratingCharacterPreview,
+    generateCharacterPreview,
     isPreviewMode,
     setIsPreviewMode,
     isEditing,
     setIsEditing,
     editTitle,
     setEditTitle,
+    editSubtitle,
+    setEditSubtitle,
     editContent,
     setEditContent,
     editCode,
@@ -834,6 +990,9 @@ export function usePresentationState() {
     formatMarkdown,
     handleSaveManualEdit,
     toggleContentType,
+    setCurrentSlideType,
+    setCurrentSlideContentLayout,
+    setCurrentSlideContentType,
     handleGenerate,
     handleImageGenerate,
     handleGeneratePromptAlternatives,
@@ -853,6 +1012,7 @@ export function usePresentationState() {
     nextSlide,
     prevSlide,
     openImageModal,
+    openImageUploadModal,
     handleImageUpload,
     hasGemini,
     hasOpenAI,

@@ -84,6 +84,33 @@
   display: none;
 }
 
+/* Scrollbar solo visible al pasar el mouse (vista previa) */
+.scrollbar-on-hover {
+  scrollbar-width: none;
+}
+.scrollbar-on-hover:hover {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 113, 108, 0.3) transparent;
+}
+.scrollbar-on-hover::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.25);
+  border-radius: 9999px;
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 113, 108, 0.4);
+}
+
 /* Tipografía responsiva: escala con el viewport (contenedor fijo para no escalar la sección de imagen) */
 .slide-content {
   --slide-title-chapter: clamp(2rem, 5vw, 4.5rem);
