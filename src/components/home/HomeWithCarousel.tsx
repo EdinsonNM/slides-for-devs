@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { motion } from "motion/react";
-import { MoreVertical, RefreshCw } from "lucide-react";
+import { ArrowLeft, MoreVertical, RefreshCw, Trash2 } from "lucide-react";
 import { PromptInput } from "./PromptInput";
 import { SavedCarousel } from "./SavedCarousel";
 import type { PresentationModel } from "./PromptInput";
@@ -18,7 +19,6 @@ export interface HomeWithCarouselProps {
   savedList: SavedPresentationMeta[];
   onOpenSaved: (id: string) => void;
   onDeleteSaved: (id: string) => void;
-  onOpenSavedListModal: () => void;
   onGenerateCover: (id: string) => void;
   generatingCoverId: string | null;
   coverImageCache: Record<string, string>;
@@ -41,11 +41,12 @@ export function HomeWithCarousel({
   savedList,
   onOpenSaved,
   onDeleteSaved,
-  onOpenSavedListModal,
   onGenerateCover,
   generatingCoverId,
   coverImageCache,
 }: HomeWithCarouselProps) {
+  const [showExploreAll, setShowExploreAll] = useState(false);
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-linear-to-br from-stone-50 via-white to-stone-100/70">
       <header className="flex items-start justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-4 bg-transparent shrink-0">
@@ -108,25 +109,85 @@ export function HomeWithCarousel({
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col justify-center min-h-0 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 overflow-visible">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="flex flex-col items-center w-full max-w-6xl mx-auto overflow-visible"
-        >
-          <div className="w-full py-4 sm:py-6 overflow-visible">
-            <SavedCarousel
-              savedList={savedList}
-              onOpen={onOpenSaved}
-              onDelete={onDeleteSaved}
-              onGenerateCover={onGenerateCover}
-              generatingCoverId={generatingCoverId}
-              coverImageCache={coverImageCache}
-              onOpenSavedListModal={onOpenSavedListModal}
-            />
-          </div>
-        </motion.div>
+      <main className="flex-1 flex flex-col min-h-0 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 overflow-auto">
+        <div className="flex flex-col w-full max-w-6xl mx-auto flex-1 min-h-0">
+          {showExploreAll ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col flex-1 min-h-0"
+            >
+              <button
+                type="button"
+                onClick={() => setShowExploreAll(false)}
+                className="self-start flex items-center gap-2 text-sm text-stone-500 hover:text-emerald-600 mb-4 transition-colors"
+              >
+                <ArrowLeft size={18} />
+                Volver
+              </button>
+              <h2 className="text-lg font-semibold text-stone-900 mb-4">
+                Mis presentaciones
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto pb-8">
+                {savedList.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex flex-col rounded-xl border border-stone-200 bg-white overflow-hidden hover:border-stone-300 hover:shadow-md transition-all shadow-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpenSaved(p.id)}
+                      className="flex-1 p-4 text-left min-h-[100px] focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-inset"
+                    >
+                      <p className="font-medium text-stone-900 line-clamp-2">
+                        {p.topic}
+                      </p>
+                      <p className="text-xs text-stone-500 mt-2">
+                        {p.slideCount} diapositivas
+                      </p>
+                      <p className="text-xs text-stone-400 mt-0.5">
+                        {new Date(p.savedAt).toLocaleDateString()}
+                      </p>
+                    </button>
+                    <div className="flex border-t border-stone-200 bg-stone-50/80">
+                      <button
+                        onClick={() => onOpenSaved(p.id)}
+                        className="flex-1 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
+                      >
+                        Abrir
+                      </button>
+                      <button
+                        onClick={() => onDeleteSaved(p.id)}
+                        className="p-2.5 text-stone-400 hover:text-red-600 hover:bg-red-50 border-l border-stone-200"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="flex flex-col items-center justify-center flex-1 py-4 sm:py-6 overflow-visible"
+            >
+              <SavedCarousel
+                savedList={savedList}
+                onOpen={onOpenSaved}
+                onDelete={onDeleteSaved}
+                onGenerateCover={onGenerateCover}
+                generatingCoverId={generatingCoverId}
+                coverImageCache={coverImageCache}
+                onOpenSavedListModal={() => setShowExploreAll(true)}
+              />
+            </motion.div>
+          )}
+        </div>
       </main>
     </div>
   );

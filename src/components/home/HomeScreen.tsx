@@ -20,7 +20,6 @@ export function HomeScreen(props: HomeScreenProps) {
     setTopic,
     isLoading,
     handleGenerate,
-    openSavedListModal,
     savedList,
     handleOpenSaved,
     handleDeleteSaved,
@@ -64,7 +63,6 @@ export function HomeScreen(props: HomeScreenProps) {
       savedList={savedList}
       onOpenSaved={handleOpenSaved}
       onDeleteSaved={handleDeleteSaved}
-      onOpenSavedListModal={openSavedListModal}
       onGenerateCover={handleGenerateCoverForPresentation}
       generatingCoverId={generatingCoverId}
       coverImageCache={coverImageCache}
