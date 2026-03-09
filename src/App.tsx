@@ -89,7 +89,10 @@ export default function App() {
   if (slides.length === 0) {
     return (
       <>
-        <HomeScreen onOpenConfig={() => setShowApiConfigModal(true)} />
+        <HomeScreen
+          onOpenConfig={() => setShowApiConfigModal(true)}
+          onCheckUpdates={() => checkForAppUpdates(false)}
+        />
         <ApiConfigModal
           isOpen={showApiConfigModal}
           onClose={() => setShowApiConfigModal(false)}

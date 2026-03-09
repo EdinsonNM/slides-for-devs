@@ -32,7 +32,16 @@ export type UpdateCheckResult =
 export async function checkForAppUpdates(
   silent = true
 ): Promise<UpdateCheckResult> {
-  if (!isTauri()) return { status: "no-update" };
+  if (!isTauri()) {
+    if (!silent) {
+      if (typeof window !== "undefined" && window.alert) {
+        window.alert(
+          "Buscar actualizaciones solo est? disponible en la app de escritorio (Slaim instalado)."
+        );
+      }
+    }
+    return { status: "no-update" };
+  }
 
   const currentVersion = await getAppVersion();
   console.log("[Updater] Versión actual:", currentVersion);

@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, RefreshCw } from "lucide-react";
 import { PromptInput } from "./PromptInput";
 import { SavedCarousel } from "./SavedCarousel";
 import type { PresentationModel } from "./PromptInput";
@@ -7,6 +7,7 @@ import type { SavedPresentationMeta } from "../../types";
 
 export interface HomeWithCarouselProps {
   onOpenConfig?: () => void;
+  onCheckUpdates?: () => void;
   topic: string;
   setTopic: (v: string) => void;
   isLoading: boolean;
@@ -29,6 +30,7 @@ export interface HomeWithCarouselProps {
  */
 export function HomeWithCarousel({
   onOpenConfig,
+  onCheckUpdates,
   topic,
   setTopic,
   isLoading,
@@ -82,7 +84,17 @@ export function HomeWithCarousel({
           />
         </div>
 
-        <div className="flex items-center min-w-[52px] justify-end shrink-0 pt-0.5">
+        <div className="flex items-center gap-1 min-w-[52px] justify-end shrink-0 pt-0.5">
+          {onCheckUpdates && (
+            <button
+              type="button"
+              onClick={onCheckUpdates}
+              className="p-2 rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800 transition-colors"
+              title="Buscar actualizaciones"
+            >
+              <RefreshCw size={22} />
+            </button>
+          )}
           {onOpenConfig && (
             <button
               type="button"

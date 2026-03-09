@@ -11,7 +11,7 @@ import {
   StickyNote,
   Settings,
   UserPlus,
-  Download,
+  RefreshCw,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -54,7 +54,7 @@ export function Header(props: HeaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleCheckUpdates = async () => {
-    if (!isTauri() || isCheckingUpdates) return;
+    if (isCheckingUpdates) return;
     setIsCheckingUpdates(true);
     await checkForAppUpdates(false);
     setIsCheckingUpdates(false);
@@ -133,21 +133,19 @@ export function Header(props: HeaderProps) {
           ))}
         </select>
         <div className="flex items-center gap-1 shrink-0">
-          {isTauri() && (
-            <button
-              type="button"
-              onClick={handleCheckUpdates}
-              disabled={isCheckingUpdates}
-              className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors disabled:opacity-60"
-              title="Buscar actualizaciones"
-            >
-              {isCheckingUpdates ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <Download size={18} />
-              )}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleCheckUpdates}
+            disabled={isCheckingUpdates}
+            className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors disabled:opacity-60"
+            title="Buscar actualizaciones"
+          >
+            {isCheckingUpdates ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <RefreshCw size={18} />
+            )}
+          </button>
           {onOpenConfig && (
             <button
               type="button"

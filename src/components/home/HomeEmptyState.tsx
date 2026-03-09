@@ -1,10 +1,11 @@
 import { motion } from "motion/react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, RefreshCw } from "lucide-react";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
 
 export interface HomeEmptyStateProps {
   onOpenConfig?: () => void;
+  onCheckUpdates?: () => void;
   topic: string;
   setTopic: (v: string) => void;
   isLoading: boolean;
@@ -20,6 +21,7 @@ export interface HomeEmptyStateProps {
  */
 export function HomeEmptyState({
   onOpenConfig,
+  onCheckUpdates,
   topic,
   setTopic,
   isLoading,
@@ -30,16 +32,28 @@ export function HomeEmptyState({
 }: HomeEmptyStateProps) {
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-linear-to-br from-emerald-200/80 via-green-100 to-teal-200/80">
-      {onOpenConfig && (
-        <button
-          type="button"
-          onClick={onOpenConfig}
-          className="absolute top-4 right-4 p-2 rounded-lg text-stone-500 hover:bg-emerald-100/80 hover:text-stone-700 transition-colors z-10"
-          title="Configuración (API keys)"
-        >
-          <MoreVertical size={20} />
-        </button>
-      )}
+      <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+        {onCheckUpdates && (
+          <button
+            type="button"
+            onClick={onCheckUpdates}
+            className="p-2 rounded-lg text-stone-500 hover:bg-emerald-100/80 hover:text-stone-700 transition-colors"
+            title="Buscar actualizaciones"
+          >
+            <RefreshCw size={20} />
+          </button>
+        )}
+        {onOpenConfig && (
+          <button
+            type="button"
+            onClick={onOpenConfig}
+            className="p-2 rounded-lg text-stone-500 hover:bg-emerald-100/80 hover:text-stone-700 transition-colors"
+            title="Configuración (API keys)"
+          >
+            <MoreVertical size={20} />
+          </button>
+        )}
+      </div>
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, y: 16 }}

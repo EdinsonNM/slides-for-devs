@@ -4,6 +4,8 @@ import { HomeWithCarousel } from "./HomeWithCarousel";
 
 export interface HomeScreenProps {
   onOpenConfig?: () => void;
+  /** Solo en Tauri: al pulsar se busca actualización y se muestra diálogo con el resultado. */
+  onCheckUpdates?: () => void;
 }
 
 /**
@@ -12,7 +14,7 @@ export interface HomeScreenProps {
  * - HomeWithCarousel: cuando hay al menos una presentación guardada.
  */
 export function HomeScreen(props: HomeScreenProps) {
-  const { onOpenConfig } = props;
+  const { onOpenConfig, onCheckUpdates } = props;
   const {
     topic,
     setTopic,
@@ -36,6 +38,7 @@ export function HomeScreen(props: HomeScreenProps) {
     return (
       <HomeEmptyState
         onOpenConfig={onOpenConfig}
+        onCheckUpdates={onCheckUpdates}
         topic={topic}
         setTopic={setTopic}
         isLoading={isLoading}
@@ -50,6 +53,7 @@ export function HomeScreen(props: HomeScreenProps) {
   return (
     <HomeWithCarousel
       onOpenConfig={onOpenConfig}
+      onCheckUpdates={onCheckUpdates}
       topic={topic}
       setTopic={setTopic}
       isLoading={isLoading}
