@@ -149,13 +149,13 @@ jobs:
 
       - name: generate platform manifest
         shell: bash
-        run: node scripts/release-manifest.js ${{ matrix.platform_key }} > manifest.json
+        run: node scripts/release-manifest.js ${{ matrix.platform_key }} > manifest-${{ matrix.platform_key }}.json
 
       - name: upload manifest artifact
         uses: actions/upload-artifact@v4
         with:
           name: manifest-${{ matrix.platform_key }}
-          path: manifest.json
+          path: manifest-${{ matrix.platform_key }}.json
 
   upload-latest-json:
     needs: [prepare-version, publish-tauri]
@@ -196,6 +196,11 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: latest.json
+
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit ${{ steps.tag.outputs.tag }} --draft=false
 
   commit-version:
     if: github.ref == 'refs/heads/release' && github.event_name == 'push'

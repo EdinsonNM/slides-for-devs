@@ -11,9 +11,11 @@ import {
   StickyNote,
   Settings,
   UserPlus,
+  Download,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { checkForAppUpdates, isTauri } from "../../services/updater";
 
 interface HeaderProps {
   onOpenConfig?: () => void;
@@ -48,7 +50,15 @@ export function Header(props: HeaderProps) {
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(topic || "");
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleCheckUpdates = async () => {
+    if (!isTauri() || isCheckingUpdates) return;
+    setIsCheckingUpdates(true);
+    await checkForAppUpdates(false);
+    setIsCheckingUpdates(false);
+  };
 
   useEffect(() => {
     setEditTitleValue(topic || "");
@@ -123,6 +133,21 @@ export function Header(props: HeaderProps) {
           ))}
         </select>
         <div className="flex items-center gap-1 shrink-0">
+          {isTauri() && (
+            <button
+              type="button"
+              onClick={handleCheckUpdates}
+              disabled={isCheckingUpdates}
+              className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors disabled:opacity-60"
+              title="Buscar actualizaciones"
+            >
+              {isCheckingUpdates ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Download size={18} />
+              )}
+            </button>
+          )}
           {onOpenConfig && (
             <button
               type="button"
