@@ -36,7 +36,9 @@ export async function checkForAppUpdates(
     if (!silent) {
       if (typeof window !== "undefined" && window.alert) {
         window.alert(
-          "Buscar actualizaciones solo est? disponible en la app de escritorio (Slaim instalado)."
+          "Buscar actualizaciones solo funciona en la app de escritorio (el .exe de Windows).\n\n" +
+            "Si abriste Slaim desde el navegador o desde ?Instalar? en Chrome, esa es la versi?n web. " +
+            "Descarga el instalador desde GitHub ? Releases y ejecuta el .exe para usar la app de escritorio."
         );
       }
     }
