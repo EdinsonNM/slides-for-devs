@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, MoreVertical, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, MoreVertical, RefreshCw, Trash2 } from "lucide-react";
+import { cn } from "../../utils/cn";
 import { PromptInput } from "./PromptInput";
 import { SavedCarousel } from "./SavedCarousel";
 import type { PresentationModel } from "./PromptInput";
 import type { SavedPresentationMeta } from "../../types";
+
+const CARD_GRADIENTS = [
+  "from-rose-500/90 to-red-600/90",
+  "from-blue-500/90 to-indigo-600/90",
+  "from-emerald-500/90 to-teal-600/90",
+  "from-violet-500/90 to-purple-600/90",
+  "from-amber-500/90 to-orange-600/90",
+];
 
 export interface HomeWithCarouselProps {
   onOpenConfig?: () => void;
@@ -130,43 +139,92 @@ export function HomeWithCarousel({
                 Mis presentaciones
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto pb-8">
-                {savedList.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex flex-col rounded-xl border border-stone-200 bg-white overflow-hidden hover:border-stone-300 hover:shadow-md transition-all shadow-sm"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onOpenSaved(p.id)}
-                      className="flex-1 p-4 text-left min-h-[100px] focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-inset"
+                {savedList.map((p, index) => {
+                  const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
+                  const isGeneratingCover = generatingCoverId === p.id;
+                  return (
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.3,
+                        delay: index * 0.04,
+                        ease: [0.25, 0.46, 0.45, 0.94],
+                      }}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        "rounded-2xl overflow-hidden text-left relative",
+                        "shadow-lg border border-white/10",
+                        !coverImageCache[p.id] && cn("bg-linear-to-br", gradient)
+                      )}
+                      style={{ minHeight: 280 }}
                     >
-                      <p className="font-medium text-stone-900 line-clamp-2">
-                        {p.topic}
-                      </p>
-                      <p className="text-xs text-stone-500 mt-2">
-                        {p.slideCount} diapositivas
-                      </p>
-                      <p className="text-xs text-stone-400 mt-0.5">
-                        {new Date(p.savedAt).toLocaleDateString()}
-                      </p>
-                    </button>
-                    <div className="flex border-t border-stone-200 bg-stone-50/80">
+                      {coverImageCache[p.id] && (
+                        <div
+                          className="absolute inset-0 bg-cover bg-center"
+                          style={{
+                            backgroundImage: `url(${coverImageCache[p.id]})`,
+                          }}
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
                       <button
+                        type="button"
                         onClick={() => onOpenSaved(p.id)}
-                        className="flex-1 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
+                        className="absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-inset z-0"
                       >
-                        Abrir
+                        <div className="flex-1" />
+                        <div className="text-white text-left">
+                          <h3 className="text-lg font-bold leading-snug line-clamp-2">
+                            {p.topic}
+                          </h3>
+                          <p className="text-sm text-white/85 mt-1">
+                            {p.slideCount} diapositivas
+                          </p>
+                          <p className="text-xs text-white/70 mt-0.5">
+                            {new Date(p.savedAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       </button>
-                      <button
-                        onClick={() => onDeleteSaved(p.id)}
-                        className="p-2.5 text-stone-400 hover:text-red-600 hover:bg-red-50 border-l border-stone-200"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                      <div className="absolute top-5 right-5 flex flex-col gap-1 z-30 pointer-events-auto">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onGenerateCover(p.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          disabled={isGeneratingCover}
+                          className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors disabled:opacity-60"
+                          title="Generar imagen de portada"
+                        >
+                          <ImagePlus size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onDeleteSaved(p.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="p-2 rounded-lg bg-white/20 hover:bg-red-500/80 text-white transition-colors"
+                          title="Eliminar presentación"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                      {isGeneratingCover && (
+                        <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center z-20">
+                          <Loader2 className="w-10 h-10 text-white animate-spin" />
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </div>
             </motion.div>
           ) : (
