@@ -1,17 +1,15 @@
 import type { Slide } from "../types";
-import { OpenAIProvider } from "../llm/providers/openai-provider";
+import { OpenAIAdapter } from "../infrastructure/adapters/OpenAI.adapter";
 
-const openaiProvider = new OpenAIProvider();
+const adapter = new OpenAIAdapter();
 
-/** Genera una presentación con un modelo de OpenAI (GPT). */
 export async function generatePresentationOpenAI(
   topic: string,
   model: string = "gpt-5.2"
 ): Promise<Slide[]> {
-  return openaiProvider.generatePresentation(topic, model);
+  return adapter.generatePresentation(topic, model);
 }
 
-/** Genera una imagen con OpenAI (DALL-E 3 o Responses API con personaje). */
 export async function generateImageOpenAI(
   slideContext: string,
   userPrompt: string,
@@ -20,7 +18,7 @@ export async function generateImageOpenAI(
   characterPrompt?: string,
   characterReferenceImageDataUrl?: string
 ): Promise<string | undefined> {
-  return openaiProvider.generateImage({
+  return adapter.generateImage({
     slideContext,
     userPrompt,
     stylePrompt,
@@ -31,39 +29,38 @@ export async function generateImageOpenAI(
   });
 }
 
-/** Divide una diapositiva en varias usando OpenAI. */
 export async function splitSlideOpenAI(
   slide: Slide,
   prompt: string,
   model: string = "gpt-4o-mini"
 ): Promise<Slide[]> {
-  return openaiProvider.splitSlide(slide, prompt, model);
+  return adapter.splitSlide(slide, prompt, model);
 }
 
-/** Reescribe una diapositiva según la instrucción del usuario usando OpenAI. */
 export async function rewriteSlideOpenAI(
   slide: Slide,
   prompt: string,
   model: string = "gpt-4o-mini"
 ): Promise<{ title: string; content: string }> {
-  return openaiProvider.rewriteSlide(slide, prompt, model);
+  return adapter.rewriteSlide(slide, prompt, model);
 }
 
-/** Genera una alternativa de prompt para imagen. */
 export async function generateImagePromptAlternativesOpenAI(
   slideContext: string,
   currentPrompt: string,
   styleName: string,
   stylePrompt: string,
   model: string = "gpt-4o-mini",
-  characterPrompt?: string
+  characterPrompt?: string,
+  includeBackground: boolean = true
 ): Promise<string> {
-  return openaiProvider.generateImagePromptAlternatives(
+  return adapter.generateImagePromptAlternatives(
     slideContext,
     currentPrompt,
     styleName,
     stylePrompt,
     model,
-    characterPrompt
+    characterPrompt,
+    includeBackground
   );
 }

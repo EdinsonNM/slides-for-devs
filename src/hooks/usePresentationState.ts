@@ -9,11 +9,12 @@ import {
   refinePresenterNotes as refinePresenterNotesApi,
 } from "../services/gemini";
 import {
-  getPresentationGenerator,
-  getSlideOperations,
-  getGeminiSlideOperations,
-  getImageGenerator,
-} from "../llm/registry";
+  generatePresentation,
+  splitSlide as splitSlideUseCase,
+  rewriteSlide as rewriteSlideUseCase,
+  generateImagePromptAlternatives,
+  generateImage as generateImageUseCase,
+} from "../composition/container";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -359,8 +360,7 @@ export function usePresentationState() {
     if (!topic.trim()) return;
     setIsLoading(true);
     try {
-      const generator = getPresentationGenerator(presentationModelId);
-      const generatedSlides = await generator.generatePresentation(
+      const generatedSlides = await generatePresentation.run(
         topic,
         presentationModelId
       );
@@ -396,8 +396,8 @@ export function usePresentationState() {
     const imageModelId =
       imageProvider === "gemini" ? geminiImageModelId : "dall-e-3";
     try {
-      const imageGenerator = getImageGenerator(imageProvider);
-      const imageUrl = await imageGenerator.generateImage({
+      const imageUrl = await generateImageUseCase.run({
+        providerId: imageProvider,
         slideContext,
         userPrompt: imagePrompt,
         stylePrompt: selectedStyle.prompt,
@@ -438,20 +438,19 @@ export function usePresentationState() {
     const characterPrompt = selectedCharacterId
       ? savedCharacters.find((c) => c.id === selectedCharacterId)?.description
       : undefined;
-    const slideOps =
-      getSlideOperations(presentationModelId) ?? getGeminiSlideOperations();
     const modelId =
       presentationModelOption?.provider === "openai"
         ? presentationModelId
         : effectiveGeminiModel;
     try {
-      const alternative = await slideOps.generateImagePromptAlternatives(
+      const alternative = await generateImagePromptAlternatives.run(
         slideContext,
         imagePrompt,
         selectedStyle.name,
         selectedStyle.prompt,
         modelId,
-        characterPrompt
+        characterPrompt,
+        includeBackground
       );
       if (alternative) setImagePrompt(alternative);
     } catch (error) {
@@ -465,14 +464,12 @@ export function usePresentationState() {
   const handleSplitSlide = async () => {
     if (!splitPrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
-    const slideOps =
-      getSlideOperations(presentationModelId) ?? getGeminiSlideOperations();
     const modelId =
       presentationModelOption?.provider === "openai"
         ? presentationModelId
         : effectiveGeminiModel;
     try {
-      const newSlides = await slideOps.splitSlide(
+      const newSlides = await splitSlideUseCase.run(
         currentSlide,
         splitPrompt,
         modelId
@@ -502,14 +499,12 @@ export function usePresentationState() {
   const handleRewriteSlide = async () => {
     if (!rewritePrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
-    const slideOps =
-      getSlideOperations(presentationModelId) ?? getGeminiSlideOperations();
     const modelId =
       presentationModelOption?.provider === "openai"
         ? presentationModelId
         : effectiveGeminiModel;
     try {
-      const result = await slideOps.rewriteSlide(
+      const result = await rewriteSlideUseCase.run(
         currentSlide,
         rewritePrompt,
         modelId
@@ -714,10 +709,10 @@ export function usePresentationState() {
         imageProvider === "gemini" ? coverCharacter?.referenceImageDataUrl : undefined;
       const coverCharacterImageForOpenAI =
         imageProvider === "openai" ? coverCharacter?.referenceImageDataUrl : undefined;
-      const imageGenerator = getImageGenerator(imageProvider);
       const imageModelId =
         imageProvider === "gemini" ? geminiImageModelId : "dall-e-3";
-      const imageUrl = await imageGenerator.generateImage({
+      const imageUrl = await generateImageUseCase.run({
+        providerId: imageProvider,
         slideContext,
         userPrompt: coverPrompt,
         stylePrompt: selectedStyle.prompt,
@@ -789,10 +784,10 @@ export function usePresentationState() {
     try {
       const context =
         "Personaje aislado para usar en presentaciones. Debe ser el mismo personaje en todas las escenas. Fondo limpio.";
-      const imageGenerator = getImageGenerator(imageProvider);
       const imageModelId =
         imageProvider === "gemini" ? geminiImageModelId : "dall-e-3";
-      return imageGenerator.generateImage({
+      return generateImageUseCase.run({
+        providerId: imageProvider,
         slideContext: context,
         userPrompt: characterDescription.trim(),
         stylePrompt: selectedStyle.prompt,

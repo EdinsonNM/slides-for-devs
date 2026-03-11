@@ -122,7 +122,6 @@ export async function setXaiApiKey(key: string): Promise<void> {
   }
 }
 
-/** @deprecated Usar hasAnyApiConfiguredSync o hasAnyApiConfiguredAsync según contexto. */
 export function hasAnyApiConfigured(): boolean {
   return hasAnyApiConfiguredSync();
 }

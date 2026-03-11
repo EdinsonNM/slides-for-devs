@@ -1,7 +1,3 @@
-/**
- * Modelos de Gemini para generación de imágenes (Nano Banana).
- * https://ai.google.dev/gemini-api/docs/models
- */
 export interface GeminiImageModelOption {
   id: string;
   label: string;

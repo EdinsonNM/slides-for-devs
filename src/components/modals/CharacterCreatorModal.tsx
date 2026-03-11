@@ -119,17 +119,41 @@ export function CharacterCreatorModal() {
 
   const handleSaveAsCharacter = async () => {
     const trimmedName = name.trim();
-    const trimmedDesc = description.trim();
-    if (!trimmedName || !trimmedDesc) return;
+    let trimmedDesc = description.trim();
+
+    let referenceImageDataUrl: string | undefined;
+    if (previewUrl) {
+      referenceImageDataUrl = previewUrl.startsWith("data:")
+        ? previewUrl
+        : await toDataUrlIfBlob(previewUrl);
+    }
+
+    if (referenceImageDataUrl && !trimmedDesc && hasGemini) {
+      setIsSaving(true);
+      try {
+        const desc = await describeCharacterFromImage(referenceImageDataUrl);
+        if (desc?.trim()) trimmedDesc = desc.trim();
+      } catch (err) {
+        console.error("Error describiendo personaje desde imagen:", err);
+        alert(
+          "No se pudo generar la descripción del personaje desde la imagen. Añade una descripción manualmente para guardar (útil para generación con OpenAI)."
+        );
+        setIsSaving(false);
+        return;
+      } finally {
+        setIsSaving(false);
+      }
+    }
+
+    if (!trimmedName || !trimmedDesc) {
+      if (referenceImageDataUrl && !trimmedDesc) {
+        alert("Añade una descripción del personaje para guardar. Con OpenAI se usará esta descripción cuando no se pueda enviar la imagen de referencia.");
+      }
+      return;
+    }
     setIsSaving(true);
     try {
       const id = crypto.randomUUID();
-      let referenceImageDataUrl: string | undefined;
-      if (previewUrl) {
-        referenceImageDataUrl = previewUrl.startsWith("data:")
-          ? previewUrl
-          : await toDataUrlIfBlob(previewUrl);
-      }
       await saveCharacter({
         id,
         name: trimmedName,
@@ -346,8 +370,13 @@ export function CharacterCreatorModal() {
                   </div>
                 )}
 
-                {previewUrl && description.trim() && (
+                {previewUrl && (
                   <div className="space-y-3 pt-2 border-t border-stone-100">
+                    {sourceTab === "image" && !description.trim() && hasGemini && (
+                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                        Recomendado: añade o revisa la descripción. Con OpenAI se usará esta descripción cuando no se pueda enviar la imagen de referencia. Si guardas sin descripción, se intentará generarla desde la imagen.
+                      </p>
+                    )}
                     <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
                       Nombre del personaje
                     </label>

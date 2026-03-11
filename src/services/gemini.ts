@@ -1,15 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Slide } from "../types";
 import { getGeminiApiKey } from "./apiConfig";
+import { buildPrompt } from "../infrastructure/promptEngine";
 import {
-  buildRefineCharacterPrompt,
-  DESCRIBE_CHARACTER_FROM_IMAGE,
-  buildPresenterNotesPrompt,
-  buildSpeechForSlidePrompt,
-  buildRefinePresenterNotesPrompt,
-  buildCodeForSlidePrompt,
-  buildPresenterChatPrompt,
-} from "../llm/prompts/characterAndPresenter";
+  refineCharacterPrompt as refineCharacterPromptDef,
+  describeCharacterFromImagePrompt,
+  presenterNotesPrompt,
+  speechForSlidePrompt,
+  refinePresenterNotesPrompt,
+  codeForSlidePrompt,
+  presenterChatPrompt,
+} from "../infrastructure/prompts";
 
 const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
 
@@ -30,19 +31,19 @@ function parseImageDataUrl(dataUrl: string): { mimeType: string; data: string } 
   return { mimeType, data: match[3] };
 }
 
-/** Refina la descripción del usuario en un prompt preciso y reutilizable para generar siempre el mismo personaje. */
 export async function refineCharacterPrompt(
   userDescription: string,
   model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
+  const { system, user } = buildPrompt(refineCharacterPromptDef, { userDescription });
+  const content = `${system}\n\n${user}`;
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: buildRefineCharacterPrompt(userDescription),
+    contents: content,
   });
   return (response.text || "").trim();
 }
 
-/** Describe el personaje de una imagen de referencia para obtener un prompt reutilizable (requiere Gemini con visión). */
 export async function describeCharacterFromImage(
   imageDataUrl: string,
   model: string = DEFAULT_TEXT_MODEL
@@ -50,13 +51,15 @@ export async function describeCharacterFromImage(
   const parsed = parseImageDataUrl(imageDataUrl);
   if (!parsed) throw new Error("Formato de imagen no válido. Usa PNG, JPEG o WebP.");
 
+  const { system, user } = buildPrompt(describeCharacterFromImagePrompt, {});
+  const textPart = `${system}\n\n${user}`;
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
     contents: [
       {
         parts: [
           { inlineData: { mimeType: parsed.mimeType, data: parsed.data } },
-          { text: DESCRIBE_CHARACTER_FROM_IMAGE },
+          { text: textPart },
         ],
       },
     ],
@@ -64,32 +67,35 @@ export async function describeCharacterFromImage(
   return (response.text || "").trim();
 }
 
-/** Genera notas del presentador para una diapositiva */
 export async function generatePresenterNotes(
   slide: Slide,
   model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
+  const { system, user } = buildPrompt(presenterNotesPrompt, { title: slide.title, content: slide.content });
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: buildPresenterNotesPrompt(slide),
+    contents: `${system}\n\n${user}`,
   });
   return (response.text || "").trim();
 }
 
-/** Genera speech/guion para una diapositiva con prompt opcional (específico o vacío para estándar) */
 export async function generateSpeechForSlide(
   slide: Slide,
   customPrompt?: string,
   model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
+  const { system, user } = buildPrompt(speechForSlidePrompt, {
+    title: slide.title,
+    content: slide.content,
+    customPrompt,
+  });
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: buildSpeechForSlidePrompt(slide, customPrompt),
+    contents: `${system}\n\n${user}`,
   });
   return (response.text || "").trim();
 }
 
-/** Genera speech para todas las diapositivas usando un prompt general */
 export async function generateSpeechForAll(
   slides: Slide[],
   generalPrompt: string,
@@ -103,30 +109,39 @@ export async function generateSpeechForAll(
   return results;
 }
 
-/** Refina el texto de las notas del presentador manteniendo el sentido y mejorando claridad y tono */
 export async function refinePresenterNotes(
   slide: Slide,
   currentNotes: string,
   model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
   if (!currentNotes.trim()) return currentNotes;
+  const { system, user } = buildPrompt(refinePresenterNotesPrompt, {
+    title: slide.title,
+    contentSummary: slide.content.slice(0, 300),
+    currentNotes,
+  });
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: buildRefinePresenterNotesPrompt(slide, currentNotes),
+    contents: `${system}\n\n${user}`,
   });
   return (response.text || currentNotes).trim();
 }
 
-/** Genera código para el slide según título, contenido y lenguaje. Opcional: prompt extra del usuario. */
 export async function generateCodeForSlide(
   slide: Slide,
   language: string,
   customPrompt?: string,
   model: string = DEFAULT_TEXT_MODEL
 ): Promise<{ code: string }> {
+  const { system, user } = buildPrompt(codeForSlidePrompt, {
+    title: slide.title,
+    content: slide.content,
+    language,
+    customPrompt,
+  });
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: buildCodeForSlidePrompt(slide, language, customPrompt),
+    contents: `${system}\n\n${user}`,
   });
   const text = (response.text || "").trim();
   const code = text
@@ -136,7 +151,6 @@ export async function generateCodeForSlide(
   return { code: code || "// Sin código generado" };
 }
 
-/** Chat para consultas durante la presentación: responde en markdown con contexto del tema y slide actual */
 export async function presenterChat(
   topic: string,
   currentSlideTitle: string,
@@ -144,14 +158,15 @@ export async function presenterChat(
   userMessage: string,
   model: string = DEFAULT_TEXT_MODEL
 ): Promise<string> {
+  const { system, user } = buildPrompt(presenterChatPrompt, {
+    topic,
+    currentSlideTitle,
+    currentSlideContent,
+    userMessage,
+  });
   const response = await getClient().models.generateContent({
     model: model || DEFAULT_TEXT_MODEL,
-    contents: buildPresenterChatPrompt(
-      topic,
-      currentSlideTitle,
-      currentSlideContent,
-      userMessage
-    ),
+    contents: `${system}\n\n${user}`,
   });
   return (response.text || "").trim();
 }

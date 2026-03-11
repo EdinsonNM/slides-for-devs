@@ -114,13 +114,14 @@ function EditorRoute({ onOpenConfig }: { onOpenConfig: () => void }) {
     restoreLastOpenedPresentation()
       .then((ok) => {
         setRestoring(false);
-        if (!ok) navigate("/", { replace: true });
+        // Solo redirigir a home si no se restauró nada Y no hay diapositivas (evita parpadeo al venir de generar presentación).
+        if (!ok && slides.length === 0) navigate("/", { replace: true });
       })
       .catch(() => {
         setRestoring(false);
-        navigate("/", { replace: true });
+        if (slides.length === 0) navigate("/", { replace: true });
       });
-  }, [restoreLastOpenedPresentation, navigate]);
+  }, [restoreLastOpenedPresentation, navigate, slides.length]);
 
   if (restoring) return <LoadingScreen />;
   if (slides.length === 0) return <Navigate to="/" replace />;

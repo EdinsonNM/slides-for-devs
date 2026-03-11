@@ -6,14 +6,7 @@ export interface PresentationModelOption {
   provider: PresentationProvider;
 }
 
-/**
- * Modelos recomendados para generación de presentaciones.
- * Gemini: https://ai.google.dev/gemini-api/docs/models
- * OpenAI: https://developers.openai.com/api/docs/models
- * xAI (Grok): https://docs.x.ai/developers/quickstart
- */
 export const PRESENTATION_MODELS: PresentationModelOption[] = [
-  // --- Gemini (Google AI) ---
   {
     id: "gemini-2.5-flash",
     label: "Gemini 2.5 Flash",
@@ -54,7 +47,6 @@ export const PRESENTATION_MODELS: PresentationModelOption[] = [
     label: "Gemini 1.5 Pro",
     provider: "gemini",
   },
-  // --- OpenAI (Frontier / recomendados) ---
   {
     id: "gpt-5.2",
     label: "OpenAI GPT-5.2",
@@ -100,7 +92,6 @@ export const PRESENTATION_MODELS: PresentationModelOption[] = [
     label: "OpenAI GPT-4o mini",
     provider: "openai",
   },
-  // --- xAI (Grok) ---
   {
     id: "grok-4-1-fast-reasoning",
     label: "Grok 4.1 Fast (reasoning)",
