@@ -101,6 +101,16 @@ fn set_openai_api_key(key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_xai_api_key() -> Result<Option<String>, String> {
+    api_keys::get_xai_api_key()
+}
+
+#[tauri::command]
+fn set_xai_api_key(key: String) -> Result<(), String> {
+    api_keys::set_xai_api_key(&key)
+}
+
+#[tauri::command]
 fn has_any_api_configured() -> Result<bool, String> {
     api_keys::has_any_api_configured()
 }
@@ -195,6 +205,8 @@ pub fn run() {
             set_gemini_api_key,
             get_openai_api_key,
             set_openai_api_key,
+            get_xai_api_key,
+            set_xai_api_key,
             has_any_api_configured,
             save_presentation,
             update_presentation,

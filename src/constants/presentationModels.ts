@@ -1,4 +1,4 @@
-export type PresentationProvider = "gemini" | "openai";
+export type PresentationProvider = "gemini" | "openai" | "xai";
 
 export interface PresentationModelOption {
   id: string;
@@ -10,6 +10,7 @@ export interface PresentationModelOption {
  * Modelos recomendados para generación de presentaciones.
  * Gemini: https://ai.google.dev/gemini-api/docs/models
  * OpenAI: https://developers.openai.com/api/docs/models
+ * xAI (Grok): https://docs.x.ai/developers/quickstart
  */
 export const PRESENTATION_MODELS: PresentationModelOption[] = [
   // --- Gemini (Google AI) ---
@@ -98,6 +99,32 @@ export const PRESENTATION_MODELS: PresentationModelOption[] = [
     id: "gpt-4o-mini",
     label: "OpenAI GPT-4o mini",
     provider: "openai",
+  },
+  // --- xAI (Grok) ---
+  {
+    id: "grok-4-1-fast-reasoning",
+    label: "Grok 4.1 Fast (reasoning)",
+    provider: "xai",
+  },
+  {
+    id: "grok-4-1-fast-non-reasoning",
+    label: "Grok 4.1 Fast",
+    provider: "xai",
+  },
+  {
+    id: "grok-4-0709",
+    label: "Grok 4",
+    provider: "xai",
+  },
+  {
+    id: "grok-3",
+    label: "Grok 3",
+    provider: "xai",
+  },
+  {
+    id: "grok-3-mini",
+    label: "Grok 3 mini",
+    provider: "xai",
   },
 ];
 

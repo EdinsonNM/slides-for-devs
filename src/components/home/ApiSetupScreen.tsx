@@ -4,19 +4,23 @@ import { KeyRound, Sparkles, Check } from "lucide-react";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
+  getXaiApiKey,
   setGeminiApiKey,
   setOpenAIApiKey,
+  setXaiApiKey,
 } from "../../services/apiConfig";
 import { cn } from "../../utils/cn";
 
 export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
   const [geminiKey, setGeminiKey] = useState(() => getGeminiApiKey() ?? "");
   const [openaiKey, setOpenaiKey] = useState(() => getOpenAIApiKey() ?? "");
+  const [xaiKey, setXaiKey] = useState(() => getXaiApiKey() ?? "");
   const [touched, setTouched] = useState(false);
 
   const hasGemini = geminiKey.trim().length > 0;
   const hasOpenAI = openaiKey.trim().length > 0;
-  const canContinue = hasGemini || hasOpenAI;
+  const hasXai = xaiKey.trim().length > 0;
+  const canContinue = hasGemini || hasOpenAI || hasXai;
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -28,6 +32,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
     try {
       await setGeminiApiKey(geminiKey);
       await setOpenAIApiKey(openaiKey);
+      await setXaiApiKey(xaiKey);
       onConfigured();
     } finally {
       setIsSaving(false);
@@ -75,7 +80,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
             </h1>
             <p className="text-stone-600 mt-2">
               Para generar presentaciones necesitas al menos una clave de API.
-              Puedes usar Gemini, OpenAI o ambas.
+              Puedes usar Gemini, OpenAI, xAI (Grok) o varias.
             </p>
           </div>
 
@@ -152,9 +157,49 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
               </p>
             </div>
 
+            <div>
+              <label
+                htmlFor="xai-key"
+                className="block text-sm font-medium text-stone-700 mb-1.5"
+              >
+                API Key de xAI (Grok) (opcional)
+              </label>
+              <div className="relative">
+                <input
+                  id="xai-key"
+                  type="password"
+                  value={xaiKey}
+                  onChange={(e) => setXaiKey(e.target.value)}
+                  placeholder="Ej: xai-..."
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl border bg-white/95 text-stone-900 placeholder:text-stone-400",
+                    "focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500",
+                    "border-stone-200/80 shadow-sm",
+                  )}
+                  autoComplete="off"
+                />
+                {hasXai && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-600">
+                    <Check size={18} />
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-600 mt-1">
+                Presentaciones con Grok. Obtén una en{" "}
+                <a
+                  href="https://console.x.ai/team/default/api-keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-700 hover:underline font-medium"
+                >
+                  xAI Console
+                </a>
+              </p>
+            </div>
+
             {touched && !canContinue && (
               <p className="text-sm text-amber-700 bg-amber-100/80 px-3 py-2 rounded-lg">
-                Añade al menos una clave (Gemini u OpenAI) para continuar.
+                Añade al menos una clave (Gemini, OpenAI o xAI) para continuar.
               </p>
             )}
 
