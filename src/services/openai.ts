@@ -1,5 +1,6 @@
 import type { Slide } from "../types";
 import { OpenAIAdapter } from "../infrastructure/adapters/OpenAI.adapter";
+import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 
 const adapter = new OpenAIAdapter();
 
@@ -23,7 +24,7 @@ export async function generateImageOpenAI(
     userPrompt,
     stylePrompt,
     includeBackground,
-    modelId: "dall-e-3",
+    modelId: DEFAULT_OPENAI_IMAGE_MODEL_ID,
     characterPrompt,
     characterReferenceImageDataUrl,
   });

@@ -41,6 +41,6 @@ export const IMAGE_STYLES: ImageStyle[] = [
     id: "realistic-diagram",
     name: "Diagrama realista",
     prompt:
-      "diagrama 2D estilo Excalidraw, dibujo a mano alzada, líneas sketch suaves, cajas rectangulares redondeadas, flechas y conectores, fondo blanco o claro, hand-drawn limpio, sin 3D ni sombras pesadas, composición clara, ideal para flujos y esquemas técnicos",
+      "diagrama 2D minimalista, máximo 4-5 elementos (cajas o iconos), un solo flujo de izquierda a derecha o arriba abajo, pocas flechas que no se crucen, sin texto ni etiquetas, fondo blanco, hand-drawn limpio, composición simple que transmita una sola idea clara",
   },
 ];

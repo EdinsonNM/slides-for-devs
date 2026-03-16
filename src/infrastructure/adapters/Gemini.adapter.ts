@@ -190,6 +190,8 @@ export class GeminiAdapter
       characterPrompt: params.characterPrompt,
       hasReferenceImage: hasRef,
     });
+    // Debug: ver en consola el prompt final enviado al modelo de imagen
+    console.log("[Image generation] Prompt enviado al modelo (Gemini):\n", fullPrompt);
     const contents =
       hasRef && ref
         ? [
@@ -204,7 +206,7 @@ export class GeminiAdapter
     const res = await client().models.generateContent({
       model: params.modelId || DEFAULT_IMAGE,
       contents,
-      config: { imageConfig: { aspectRatio: "1:1" } },
+      config: { imageConfig: { aspectRatio: "9:16" } },
     });
     for (const part of res.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;

@@ -32,7 +32,7 @@ export function PreviewSlideContent({
         slide.type === "diagram"
           ? "w-full h-full max-w-none flex-col"
           : "w-full max-w-7xl 2xl:max-w-[1600px] aspect-video max-h-full",
-        slide.type === "chapter" ? "justify-center items-center" : ""
+        slide.type === "chapter" ? "justify-center items-center" : "items-center"
       )}
     >
       {slide.type === "chapter" ? (

@@ -67,31 +67,7 @@ export const PRESENTATION_MODELS: PresentationModelOption[] = [
     label: "OpenAI GPT-5.2 pro",
     provider: "openai",
   },
-  {
-    id: "gpt-4.1",
-    label: "OpenAI GPT-4.1",
-    provider: "openai",
-  },
-  {
-    id: "gpt-4.1-mini",
-    label: "OpenAI GPT-4.1 mini",
-    provider: "openai",
-  },
-  {
-    id: "gpt-4.1-nano",
-    label: "OpenAI GPT-4.1 nano",
-    provider: "openai",
-  },
-  {
-    id: "gpt-4o",
-    label: "OpenAI GPT-4o",
-    provider: "openai",
-  },
-  {
-    id: "gpt-4o-mini",
-    label: "OpenAI GPT-4o mini",
-    provider: "openai",
-  },
+ 
   {
     id: "grok-4-1-fast-reasoning",
     label: "Grok 4.1 Fast (reasoning)",

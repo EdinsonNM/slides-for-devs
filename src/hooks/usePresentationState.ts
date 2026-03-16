@@ -40,6 +40,7 @@ import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
+import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 
@@ -134,10 +135,15 @@ export function usePresentationState() {
   const presentationModelOption =
     presentationModels.find((m) => m.id === presentationModelId) ??
     PRESENTATION_MODELS.find((m) => m.id === presentationModelId);
+  // Modelo usado para speech, código, notas y chat (si el combo es Gemini; si no, fallback).
   const effectiveGeminiModel =
     presentationModelOption?.provider === "gemini"
       ? presentationModelId
       : "gemini-2.5-flash";
+  const modelForGeminiOps = effectiveGeminiModel?.trim() || "gemini-2.5-flash";
+  const effectiveGeminiModelLabel =
+    PRESENTATION_MODELS.find((m) => m.id === modelForGeminiOps)?.label ??
+    modelForGeminiOps;
 
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
@@ -394,7 +400,7 @@ export function usePresentationState() {
     const characterReferenceImageForOpenAI =
       imageProvider === "openai" ? character?.referenceImageDataUrl : undefined;
     const imageModelId =
-      imageProvider === "gemini" ? geminiImageModelId : "dall-e-3";
+      imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
     try {
       const imageUrl = await generateImageUseCase.run({
         providerId: imageProvider,
@@ -710,7 +716,7 @@ export function usePresentationState() {
       const coverCharacterImageForOpenAI =
         imageProvider === "openai" ? coverCharacter?.referenceImageDataUrl : undefined;
       const imageModelId =
-        imageProvider === "gemini" ? geminiImageModelId : "dall-e-3";
+        imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
       const imageUrl = await generateImageUseCase.run({
         providerId: imageProvider,
         slideContext,
@@ -785,7 +791,7 @@ export function usePresentationState() {
       const context =
         "Personaje aislado para usar en presentaciones. Debe ser el mismo personaje en todas las escenas. Fondo limpio.";
       const imageModelId =
-        imageProvider === "gemini" ? geminiImageModelId : "dall-e-3";
+        imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
       return generateImageUseCase.run({
         providerId: imageProvider,
         slideContext: context,
@@ -872,7 +878,7 @@ export function usePresentationState() {
         currentSlide,
         codeGenLanguage,
         codeGenPrompt.trim() || undefined,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setSlides((prev) => {
         const updated = [...prev];
@@ -914,7 +920,7 @@ export function usePresentationState() {
     try {
       const notes = await generatePresenterNotesApi(
         currentSlide,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(notes);
     } catch (e) {
@@ -932,7 +938,7 @@ export function usePresentationState() {
       const text = await generateSpeechForSlideApi(
         currentSlide,
         prompt,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(text);
     } catch (e) {
@@ -955,7 +961,7 @@ export function usePresentationState() {
       const refined = await refinePresenterNotesApi(
         currentSlide,
         current,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(refined);
     } catch (e) {
@@ -973,7 +979,7 @@ export function usePresentationState() {
       const results = await generateSpeechForAllApi(
         slides,
         speechGeneralPrompt,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setSlides((prev) =>
         prev.map((s, i) => ({
@@ -998,6 +1004,7 @@ export function usePresentationState() {
     setPresentationModelId,
     presentationModels,
     effectiveGeminiModel,
+    effectiveGeminiModelLabel,
     slides,
     setSlides,
     currentIndex,

@@ -185,6 +185,7 @@ export class OpenAIAdapter
     if (hasRef && params.characterReferenceImageDataUrl) {
       try {
         const fullPrompt = truncatePrompt(buildPromptForImageApi(true));
+        console.log("[Image generation] Prompt enviado al modelo (OpenAI, con referencia):\n", fullPrompt);
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({ apiKey: key() });
         const response = await openai.responses.create({
@@ -217,18 +218,28 @@ export class OpenAIAdapter
     }
 
     const textOnlyPrompt = truncatePrompt(buildPromptForImageApi(false));
+    // Debug: ver en consola el prompt final enviado al modelo de imagen
+    console.log("[Image generation] Prompt enviado al modelo (OpenAI):\n", textOnlyPrompt);
 
+    const modelId = params.modelId || "gpt-image-1.5";
+    const isGptImage = modelId.startsWith("gpt-image");
+    const body: Record<string, unknown> = {
+      model: modelId,
+      prompt: textOnlyPrompt,
+      n: 1,
+      size: "1024x1536", // 2:3 portrait; formato vertical cercano a 9:16
+    };
+    if (isGptImage) {
+      body.quality = "high";
+      // gpt-image-* devuelve b64 por defecto; no acepta response_format
+    } else {
+      body.quality = "standard";
+      body.response_format = "b64_json";
+    }
     const res = await fetch(IMAGES_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: textOnlyPrompt,
-        n: 1,
-        size: "1024x1024",
-        response_format: "b64_json",
-        quality: "standard",
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
     const b64 = (await res.json())?.data?.[0]?.b64_json;

@@ -38,9 +38,12 @@ Tu texto se combina con el estilo "${styleName}". La escena que describas debe i
 ${alt}
 Responde ÚNICAMENTE el texto. Sin comillas.`;
     }
+    const isDiagramStyle = /diagrama|Diagrama|sketch|hand-drawn|Excalidraw/i.test(styleName);
+    const diagramEssenceRule =
+      " Si es estilo diagrama: pide una composición SIMPLE (máximo 4-5 elementos), UN solo flujo (ej. cliente → servidor → base de datos), pocas flechas que no se crucen, y sin texto ni etiquetas en la imagen. La idea debe entenderse de un vistazo; no saturar ni hacer redes densas.";
     const alt = hasExisting
-      ? `ALTERNATIVA DIFERENTE. No repitas: "${currentPrompt}". Propón otra representación visual del mismo tema.`
-      : "Genera la descripción visual que mejor ilustre el tema del slide (con o sin personajes según convenga).";
+      ? `ALTERNATIVA DIFERENTE. No repitas: "${currentPrompt}". Propón otra representación visual del mismo tema.${isDiagramStyle ? " " + diagramEssenceRule : ""}`
+      : `Genera la descripción visual que mejor ilustre el tema del slide (con o sin personajes según convenga). La imagen debe captar la ESENCIA del contenido y aportar valor.${isDiagramStyle ? " " + diagramEssenceRule : ""}`;
     return `${role}${noBackgroundRule}
 
 CONTENIDO DE LA DIAPOSITIVA (tu descripción debe reflejar los conceptos clave del contenido, no solo el título):
@@ -75,7 +78,8 @@ export const imageGenerationPrompt: PromptDefinition<ImageGenerationInput> = {
       input.slideContext.length > MAX_SLIDE_CONTEXT_LENGTH
         ? input.slideContext.slice(0, MAX_SLIDE_CONTEXT_LENGTH - 3) + "..."
         : input.slideContext;
-    const noText = "Sin texto, leyendas ni palabras en la imagen.";
+    const noText =
+      "La imagen NO debe contener texto, leyendas ni etiquetas (evitar que aparezcan caracteres o palabras; solo formas e iconos).";
     const background = includeBackground ? "" : " Fondo blanco puro; solo el sujeto principal, sin escenario.";
     const hasCharacter = hasReferenceImage || (characterPrompt?.trim()?.length ?? 0) > 0;
 
@@ -93,12 +97,16 @@ export const imageGenerationPrompt: PromptDefinition<ImageGenerationInput> = {
     }
 
     const styleText = stylePrompt.trim();
+    const isDiagramStyle = /diagrama|sketch|hand-drawn|excalidraw|flechas|conectores/i.test(styleText);
     const is2DStyle =
       /cartoon|2D|no 3D|ilustración|ilustracion|plano|vectorial|minimalista|diagrama|sketch|hand-drawn/i.test(
         styleText
       );
+    const diagramRule = isDiagramStyle
+      ? " CRÍTICO para estilo diagrama: (1) NO saturar: máximo 4-5 elementos en total (cajas, iconos, formas). (2) UN solo flujo legible (ej. izquierda a derecha o arriba abajo), pocas flechas y que NO se crucen. (3) Cero texto, cero etiquetas ni palabras en la imagen. (4) Composición minimalista: una idea clara que aporte valor al slide, no una red densa ni una maraña de conexiones."
+      : "";
     const style = styleText
-      ? `ESTILO: ${styleText}.${is2DStyle ? " 2D/ilustración, no 3D." : ""}\n\n`
+      ? `ESTILO: ${styleText}.${is2DStyle ? " 2D/ilustración, no 3D." : ""}${diagramRule}\n\n`
       : "";
 
     const contextRule = hasCharacter

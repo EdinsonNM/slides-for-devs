@@ -4,7 +4,8 @@
  */
 
 export const imageContentRules: string[] = [
-  "La imagen NO debe contener ningún texto, leyendas, etiquetas, palabras ni caracteres. Solo elementos puramente visuales e ilustrativos.",
+  "La imagen NO debe contener texto, leyendas ni etiquetas; solo elementos puramente visuales e ilustrativos.",
+  "En estilo diagrama: composición simple con máximo 4-5 elementos; un solo flujo legible (pocas flechas, que no se crucen); sin texto ni etiquetas en la imagen; debe captar la esencia del slide sin saturar.",
   "No describas estilo visual (minimalista, 3D, etc.) en tu texto si ya está definido; tu respuesta se combina con el estilo elegido.",
   "La descripción debe ser coherente con el contexto del slide (título y contenido).",
   "Cuando haya personaje: debe ser DINÁMICO (otra pose, otra acción: señalando, sorprendido, enseñando, etc.), no la misma postura de referencia.",

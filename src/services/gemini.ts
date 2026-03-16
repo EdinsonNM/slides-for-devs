@@ -89,8 +89,9 @@ export async function generateSpeechForSlide(
     content: slide.content,
     customPrompt,
   });
+  const modelId = (model && model.trim()) || DEFAULT_TEXT_MODEL;
   const response = await getClient().models.generateContent({
-    model: model || DEFAULT_TEXT_MODEL,
+    model: modelId,
     contents: `${system}\n\n${user}`,
   });
   return (response.text || "").trim();
@@ -139,8 +140,9 @@ export async function generateCodeForSlide(
     language,
     customPrompt,
   });
+  const modelId = (model && model.trim()) || DEFAULT_TEXT_MODEL;
   const response = await getClient().models.generateContent({
-    model: model || DEFAULT_TEXT_MODEL,
+    model: modelId,
     contents: `${system}\n\n${user}`,
   });
   const text = (response.text || "").trim();

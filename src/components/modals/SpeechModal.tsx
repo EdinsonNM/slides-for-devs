@@ -10,6 +10,7 @@ export function SpeechModal() {
     setSpeechGeneralPrompt,
     isGeneratingSpeech,
     handleGenerateSpeechForAll,
+    effectiveGeminiModelLabel,
   } = usePresentation();
 
   return (
@@ -53,6 +54,9 @@ export function SpeechModal() {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              <p className="text-xs text-stone-500">
+                Modelo: <span className="font-medium text-stone-700">{effectiveGeminiModelLabel}</span>
+              </p>
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
                   Instrucciones (tono, audiencia, duración, etc.)
