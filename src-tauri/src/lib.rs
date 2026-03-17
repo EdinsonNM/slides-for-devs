@@ -150,6 +150,24 @@ struct FirebaseConfig {
 fn find_firebase_config(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>, String> {
     let filename = "firebase_config.json";
 
+    // En dev: priorizar raíz del proyecto (donde está package.json + firebase_config.json)
+    #[cfg(debug_assertions)]
+    if let Ok(exe) = std::env::current_exe() {
+        let mut dir = exe.parent();
+        for _ in 0..8 {
+            if let Some(d) = dir {
+                let config = d.join(filename);
+                let package = d.join("package.json");
+                if config.exists() && package.exists() {
+                    return Ok(Some(config));
+                }
+                dir = d.parent();
+            } else {
+                break;
+            }
+        }
+    }
+
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let in_app_data = app_data_dir.join(filename);
     if in_app_data.exists() {
@@ -207,6 +225,8 @@ fn get_firebase_config(app: tauri::AppHandle) -> Result<Option<FirebaseConfig>, 
 fn sign_in_google_external_browser(app: tauri::AppHandle) -> Result<String, String> {
     let path = find_firebase_config(&app)?
         .ok_or_else(|| "No se encontró firebase_config.json".to_string())?;
+    #[cfg(debug_assertions)]
+    eprintln!("[Slaim] Leyendo config desde: {}", path.display());
     let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     oauth_google::sign_in_with_external_browser(&content)
 }

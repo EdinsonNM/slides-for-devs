@@ -190,8 +190,6 @@ export class GeminiAdapter
       characterPrompt: params.characterPrompt,
       hasReferenceImage: hasRef,
     });
-    // Debug: ver en consola el prompt final enviado al modelo de imagen
-    console.log("[Image generation] Prompt enviado al modelo (Gemini):\n", fullPrompt);
     const contents =
       hasRef && ref
         ? [

@@ -24,13 +24,13 @@ export type UpdateCheckResult =
   | { status: "error"; error: string };
 
 /**
- * Comprueba si hay una actualizaci?n disponible y, si la hay, muestra un di?logo
- * para que el usuario elija actualizar ahora o m?s tarde.
+ * Comprueba si hay una actualización disponible y, si la hay, muestra un diálogo
+ * para que el usuario elija actualizar ahora o más tarde.
  * Solo se ejecuta dentro de Tauri (escritorio); en web no hace nada.
- * @param silent Si true, no muestra di?logos de "ya actualizado" ni "error"; solo el de "actualizaci?n disponible".
+ * @param silent Si true, no muestra diálogos de "ya actualizado" ni "error"; solo el de "actualización disponible".
  */
 export async function checkForAppUpdates(
-  silent = true
+  silent = true,
 ): Promise<UpdateCheckResult> {
   if (!isTauri()) {
     if (!silent) {
@@ -38,7 +38,7 @@ export async function checkForAppUpdates(
         window.alert(
           "Buscar actualizaciones solo funciona en la app de escritorio (el .exe de Windows).\n\n" +
             "Si abriste Slaim desde el navegador o desde ?Instalar? en Chrome, esa es la versi?n web. " +
-            "Descarga el instalador desde GitHub ? Releases y ejecuta el .exe para usar la app de escritorio."
+            "Descarga el instalador desde GitHub ? Releases y ejecuta el .exe para usar la app de escritorio.",
         );
       }
     }
@@ -46,16 +46,20 @@ export async function checkForAppUpdates(
   }
 
   const currentVersion = await getAppVersion();
-  console.log("[Updater] Versi?n actual:", currentVersion);
+  if (import.meta.env.DEV) {
+    console.log("[Updater] Versión actual:", currentVersion);
+  }
 
   try {
     const update = await check();
     if (!update) {
-      console.log("[Updater] No hay actualizaci?n disponible.");
+      if (import.meta.env.DEV) {
+        console.log("[Updater] No hay actualización disponible.");
+      }
       if (!silent) {
         await showMessage(
           `Ya tienes la ?ltima versi?n instalada (v${currentVersion}).`,
-          { title: "Actualizaciones", kind: "info" }
+          { title: "Actualizaciones", kind: "info" },
         );
       }
       return { status: "no-update" };
@@ -70,7 +74,7 @@ export async function checkForAppUpdates(
       title: "Actualizaci?n disponible",
       kind: "info",
       okLabel: "Actualizar ahora",
-      cancelLabel: "M?s tarde",
+      cancelLabel: "Más tarde",
     });
 
     if (yes) {
@@ -79,13 +83,14 @@ export async function checkForAppUpdates(
     }
     return { status: "update-available" };
   } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : String(err);
-    console.warn("[Updater] Error al comprobar actualizaciones:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    if (import.meta.env.DEV) {
+      console.warn("[Updater] Error al comprobar actualizaciones:", err);
+    }
     if (!silent) {
       await showMessage(
         `No se pudo comprobar actualizaciones.\n\nVersi?n actual: v${currentVersion}\n\n${errorMessage}`,
-        { title: "Actualizaciones", kind: "error" }
+        { title: "Actualizaciones", kind: "error" },
       );
     }
     return { status: "error", error: errorMessage };

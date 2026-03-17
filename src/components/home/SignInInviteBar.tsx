@@ -10,14 +10,18 @@ import { GoogleIcon } from "../shared/GoogleIcon";
 export function SignInInviteBar() {
   const { user, firebaseReady, signInWithGoogle } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (user) return null;
 
   const handleClick = async () => {
     if (firebaseReady !== true || isSigningIn) return;
+    setError(null);
     setIsSigningIn(true);
     try {
       await signInWithGoogle();
+    } catch {
+      setError("No se pudo completar el inicio de sesión.");
     } finally {
       setIsSigningIn(false);
     }
@@ -29,6 +33,11 @@ export function SignInInviteBar() {
       <span className="text-sm text-stone-700 dark:text-stone-200">
         Inicia sesión con Google para sincronizar tus presentaciones en la nube
       </span>
+      {error && (
+        <span className="text-xs text-red-600 dark:text-red-400" role="alert">
+          {error}
+        </span>
+      )}
       {firebaseReady === true ? (
         <button
           type="button"

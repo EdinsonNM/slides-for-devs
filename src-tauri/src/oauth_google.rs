@@ -64,17 +64,17 @@ fn listen_for_code(timeout_secs: u64) -> Result<String, String> {
                     .next()
                     .and_then(|line| {
                         let line = line.trim();
-                        if line.starts_with("GET /callback") {
-                            let path = line.split_whitespace().nth(1)?;
-                            let query = path.strip_prefix("/callback?")?;
-                            for part in query.split('&') {
-                                let (k, v) = part.split_once('=')?;
-                                if k == "code" {
-                                    // Decodificar: el navegador envía code=4%2F0A... y Google espera 4/0A... en el token request
-                                    let decoded =
-                                        urlencoding::decode(v).unwrap_or(std::borrow::Cow::Borrowed(v));
-                                    return Some(decoded.into_owned());
-                                }
+                        let path = line.split_whitespace().nth(1)?;
+                        // Aceptar GET /callback?... (Web) o GET /?... (Desktop app loopback)
+                        let query = path
+                            .strip_prefix("/callback?")
+                            .or_else(|| path.strip_prefix("/?"))?;
+                        for part in query.split('&') {
+                            let (k, v) = part.split_once('=')?;
+                            if k == "code" {
+                                let decoded =
+                                    urlencoding::decode(v).unwrap_or(std::borrow::Cow::Borrowed(v));
+                                return Some(decoded.into_owned());
                             }
                         }
                         None

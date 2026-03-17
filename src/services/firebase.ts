@@ -159,7 +159,9 @@ export async function signInWithGoogle(): Promise<User | null> {
       const result = await signInWithCredential(instance.auth, credential);
       return result.user;
     } catch (e) {
-      console.error("Login con navegador externo:", e);
+      if (import.meta.env.DEV) {
+        console.error("Login con navegador externo:", e);
+      }
       throw e;
     }
   }

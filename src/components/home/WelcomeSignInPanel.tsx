@@ -16,12 +16,18 @@ export interface WelcomeSignInPanelProps {
 export function WelcomeSignInPanel({ onContinueWithoutAccount }: WelcomeSignInPanelProps) {
   const { firebaseReady, signInWithGoogle } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   const handleSignIn = async () => {
     if (isSigningIn) return;
+    setSignInError(null);
     setIsSigningIn(true);
     try {
       await signInWithGoogle();
+    } catch {
+      setSignInError(
+        "No se pudo completar el inicio de sesión. Comprueba tu conexión o vuelve a intentarlo."
+      );
     } finally {
       setIsSigningIn(false);
     }
@@ -87,6 +93,11 @@ export function WelcomeSignInPanel({ onContinueWithoutAccount }: WelcomeSignInPa
                   ? "Iniciar sesión con Google (configura Firebase)"
                   : "Iniciar sesión con Google"}
             </button>
+            {signInError && (
+              <p className="text-sm text-red-200 bg-red-900/30 px-4 py-2 rounded-lg max-w-md text-center">
+                {signInError}
+              </p>
+            )}
             {onContinueWithoutAccount && (
               <button
                 type="button"

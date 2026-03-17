@@ -185,7 +185,6 @@ export class OpenAIAdapter
     if (hasRef && params.characterReferenceImageDataUrl) {
       try {
         const fullPrompt = truncatePrompt(buildPromptForImageApi(true));
-        console.log("[Image generation] Prompt enviado al modelo (OpenAI, con referencia):\n", fullPrompt);
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({ apiKey: key() });
         const response = await openai.responses.create({
@@ -212,14 +211,12 @@ export class OpenAIAdapter
         );
         const result = imageCalls.map((o) => (o as { result: string | null }).result);
         if (result[0]) return `data:image/png;base64,${result[0]}`;
-      } catch (err) {
-        console.warn("OpenAI Responses API (image with reference) failed, falling back to Image API:", err);
+      } catch {
+        // Fallback to Image API without logging prompt or error in production
       }
     }
 
     const textOnlyPrompt = truncatePrompt(buildPromptForImageApi(false));
-    // Debug: ver en consola el prompt final enviado al modelo de imagen
-    console.log("[Image generation] Prompt enviado al modelo (OpenAI):\n", textOnlyPrompt);
 
     const modelId = params.modelId || "gpt-image-1.5";
     const isGptImage = modelId.startsWith("gpt-image");

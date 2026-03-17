@@ -36,6 +36,7 @@ export function AvatarMenu({
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const { firebaseReady, user, signInWithGoogle, signOut } = useAuth();
   const { preference, setPreference } = useTheme();
 
@@ -54,9 +55,12 @@ export function AvatarMenu({
 
   const handleSignInWithGoogle = async () => {
     if (isSigningIn) return;
+    setSignInError(null);
     setIsSigningIn(true);
     try {
       await signInWithGoogle();
+    } catch {
+      setSignInError("No se pudo completar el inicio de sesión. Vuelve a intentarlo.");
     } finally {
       setIsSigningIn(false);
     }
@@ -233,6 +237,11 @@ export function AvatarMenu({
                     )}
                     Iniciar sesión con Google
                   </button>
+                )}
+                {signInError && (
+                  <p className="px-3 py-2 text-xs text-red-600 dark:text-red-400" role="alert">
+                    {signInError}
+                  </p>
                 )}
                 {onOpenConfig && (
                   <button

@@ -81,7 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const loggedUser = await firebaseSignInWithGoogle();
       if (loggedUser) setUser(loggedUser);
     } catch (e) {
-      console.error("Error al iniciar sesión con Google:", e);
+      if (import.meta.env.DEV) {
+        console.error("Error al iniciar sesión con Google:", e);
+      }
       throw e;
     }
   }, []);
@@ -91,7 +93,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await firebaseSignOut();
       setUser(null);
     } catch (e) {
-      console.error("Error al cerrar sesión:", e);
+      if (import.meta.env.DEV) {
+        console.error("Error al cerrar sesión:", e);
+      }
       setUser(null);
     }
   }, []);
