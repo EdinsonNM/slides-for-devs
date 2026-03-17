@@ -122,6 +122,12 @@ jobs:
             echo "tag=v${VER}" >> $GITHUB_OUTPUT
           fi
 
+      - name: inject Firebase config for release bundle
+        if: secrets.FIREBASE_CONFIG_JSON != ''
+        env:
+          FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
+        run: node -e "require('fs').writeFileSync('src-tauri/firebase_config.bundle.json', process.env.FIREBASE_CONFIG_JSON || '')"
+
       - name: build Tauri app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

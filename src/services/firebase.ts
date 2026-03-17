@@ -129,6 +129,11 @@ export function getAuthInstance(): Auth | null {
   return auth;
 }
 
+/** Devuelve la instancia de Analytics si está inicializada (requiere measurementId). Usado por el servicio de analytics. */
+export function getAnalyticsInstance(): Analytics | null {
+  return analytics;
+}
+
 function isTauri(): boolean {
   return (
     typeof window !== "undefined" &&

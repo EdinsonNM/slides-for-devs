@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, useEffect } from "react";
 import { usePresentation } from "../../context/PresentationContext";
+import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
@@ -142,6 +143,7 @@ export function PreviewOverlay() {
   if (!isPreviewMode || !currentSlide) return null;
 
   const openPresenterWindow = async () => {
+    trackEvent(ANALYTICS_EVENTS.PRESENTER_MODE_OPENED);
     const path = window.location.pathname || "/";
     const search = window.location.search || "";
     const url = `${getOrigin()}${path}${search}#/presenter`;

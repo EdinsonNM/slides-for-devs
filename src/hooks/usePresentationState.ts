@@ -41,6 +41,7 @@ import {
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
+import { trackEvent, ANALYTICS_EVENTS } from "../services/analytics";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
@@ -229,6 +230,9 @@ export function usePresentationState() {
         if (cancelled) return;
         setCurrentSavedId(id);
         setPendingGeneration(null);
+        trackEvent(ANALYTICS_EVENTS.PRESENTATION_GENERATED, {
+          slide_count: cleanedSlides.length,
+        });
       } catch (error) {
         if (cancelled) return;
         console.error("Error generating presentation:", error);
@@ -517,6 +521,7 @@ export function usePresentationState() {
         });
         setShowImageModal(false);
         setImagePrompt("");
+        trackEvent(ANALYTICS_EVENTS.IMAGE_GENERATED);
       }
     } catch (error) {
       console.error("Error generating image:", error);
@@ -582,6 +587,9 @@ export function usePresentationState() {
         });
         setShowSplitModal(false);
         setSplitPrompt("");
+        trackEvent(ANALYTICS_EVENTS.SLIDE_SPLIT, {
+          new_slides_count: cleanedNewSlides.length,
+        });
       }
     } catch (error) {
       console.error("Error splitting slide:", error);
@@ -615,6 +623,7 @@ export function usePresentationState() {
       });
       setShowRewriteModal(false);
       setRewritePrompt("");
+      trackEvent(ANALYTICS_EVENTS.SLIDE_REWRITTEN);
     } catch (error) {
       console.error("Error rewriting slide:", error);
       alert("Error al replantear la diapositiva.");
@@ -636,6 +645,7 @@ export function usePresentationState() {
     });
     setShowVideoModal(false);
     setVideoUrlInput("");
+    trackEvent(ANALYTICS_EVENTS.VIDEO_ADDED);
   };
 
   const flushDiagramPending = useCallback((): string | null => {
@@ -665,6 +675,7 @@ export function usePresentationState() {
             // ignore
           }
         }
+        trackEvent(ANALYTICS_EVENTS.PRESENTATION_SAVED);
         setTimeout(() => setSaveMessage(null), 2000);
       } catch (e) {
         console.error(e);
@@ -731,6 +742,7 @@ export function usePresentationState() {
       if (firstImage) {
         setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
       }
+      trackEvent(ANALYTICS_EVENTS.PRESENTATION_OPENED);
     } catch (e) {
       console.error(e);
       alert("No se pudo abrir la presentación.");
@@ -842,6 +854,7 @@ export function usePresentationState() {
           characterId: saved.characterId,
         });
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
+        trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
       } else {
         alert("No se pudo generar la imagen. Comprueba tu API key de Gemini o OpenAI.");
       }
@@ -872,6 +885,7 @@ export function usePresentationState() {
   const handleSaveCharacter = async (character: SavedCharacter) => {
     await saveCharacterStorage(character);
     refreshSavedCharacters();
+    trackEvent(ANALYTICS_EVENTS.CHARACTER_SAVED);
   };
 
   const handleDeleteCharacter = async (id: string) => {
@@ -1000,6 +1014,7 @@ export function usePresentationState() {
       setEditLanguage(codeGenLanguage);
       setShowCodeGenModal(false);
       setCodeGenPrompt("");
+      trackEvent(ANALYTICS_EVENTS.CODE_GENERATED);
     } catch (error) {
       console.error("Error generating code:", error);
       alert("Error al generar el código. Intenta de nuevo.");
@@ -1029,6 +1044,7 @@ export function usePresentationState() {
         modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(notes);
+      trackEvent(ANALYTICS_EVENTS.PRESENTER_NOTES_GENERATED);
     } catch (e) {
       console.error(e);
       alert("Error al generar las notas del presentador.");
@@ -1047,6 +1063,7 @@ export function usePresentationState() {
         modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(text);
+      trackEvent(ANALYTICS_EVENTS.SPEECH_SLIDE_GENERATED);
     } catch (e) {
       console.error(e);
       alert("Error al generar el contenido.");
@@ -1095,6 +1112,9 @@ export function usePresentationState() {
       );
       setShowSpeechModal(false);
       setSpeechGeneralPrompt("");
+      trackEvent(ANALYTICS_EVENTS.SPEECH_ALL_GENERATED, {
+        slide_count: slides.length,
+      });
     } catch (e) {
       console.error(e);
       alert("Error al generar para todas las diapositivas.");

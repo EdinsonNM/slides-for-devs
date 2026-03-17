@@ -15,6 +15,7 @@ import {
   signOut as firebaseSignOut,
   subscribeAuthState,
 } from "../services/firebase";
+import { setAnalyticsUserId } from "../services/analytics";
 
 interface AuthState {
   /** Si Firebase está configurado (Tauri: archivo en AppData; web: .env). */
@@ -69,6 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
+
+  // Asociar eventos de Analytics al usuario logueado para poder analizar uso por cuenta en GA4
+  useEffect(() => {
+    setAnalyticsUserId(user?.uid ?? null);
+  }, [user?.uid]);
 
   const signInWithGoogle = useCallback(async () => {
     try {
