@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, PanelLeftOpen, Trash2, Plus } from "lucide-react";
+import { ChevronLeft, PanelLeftOpen, Trash2, Plus, Image as ImageIcon } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 
@@ -113,6 +113,25 @@ export function SlideSidebar() {
                     </div>
                   </div>
                   <span className="text-[7px] text-stone-400 uppercase tracking-wider shrink-0">Diagrama</span>
+                </div>
+              ) : slide.contentLayout === "panel-full" ? (
+                <div className="flex-1 flex flex-col gap-0.5 min-h-0">
+                  <span className="text-[9px] font-medium text-stone-900 line-clamp-1 text-left leading-tight shrink-0">
+                    {slide.title || "Título + panel"}
+                  </span>
+                  <div className="h-0.5 w-3/4 bg-stone-300 rounded shrink-0" />
+                  <div className="flex-1 min-h-0 rounded border border-dashed border-stone-300 flex items-center justify-center bg-stone-50 p-0.5">
+                    {slide.imageUrl ? (
+                      <img
+                        src={slide.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover rounded"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <ImageIcon className="w-4 h-4 text-stone-400" strokeWidth={1.5} />
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex-1 flex gap-1 min-h-0">
