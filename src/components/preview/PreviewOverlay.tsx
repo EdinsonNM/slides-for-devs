@@ -18,6 +18,7 @@ export function PreviewOverlay() {
     slides,
     topic,
     imageWidthPercent,
+    panelHeightPercent,
     formatMarkdown,
     prevSlide,
     nextSlide,
@@ -190,6 +191,7 @@ export function PreviewOverlay() {
             slide={currentSlide}
             formatMarkdown={formatMarkdown}
             imageWidthPercent={imageWidthPercent}
+            panelHeightPercent={panelHeightPercent}
           />
         </div>
 

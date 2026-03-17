@@ -23,8 +23,10 @@ export interface Slide {
   contentType?: "image" | "code" | "video";
   /** Distribución del contenido: split = título+texto a la izquierda y panel derecho; full = solo título+texto a ancho completo; panel-full = título arriba, descripción como subtítulo opcional y panel ocupa todo el resto. Solo aplica cuando type === "content". */
   contentLayout?: "split" | "full" | "panel-full";
-  /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a este slide. */
+  /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a contentLayout "split". */
   imageWidthPercent?: number;
+  /** Porcentaje de altura (0-100) del panel inferior en layout "panel-full". El resto es título/subtítulo. */
+  panelHeightPercent?: number;
   /** Notas del presentador (solo visibles en modo presentador) */
   presenterNotes?: string;
   /** Guion o speech sugerido para esta diapositiva */

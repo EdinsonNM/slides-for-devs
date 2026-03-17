@@ -20,6 +20,9 @@ export function SlideContentDefault() {
     handleSaveManualEdit,
     setShowRewriteModal,
     setShowSplitModal,
+    panelHeightPercent,
+    isResizingPanelHeight,
+    setIsResizingPanelHeight,
   } = usePresentation();
 
   if (!currentSlide) return null;
@@ -27,10 +30,14 @@ export function SlideContentDefault() {
   const isPanelFull = currentSlide.contentLayout === "panel-full";
 
   if (isPanelFull) {
+    const titleHeightPercent = 100 - panelHeightPercent;
     return (
       <>
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="shrink-0 px-8 pt-6 pb-4 border-b border-stone-100 flex items-start justify-between gap-4">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
+          <div
+            className="px-8 pt-6 pb-4 border-stone-100 flex items-start justify-between gap-4 overflow-hidden"
+            style={{ flex: `0 0 ${titleHeightPercent}%`, minHeight: 0, borderBottomWidth: isResizingPanelHeight ? 0 : 1 }}
+          >
             <div className="flex-1 min-w-0 flex flex-col gap-1">
               {isEditing ? (
                 <>
@@ -112,7 +119,21 @@ export function SlideContentDefault() {
               )}
             </div>
           </div>
-          <div className="flex-1 min-h-0">
+          <div
+            className="absolute left-0 right-0 h-1.5 cursor-row-resize flex items-center justify-center z-30 group/handle hover:bg-emerald-500/20 transition-colors"
+            style={{ top: `${titleHeightPercent}%`, transform: "translateY(-50%)" }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizingPanelHeight(true);
+            }}
+            title="Arrastra para ajustar el tamaño del panel"
+          >
+            <div className="w-12 h-0.5 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
+          </div>
+          <div
+            className="min-h-0 relative overflow-hidden"
+            style={{ flex: `0 0 ${panelHeightPercent}%` }}
+          >
             <SlideRightPanel fullWidth />
           </div>
         </div>

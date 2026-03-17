@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Upload } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -15,6 +15,15 @@ export function ImageUploadModal() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const setFileFromBlob = useCallback((blob: Blob) => {
+    const file = new File([blob], "imagen-pega.png", { type: blob.type });
+    setUploadPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(blob);
+    });
+    setSelectedFile(file);
+  }, []);
+
   useEffect(() => {
     if (!showImageUploadModal) {
       setUploadPreview((prev) => {
@@ -24,6 +33,19 @@ export function ImageUploadModal() {
       setSelectedFile(null);
     }
   }, [showImageUploadModal]);
+
+  useEffect(() => {
+    if (!showImageUploadModal) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const item = e.clipboardData?.items && Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+      if (!item) return;
+      e.preventDefault();
+      const blob = item.getAsFile();
+      if (blob) setFileFromBlob(blob);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [showImageUploadModal, setFileFromBlob]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +91,7 @@ export function ImageUploadModal() {
                 <div>
                   <h3 className="font-medium text-stone-900">Cargar imagen</h3>
                   <p className="text-xs text-stone-500">
-                    Sube una imagen desde tu dispositivo
+                    Sube una imagen o pega desde el portapapeles (Ctrl+V)
                   </p>
                 </div>
               </div>
@@ -84,7 +106,7 @@ export function ImageUploadModal() {
             <div className="p-6 space-y-6">
               <div className="space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                  Selecciona una imagen
+                  Selecciona o pega una imagen (Ctrl+V)
                 </label>
                 <input
                   ref={fileInputRef}

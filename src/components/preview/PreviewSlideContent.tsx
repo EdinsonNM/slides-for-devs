@@ -11,15 +11,20 @@ export interface PreviewSlideContentProps {
   slide: Slide;
   formatMarkdown: (content: string) => string;
   imageWidthPercent: number;
+  /** Porcentaje de altura del panel en layout panel-full (resto = título). */
+  panelHeightPercent?: number;
 }
 
 /**
  * Contenido de una diapositiva en vista previa (chapter o default con markdown + código/video/imagen).
  */
+const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
+
 export function PreviewSlideContent({
   slide,
   formatMarkdown,
   imageWidthPercent,
+  panelHeightPercent = DEFAULT_PANEL_HEIGHT_PERCENT,
 }: PreviewSlideContentProps) {
   return (
     <motion.div
@@ -32,7 +37,8 @@ export function PreviewSlideContent({
         slide.type === "diagram"
           ? "w-full h-full max-w-none flex-col"
           : "w-full max-w-7xl 2xl:max-w-[1600px] aspect-video max-h-full",
-        slide.type === "chapter" ? "justify-center items-center" : ""
+        slide.type === "chapter" ? "justify-center items-center" : "",
+        slide.contentLayout === "panel-full" ? "flex-col" : ""
       )}
     >
       {slide.type === "chapter" ? (
@@ -64,7 +70,10 @@ export function PreviewSlideContent({
         </div>
       ) : slide.contentLayout === "panel-full" ? (
         <>
-          <div className="shrink-0 px-10 pt-8 pb-5 border-b border-stone-100">
+          <div
+            className="shrink-0 px-10 pt-8 pb-5 border-b border-stone-100 overflow-hidden flex flex-col justify-center"
+            style={{ flex: `0 0 ${100 - panelHeightPercent}%` }}
+          >
             <h2
               className="font-serif italic text-stone-900 leading-tight"
               style={{ fontSize: "var(--slide-title)" }}
@@ -81,7 +90,10 @@ export function PreviewSlideContent({
             )}
             <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
           </div>
-          <div className="flex-1 min-h-0 min-w-0 p-8 flex items-center justify-center">
+          <div
+            className="min-h-0 min-w-0 p-8 flex items-center justify-center overflow-hidden"
+            style={{ flex: `0 0 ${panelHeightPercent}%` }}
+          >
             {slide.contentType === "code" ? (
               <CodeDisplay
                 code={slide.code ?? ""}

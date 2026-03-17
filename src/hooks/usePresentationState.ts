@@ -43,6 +43,7 @@ import {
 } from "../constants/geminiImageModels";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
+const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
 
 export type HomeTab = "recent" | "mine" | "templates";
 
@@ -84,6 +85,7 @@ export function usePresentationState() {
   const [editFontSize, setEditFontSize] = useState(14);
   const [editEditorHeight, setEditEditorHeight] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
+  const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
   const [showSavedListModal, setShowSavedListModal] = useState(false);
   const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
@@ -141,6 +143,10 @@ export function usePresentationState() {
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
     currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
+  const panelHeightPercent =
+    currentSlide?.contentLayout === "panel-full"
+      ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
+      : DEFAULT_PANEL_HEIGHT_PERCENT;
 
   // Ajustar modelo seleccionado si no está entre los permitidos (solo APIs configuradas)
   useEffect(() => {
@@ -255,6 +261,42 @@ export function usePresentationState() {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing, currentIndex]);
+
+  // Resize panel height (layout panel-full): arrastrar el borde entre título y panel
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingPanelHeight) return;
+      const container = document.getElementById("slide-container");
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const percent = Math.min(
+        Math.max(25, 100 - (y / rect.height) * 100),
+        95
+      );
+      setSlides((prev) => {
+        const idx = currentIndex;
+        if (idx < 0 || idx >= prev.length) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], panelHeightPercent: percent };
+        return updated;
+      });
+    };
+    const handleMouseUp = () => setIsResizingPanelHeight(false);
+
+    if (isResizingPanelHeight) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "row-resize";
+    } else {
+      document.body.style.cursor = "";
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizingPanelHeight, currentIndex]);
 
   useEffect(() => {
     if (currentSlide) {
@@ -571,6 +613,28 @@ export function usePresentationState() {
     return diagramFlushRef.current?.() ?? null;
   }, []);
 
+  /** Guarda una presentación con el payload dado; si no hay currentSavedId, crea uno y lo asigna. */
+  const savePresentationNow = useCallback(
+    async (presentation: { topic: string; slides: Slide[]; characterId?: string }) => {
+      if (presentation.slides.length === 0) return;
+      try {
+        if (currentSavedId) {
+          await updatePresentation(currentSavedId, presentation);
+          setSaveMessage("Guardado");
+        } else {
+          const id = await savePresentation(presentation);
+          setCurrentSavedId(id);
+          setSaveMessage("Guardado");
+        }
+        setTimeout(() => setSaveMessage(null), 2000);
+      } catch (e) {
+        console.error(e);
+        setSaveMessage("Error al guardar");
+      }
+    },
+    [currentSavedId]
+  );
+
   const handleSave = async () => {
     if (slides.length === 0) return;
     const pendingDiagram = flushDiagramPending();
@@ -583,23 +647,11 @@ export function usePresentationState() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const presentation = {
+      await savePresentationNow({
         topic: topic || "Sin título",
         slides: slidesToSave,
         characterId: selectedCharacterId ?? undefined,
-      };
-      if (currentSavedId) {
-        await updatePresentation(currentSavedId, presentation);
-        setSaveMessage("Guardado");
-      } else {
-        const id = await savePresentation(presentation);
-        setCurrentSavedId(id);
-        setSaveMessage("Guardado");
-      }
-      setTimeout(() => setSaveMessage(null), 2000);
-    } catch (e) {
-      console.error(e);
-      setSaveMessage("Error al guardar");
+      });
     } finally {
       setIsSaving(false);
     }
@@ -790,11 +842,18 @@ export function usePresentationState() {
       title: "Nueva diapositiva",
       content: "",
     };
-    setSlides((prev) => {
-      const next = index + 1;
-      return [...prev.slice(0, next), newSlide, ...prev.slice(next)];
-    });
+    const next = [
+      ...slides.slice(0, index + 1),
+      newSlide,
+      ...slides.slice(index + 1),
+    ];
+    setSlides(next);
     setCurrentIndex(index + 1);
+    savePresentationNow({
+      topic: topic || "Sin título",
+      slides: next,
+      characterId: selectedCharacterId ?? undefined,
+    });
   };
 
   const nextSlide = () => {
@@ -979,6 +1038,9 @@ export function usePresentationState() {
     currentSlide,
     imageWidthPercent,
     DEFAULT_IMAGE_WIDTH_PERCENT,
+    panelHeightPercent,
+    isResizingPanelHeight,
+    setIsResizingPanelHeight,
     isLoading,
     isGeneratingImage,
     isGeneratingPromptAlternatives,
