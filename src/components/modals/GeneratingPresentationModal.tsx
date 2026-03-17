@@ -16,17 +16,17 @@ export function GeneratingPresentationModal({
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60">
       <div
-        className="bg-white rounded-xl shadow-xl max-w-sm w-full p-8 flex flex-col items-center gap-6"
+        className="bg-white dark:bg-surface-elevated rounded-xl shadow-xl max-w-sm w-full p-8 flex flex-col items-center gap-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-emerald-600">
+        <div className="text-emerald-600 dark:text-emerald-400">
           <Loader2 size={48} className="animate-spin" aria-hidden />
         </div>
         <div className="text-center space-y-2">
-          <h3 className="font-medium text-stone-900 text-lg">
+          <h3 className="font-medium text-stone-900 dark:text-foreground text-lg">
             Generando presentación
           </h3>
-          <p className="text-stone-500 text-sm">
+          <p className="text-stone-500 dark:text-stone-400 text-sm">
             Espera mientras creamos tu presentación. Se guardará automáticamente
             al terminar.
           </p>

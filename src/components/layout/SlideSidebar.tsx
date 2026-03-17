@@ -97,33 +97,33 @@ export function SlideSidebar() {
                     {slide.title}
                   </span>
                   <div className="flex justify-center gap-1">
-                    <div className="h-0.5 w-3 bg-stone-200 rounded-full animate-pulse" />
-                    <div className="h-0.5 w-8 bg-stone-200 rounded-full animate-pulse" />
+                    <div className="h-0.5 w-3 bg-stone-200 dark:bg-stone-600 rounded-full animate-pulse" />
+                    <div className="h-0.5 w-8 bg-stone-200 dark:bg-stone-600 rounded-full animate-pulse" />
                   </div>
                 </>
               ) : slide.type === "diagram" ? (
                 <div className="flex-1 flex flex-col gap-1 min-h-0">
-                  <span className="text-[9px] font-medium text-stone-900 line-clamp-1 text-left leading-tight shrink-0">
+                  <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
                     {slide.title || "Diagrama"}
                   </span>
-                  <div className="flex-1 min-h-0 flex items-center justify-center p-1 bg-stone-50 rounded border border-dashed border-stone-200">
+                  <div className="flex-1 min-h-0 flex items-center justify-center p-1 bg-stone-50 dark:bg-stone-800 rounded border border-dashed border-stone-200 dark:border-stone-600">
                     <div className="flex items-center gap-0.5 w-full justify-center">
-                      <div className="w-3 h-2.5 rounded-sm bg-stone-200/80 shrink-0" />
-                      <div className="w-1 h-0.5 bg-stone-300 rounded-full shrink-0" />
-                      <div className="w-2.5 h-2.5 rounded-full border border-stone-300 shrink-0" />
-                      <div className="w-1 h-0.5 bg-stone-300 rounded-full shrink-0" />
-                      <div className="w-3 h-2 rounded-sm bg-stone-200/80 shrink-0" />
+                      <div className="w-3 h-2.5 rounded-sm bg-stone-200/80 dark:bg-stone-600 shrink-0" />
+                      <div className="w-1 h-0.5 bg-stone-300 dark:bg-stone-500 rounded-full shrink-0" />
+                      <div className="w-2.5 h-2.5 rounded-full border border-stone-300 dark:border-stone-500 shrink-0" />
+                      <div className="w-1 h-0.5 bg-stone-300 dark:bg-stone-500 rounded-full shrink-0" />
+                      <div className="w-3 h-2 rounded-sm bg-stone-200/80 dark:bg-stone-600 shrink-0" />
                     </div>
                   </div>
-                  <span className="text-[7px] text-stone-400 uppercase tracking-wider shrink-0">Diagrama</span>
+                  <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">Diagrama</span>
                 </div>
               ) : slide.contentLayout === "panel-full" ? (
                 <div className="flex-1 flex flex-col gap-0.5 min-h-0">
-                  <span className="text-[9px] font-medium text-stone-900 line-clamp-1 text-left leading-tight shrink-0">
+                  <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
                     {slide.title || "Título + panel"}
                   </span>
-                  <div className="h-0.5 w-3/4 bg-stone-300 rounded shrink-0" />
-                  <div className="flex-1 min-h-0 rounded border border-dashed border-stone-300 flex items-center justify-center bg-stone-50 p-0.5">
+                  <div className="h-0.5 w-3/4 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
+                  <div className="flex-1 min-h-0 rounded border border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center bg-stone-50 dark:bg-stone-800 p-0.5">
                     {slide.imageUrl ? (
                       <img
                         src={slide.imageUrl}
@@ -132,29 +132,29 @@ export function SlideSidebar() {
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <ImageIcon className="w-4 h-4 text-stone-400" strokeWidth={1.5} />
+                      <ImageIcon className="w-4 h-4 text-stone-400 dark:text-stone-500" strokeWidth={1.5} />
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="flex-1 flex gap-1 min-h-0">
                   <div className="flex-1 flex flex-col gap-0.5 min-w-0 min-h-0">
-                    <span className="text-[10px] font-medium text-stone-900 line-clamp-2 text-left leading-tight">
+                    <span className="text-[10px] font-medium text-stone-900 dark:text-foreground line-clamp-2 text-left leading-tight">
                       {slide.title}
                     </span>
-                    <div className="h-0.5 w-full max-w-[70%] bg-stone-100 rounded animate-pulse" />
-                    <div className="h-0.5 w-full max-w-[85%] bg-stone-100 rounded animate-pulse" />
-                    <div className="h-0.5 w-full max-w-[60%] bg-stone-100 rounded animate-pulse" />
-                    <div className="h-0.5 w-full max-w-[75%] bg-stone-100 rounded animate-pulse" />
-                    <div className="h-0.5 w-full max-w-[90%] bg-stone-100 rounded animate-pulse" />
-                    <div className="h-0.5 w-10 bg-stone-100 rounded animate-pulse mt-auto" />
+                    <div className="h-0.5 w-full max-w-[70%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[85%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[60%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[75%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                    <div className="h-0.5 w-full max-w-[90%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                    <div className="h-0.5 w-10 bg-stone-100 dark:bg-stone-700 rounded animate-pulse mt-auto" />
                   </div>
                   <div
                     className={cn(
                       "rounded shrink-0 overflow-hidden",
-                      !slide.imageUrl && "bg-stone-100 animate-pulse",
-                      !slide.imageUrl && slide.contentType === "code" && "bg-amber-100/80",
-                      !slide.imageUrl && slide.contentType === "video" && "bg-sky-100/80"
+                      !slide.imageUrl && "bg-stone-100 dark:bg-stone-700 animate-pulse",
+                      !slide.imageUrl && slide.contentType === "code" && "bg-amber-100/80 dark:bg-amber-900/40",
+                      !slide.imageUrl && slide.contentType === "video" && "bg-sky-100/80 dark:bg-sky-900/40"
                     )}
                     style={{ width: "36%" }}
                   >
@@ -177,7 +177,7 @@ export function SlideSidebar() {
       {contextMenu !== null && (
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[180px] py-1 bg-white border border-stone-200 rounded-lg shadow-lg"
+          className="fixed z-50 min-w-[180px] py-1 bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
@@ -186,7 +186,7 @@ export function SlideSidebar() {
               insertSlideAfter(contextMenu.index);
               setContextMenu(null);
             }}
-            className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-100 flex items-center gap-2"
+            className="w-full px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface flex items-center gap-2"
           >
             <Plus size={14} />
             Añadir diapositiva después
@@ -201,8 +201,8 @@ export function SlideSidebar() {
             className={cn(
               "w-full px-3 py-2 text-left text-sm flex items-center gap-2",
               slides.length <= 1
-                ? "text-stone-400 cursor-not-allowed"
-                : "text-red-700 hover:bg-red-50"
+                ? "text-stone-400 dark:text-stone-500 cursor-not-allowed"
+                : "text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
             )}
           >
             <Trash2 size={14} />

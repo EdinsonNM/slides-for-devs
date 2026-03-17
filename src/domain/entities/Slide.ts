@@ -14,8 +14,9 @@ export interface Slide {
   editorHeight?: number;
   videoUrl?: string;
   contentType?: "image" | "code" | "video";
-  contentLayout?: "split" | "full";
+  contentLayout?: "split" | "full" | "panel-full";
   imageWidthPercent?: number;
+  panelHeightPercent?: number;
   presenterNotes?: string;
   speech?: string;
   excalidrawData?: string;

@@ -1,6 +1,5 @@
 import { motion } from "motion/react";
-import { MoreVertical, RefreshCw } from "lucide-react";
-import { IconButton } from "../shared/IconButton";
+import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
 
@@ -33,27 +32,8 @@ export function HomeEmptyState({
 }: HomeEmptyStateProps) {
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-gradient-to-br from-emerald-200/80 via-green-100 to-teal-200/80 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
-      <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-        {onCheckUpdates && (
-          <IconButton
-            variant="default"
-            icon={<RefreshCw size={20} />}
-            aria-label="Buscar actualizaciones"
-            title="Buscar actualizaciones"
-            onClick={onCheckUpdates}
-            className="rounded-lg hover:bg-emerald-100/80 dark:hover:bg-stone-700/80"
-          />
-        )}
-        {onOpenConfig && (
-          <IconButton
-            variant="default"
-            icon={<MoreVertical size={20} />}
-            aria-label="Configuración (API keys)"
-            title="Configuración (API keys)"
-            onClick={onOpenConfig}
-            className="rounded-lg hover:bg-emerald-100/80 dark:hover:bg-stone-700/80"
-          />
-        )}
+      <div className="absolute top-4 right-4 z-10">
+        <AvatarMenu onOpenConfig={onOpenConfig} variant="home" />
       </div>
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <motion.div

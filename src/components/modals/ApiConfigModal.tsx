@@ -65,7 +65,7 @@ export function ApiConfigModal({
       title="Configuración de API"
       subtitle="Actualiza las claves si el token ha vencido"
       icon={
-        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
           <KeyRound size={22} />
         </div>
       }
@@ -75,7 +75,7 @@ export function ApiConfigModal({
         <div>
           <label
             htmlFor="config-gemini-key"
-            className="block text-sm font-medium text-stone-700 mb-1"
+            className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1"
           >
             API Key de Google Gemini
           </label>
@@ -87,24 +87,25 @@ export function ApiConfigModal({
               onChange={(e) => setGeminiKey(e.target.value)}
               placeholder="Ej: AIza..."
               className={cn(
-                "w-full px-3 py-2.5 rounded-lg border bg-white text-stone-900 placeholder:text-stone-400 text-sm",
+                "w-full px-3 py-2.5 rounded-lg border text-sm",
+                "bg-white dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
                 "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
-                "border-stone-200"
+                "border-stone-200 dark:border-border"
               )}
               autoComplete="off"
             />
             {hasGemini && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
                 <Check size={16} />
               </span>
             )}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
             <a
               href="https://aistudio.google.com/apikey"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-600 hover:underline"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline"
             >
               Obtener clave
             </a>
@@ -114,7 +115,7 @@ export function ApiConfigModal({
         <div>
           <label
             htmlFor="config-openai-key"
-            className="block text-sm font-medium text-stone-700 mb-1"
+            className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1"
           >
             API Key de OpenAI (opcional)
           </label>
@@ -126,24 +127,25 @@ export function ApiConfigModal({
               onChange={(e) => setOpenaiKey(e.target.value)}
               placeholder="Ej: sk-..."
               className={cn(
-                "w-full px-3 py-2.5 rounded-lg border bg-white text-stone-900 placeholder:text-stone-400 text-sm",
+                "w-full px-3 py-2.5 rounded-lg border text-sm",
+                "bg-white dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
                 "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
-                "border-stone-200"
+                "border-stone-200 dark:border-border"
               )}
               autoComplete="off"
             />
             {hasOpenAI && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
                 <Check size={16} />
               </span>
             )}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
             <a
               href="https://platform.openai.com/api-keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-600 hover:underline"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline"
             >
               Obtener clave
             </a>
@@ -153,7 +155,7 @@ export function ApiConfigModal({
         <div>
           <label
             htmlFor="config-xai-key"
-            className="block text-sm font-medium text-stone-700 mb-1"
+            className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1"
           >
             API Key de xAI (Grok) (opcional)
           </label>
@@ -165,24 +167,25 @@ export function ApiConfigModal({
               onChange={(e) => setXaiKey(e.target.value)}
               placeholder="Ej: xai-..."
               className={cn(
-                "w-full px-3 py-2.5 rounded-lg border bg-white text-stone-900 placeholder:text-stone-400 text-sm",
+                "w-full px-3 py-2.5 rounded-lg border text-sm",
+                "bg-white dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
                 "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
-                "border-stone-200"
+                "border-stone-200 dark:border-border"
               )}
               autoComplete="off"
             />
             {hasXai && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
                 <Check size={16} />
               </span>
             )}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
             <a
               href="https://console.x.ai/team/default/api-keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-600 hover:underline"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline"
             >
               Obtener clave
             </a>
@@ -190,7 +193,7 @@ export function ApiConfigModal({
         </div>
 
         {touched && !canSave && (
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
             Debe haber al menos una clave configurada.
           </p>
         )}
@@ -199,14 +202,14 @@ export function ApiConfigModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 px-4 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors text-sm font-medium"
+            className="flex-1 py-2.5 px-4 rounded-lg border border-stone-200 dark:border-border text-stone-600 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface transition-colors text-sm font-medium"
           >
             Cerrar
           </button>
           <button
             type="submit"
             disabled={!canSave || isSaving}
-            className="flex-1 py-2.5 px-4 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 px-4 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 dark:hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm flex items-center justify-center gap-2"
           >
             {isSaving ? (
               <>

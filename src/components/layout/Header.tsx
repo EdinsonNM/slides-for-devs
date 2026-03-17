@@ -9,23 +9,15 @@ import {
   Save,
   Loader2,
   Mic,
-  Moon,
-  Sun,
-  Monitor,
   StickyNote,
-  Settings,
   UserPlus,
-  RefreshCw,
   FileDown,
-  LogOut,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
-import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../../context/ThemeContext";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
-import { GoogleIcon } from "../shared/GoogleIcon";
-import { checkForAppUpdates } from "../../services/updater";
+import { ModelSelect } from "../shared/ModelSelect";
+import { AvatarMenu } from "../shared/AvatarMenu";
 import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
 
 interface HeaderProps {
@@ -62,25 +54,8 @@ export function Header(props: HeaderProps) {
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(topic || "");
-  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { firebaseReady, user, signInWithGoogle, signOut } = useAuth();
-  const { preference, setPreference } = useTheme();
-
-  const cycleTheme = () => {
-    setPreference(
-      preference === "light" ? "dark" : preference === "dark" ? "system" : "light"
-    );
-  };
-  const themeTitle =
-    preference === "light"
-      ? "Tema claro (cambiar a oscuro)"
-      : preference === "dark"
-        ? "Tema oscuro (cambiar a sistema)"
-        : "Tema según sistema (cambiar a claro)";
 
   const handleExportPowerPoint = async () => {
     if (slides.length === 0) return;
@@ -98,13 +73,6 @@ export function Header(props: HeaderProps) {
     }
   };
 
-  const handleCheckUpdates = async () => {
-    if (isCheckingUpdates) return;
-    setIsCheckingUpdates(true);
-    await checkForAppUpdates(false);
-    setIsCheckingUpdates(false);
-  };
-
   useEffect(() => {
     setEditTitleValue(topic || "");
   }, [topic]);
@@ -120,21 +88,6 @@ export function Header(props: HeaderProps) {
     const trimmed = editTitleValue.trim();
     setTopic(trimmed || "");
     setIsEditingTitle(false);
-  };
-
-  const handleSignInWithGoogle = async () => {
-    if (isSigningIn) return;
-    setIsSigningIn(true);
-    try {
-      await signInWithGoogle();
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    setAuthMenuOpen(false);
-    await signOut();
   };
 
   return (
@@ -186,125 +139,16 @@ export function Header(props: HeaderProps) {
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {user ? (
-          <div className="relative flex items-center gap-1 mr-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => setAuthMenuOpen((v) => !v)}
-              className="flex items-center gap-2 rounded-full px-2 py-1 text-xs text-stone-600 dark:text-muted-foreground hover:bg-stone-100 dark:hover:bg-surface border border-stone-200 dark:border-border max-w-[180px]"
-              title={user.email ?? "Cuenta"}
-            >
-              {user.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt=""
-                  className="w-6 h-6 rounded-full shrink-0"
-                />
-              ) : (
-                <span className="w-6 h-6 rounded-full bg-stone-300 dark:bg-stone-600 flex items-center justify-center text-stone-600 dark:text-stone-300 text-[10px] font-medium shrink-0">
-                  {(user.email ?? "?").slice(0, 1).toUpperCase()}
-                </span>
-              )}
-              <span className="truncate">{user.email}</span>
-            </button>
-            {authMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  aria-hidden
-                  onClick={() => setAuthMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg shadow-lg py-1 min-w-[160px]">
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
-                  >
-                    <LogOut size={16} />
-                    Cerrar sesión
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="relative flex items-center gap-1 mr-1 shrink-0">
-            {firebaseReady === true ? (
-              <button
-                type="button"
-                onClick={handleSignInWithGoogle}
-                disabled={isSigningIn}
-                className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-foreground bg-stone-100 dark:bg-surface hover:bg-stone-200 dark:hover:bg-surface-elevated border border-stone-200 dark:border-border disabled:opacity-60 w-fit shrink-0"
-              >
-                {isSigningIn ? (
-                  <Loader2 size={16} className="animate-spin shrink-0" />
-                ) : (
-                  <GoogleIcon className="shrink-0" />
-                )}
-                Iniciar sesión con Google
-              </button>
-            ) : (
-              <IconButton
-                variant="default"
-                icon={<GoogleIcon className="shrink-0" />}
-                aria-label="Iniciar sesión para sincronizar en la nube"
-                title="Iniciar sesión para sincronizar (configura Firebase en .env o firebase_config.json)"
-                className="w-fit shrink-0 opacity-70"
-              />
-            )}
-          </div>
-        )}
-        <select
+        <div className="flex items-center gap-2 min-w-0">
+        <ModelSelect
           value={presentationModelId}
-          onChange={(e) => setPresentationModelId(e.target.value)}
-          className="text-xs text-stone-500 dark:text-muted-foreground bg-transparent border-0 rounded px-2 py-1 focus:outline-none focus:ring-0 cursor-pointer max-w-[200px] hover:text-stone-700 dark:hover:text-foreground"
+          options={presentationModels}
+          onChange={setPresentationModelId}
+          size="sm"
           title="Modelo para texto (presentación, reescribir, código, notas, chat)"
-        >
-          {presentationModels.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+          aria-label="Modelo para texto"
+        />
         <div className="flex items-center gap-1 shrink-0">
-          <IconButton
-            variant="default"
-            icon={
-              preference === "light" ? (
-                <Sun size={18} />
-              ) : preference === "dark" ? (
-                <Moon size={18} />
-              ) : (
-                <Monitor size={18} />
-              )
-            }
-            aria-label={themeTitle}
-            title={themeTitle}
-            onClick={cycleTheme}
-          />
-          <IconButton
-            variant="default"
-            icon={
-              isCheckingUpdates ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <RefreshCw size={18} />
-              )
-            }
-            aria-label="Buscar actualizaciones"
-            title="Buscar actualizaciones"
-            onClick={handleCheckUpdates}
-            disabled={isCheckingUpdates}
-          />
-          {onOpenConfig && (
-            <IconButton
-              variant="default"
-              icon={<Settings size={18} />}
-              aria-label="Configuración (API keys)"
-              title="Configuración (API keys)"
-              onClick={onOpenConfig}
-            />
-          )}
           <IconButton
             variant="amber"
             active={isNotesPanelOpen}
@@ -398,6 +242,8 @@ export function Header(props: HeaderProps) {
             </span>
           )}
         </div>
+        </div>
+        <AvatarMenu onOpenConfig={onOpenConfig} className="ml-1" />
       </div>
     </header>
   );

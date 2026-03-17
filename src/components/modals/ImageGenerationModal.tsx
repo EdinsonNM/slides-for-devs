@@ -54,21 +54,21 @@ export function ImageGenerationModal() {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            className="relative w-full max-w-lg bg-white dark:bg-surface-elevated rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
-            <div className="p-4 border-b border-stone-100 flex items-center justify-between shrink-0">
+            <div className="p-4 border-b border-stone-100 dark:border-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <Sparkles size={20} />
                 </div>
                 <div>
-                  <h3 className="font-medium text-stone-900">Generar imagen</h3>
-                  <p className="text-xs text-stone-500">Genera una imagen con IA para este slide</p>
+                  <h3 className="font-medium text-stone-900 dark:text-foreground">Generar imagen</h3>
+                  <p className="text-xs text-stone-500 dark:text-muted-foreground">Genera una imagen con IA para este slide</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowImageModal(false)}
-                className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-400"
+                className="p-2 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors text-stone-400 dark:text-stone-500"
                 disabled={isGeneratingImage}
               >
                 <X size={20} />
@@ -77,14 +77,14 @@ export function ImageGenerationModal() {
 
             <div className="p-4 space-y-4 overflow-y-auto min-h-0 flex-1">
               {!canGenerateWithAI ? (
-                <p className="text-sm text-stone-600 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-stone-600 dark:text-stone-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
                   Configura una API key de Gemini u OpenAI en Ajustes para poder generar imágenes con IA.
                 </p>
               ) : (
                 <>
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                      <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
                         Proveedor
                       </label>
                       <div className={cn(
@@ -99,7 +99,7 @@ export function ImageGenerationModal() {
                               "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                               imageProvider === "gemini"
                                 ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
-                                : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
+                                : "bg-white dark:bg-surface border-stone-200 dark:border-border text-stone-600 dark:text-foreground hover:border-emerald-500 dark:hover:border-emerald-500"
                             )}
                           >
                             Gemini
@@ -113,7 +113,7 @@ export function ImageGenerationModal() {
                               "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                               imageProvider === "openai"
                                 ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
-                                : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
+                                : "bg-white dark:bg-surface border-stone-200 dark:border-border text-stone-600 dark:text-foreground hover:border-emerald-500 dark:hover:border-emerald-500"
                             )}
                           >
                             GPT Image
@@ -123,14 +123,14 @@ export function ImageGenerationModal() {
                     </div>
                     {imageProvider === "gemini" && (
                       <div className="space-y-1.5 min-w-[140px]">
-                        <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                        <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
                           Modelo
                         </label>
                         <select
                           value={geminiImageModelId}
                           onChange={(e) => setGeminiImageModelId(e.target.value)}
                           disabled={isGeneratingImage}
-                          className="w-full text-sm text-stone-700 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer"
+                          className="w-full text-sm text-stone-700 dark:text-foreground bg-stone-50 dark:bg-surface border border-stone-200 dark:border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 cursor-pointer"
                         >
                           {geminiImageModels.map((m) => (
                             <option key={m.id} value={m.id}>
@@ -143,13 +143,13 @@ export function ImageGenerationModal() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                      <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
                         Personaje
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowCharacterManager(true)}
-                        className="text-xs font-medium text-violet-600 hover:text-violet-700 flex items-center gap-1 shrink-0"
+                        className="text-xs font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1 shrink-0"
                       >
                         <Users size={12} />
                         Gestionar
@@ -163,8 +163,8 @@ export function ImageGenerationModal() {
                         className={cn(
                           "shrink-0 w-14 h-14 rounded-xl border-2 flex flex-col items-center justify-center transition-all",
                           !selectedCharacterId
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-600"
-                            : "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300"
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+                            : "border-stone-200 dark:border-border bg-stone-50 dark:bg-surface text-stone-400 dark:text-stone-500 hover:border-stone-300 dark:hover:border-stone-600"
                         )}
                         title="Ninguno"
                       >
@@ -181,7 +181,7 @@ export function ImageGenerationModal() {
                             "shrink-0 w-14 h-14 rounded-xl border-2 overflow-hidden flex flex-col transition-all",
                             selectedCharacterId === c.id
                               ? "border-emerald-500 ring-2 ring-emerald-500/30"
-                              : "border-stone-200 hover:border-stone-300"
+                              : "border-stone-200 dark:border-border hover:border-stone-300 dark:hover:border-stone-500"
                           )}
                           title={c.name}
                         >
@@ -192,11 +192,11 @@ export function ImageGenerationModal() {
                               className="w-full h-9 object-cover"
                             />
                           ) : (
-                            <div className="w-full h-9 bg-stone-100 flex items-center justify-center">
-                              <User size={18} className="text-stone-400" />
+                            <div className="w-full h-9 bg-stone-100 dark:bg-stone-700 flex items-center justify-center">
+                              <User size={18} className="text-stone-400 dark:text-stone-500" />
                             </div>
                           )}
-                          <span className="text-[10px] font-medium text-stone-600 truncate w-full px-1 py-0.5 bg-white">
+                          <span className="text-[10px] font-medium text-stone-600 dark:text-stone-300 truncate w-full px-1 py-0.5 bg-white dark:bg-surface-elevated">
                             {c.name}
                           </span>
                         </button>
@@ -205,13 +205,13 @@ export function ImageGenerationModal() {
                     {imageProvider === "openai" &&
                       selectedCharacterId &&
                       savedCharacters.find((c) => c.id === selectedCharacterId)?.referenceImageDataUrl && (
-                        <p className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-lg p-2">
+                        <p className="text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-surface border border-stone-200 dark:border-border rounded-lg p-2">
                           Se usará la imagen de referencia cuando sea posible. Si la generación falla, se usará la descripción del personaje.
                         </p>
                       )}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
                       Estilo
                     </label>
                     <div className="flex flex-wrap gap-1.5">
@@ -223,7 +223,7 @@ export function ImageGenerationModal() {
                             "px-2 py-1.5 rounded-lg text-xs font-medium border transition-all",
                             selectedStyle.id === style.id
                               ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
-                              : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
+                              : "bg-white dark:bg-surface border-stone-200 dark:border-border text-stone-600 dark:text-foreground hover:border-emerald-500 dark:hover:border-emerald-500"
                           )}
                         >
                           {style.name}
@@ -241,7 +241,7 @@ export function ImageGenerationModal() {
                       disabled={isGeneratingImage}
                       className="w-3.5 h-3.5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <label htmlFor="include-bg" className="text-xs text-stone-600 cursor-pointer">
+                    <label htmlFor="include-bg" className="text-xs text-stone-600 dark:text-stone-400 cursor-pointer">
                       Incluir fondo
                     </label>
                   </div>
@@ -250,17 +250,17 @@ export function ImageGenerationModal() {
                     <>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                          <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
                             Contexto
                           </label>
-                          <span className="text-xs text-stone-500 truncate max-w-[60%] italic">
+                          <span className="text-xs text-stone-500 dark:text-stone-400 truncate max-w-[60%] italic">
                             &quot;{currentSlide.title}&quot;
                           </span>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                          <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
                             Tu Prompt
                           </label>
                           <button
@@ -270,7 +270,7 @@ export function ImageGenerationModal() {
                               isGeneratingImage || isGeneratingPromptAlternatives
                             }
                             title="Generar alternativa"
-                            className="p-1 rounded text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="p-1 rounded text-stone-400 dark:text-stone-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {isGeneratingPromptAlternatives ? (
                               <Loader2 className="animate-spin" size={16} aria-hidden />
@@ -283,7 +283,7 @@ export function ImageGenerationModal() {
                           value={imagePrompt}
                           onChange={(e) => setImagePrompt(e.target.value)}
                           placeholder="Ej: Un astronauta plantando una bandera en Marte..."
-                          className="w-full min-h-[72px] max-h-28 p-3 bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-y text-sm"
+                          className="w-full min-h-[72px] max-h-28 p-3 bg-white dark:bg-surface border border-stone-200 dark:border-border rounded-lg text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-y text-sm"
                           disabled={isGeneratingImage}
                           rows={3}
                         />
@@ -293,7 +293,7 @@ export function ImageGenerationModal() {
                   <button
                     onClick={handleImageGenerate}
                     disabled={isGeneratingImage || !imagePrompt.trim()}
-                    className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shrink-0"
+                    className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shrink-0"
                   >
                     {isGeneratingImage ? (
                       <>

@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS slides (
     video_url TEXT,
     content_type TEXT,
     image_width_percent INTEGER,
+    content_layout TEXT,
+    panel_height_percent INTEGER,
     presenter_notes TEXT,
     speech TEXT,
     excalidraw_data TEXT,
@@ -74,6 +76,10 @@ pub struct Slide {
     pub content_type: Option<String>,
     /// Acepta float desde el frontend (p. ej. 50.83); se redondea al guardar en DB.
     pub image_width_percent: Option<f64>,
+    /// "split" | "full" | "panel-full"
+    pub content_layout: Option<String>,
+    /// Porcentaje de altura del panel en layout panel-full (0-100).
+    pub panel_height_percent: Option<f64>,
     pub presenter_notes: Option<String>,
     pub speech: Option<String>,
     pub excalidraw_data: Option<String>,
@@ -157,6 +163,16 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
     if has_excal == 0 {
         conn.execute("ALTER TABLE slides ADD COLUMN excalidraw_data TEXT", [])?;
     }
+    // Migration: add content_layout and panel_height_percent to slides if missing.
+    let has_content_layout: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('slides') WHERE name='content_layout'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_content_layout == 0 {
+        conn.execute("ALTER TABLE slides ADD COLUMN content_layout TEXT", [])?;
+        conn.execute("ALTER TABLE slides ADD COLUMN panel_height_percent INTEGER", [])?;
+    }
     Ok(())
 }
 
@@ -191,8 +207,8 @@ pub fn save_presentation(conn: &Connection, presentation: &Presentation) -> Resu
             INSERT INTO slides (
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
-                image_width_percent, presenter_notes, speech, excalidraw_data
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+                image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
             "#,
             params![
                 id,
@@ -209,6 +225,8 @@ pub fn save_presentation(conn: &Connection, presentation: &Presentation) -> Resu
                 slide.video_url,
                 slide.content_type,
                 slide.image_width_percent.map(|n| n.round().clamp(0., 100.) as i32),
+                slide.content_layout,
+                slide.panel_height_percent.map(|n| n.round().clamp(0., 100.) as i32),
                 slide.presenter_notes,
                 slide.speech,
                 slide.excalidraw_data,
@@ -248,8 +266,8 @@ pub fn import_presentation(
             INSERT INTO slides (
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
-                image_width_percent, presenter_notes, speech, excalidraw_data
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+                image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
             "#,
             params![
                 saved.id,
@@ -266,6 +284,8 @@ pub fn import_presentation(
                 slide.video_url,
                 slide.content_type,
                 slide.image_width_percent.map(|n| n.round().clamp(0., 100.) as i32),
+                slide.content_layout,
+                slide.panel_height_percent.map(|n| n.round().clamp(0., 100.) as i32),
                 slide.presenter_notes,
                 slide.speech,
                 slide.excalidraw_data,
@@ -310,8 +330,8 @@ pub fn update_presentation(
             INSERT INTO slides (
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
-                image_width_percent, presenter_notes, speech, excalidraw_data
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+                image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
             "#,
             params![
                 id,
@@ -328,6 +348,8 @@ pub fn update_presentation(
                 slide.video_url,
                 slide.content_type,
                 slide.image_width_percent.map(|n| n.round().clamp(0., 100.) as i32),
+                slide.content_layout,
+                slide.panel_height_percent.map(|n| n.round().clamp(0., 100.) as i32),
                 slide.presenter_notes,
                 slide.speech,
                 slide.excalidraw_data,
@@ -358,7 +380,8 @@ pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentatio
     let mut stmt = conn.prepare(
         r#"
         SELECT ordinal, id, type, title, subtitle, content, image_prompt, code, language,
-               font_size, video_url, content_type, image_width_percent, presenter_notes, speech, excalidraw_data
+               font_size, video_url, content_type, image_width_percent, content_layout, panel_height_percent,
+               presenter_notes, speech, excalidraw_data
         FROM slides WHERE presentation_id = ?1 ORDER BY ordinal
         "#,
     )?;
@@ -378,13 +401,15 @@ pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentatio
             row.get::<_, Option<String>>(11)?,
             row.get::<_, Option<i32>>(12)?,
             row.get::<_, Option<String>>(13)?,
-            row.get::<_, Option<String>>(14)?,
+            row.get::<_, Option<i32>>(14)?,
             row.get::<_, Option<String>>(15)?,
+            row.get::<_, Option<String>>(16)?,
+            row.get::<_, Option<String>>(17)?,
         ))
     })?;
 
     for row in rows {
-        let (ordinal, slide_id, slide_type, title, subtitle, content, image_prompt, code, language, font_size, video_url, content_type, image_width_percent, presenter_notes, speech, excalidraw_data) = row?;
+        let (ordinal, slide_id, slide_type, title, subtitle, content, image_prompt, code, language, font_size, video_url, content_type, image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data) = row?;
 
         let image_url = conn
             .query_row(
@@ -409,6 +434,8 @@ pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentatio
             video_url,
             content_type,
             image_width_percent: image_width_percent.map(|n| n as f64),
+            content_layout,
+            panel_height_percent: panel_height_percent.map(|n| n as f64),
             presenter_notes,
             speech,
             excalidraw_data,

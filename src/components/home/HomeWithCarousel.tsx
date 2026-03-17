@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, ImagePlus, Loader2, MoreVertical, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
+import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import { SavedCarousel } from "./SavedCarousel";
 import type { PresentationModel } from "./PromptInput";
@@ -95,27 +96,8 @@ export function HomeWithCarousel({
           />
         </div>
 
-        <div className="flex items-center gap-1 min-w-[52px] justify-end shrink-0 pt-0.5">
-          {onCheckUpdates && (
-            <IconButton
-              variant="default"
-              icon={<RefreshCw size={22} />}
-              aria-label="Buscar actualizaciones"
-              title="Buscar actualizaciones"
-              onClick={onCheckUpdates}
-              className="rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800"
-            />
-          )}
-          {onOpenConfig && (
-            <IconButton
-              variant="default"
-              icon={<MoreVertical size={22} />}
-              aria-label="Configuración (API keys)"
-              title="Configuración (API keys)"
-              onClick={onOpenConfig}
-              className="rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800"
-            />
-          )}
+        <div className="flex items-center min-w-0 justify-end shrink-0 pt-0.5">
+          <AvatarMenu onOpenConfig={onOpenConfig} variant="home" />
         </div>
       </header>
 

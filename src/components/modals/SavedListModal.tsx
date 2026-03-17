@@ -18,21 +18,21 @@ export function SavedListModal() {
       onClick={() => setShowSavedListModal(false)}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[85vh] flex flex-col"
+        className="bg-white dark:bg-surface-elevated rounded-xl shadow-xl max-w-4xl w-full max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-stone-200 flex items-center justify-between shrink-0">
-          <h3 className="font-semibold text-stone-900">Mis presentaciones</h3>
+        <div className="p-4 border-b border-stone-200 dark:border-border flex items-center justify-between shrink-0">
+          <h3 className="font-semibold text-stone-900 dark:text-foreground">Mis presentaciones</h3>
           <button
             onClick={() => setShowSavedListModal(false)}
-            className="p-2 hover:bg-stone-100 rounded-lg"
+            className="p-2 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg text-stone-600 dark:text-stone-400"
           >
             <X size={20} />
           </button>
         </div>
         <div className="p-4 overflow-y-auto flex-1 min-h-0">
           {savedList.length === 0 ? (
-            <p className="text-stone-500 text-center py-8">
+            <p className="text-stone-500 dark:text-stone-400 text-center py-8">
               No hay presentaciones guardadas.
             </p>
           ) : (
@@ -40,33 +40,33 @@ export function SavedListModal() {
               {savedList.map((p) => (
                 <div
                   key={p.id}
-                  className="flex flex-col rounded-xl border border-stone-200 bg-stone-50 overflow-hidden hover:border-stone-300 hover:shadow-md transition-all"
+                  className="flex flex-col rounded-xl border border-stone-200 dark:border-border bg-stone-50 dark:bg-surface overflow-hidden hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-md transition-all"
                 >
                   <button
                     type="button"
                     onClick={() => handleOpenSaved(p.id)}
                     className="flex-1 p-4 text-left min-h-[100px] focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-inset"
                   >
-                    <p className="font-medium text-stone-900 line-clamp-2">
+                    <p className="font-medium text-stone-900 dark:text-foreground line-clamp-2">
                       {p.topic}
                     </p>
-                    <p className="text-xs text-stone-500 mt-2">
+                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-2">
                       {p.slideCount} diapositivas
                     </p>
-                    <p className="text-xs text-stone-400 mt-0.5">
+                    <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
                       {new Date(p.savedAt).toLocaleDateString()}
                     </p>
                   </button>
-                  <div className="flex border-t border-stone-200 bg-white/80">
+                  <div className="flex border-t border-stone-200 dark:border-border bg-white/80 dark:bg-surface-elevated/80">
                     <button
                       onClick={() => handleOpenSaved(p.id)}
-                      className="flex-1 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
+                      className="flex-1 py-2.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/40"
                     >
                       Abrir
                     </button>
                     <button
                       onClick={() => handleDeleteSaved(p.id)}
-                      className="p-2.5 text-stone-400 hover:text-red-600 hover:bg-red-50 border-l border-stone-200"
+                      className="p-2.5 text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border-l border-stone-200 dark:border-border"
                       title="Eliminar"
                     >
                       <Trash2 size={18} />
