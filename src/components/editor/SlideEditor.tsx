@@ -12,7 +12,7 @@ export function SlideEditor() {
   if (!currentSlide) return null;
 
   return (
-    <section className="flex-1 flex flex-col p-6 min-w-0 relative overflow-hidden items-center justify-center bg-stone-200/50">
+    <section className="flex-1 flex flex-col p-6 min-w-0 relative overflow-hidden items-center justify-center bg-stone-200/50 dark:bg-stone-800/70">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentIndex}
@@ -21,7 +21,7 @@ export function SlideEditor() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.02 }}
           className={cn(
-            "slide-content w-full max-w-5xl aspect-video bg-white shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200",
+            "slide-content w-full max-w-5xl aspect-video bg-white dark:bg-surface-elevated shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200 dark:border-border",
             currentSlide.type === "chapter" ? "justify-center items-center" : ""
           )}
         >

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, ImagePlus, Loader2, MoreVertical, RefreshCw, Trash2 } from "lucide-react";
 import { cn } from "../../utils/cn";
+import { IconButton } from "../shared/IconButton";
 import { PromptInput } from "./PromptInput";
 import { SavedCarousel } from "./SavedCarousel";
 import type { PresentationModel } from "./PromptInput";
@@ -57,10 +58,10 @@ export function HomeWithCarousel({
   const [showExploreAll, setShowExploreAll] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-linear-to-br from-stone-50 via-white to-stone-100/70">
+    <div className="min-h-screen flex flex-col font-sans bg-gradient-to-br from-stone-50 via-white to-stone-100/70 dark:from-stone-900 dark:via-stone-900 dark:to-stone-800">
       <header className="flex items-start justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-4 bg-transparent shrink-0">
         <div className="flex items-center gap-3 min-w-0 shrink-0 pt-0.5">
-          <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden bg-white/80 flex items-center justify-center">
+          <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden bg-white/80 dark:bg-stone-800/80 flex items-center justify-center">
             <video
               src="./video-logo.webm"
               autoPlay
@@ -71,8 +72,8 @@ export function HomeWithCarousel({
               aria-hidden
             />
           </div>
-          <span className="text-xl font-semibold text-stone-900 font-serif italic truncate">
-            Sl<span className="text-emerald-600">ai</span>m
+          <span className="text-xl font-semibold text-stone-900 dark:text-stone-100 font-serif italic truncate">
+            Sl<span className="text-emerald-600 dark:text-emerald-400">ai</span>m
           </span>
         </div>
 
@@ -96,24 +97,24 @@ export function HomeWithCarousel({
 
         <div className="flex items-center gap-1 min-w-[52px] justify-end shrink-0 pt-0.5">
           {onCheckUpdates && (
-            <button
-              type="button"
-              onClick={onCheckUpdates}
-              className="p-2 rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800 transition-colors"
+            <IconButton
+              variant="default"
+              icon={<RefreshCw size={22} />}
+              aria-label="Buscar actualizaciones"
               title="Buscar actualizaciones"
-            >
-              <RefreshCw size={22} />
-            </button>
+              onClick={onCheckUpdates}
+              className="rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800"
+            />
           )}
           {onOpenConfig && (
-            <button
-              type="button"
-              onClick={onOpenConfig}
-              className="p-2 rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800 transition-colors"
+            <IconButton
+              variant="default"
+              icon={<MoreVertical size={22} />}
+              aria-label="Configuración (API keys)"
               title="Configuración (API keys)"
-            >
-              <MoreVertical size={22} />
-            </button>
+              onClick={onOpenConfig}
+              className="rounded-lg text-stone-600 hover:bg-white/50 hover:text-stone-800"
+            />
           )}
         </div>
       </header>

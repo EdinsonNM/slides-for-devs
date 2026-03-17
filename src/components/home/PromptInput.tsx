@@ -48,9 +48,9 @@ export function PromptInput({
       <form onSubmit={onSubmit} className={cn("w-full", className)}>
         <div
           className={cn(
-            "group w-full rounded-[28px] border border-stone-200 bg-white overflow-hidden transition-all duration-200 ease-out",
+            "group w-full rounded-[28px] border border-stone-200 dark:border-border bg-white dark:bg-surface overflow-hidden transition-all duration-200 ease-out",
             "min-h-[52px] focus-within:min-h-[120px]",
-            "shadow-md focus-within:shadow-xl focus-within:ring-2 focus-within:ring-emerald-500/20"
+            "shadow-md focus-within:shadow-xl focus-within:ring-2 focus-within:ring-emerald-500/20 dark:focus-within:ring-emerald-500/30"
           )}
           style={{ boxShadow: "0 2px 8px 0 rgba(0,0,0,0.06)" }}
         >
@@ -66,25 +66,25 @@ export function PromptInput({
               }}
               placeholder={placeholder}
               rows={1}
-              className="w-full min-h-[28px] max-h-32 resize-none bg-transparent text-stone-800 placeholder:text-stone-400 text-base focus:outline-none py-0 min-w-0 group-focus-within:min-h-[72px]"
+              className="w-full min-h-[28px] max-h-32 resize-none bg-transparent text-stone-800 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 text-base focus:outline-none py-0 min-w-0 group-focus-within:min-h-[72px]"
               disabled={disabled}
             />
             <div className="flex items-center justify-between gap-2 shrink-0 focus-within:w-full focus-within:pt-1">
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors"
+                  className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
                   title="Añadir"
                   aria-label="Añadir"
                 >
                   <Plus size={20} />
                 </button>
                 {showPlan && (
-                  <span className="text-sm text-stone-700 font-normal">Plan</span>
+                  <span className="text-sm text-stone-700 dark:text-stone-300 font-normal">Plan</span>
                 )}
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors"
+                  className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
                   title="Entrada de voz"
                   aria-label="Micrófono"
                 >
@@ -95,7 +95,7 @@ export function PromptInput({
                     value={presentationModelId}
                     onChange={(e) => setPresentationModelId(e.target.value)}
                     disabled={disabled}
-                    className="text-xs text-stone-600 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer min-w-0 max-w-[180px]"
+                    className="text-xs text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer min-w-0 max-w-[180px]"
                     aria-label="Modelo para generar la presentación"
                   >
                     {presentationModels!.map((m) => (
@@ -128,7 +128,7 @@ export function PromptInput({
   return (
     <form onSubmit={onSubmit} className={cn("w-full", className)}>
       <div
-        className="w-full rounded-[28px] border border-stone-200 bg-white shadow-md overflow-hidden flex flex-col min-h-[120px]"
+        className="w-full rounded-[28px] border border-stone-200 dark:border-border bg-white dark:bg-surface shadow-md overflow-hidden flex flex-col min-h-[120px]"
         style={{
           boxShadow:
             "0 2px 8px 0 rgba(0,0,0,0.06), inset 0 1px 0 0 rgba(255,255,255,0.8)",
@@ -146,7 +146,7 @@ export function PromptInput({
             }}
             placeholder={placeholder}
             rows={minRows}
-            className="w-full min-h-[72px] max-h-32 resize-none bg-transparent text-stone-800 placeholder:text-stone-400 text-base focus:outline-none py-0"
+            className="w-full min-h-[72px] max-h-32 resize-none bg-transparent text-stone-800 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 text-base focus:outline-none py-0"
             disabled={disabled}
           />
         </div>
@@ -154,18 +154,18 @@ export function PromptInput({
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
-              className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors"
+              className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
               title="Añadir"
               aria-label="Añadir"
             >
               <Plus size={20} />
             </button>
             {showPlan && (
-              <span className="text-sm text-stone-700 font-normal">Plan</span>
+              <span className="text-sm text-stone-700 dark:text-stone-300 font-normal">Plan</span>
             )}
             <button
               type="button"
-              className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors"
+              className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
               title="Entrada de voz"
               aria-label="Micrófono"
             >
@@ -176,7 +176,7 @@ export function PromptInput({
                 value={presentationModelId}
                 onChange={(e) => setPresentationModelId(e.target.value)}
                 disabled={disabled}
-                className="text-xs text-stone-600 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer min-w-0 max-w-[180px]"
+                className="text-xs text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 cursor-pointer min-w-0 max-w-[180px]"
                 aria-label="Modelo para generar la presentación"
               >
                 {presentationModels!.map((m) => (

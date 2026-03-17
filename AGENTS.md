@@ -101,6 +101,13 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 - Revisa `src-tauri/src/db.rs`
 - Revisa `src-tauri/src/lib.rs`
 
+### Firebase (Slaim en la nube)
+
+- Auth y config: `src/services/firebase.ts`, `src/context/AuthContext.tsx`
+- **Desarrollo (web y Tauri)**: usar un solo `.env` en la raíz con `VITE_FIREBASE_*`. Vite inyecta esas variables en el frontend; en `tauri dev` el frontend se sirve desde Vite, así que el mismo `.env` vale para ambos. No commitear `.env`.
+- **Producción desktop (app empaquetada)**: la config se lee desde AppData (`firebase_config.json`) para no empaquetar credenciales. Formato: `firebase_config.example.json`. Para login por navegador externo: `google_oauth_client_id` (Client ID del cliente “Aplicación web”) y `google_oauth_client_secret` (Client secret del mismo cliente); ambos en la consola Google → Credentials → ese cliente.
+- **Login en desktop (Tauri)**: flujo estándar para apps instaladas: la app abre el **navegador del sistema**, escucha en **127.0.0.1:8765/callback** (loopback), usa **PKCE** (sin client_secret). Implementación: `src-tauri/src/oauth_google.rs`, comando `sign_in_google_external_browser`. En **Google Cloud Console** → Credentials → OAuth 2.0 Client ID (tipo Web) → **Authorized redirect URIs** añadir exactamente: `http://127.0.0.1:8765/callback`. Google acepta loopback para apps de escritorio. No usar `tauri.localhost` (no válido).
+
 ## Criterios de calidad
 
 - Prioriza compatibilidad con la arquitectura existente sobre introducir nuevos patrones.

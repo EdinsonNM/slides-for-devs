@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, PanelLeftOpen, Trash2, Plus, Image as ImageIcon } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { IconButton } from "../shared/IconButton";
 
 const SIDEBAR_WIDTH = 256;
 
@@ -36,34 +37,36 @@ export function SlideSidebar() {
 
   if (!isSidebarOpen) {
     return (
-      <aside className="w-12 bg-stone-100 border-r border-stone-300 shrink-0 flex flex-col items-center py-3 hidden md:flex">
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 rounded-md text-stone-500 hover:bg-stone-200 hover:text-stone-700 transition-colors"
+      <aside className="w-12 bg-stone-100 dark:bg-surface border-r border-stone-300 dark:border-border shrink-0 flex flex-col items-center py-3 hidden md:flex">
+        <IconButton
+          variant="default"
+          icon={<PanelLeftOpen size={20} />}
+          aria-label="Mostrar diapositivas"
           title="Mostrar diapositivas"
-        >
-          <PanelLeftOpen size={20} />
-        </button>
+          onClick={() => setIsSidebarOpen(true)}
+          className="hover:bg-stone-200 dark:hover:bg-surface-elevated"
+        />
       </aside>
     );
   }
 
   return (
     <aside
-      className="bg-stone-100 border-r border-stone-300 overflow-y-auto shrink-0 hidden md:flex flex-col"
+      className="bg-stone-100 dark:bg-surface border-r border-stone-300 dark:border-border overflow-y-auto shrink-0 hidden md:flex flex-col"
       style={{ width: SIDEBAR_WIDTH }}
     >
-      <div className="p-2 flex items-center justify-between border-b border-stone-200 shrink-0">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 px-1">
+      <div className="p-2 flex items-center justify-between border-b border-stone-200 dark:border-border shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-muted-foreground px-1">
           Diapositivas
         </span>
-        <button
-          onClick={() => setIsSidebarOpen(false)}
-          className="p-1.5 rounded-md text-stone-400 hover:bg-stone-200 hover:text-stone-600 transition-colors"
+        <IconButton
+          variant="default"
+          icon={<ChevronLeft size={16} />}
+          aria-label="Ocultar listado"
           title="Ocultar listado"
-        >
-          <ChevronLeft size={16} />
-        </button>
+          onClick={() => setIsSidebarOpen(false)}
+          className="p-1.5 hover:bg-stone-200 dark:hover:bg-surface-elevated text-stone-400 hover:text-stone-600 dark:hover:text-foreground"
+        />
       </div>
       <div className="p-2 space-y-2 overflow-y-auto relative">
         {slides.map((slide, index) => (
@@ -80,17 +83,17 @@ export function SlideSidebar() {
             className={cn(
               "w-full aspect-video rounded-lg border-2 transition-all overflow-hidden relative group shrink-0",
               currentIndex === index
-                ? "border-emerald-600 ring-2 ring-emerald-500/20"
-                : "border-stone-300 hover:border-stone-400"
+                ? "border-emerald-600 dark:border-emerald-500 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30"
+                : "border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500"
             )}
           >
-            <div className="absolute inset-0 bg-white p-1.5 flex flex-col">
-              <span className="text-[8px] uppercase tracking-widest text-stone-400 mb-0.5">
+            <div className="absolute inset-0 bg-white dark:bg-surface-elevated p-1.5 flex flex-col">
+              <span className="text-[8px] uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-0.5">
                 {index + 1}
               </span>
               {slide.type === "chapter" ? (
                 <>
-                  <span className="text-[10px] font-medium text-stone-900 line-clamp-2 text-center leading-tight flex-1 flex items-center justify-center px-0.5">
+                  <span className="text-[10px] font-medium text-stone-900 dark:text-foreground line-clamp-2 text-center leading-tight flex-1 flex items-center justify-center px-0.5">
                     {slide.title}
                   </span>
                   <div className="flex justify-center gap-1">

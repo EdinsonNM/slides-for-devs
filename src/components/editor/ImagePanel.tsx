@@ -46,16 +46,16 @@ export function ImagePanel() {
         />
       ) : (
         <div className="text-center space-y-3 p-6">
-          <div className="w-16 h-16 rounded-full bg-stone-200 flex items-center justify-center mx-auto text-stone-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors">
+          <div className="w-16 h-16 rounded-full bg-stone-200 dark:bg-stone-700 flex items-center justify-center mx-auto text-stone-400 dark:text-stone-300 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
             <ImageIcon size={32} />
           </div>
-          <p className="text-sm text-stone-400 group-hover:text-emerald-600 font-medium transition-colors">
+          <p className="text-sm text-stone-400 dark:text-stone-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 font-medium transition-colors">
             Click para generar o subir imagen
           </p>
         </div>
       )}
       <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-        <div className="px-4 py-2 bg-white rounded-full shadow-lg text-emerald-600 font-medium flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform">
+        <div className="px-4 py-2 bg-white dark:bg-surface-elevated rounded-full shadow-lg text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform border border-stone-200 dark:border-border">
           <ChevronDown size={16} />
           {currentSlide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
         </div>
@@ -63,24 +63,24 @@ export function ImagePanel() {
 
       {menuOpen && (
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 mt-2 w-52 bg-white rounded-xl shadow-xl border border-stone-200 py-1"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 mt-2 w-52 bg-white dark:bg-surface-elevated rounded-xl shadow-xl border border-stone-200 dark:border-border py-1"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             onClick={handleOpenGenerate}
             className={cn(
-              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 rounded-t-xl transition-colors"
+              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 dark:text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-3 rounded-t-xl transition-colors"
             )}
           >
-            <Sparkles size={18} className="text-emerald-500" />
+            <Sparkles size={18} className="text-emerald-500 dark:text-emerald-400" />
             Generar imagen
           </button>
           <button
             type="button"
             onClick={handleOpenUpload}
             className={cn(
-              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 rounded-b-xl transition-colors border-t border-stone-100"
+              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 dark:text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-3 rounded-b-xl transition-colors border-t border-stone-100 dark:border-border"
             )}
           >
             <Upload size={18} className="text-emerald-500" />

@@ -1,6 +1,7 @@
 import { usePresentation } from "../../context/PresentationContext";
 import { HomeEmptyState } from "./HomeEmptyState";
 import { HomeWithCarousel } from "./HomeWithCarousel";
+import { SignInInviteBar } from "./SignInInviteBar";
 
 export interface HomeScreenProps {
   onOpenConfig?: () => void;
@@ -41,7 +42,9 @@ export function HomeScreen(props: HomeScreenProps) {
 
   if (!hasItems) {
     return (
-      <HomeEmptyState
+      <>
+        <SignInInviteBar />
+        <HomeEmptyState
         onOpenConfig={onOpenConfig}
         onCheckUpdates={onCheckUpdates}
         topic={topic}
@@ -52,11 +55,14 @@ export function HomeScreen(props: HomeScreenProps) {
         setPresentationModelId={setPresentationModelId}
         presentationModels={presentationModels}
       />
+      </>
     );
   }
 
   return (
-    <HomeWithCarousel
+    <>
+      <SignInInviteBar />
+      <HomeWithCarousel
       onOpenConfig={onOpenConfig}
       onCheckUpdates={onCheckUpdates}
       topic={topic}
@@ -73,5 +79,6 @@ export function HomeScreen(props: HomeScreenProps) {
       generatingCoverId={generatingCoverId}
       coverImageCache={coverImageCache}
     />
+    </>
   );
 }

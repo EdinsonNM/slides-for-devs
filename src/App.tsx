@@ -6,12 +6,15 @@ import {
   hasAnyApiConfiguredAsync,
 } from "./services/apiConfig";
 import { checkForAppUpdates } from "./services/updater";
+import { LoadingScreen } from "./components/shared/LoadingScreen";
 import { Header } from "./components/layout/Header";
 import { CharactersPanel } from "./components/layout/CharactersPanel";
 import { SlideStylePanel } from "./components/layout/SlideStylePanel";
 import { SlideSidebar } from "./components/layout/SlideSidebar";
 import { HomeScreen } from "./components/home/HomeScreen";
+import { WelcomeSignInPanel } from "./components/home/WelcomeSignInPanel";
 import { ApiSetupScreen } from "./components/home/ApiSetupScreen";
+import { useAuth } from "./context/AuthContext";
 import { SlideEditor } from "./components/editor/SlideEditor";
 import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
@@ -28,40 +31,63 @@ import { PreviewOverlay } from "./components/preview/PreviewOverlay";
 import { PresenterView } from "./components/presenter/PresenterView";
 import { GeneratingPresentationModal } from "./components/modals/GeneratingPresentationModal";
 
-function LoadingScreen() {
-  return (
-    <div className="min-h-screen bg-[#F6F6F6] flex items-center justify-center font-sans">
-      <div className="text-stone-500 flex items-center gap-2">
-        <span className="inline-block w-5 h-5 border-2 border-stone-300 border-t-emerald-500 rounded-full animate-spin" />
-        Cargando…
-      </div>
-    </div>
-  );
+interface HomeOrRedirectProps {
+  onOpenConfig: () => void;
+  showApiConfigModal: boolean;
+  setShowApiConfigModal: (v: boolean) => void;
+  skipLogin: boolean;
+  onContinueWithoutAccount: () => void;
 }
 
 function HomeOrRedirect({
   onOpenConfig,
   showApiConfigModal,
   setShowApiConfigModal,
-}: {
-  onOpenConfig: () => void;
-  showApiConfigModal: boolean;
-  setShowApiConfigModal: (v: boolean) => void;
-}) {
-  const { slides, handleOpenSaved, handleGenerate } = usePresentation();
+  skipLogin,
+  onContinueWithoutAccount,
+}: HomeOrRedirectProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const {
+    slides,
+    handleOpenSaved,
+    handleGenerate,
+    refreshApiKeys,
+  } = usePresentation();
+
   if (slides.length > 0) {
     return <Navigate to="/editor" replace />;
   }
+
   const onOpenSavedAndGo = async (id: string) => {
     await handleOpenSaved(id);
     navigate("/editor");
   };
+
   const onGenerateAndGo = async (e: React.FormEvent) => {
     await handleGenerate(e);
     navigate("/editor");
   };
-  const { refreshApiKeys } = usePresentation();
+
+  const handleApiConfigSaved = () => {
+    refreshApiKeys();
+    setShowApiConfigModal(false);
+  };
+
+  // Sin sesión: mostrar siempre la pantalla de login por defecto (salvo que elija "Continuar sin cuenta")
+  if (!user && !skipLogin) {
+    return (
+      <>
+        <WelcomeSignInPanel onContinueWithoutAccount={onContinueWithoutAccount} />
+        <ApiConfigModal
+          isOpen={showApiConfigModal}
+          onClose={() => setShowApiConfigModal(false)}
+          onSaved={handleApiConfigSaved}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <HomeScreen
@@ -73,18 +99,19 @@ function HomeOrRedirect({
       <ApiConfigModal
         isOpen={showApiConfigModal}
         onClose={() => setShowApiConfigModal(false)}
-        onSaved={() => {
-          refreshApiKeys();
-          setShowApiConfigModal(false);
-        }}
+        onSaved={handleApiConfigSaved}
       />
     </>
   );
 }
 
-function EditorLayout({ onOpenConfig }: { onOpenConfig: () => void }) {
+interface EditorLayoutProps {
+  onOpenConfig: () => void;
+}
+
+function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
   return (
-    <div className="h-screen bg-[#E4E3E0] flex flex-col font-sans overflow-hidden">
+    <div className="h-screen bg-surface-elevated flex flex-col font-sans overflow-hidden">
       <Header onOpenConfig={onOpenConfig} />
       <CharactersPanel />
       <SlideStylePanel />
@@ -107,7 +134,11 @@ function EditorLayout({ onOpenConfig }: { onOpenConfig: () => void }) {
   );
 }
 
-function EditorRoute({ onOpenConfig }: { onOpenConfig: () => void }) {
+interface EditorRouteProps {
+  onOpenConfig: () => void;
+}
+
+function EditorRoute({ onOpenConfig }: EditorRouteProps) {
   const { slides, restoreLastOpenedPresentation } = usePresentation();
   const [restoring, setRestoring] = useState(true);
   const triedRestore = useRef(false);
@@ -119,7 +150,6 @@ function EditorRoute({ onOpenConfig }: { onOpenConfig: () => void }) {
     restoreLastOpenedPresentation()
       .then((ok) => {
         setRestoring(false);
-        // Solo redirigir a home si no se restauró nada Y no hay diapositivas (evita parpadeo al venir de generar presentación).
         if (!ok && slides.length === 0) navigate("/", { replace: true });
       })
       .catch(() => {
@@ -138,6 +168,7 @@ export default function App() {
   const { refreshApiKeys, pendingGeneration } = usePresentation();
   const [apiConfigVersion, setApiConfigVersion] = useState(0);
   const [showApiConfigModal, setShowApiConfigModal] = useState(false);
+  const [skipLogin, setSkipLogin] = useState(false);
   /** null = cargando (solo en Tauri), true = configurado, false = sin configurar */
   const [apiConfigured, setApiConfigured] = useState<boolean | null>(() =>
     typeof window !== "undefined" &&
@@ -198,6 +229,8 @@ export default function App() {
               onOpenConfig={() => setShowApiConfigModal(true)}
               showApiConfigModal={showApiConfigModal}
               setShowApiConfigModal={setShowApiConfigModal}
+              skipLogin={skipLogin}
+              onContinueWithoutAccount={() => setSkipLogin(true)}
             />
           }
         />

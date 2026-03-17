@@ -1,0 +1,127 @@
+import { useState } from "react";
+import { motion } from "motion/react";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { GoogleIcon } from "../shared/GoogleIcon";
+
+export interface WelcomeSignInPanelProps {
+  /** Si el usuario elige continuar sin cuenta (Firebase no configurado o no quiere iniciar sesión). */
+  onContinueWithoutAccount?: () => void;
+}
+
+/**
+ * Panel de bienvenida con fondo en gradiente, texto grande a la izquierda
+ * y botón para iniciar sesión con Google. Se muestra por defecto cuando el usuario no ha iniciado sesión.
+ */
+export function WelcomeSignInPanel({ onContinueWithoutAccount }: WelcomeSignInPanelProps) {
+  const { firebaseReady, signInWithGoogle } = useAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const handleSignIn = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  return (
+    <div
+      className="min-h-screen w-full flex items-center font-sans overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, #0f766e 0%, #0d9488 25%, #14b8a6 50%, #2dd4bf 75%, #5eead4 100%)",
+      }}
+    >
+      {/* Capa suave para mejorar contraste del texto */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0) 50%)",
+        }}
+      />
+
+      <div className="relative z-10 max-w-6xl mx-auto w-full px-8 sm:px-12 lg:px-16 py-16 flex items-center justify-between gap-12">
+        <div className="max-w-xl shrink-0">
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight drop-shadow-lg"
+            style={{ fontFamily: "Cormorant Garamond, serif" }}
+          >
+            Bienvenido a Slaim
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-6 text-lg sm:text-xl text-white/90 max-w-md leading-relaxed"
+          >
+            Crea presentaciones técnicas con ayuda de IA. Inicia sesión para
+            sincronizar tus proyectos y acceder desde cualquier lugar.
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-10 flex flex-col items-center gap-4"
+          >
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={isSigningIn || firebaseReady !== true}
+              className="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-base font-semibold text-teal-900 bg-white shadow-xl hover:bg-stone-50 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 w-fit"
+            >
+              {isSigningIn ? (
+                <Loader2 size={22} className="animate-spin shrink-0" />
+              ) : (
+                <GoogleIcon className="shrink-0 w-[22px] h-[22px]" />
+              )}
+              {isSigningIn
+                ? "Conectando…"
+                : firebaseReady !== true
+                  ? "Iniciar sesión con Google (configura Firebase)"
+                  : "Iniciar sesión con Google"}
+            </button>
+            {onContinueWithoutAccount && (
+              <button
+                type="button"
+                onClick={onContinueWithoutAccount}
+                className="text-sm text-white/80 hover:text-white underline underline-offset-2 transition-colors"
+              >
+                Continuar sin cuenta
+              </button>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Animación Slaim a la derecha */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="hidden lg:flex items-center justify-center flex-1 max-w-md xl:max-w-lg"
+        >
+          <video
+            src="/video-logo.webm"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full max-w-[320px] aspect-square object-contain"
+            aria-hidden
+          />
+        </motion.div>
+      </div>
+
+      {/* Formas decorativas de fondo */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1/3 h-2/3 max-w-md opacity-10 pointer-events-none">
+        <div className="absolute inset-0 rounded-full bg-white blur-3xl" />
+      </div>
+    </div>
+  );
+}

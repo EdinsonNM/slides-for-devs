@@ -42,7 +42,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row font-sans">
       {/* Izquierda: fondo claro + video con bordes desvanecidos */}
-      <div className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen bg-[#F6F6F6] flex flex-col items-center justify-center p-8">
+      <div className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen bg-[#F6F6F6] dark:bg-surface flex flex-col items-center justify-center p-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -64,7 +64,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
       </div>
 
       {/* Derecha: formulario con fondo verde agua */}
-      <div className="flex-1 min-h-screen bg-[#B8E6E0] flex flex-col items-center justify-center p-6 lg:p-8">
+      <div className="flex-1 min-h-screen bg-[#B8E6E0] dark:bg-stone-800 flex flex-col items-center justify-center p-6 lg:p-8">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -72,13 +72,13 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
           className="w-full max-w-md"
         >
           <div className="mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/80 text-teal-700 shadow-sm mb-4">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/80 dark:bg-surface-elevated text-teal-700 dark:text-emerald-400 shadow-sm mb-4">
               <KeyRound size={28} />
             </div>
-            <h1 className="text-2xl font-semibold text-stone-900">
+            <h1 className="text-2xl font-semibold text-stone-900 dark:text-foreground">
               Configura tu API
             </h1>
-            <p className="text-stone-600 mt-2">
+            <p className="text-stone-600 dark:text-stone-400 mt-2">
               Para generar presentaciones necesitas al menos una clave de API.
               Puedes usar Gemini, OpenAI, xAI (Grok) o varias.
             </p>
@@ -88,7 +88,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
             <div>
               <label
                 htmlFor="gemini-key"
-                className="block text-sm font-medium text-stone-700 mb-1.5"
+                className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1.5"
               >
                 API Key de Google Gemini
               </label>
@@ -100,9 +100,9 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
                   onChange={(e) => setGeminiKey(e.target.value)}
                   placeholder="Ej: AIza..."
                   className={cn(
-                    "w-full px-4 py-3 rounded-xl border bg-white/95 text-stone-900 placeholder:text-stone-400",
+                    "w-full px-4 py-3 rounded-xl border bg-white/95 dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
                     "focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500",
-                    "border-stone-200/80 shadow-sm",
+                    "border-stone-200/80 dark:border-border shadow-sm",
                   )}
                   autoComplete="off"
                 />
@@ -112,13 +112,13 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-stone-600 mt-1">
+              <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
                 Generación de presentaciones e imágenes. Obtén una en{" "}
                 <a
                   href="https://aistudio.google.com/apikey"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-teal-700 hover:underline font-medium"
+                  className="text-teal-700 dark:text-teal-400 hover:underline font-medium"
                 >
                   Google AI Studio
                 </a>
@@ -128,7 +128,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
             <div>
               <label
                 htmlFor="openai-key"
-                className="block text-sm font-medium text-stone-700 mb-1.5"
+                className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1.5"
               >
                 API Key de OpenAI (opcional)
               </label>
@@ -140,9 +140,9 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
                   onChange={(e) => setOpenaiKey(e.target.value)}
                   placeholder="Ej: sk-..."
                   className={cn(
-                    "w-full px-4 py-3 rounded-xl border bg-white/95 text-stone-900 placeholder:text-stone-400",
+                    "w-full px-4 py-3 rounded-xl border bg-white/95 dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
                     "focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500",
-                    "border-stone-200/80 shadow-sm",
+                    "border-stone-200/80 dark:border-border shadow-sm",
                   )}
                   autoComplete="off"
                 />
@@ -152,7 +152,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-stone-600 mt-1">
+              <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
                 Para generar imágenes con DALL·E 3 en lugar de Gemini.
               </p>
             </div>
@@ -160,7 +160,7 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
             <div>
               <label
                 htmlFor="xai-key"
-                className="block text-sm font-medium text-stone-700 mb-1.5"
+                className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1.5"
               >
                 API Key de xAI (Grok) (opcional)
               </label>
@@ -172,9 +172,9 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
                   onChange={(e) => setXaiKey(e.target.value)}
                   placeholder="Ej: xai-..."
                   className={cn(
-                    "w-full px-4 py-3 rounded-xl border bg-white/95 text-stone-900 placeholder:text-stone-400",
+                    "w-full px-4 py-3 rounded-xl border bg-white/95 dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
                     "focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500",
-                    "border-stone-200/80 shadow-sm",
+                    "border-stone-200/80 dark:border-border shadow-sm",
                   )}
                   autoComplete="off"
                 />
@@ -184,13 +184,13 @@ export function ApiSetupScreen({ onConfigured }: { onConfigured: () => void }) {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-stone-600 mt-1">
+              <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
                 Presentaciones con Grok. Obtén una en{" "}
                 <a
                   href="https://console.x.ai/team/default/api-keys"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-teal-700 hover:underline font-medium"
+                  className="text-teal-700 dark:text-teal-400 hover:underline font-medium"
                 >
                   xAI Console
                 </a>

@@ -32,7 +32,7 @@ export function SlideContentChapter() {
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               placeholder="Título del capítulo"
-              className="font-serif italic text-stone-900 leading-tight text-center bg-transparent border-b border-stone-200 focus:outline-none focus:border-emerald-500 w-full py-1"
+              className="font-serif italic text-stone-900 dark:text-foreground leading-tight text-center bg-transparent border-b border-stone-200 dark:border-border focus:outline-none focus:border-emerald-500 w-full py-1"
               style={{ fontSize: "var(--slide-title-chapter)" }}
               autoFocus
             />
@@ -41,13 +41,13 @@ export function SlideContentChapter() {
               value={editSubtitle}
               onChange={(e) => setEditSubtitle(e.target.value)}
               placeholder="Subtítulo (opcional)"
-              className="text-stone-500 font-light tracking-wide uppercase text-center bg-transparent border-b border-stone-100 focus:outline-none focus:border-emerald-400 w-full py-1 text-sm"
+              className="text-stone-500 dark:text-stone-400 font-light tracking-wide uppercase text-center bg-transparent border-b border-stone-100 dark:border-border focus:outline-none focus:border-emerald-400 w-full py-1 text-sm"
             />
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2 w-full">
             <h1
-              className="font-serif italic text-stone-900 leading-tight cursor-text hover:bg-stone-50 rounded px-3 py-1 transition-colors"
+              className="font-serif italic text-stone-900 dark:text-stone-100 leading-tight cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-3 py-1 transition-colors"
               style={{ fontSize: "var(--slide-title-chapter)" }}
               onClick={() => setIsEditing(true)}
               onKeyDown={(e) => e.key === "Enter" && setIsEditing(true)}
@@ -62,7 +62,7 @@ export function SlideContentChapter() {
               onClick={() => setIsEditing(true)}
               className={cn(
                 "p-1.5 rounded-md transition-colors shrink-0",
-                "text-stone-500 hover:bg-stone-100 hover:text-emerald-600"
+                "text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-emerald-600 dark:hover:text-emerald-400"
               )}
               title="Editar título"
             >
@@ -72,7 +72,7 @@ export function SlideContentChapter() {
         )}
         {currentSlide.subtitle && !isEditing && (
           <p
-            className="text-stone-500 font-light tracking-wide uppercase"
+            className="text-stone-500 dark:text-stone-300 font-light tracking-wide uppercase"
             style={{ fontSize: "var(--slide-subtitle)" }}
           >
             {currentSlide.subtitle}

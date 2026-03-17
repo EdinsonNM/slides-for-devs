@@ -1,0 +1,11 @@
+{
+  "api_key": "TU_API_KEY",
+  "auth_domain": "tu-proyecto.firebaseapp.com",
+  "project_id": "tu-proyecto",
+  "storage_bucket": "tu-proyecto.firebasestorage.app",
+  "messaging_sender_id": "123456789",
+  "app_id": "1:123456789:web:abcdef",
+  "measurement_id": "G-XXXXXXXXXX",
+  "google_oauth_client_id": "TU_CLIENT_ID_WEB.apps.googleusercontent.com",
+  "google_oauth_client_secret": "TU_CLIENT_SECRET_WEB"
+}

@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { MoreVertical, RefreshCw } from "lucide-react";
+import { IconButton } from "../shared/IconButton";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
 
@@ -31,27 +32,27 @@ export function HomeEmptyState({
   presentationModels,
 }: HomeEmptyStateProps) {
   return (
-    <div className="min-h-screen flex flex-col font-sans relative bg-linear-to-br from-emerald-200/80 via-green-100 to-teal-200/80">
+    <div className="min-h-screen flex flex-col font-sans relative bg-gradient-to-br from-emerald-200/80 via-green-100 to-teal-200/80 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
       <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
         {onCheckUpdates && (
-          <button
-            type="button"
-            onClick={onCheckUpdates}
-            className="p-2 rounded-lg text-stone-500 hover:bg-emerald-100/80 hover:text-stone-700 transition-colors"
+          <IconButton
+            variant="default"
+            icon={<RefreshCw size={20} />}
+            aria-label="Buscar actualizaciones"
             title="Buscar actualizaciones"
-          >
-            <RefreshCw size={20} />
-          </button>
+            onClick={onCheckUpdates}
+            className="rounded-lg hover:bg-emerald-100/80 dark:hover:bg-stone-700/80"
+          />
         )}
         {onOpenConfig && (
-          <button
-            type="button"
-            onClick={onOpenConfig}
-            className="p-2 rounded-lg text-stone-500 hover:bg-emerald-100/80 hover:text-stone-700 transition-colors"
+          <IconButton
+            variant="default"
+            icon={<MoreVertical size={20} />}
+            aria-label="Configuración (API keys)"
             title="Configuración (API keys)"
-          >
-            <MoreVertical size={20} />
-          </button>
+            onClick={onOpenConfig}
+            className="rounded-lg hover:bg-emerald-100/80 dark:hover:bg-stone-700/80"
+          />
         )}
       </div>
       <div className="flex-1 flex flex-col items-center justify-center p-6">
@@ -73,10 +74,10 @@ export function HomeEmptyState({
                 aria-hidden
               />
             </div>
-            <h1 className="text-5xl font-medium tracking-tight text-stone-800 font-serif italic">
-              Sl<span className="text-emerald-600">ai</span>m
+            <h1 className="text-5xl font-medium tracking-tight text-stone-800 dark:text-stone-100 font-serif italic">
+              Sl<span className="text-emerald-600 dark:text-emerald-400">ai</span>m
             </h1>
-            <p className="text-stone-600 text-lg max-w-md mx-auto">
+            <p className="text-stone-600 dark:text-stone-400 text-lg max-w-md mx-auto">
               Transforma tus ideas en presentaciones profesionales con el poder
               de la Inteligencia Artificial.
             </p>

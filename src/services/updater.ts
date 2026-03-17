@@ -24,10 +24,10 @@ export type UpdateCheckResult =
   | { status: "error"; error: string };
 
 /**
- * Comprueba si hay una actualización disponible y, si la hay, muestra un diálogo
- * para que el usuario elija actualizar ahora o más tarde.
+ * Comprueba si hay una actualizaci?n disponible y, si la hay, muestra un di?logo
+ * para que el usuario elija actualizar ahora o m?s tarde.
  * Solo se ejecuta dentro de Tauri (escritorio); en web no hace nada.
- * @param silent Si true, no muestra diálogos de "ya actualizado" ni "error"; solo el de "actualización disponible".
+ * @param silent Si true, no muestra di?logos de "ya actualizado" ni "error"; solo el de "actualizaci?n disponible".
  */
 export async function checkForAppUpdates(
   silent = true
@@ -46,15 +46,15 @@ export async function checkForAppUpdates(
   }
 
   const currentVersion = await getAppVersion();
-  console.log("[Updater] Versión actual:", currentVersion);
+  console.log("[Updater] Versi?n actual:", currentVersion);
 
   try {
     const update = await check();
     if (!update) {
-      console.log("[Updater] No hay actualización disponible.");
+      console.log("[Updater] No hay actualizaci?n disponible.");
       if (!silent) {
         await showMessage(
-          `Ya tienes la última versión instalada (v${currentVersion}).`,
+          `Ya tienes la ?ltima versi?n instalada (v${currentVersion}).`,
           { title: "Actualizaciones", kind: "info" }
         );
       }
@@ -62,15 +62,15 @@ export async function checkForAppUpdates(
     }
 
     const text = [
-      `Hay una nueva versión disponible: ${update.version}.`,
+      `Hay una nueva versi?n disponible: ${update.version}.`,
       update.body?.trim() ? `\n\nNotas:\n${update.body}` : "",
     ].join("");
 
     const yes = await ask(text, {
-      title: "Actualización disponible",
+      title: "Actualizaci?n disponible",
       kind: "info",
       okLabel: "Actualizar ahora",
-      cancelLabel: "Más tarde",
+      cancelLabel: "M?s tarde",
     });
 
     if (yes) {
@@ -84,7 +84,7 @@ export async function checkForAppUpdates(
     console.warn("[Updater] Error al comprobar actualizaciones:", err);
     if (!silent) {
       await showMessage(
-        `No se pudo comprobar actualizaciones.\n\nVersión actual: v${currentVersion}\n\n${errorMessage}`,
+        `No se pudo comprobar actualizaciones.\n\nVersi?n actual: v${currentVersion}\n\n${errorMessage}`,
         { title: "Actualizaciones", kind: "error" }
       );
     }

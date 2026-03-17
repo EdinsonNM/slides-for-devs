@@ -1,5 +1,6 @@
 mod api_keys;
 mod db;
+mod oauth_google;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -125,6 +126,91 @@ fn has_any_api_configured() -> Result<bool, String> {
     api_keys::has_any_api_configured()
 }
 
+// --- Firebase (Slaim en la nube): config desde archivo en AppData o raíz del proyecto ---
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct FirebaseConfig {
+    #[serde(alias = "apiKey")]
+    api_key: String,
+    #[serde(alias = "authDomain")]
+    auth_domain: String,
+    #[serde(alias = "projectId")]
+    project_id: String,
+    #[serde(alias = "storageBucket")]
+    storage_bucket: String,
+    #[serde(alias = "messagingSenderId")]
+    messaging_sender_id: String,
+    #[serde(alias = "appId")]
+    app_id: String,
+    #[serde(default, alias = "measurementId")]
+    measurement_id: Option<String>,
+}
+
+/// Busca firebase_config.json en: AppData, resource_dir, cwd, padre del cwd (dev), o subiendo desde el exe.
+fn find_firebase_config(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>, String> {
+    let filename = "firebase_config.json";
+
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let in_app_data = app_data_dir.join(filename);
+    if in_app_data.exists() {
+        return Ok(Some(in_app_data));
+    }
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let in_resource = resource_dir.join(filename);
+        if in_resource.exists() {
+            return Ok(Some(in_resource));
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let in_cwd = cwd.join(filename);
+        if in_cwd.exists() {
+            return Ok(Some(in_cwd));
+        }
+        if let Some(parent) = cwd.parent() {
+            let in_parent = parent.join(filename);
+            if in_parent.exists() {
+                return Ok(Some(in_parent));
+            }
+        }
+    }
+    if let Ok(exe_path) = std::env::current_exe() {
+        let mut dir = exe_path.parent();
+        for _ in 0..6 {
+            if let Some(d) = dir {
+                let candidate = d.join(filename);
+                if candidate.exists() {
+                    return Ok(Some(candidate));
+                }
+                dir = d.parent();
+            } else {
+                break;
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+fn get_firebase_config(app: tauri::AppHandle) -> Result<Option<FirebaseConfig>, String> {
+    let path = match find_firebase_config(&app)? {
+        Some(p) => p,
+        None => return Ok(None),
+    };
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let config: FirebaseConfig = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(Some(config))
+}
+
+/// Login con Google vía navegador del sistema (loopback 127.0.0.1:8765). Requiere
+/// `googleOauthClientId` en firebase_config.json y esa URI en la consola Google.
+#[tauri::command]
+fn sign_in_google_external_browser(app: tauri::AppHandle) -> Result<String, String> {
+    let path = find_firebase_config(&app)?
+        .ok_or_else(|| "No se encontró firebase_config.json".to_string())?;
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    oauth_google::sign_in_with_external_browser(&content)
+}
+
 // --- Presentaciones ---
 
 /// Migrates existing JSON presentation files (AppData/presentations/*.json) into SQLite.
@@ -211,6 +297,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_firebase_config,
+            sign_in_google_external_browser,
             get_gemini_api_key,
             set_gemini_api_key,
             get_openai_api_key,
