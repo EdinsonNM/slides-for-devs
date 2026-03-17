@@ -48,7 +48,7 @@ export function ApiConfigModal({
     if (!canSave) return;
     setIsSaving(true);
     try {
-      await     setGeminiApiKey(geminiKey);
+      await setGeminiApiKey(geminiKey);
       await setOpenAIApiKey(openaiKey);
       await setXaiApiKey(xaiKey);
       onSaved?.();

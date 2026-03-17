@@ -60,6 +60,7 @@ function HomeOrRedirect({
     await handleGenerate(e);
     navigate("/editor");
   };
+  const { refreshApiKeys } = usePresentation();
   return (
     <>
       <HomeScreen
@@ -71,7 +72,10 @@ function HomeOrRedirect({
       <ApiConfigModal
         isOpen={showApiConfigModal}
         onClose={() => setShowApiConfigModal(false)}
-        onSaved={() => setShowApiConfigModal(false)}
+        onSaved={() => {
+          refreshApiKeys();
+          setShowApiConfigModal(false);
+        }}
       />
     </>
   );
@@ -130,6 +134,7 @@ function EditorRoute({ onOpenConfig }: { onOpenConfig: () => void }) {
 
 export default function App() {
   const location = useLocation();
+  const { refreshApiKeys } = usePresentation();
   const [apiConfigVersion, setApiConfigVersion] = useState(0);
   const [showApiConfigModal, setShowApiConfigModal] = useState(false);
   /** null = cargando (solo en Tauri), true = configurado, false = sin configurar */
@@ -178,7 +183,10 @@ export default function App() {
       <ApiConfigModal
         isOpen={showApiConfigModal}
         onClose={() => setShowApiConfigModal(false)}
-        onSaved={() => setShowApiConfigModal(false)}
+        onSaved={() => {
+          refreshApiKeys();
+          setShowApiConfigModal(false);
+        }}
       />
       <Routes>
         <Route

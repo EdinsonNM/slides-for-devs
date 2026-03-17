@@ -38,16 +38,6 @@ export const PRESENTATION_MODELS: PresentationModelOption[] = [
     provider: "gemini",
   },
   {
-    id: "gemini-1.5-flash",
-    label: "Gemini 1.5 Flash",
-    provider: "gemini",
-  },
-  {
-    id: "gemini-1.5-pro",
-    label: "Gemini 1.5 Pro",
-    provider: "gemini",
-  },
-  {
     id: "gpt-5.2",
     label: "OpenAI GPT-5.2",
     provider: "openai",

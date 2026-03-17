@@ -115,6 +115,8 @@ export function usePresentationState() {
   const [showCharactersPanel, setShowCharactersPanel] = useState(false);
   const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
   const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] = useState(false);
+  /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
+  const [apiKeysVersion, setApiKeysVersion] = useState(0);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -127,8 +129,12 @@ export function usePresentationState() {
           (m.provider === "openai" && hasOpenAI) ||
           (m.provider === "xai" && hasXai)
       ),
-    [hasGemini, hasOpenAI, hasXai]
+    [hasGemini, hasOpenAI, hasXai, apiKeysVersion]
   );
+
+  const refreshApiKeys = useCallback(() => {
+    setApiKeysVersion((v) => v + 1);
+  }, []);
 
   // Modelo para operaciones Gemini (dividir, reescribir, prompt de imagen, código, notas, chat).
   // Usar siempre el modelo seleccionado en el combo cuando sea Gemini; si el combo tiene OpenAI, usar fallback.
@@ -1120,6 +1126,7 @@ export function usePresentationState() {
     hasGemini,
     hasOpenAI,
     hasXai,
+    refreshApiKeys,
     showCodeGenModal,
     setShowCodeGenModal,
     codeGenPrompt,
