@@ -2,24 +2,23 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { Slide, SlideType, ImageStyle, SavedCharacter, SavedPresentationMeta } from "../types";
 import { formatMarkdown } from "../utils/markdown";
 import {
-  generatePresentation,
-  generateImage,
-  generateImagePromptAlternatives,
   generateCodeForSlide as generateCodeForSlideApi,
-  splitSlide,
-  rewriteSlide,
   generatePresenterNotes as generatePresenterNotesApi,
   generateSpeechForSlide as generateSpeechForSlideApi,
   generateSpeechForAll as generateSpeechForAllApi,
   refinePresenterNotes as refinePresenterNotesApi,
 } from "../services/gemini";
 import {
-  generateImageOpenAI,
-  generatePresentationOpenAI,
-} from "../services/openai";
+  generatePresentation,
+  splitSlide as splitSlideUseCase,
+  rewriteSlide as rewriteSlideUseCase,
+  generateImagePromptAlternatives,
+  generateImage as generateImageUseCase,
+} from "../composition/container";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
+  getXaiApiKey,
 } from "../services/apiConfig";
 import {
   savePresentation,
@@ -41,9 +40,13 @@ import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
+import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
+
+/** Clave para persistir el id de la última presentación abierta (restaurar al refrescar en /editor). */
+export const LAST_OPENED_PRESENTATION_KEY = "slides-for-devs-last-opened";
 
 export type HomeTab = "recent" | "mine" | "templates";
 
@@ -119,26 +122,41 @@ export function usePresentationState() {
     topic: string;
     modelId: string;
   } | null>(null);
+  /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
+  const [apiKeysVersion, setApiKeysVersion] = useState(0);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
+  const hasXai = !!getXaiApiKey();
   const presentationModels = useMemo(
     () =>
       PRESENTATION_MODELS.filter(
         (m) =>
           (m.provider === "gemini" && hasGemini) ||
-          (m.provider === "openai" && hasOpenAI)
+          (m.provider === "openai" && hasOpenAI) ||
+          (m.provider === "xai" && hasXai)
       ),
-    [hasGemini, hasOpenAI]
+    [hasGemini, hasOpenAI, hasXai, apiKeysVersion]
   );
 
-  const presentationModelOption = PRESENTATION_MODELS.find(
-    (m) => m.id === presentationModelId
-  );
+  const refreshApiKeys = useCallback(() => {
+    setApiKeysVersion((v) => v + 1);
+  }, []);
+
+  // Modelo para operaciones Gemini (dividir, reescribir, prompt de imagen, código, notas, chat).
+  // Usar siempre el modelo seleccionado en el combo cuando sea Gemini; si el combo tiene OpenAI, usar fallback.
+  const presentationModelOption =
+    presentationModels.find((m) => m.id === presentationModelId) ??
+    PRESENTATION_MODELS.find((m) => m.id === presentationModelId);
+  // Modelo usado para speech, código, notas y chat (si el combo es Gemini; si no, fallback).
   const effectiveGeminiModel =
     presentationModelOption?.provider === "gemini"
       ? presentationModelId
       : "gemini-2.5-flash";
+  const modelForGeminiOps = effectiveGeminiModel?.trim() || "gemini-2.5-flash";
+  const effectiveGeminiModelLabel =
+    PRESENTATION_MODELS.find((m) => m.id === modelForGeminiOps)?.label ??
+    modelForGeminiOps;
 
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
@@ -190,11 +208,10 @@ export function usePresentationState() {
     let cancelled = false;
     const run = async () => {
       try {
-        const option = PRESENTATION_MODELS.find((m) => m.id === pending.modelId);
-        const generatedSlides =
-          option?.provider === "openai"
-            ? await generatePresentationOpenAI(pending.topic, pending.modelId)
-            : await generatePresentation(pending.topic, pending.modelId);
+        const generatedSlides = await generatePresentation.run(
+          pending.topic,
+          pending.modelId
+        );
         if (cancelled) return;
         const cleanedSlides = generatedSlides.map((slide) => ({
           ...slide,
@@ -469,25 +486,24 @@ export function usePresentationState() {
     const characterPrompt = character?.description;
     const characterReferenceImageDataUrl =
       imageProvider === "gemini" ? character?.referenceImageDataUrl : undefined;
+    const characterReferenceImageForOpenAI =
+      imageProvider === "openai" ? character?.referenceImageDataUrl : undefined;
+    const imageModelId =
+      imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
     try {
-      const imageUrl =
-        imageProvider === "openai"
-          ? await generateImageOpenAI(
-              slideContext,
-              imagePrompt,
-              selectedStyle.prompt,
-              includeBackground,
-              characterPrompt
-            )
-          : await generateImage(
-              slideContext,
-              imagePrompt,
-              selectedStyle.prompt,
-              includeBackground,
-              geminiImageModelId,
-              characterPrompt,
-              characterReferenceImageDataUrl
-            );
+      const imageUrl = await generateImageUseCase.run({
+        providerId: imageProvider,
+        slideContext,
+        userPrompt: imagePrompt,
+        stylePrompt: selectedStyle.prompt,
+        includeBackground,
+        modelId: imageModelId,
+        characterPrompt,
+        characterReferenceImageDataUrl:
+          imageProvider === "openai"
+            ? characterReferenceImageForOpenAI
+            : characterReferenceImageDataUrl,
+      });
       if (imageUrl) {
         const promptUsed = imagePrompt.trim();
         setSlides((prev) => {
@@ -517,14 +533,19 @@ export function usePresentationState() {
     const characterPrompt = selectedCharacterId
       ? savedCharacters.find((c) => c.id === selectedCharacterId)?.description
       : undefined;
+    const modelId =
+      presentationModelOption?.provider === "openai"
+        ? presentationModelId
+        : effectiveGeminiModel;
     try {
-      const alternative = await generateImagePromptAlternatives(
+      const alternative = await generateImagePromptAlternatives.run(
         slideContext,
         imagePrompt,
         selectedStyle.name,
         selectedStyle.prompt,
-        effectiveGeminiModel,
-        characterPrompt
+        modelId,
+        characterPrompt,
+        includeBackground
       );
       if (alternative) setImagePrompt(alternative);
     } catch (error) {
@@ -538,11 +559,15 @@ export function usePresentationState() {
   const handleSplitSlide = async () => {
     if (!splitPrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
+    const modelId =
+      presentationModelOption?.provider === "openai"
+        ? presentationModelId
+        : effectiveGeminiModel;
     try {
-      const newSlides = await splitSlide(
+      const newSlides = await splitSlideUseCase.run(
         currentSlide,
         splitPrompt,
-        effectiveGeminiModel
+        modelId
       );
       if (newSlides.length > 0) {
         const cleanedNewSlides = newSlides.map((slide) => ({
@@ -569,11 +594,15 @@ export function usePresentationState() {
   const handleRewriteSlide = async () => {
     if (!rewritePrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
+    const modelId =
+      presentationModelOption?.provider === "openai"
+        ? presentationModelId
+        : effectiveGeminiModel;
     try {
-      const result = await rewriteSlide(
+      const result = await rewriteSlideUseCase.run(
         currentSlide,
         rewritePrompt,
-        effectiveGeminiModel
+        modelId
       );
       setSlides((prev) => {
         const updated = [...prev];
@@ -621,10 +650,20 @@ export function usePresentationState() {
         if (currentSavedId) {
           await updatePresentation(currentSavedId, presentation);
           setSaveMessage("Guardado");
+          try {
+            sessionStorage.setItem(LAST_OPENED_PRESENTATION_KEY, currentSavedId);
+          } catch {
+            // ignore
+          }
         } else {
           const id = await savePresentation(presentation);
           setCurrentSavedId(id);
           setSaveMessage("Guardado");
+          try {
+            sessionStorage.setItem(LAST_OPENED_PRESENTATION_KEY, id);
+          } catch {
+            // ignore
+          }
         }
         setTimeout(() => setSaveMessage(null), 2000);
       } catch (e) {
@@ -683,6 +722,11 @@ export function usePresentationState() {
       setCurrentSavedId(saved.id);
       setSelectedCharacterId(saved.characterId ?? null);
       setShowSavedListModal(false);
+      try {
+        sessionStorage.setItem(LAST_OPENED_PRESENTATION_KEY, id);
+      } catch {
+        // ignore
+      }
       const firstImage = saved.slides[0]?.imageUrl;
       if (firstImage) {
         setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
@@ -692,6 +736,43 @@ export function usePresentationState() {
       alert("No se pudo abrir la presentación.");
     }
   };
+
+  /** Restaura la última presentación abierta (desde sessionStorage). Usado al cargar /editor tras refresco. */
+  const restoreLastOpenedPresentation = useCallback(async (): Promise<boolean> => {
+    let id: string | null = null;
+    try {
+      id = sessionStorage.getItem(LAST_OPENED_PRESENTATION_KEY);
+    } catch {
+      return false;
+    }
+    if (!id) return false;
+    try {
+      const saved = await loadPresentation(id);
+      setTopic(saved.topic);
+      setSlides(
+        saved.slides.map((s) => ({
+          ...s,
+          id: crypto.randomUUID(),
+          content: formatMarkdown(s.content ?? ""),
+        }))
+      );
+      setCurrentIndex(0);
+      setCurrentSavedId(saved.id);
+      setSelectedCharacterId(saved.characterId ?? null);
+      const firstImage = saved.slides[0]?.imageUrl;
+      if (firstImage) {
+        setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
+      }
+      return true;
+    } catch {
+      try {
+        sessionStorage.removeItem(LAST_OPENED_PRESENTATION_KEY);
+      } catch {
+        // ignore
+      }
+      return false;
+    }
+  }, [formatMarkdown]);
 
   const handleDeleteSaved = async (id: string) => {
     if (!confirm("¿Eliminar esta presentación guardada?")) return;
@@ -731,24 +812,23 @@ export function usePresentationState() {
       const characterPrompt = coverCharacter?.description;
       const characterReferenceImageDataUrl =
         imageProvider === "gemini" ? coverCharacter?.referenceImageDataUrl : undefined;
-      const imageUrl =
-        imageProvider === "openai"
-          ? await generateImageOpenAI(
-              slideContext,
-              coverPrompt,
-              selectedStyle.prompt,
-              includeBackground,
-              characterPrompt
-            )
-          : await generateImage(
-              slideContext,
-              coverPrompt,
-              selectedStyle.prompt,
-              includeBackground,
-              geminiImageModelId,
-              characterPrompt,
-              characterReferenceImageDataUrl
-            );
+      const coverCharacterImageForOpenAI =
+        imageProvider === "openai" ? coverCharacter?.referenceImageDataUrl : undefined;
+      const imageModelId =
+        imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
+      const imageUrl = await generateImageUseCase.run({
+        providerId: imageProvider,
+        slideContext,
+        userPrompt: coverPrompt,
+        stylePrompt: selectedStyle.prompt,
+        includeBackground,
+        modelId: imageModelId,
+        characterPrompt,
+        characterReferenceImageDataUrl:
+          imageProvider === "openai"
+            ? coverCharacterImageForOpenAI
+            : characterReferenceImageDataUrl,
+      });
       if (imageUrl) {
         const updatedSlides = [...saved.slides];
         updatedSlides[0] = {
@@ -778,6 +858,11 @@ export function usePresentationState() {
     setTopic("");
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
+    try {
+      sessionStorage.removeItem(LAST_OPENED_PRESENTATION_KEY);
+    } catch {
+      // ignore
+    }
   };
 
   const refreshSavedCharacters = () => {
@@ -804,22 +889,16 @@ export function usePresentationState() {
     try {
       const context =
         "Personaje aislado para usar en presentaciones. Debe ser el mismo personaje en todas las escenas. Fondo limpio.";
-      return imageProvider === "openai"
-        ? await generateImageOpenAI(
-            context,
-            characterDescription.trim(),
-            selectedStyle.prompt,
-            true,
-            undefined
-          )
-        : await generateImage(
-            context,
-            characterDescription.trim(),
-            selectedStyle.prompt,
-            true,
-            geminiImageModelId,
-            undefined
-          );
+      const imageModelId =
+        imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
+      return generateImageUseCase.run({
+        providerId: imageProvider,
+        slideContext: context,
+        userPrompt: characterDescription.trim(),
+        stylePrompt: selectedStyle.prompt,
+        includeBackground: true,
+        modelId: imageModelId,
+      });
     } finally {
       setIsGeneratingCharacterPreview(false);
     }
@@ -905,7 +984,7 @@ export function usePresentationState() {
         currentSlide,
         codeGenLanguage,
         codeGenPrompt.trim() || undefined,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setSlides((prev) => {
         const updated = [...prev];
@@ -947,7 +1026,7 @@ export function usePresentationState() {
     try {
       const notes = await generatePresenterNotesApi(
         currentSlide,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(notes);
     } catch (e) {
@@ -965,7 +1044,7 @@ export function usePresentationState() {
       const text = await generateSpeechForSlideApi(
         currentSlide,
         prompt,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(text);
     } catch (e) {
@@ -988,7 +1067,7 @@ export function usePresentationState() {
       const refined = await refinePresenterNotesApi(
         currentSlide,
         current,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setPresenterNotesForCurrentSlide(refined);
     } catch (e) {
@@ -1006,7 +1085,7 @@ export function usePresentationState() {
       const results = await generateSpeechForAllApi(
         slides,
         speechGeneralPrompt,
-        effectiveGeminiModel
+        modelForGeminiOps
       );
       setSlides((prev) =>
         prev.map((s, i) => ({
@@ -1031,6 +1110,7 @@ export function usePresentationState() {
     setPresentationModelId,
     presentationModels,
     effectiveGeminiModel,
+    effectiveGeminiModelLabel,
     slides,
     setSlides,
     currentIndex,
@@ -1133,6 +1213,7 @@ export function usePresentationState() {
     handleSave,
     openSavedListModal,
     handleOpenSaved,
+    restoreLastOpenedPresentation,
     handleDeleteSaved,
     generatingCoverId,
     handleGenerateCoverForPresentation,
@@ -1147,6 +1228,8 @@ export function usePresentationState() {
     handleImageUpload,
     hasGemini,
     hasOpenAI,
+    hasXai,
+    refreshApiKeys,
     showCodeGenModal,
     setShowCodeGenModal,
     codeGenPrompt,

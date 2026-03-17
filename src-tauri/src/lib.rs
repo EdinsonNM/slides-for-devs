@@ -78,6 +78,16 @@ fn delete_character(db_path: tauri::State<DbPath>, id: String) -> Result<(), Str
     db::delete_character(&conn, &id).map_err(|e| e.to_string())
 }
 
+/// Escribe un archivo binario desde base64. Usado para exportar .pptx (el frontend abre el diálogo de guardar).
+#[tauri::command]
+fn write_binary_file(path: String, base64_content: String) -> Result<(), String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&base64_content)
+        .map_err(|e| e.to_string())?;
+    std::fs::write(&path, &bytes).map_err(|e| e.to_string())
+}
+
 // --- API keys (keychain seguro) ---
 
 #[tauri::command]
@@ -98,6 +108,16 @@ fn get_openai_api_key() -> Result<Option<String>, String> {
 #[tauri::command]
 fn set_openai_api_key(key: String) -> Result<(), String> {
     api_keys::set_openai_api_key(&key)
+}
+
+#[tauri::command]
+fn get_xai_api_key() -> Result<Option<String>, String> {
+    api_keys::get_xai_api_key()
+}
+
+#[tauri::command]
+fn set_xai_api_key(key: String) -> Result<(), String> {
+    api_keys::set_xai_api_key(&key)
 }
 
 #[tauri::command]
@@ -195,6 +215,8 @@ pub fn run() {
             set_gemini_api_key,
             get_openai_api_key,
             set_openai_api_key,
+            get_xai_api_key,
+            set_xai_api_key,
             has_any_api_configured,
             save_presentation,
             update_presentation,
@@ -205,6 +227,7 @@ pub fn run() {
             list_characters,
             save_character,
             delete_character,
+            write_binary_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

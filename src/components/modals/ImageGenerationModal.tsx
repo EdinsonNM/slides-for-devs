@@ -116,7 +116,7 @@ export function ImageGenerationModal() {
                                 : "bg-white border-stone-200 text-stone-600 hover:border-emerald-500"
                             )}
                           >
-                            DALL·E 3
+                            GPT Image
                           </button>
                         )}
                       </div>
@@ -202,6 +202,13 @@ export function ImageGenerationModal() {
                         </button>
                       ))}
                     </div>
+                    {imageProvider === "openai" &&
+                      selectedCharacterId &&
+                      savedCharacters.find((c) => c.id === selectedCharacterId)?.referenceImageDataUrl && (
+                        <p className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-lg p-2">
+                          Se usará la imagen de referencia cuando sea posible. Si la generación falla, se usará la descripción del personaje.
+                        </p>
+                      )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase tracking-wider text-stone-400">

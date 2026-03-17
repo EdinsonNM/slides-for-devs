@@ -1,4 +1,11 @@
-export type SlideType = "content" | "chapter" | "diagram";
+export type { Slide, SlideType } from "./domain/entities";
+export type {
+  ImageStyle,
+  SavedCharacter,
+  Presentation,
+  SavedPresentation,
+  SavedPresentationMeta,
+} from "./types.app";
 
 export interface ImageStyle {
   id: string;

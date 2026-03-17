@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { flushSync } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   FolderOpen,
@@ -12,10 +13,12 @@ import {
   Settings,
   UserPlus,
   RefreshCw,
+  FileDown,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { checkForAppUpdates, isTauri } from "../../services/updater";
+import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
 
 interface HeaderProps {
   onOpenConfig?: () => void;
@@ -23,6 +26,7 @@ interface HeaderProps {
 
 export function Header(props: HeaderProps) {
   const { onOpenConfig } = props;
+  const navigate = useNavigate();
   const {
     topic,
     setTopic,
@@ -51,7 +55,24 @@ export function Header(props: HeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(topic || "");
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [isExportingPptx, setIsExportingPptx] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportPowerPoint = async () => {
+    if (slides.length === 0) return;
+    setIsExportingPptx(true);
+    try {
+      await exportPresentationToPowerPoint({
+        topic: topic || "Presentación",
+        slides,
+      });
+    } catch (e) {
+      console.error(e);
+      alert("Error al exportar a PowerPoint. Revisa la consola.");
+    } finally {
+      setIsExportingPptx(false);
+    }
+  };
 
   const handleCheckUpdates = async () => {
     if (isCheckingUpdates) return;
@@ -81,7 +102,10 @@ export function Header(props: HeaderProps) {
     <header className="h-14 bg-white border-b border-stone-200 px-4 flex items-center justify-between z-10 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <button
-          onClick={goHome}
+          onClick={() => {
+            goHome();
+            navigate("/");
+          }}
           className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors shrink-0"
           title="Inicio"
         >
@@ -225,6 +249,21 @@ export function Header(props: HeaderProps) {
                 <Loader2 size={18} className="animate-spin" />
               ) : (
                 <Save size={18} />
+              )}
+            </button>
+          )}
+          {slides.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportPowerPoint}
+              disabled={isExportingPptx}
+              className="p-2 rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition-colors disabled:opacity-60"
+              title="Exportar a PowerPoint"
+            >
+              {isExportingPptx ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <FileDown size={18} />
               )}
             </button>
           )}

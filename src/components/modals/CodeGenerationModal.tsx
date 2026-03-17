@@ -14,6 +14,7 @@ export function CodeGenerationModal() {
     setCodeGenLanguage,
     isGeneratingCode,
     handleGenerateCode,
+    effectiveGeminiModelLabel,
   } = usePresentation();
 
   return (
@@ -57,6 +58,9 @@ export function CodeGenerationModal() {
               </button>
             </div>
             <div className="p-6 space-y-6">
+              <p className="text-xs text-stone-500">
+                Modelo: <span className="font-medium text-stone-700">{effectiveGeminiModelLabel}</span>
+              </p>
               {currentSlide && (
                 <>
                   <div className="space-y-2">

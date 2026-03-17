@@ -6,6 +6,10 @@ export interface HomeScreenProps {
   onOpenConfig?: () => void;
   /** Solo en Tauri: al pulsar se busca actualización y se muestra diálogo con el resultado. */
   onCheckUpdates?: () => void;
+  /** Si se proporciona, se usa en lugar del contexto al abrir una presentación guardada (p. ej. para navegar a /editor). */
+  onOpenSaved?: (id: string) => void | Promise<void>;
+  /** Si se proporciona, se usa en lugar del contexto al generar una nueva presentación (p. ej. para navegar a /editor). */
+  onGenerate?: (e: React.FormEvent) => void | Promise<void>;
 }
 
 /**
@@ -14,7 +18,7 @@ export interface HomeScreenProps {
  * - HomeWithCarousel: cuando hay al menos una presentación guardada.
  */
 export function HomeScreen(props: HomeScreenProps) {
-  const { onOpenConfig, onCheckUpdates } = props;
+  const { onOpenConfig, onCheckUpdates, onOpenSaved: onOpenSavedProp, onGenerate: onGenerateProp } = props;
   const {
     topic,
     setTopic,
@@ -31,6 +35,8 @@ export function HomeScreen(props: HomeScreenProps) {
     presentationModels,
   } = usePresentation();
 
+  const openSaved = onOpenSavedProp ?? handleOpenSaved;
+  const generate = onGenerateProp ?? handleGenerate;
   const hasItems = savedList.length > 0;
 
   if (!hasItems) {
@@ -41,7 +47,7 @@ export function HomeScreen(props: HomeScreenProps) {
         topic={topic}
         setTopic={setTopic}
         isLoading={isLoading}
-        onGenerate={handleGenerate}
+        onGenerate={generate}
         presentationModelId={presentationModelId}
         setPresentationModelId={setPresentationModelId}
         presentationModels={presentationModels}
@@ -56,12 +62,12 @@ export function HomeScreen(props: HomeScreenProps) {
       topic={topic}
       setTopic={setTopic}
       isLoading={isLoading}
-      onGenerate={handleGenerate}
+      onGenerate={generate}
       presentationModelId={presentationModelId}
       setPresentationModelId={setPresentationModelId}
       presentationModels={presentationModels}
       savedList={savedList}
-      onOpenSaved={handleOpenSaved}
+      onOpenSaved={openSaved}
       onDeleteSaved={handleDeleteSaved}
       onGenerateCover={handleGenerateCoverForPresentation}
       generatingCoverId={generatingCoverId}

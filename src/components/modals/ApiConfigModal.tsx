@@ -3,8 +3,10 @@ import { KeyRound, Check } from "lucide-react";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
+  getXaiApiKey,
   setGeminiApiKey,
   setOpenAIApiKey,
+  setXaiApiKey,
 } from "../../services/apiConfig";
 import { BaseModal } from "./BaseModal";
 import { cn } from "../../utils/cn";
@@ -22,6 +24,7 @@ export function ApiConfigModal({
 }: ApiConfigModalProps) {
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [xaiKey, setXaiKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
@@ -29,13 +32,15 @@ export function ApiConfigModal({
     if (isOpen) {
       setGeminiKey(getGeminiApiKey() ?? "");
       setOpenaiKey(getOpenAIApiKey() ?? "");
+      setXaiKey(getXaiApiKey() ?? "");
       setTouched(false);
     }
   }, [isOpen]);
 
   const hasGemini = geminiKey.trim().length > 0;
   const hasOpenAI = openaiKey.trim().length > 0;
-  const canSave = hasGemini || hasOpenAI;
+  const hasXai = xaiKey.trim().length > 0;
+  const canSave = hasGemini || hasOpenAI || hasXai;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +50,7 @@ export function ApiConfigModal({
     try {
       await setGeminiApiKey(geminiKey);
       await setOpenAIApiKey(openaiKey);
+      await setXaiApiKey(xaiKey);
       onSaved?.();
       onClose();
     } finally {
@@ -132,6 +138,55 @@ export function ApiConfigModal({
               </span>
             )}
           </div>
+          <p className="text-xs text-stone-500 mt-0.5">
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 hover:underline"
+            >
+              Obtener clave
+            </a>
+          </p>
+        </div>
+
+        <div>
+          <label
+            htmlFor="config-xai-key"
+            className="block text-sm font-medium text-stone-700 mb-1"
+          >
+            API Key de xAI (Grok) (opcional)
+          </label>
+          <div className="relative">
+            <input
+              id="config-xai-key"
+              type="password"
+              value={xaiKey}
+              onChange={(e) => setXaiKey(e.target.value)}
+              placeholder="Ej: xai-..."
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg border bg-white text-stone-900 placeholder:text-stone-400 text-sm",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
+                "border-stone-200"
+              )}
+              autoComplete="off"
+            />
+            {hasXai && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+                <Check size={16} />
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-stone-500 mt-0.5">
+            <a
+              href="https://console.x.ai/team/default/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 hover:underline"
+            >
+              Obtener clave
+            </a>
+          </p>
         </div>
 
         {touched && !canSave && (
