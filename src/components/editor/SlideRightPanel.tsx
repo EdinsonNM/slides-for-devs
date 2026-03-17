@@ -5,7 +5,12 @@ import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
 
-export function SlideRightPanel() {
+export interface SlideRightPanelProps {
+  /** Si true, el panel ocupa todo el espacio (layout panel-full), sin borde ni resize. */
+  fullWidth?: boolean;
+}
+
+export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
   const {
     currentSlide,
     imageWidthPercent,
@@ -18,18 +23,23 @@ export function SlideRightPanel() {
 
   return (
     <div
-      className="bg-white border-l border-stone-200 flex flex-col relative group"
-      style={{ width: `${imageWidthPercent}%` }}
+      className={cn(
+        "bg-white flex flex-col relative group min-h-0",
+        fullWidth ? "flex-1 border-0" : "border-l border-stone-200"
+      )}
+      style={fullWidth ? undefined : { width: `${imageWidthPercent}%` }}
     >
-      <div
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setIsResizing(true);
-        }}
-        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/30 transition-colors z-30 flex items-center justify-center group/handle"
-      >
-        <div className="w-0.5 h-8 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
-      </div>
+      {!fullWidth && (
+        <div
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+          }}
+          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/30 transition-colors z-30 flex items-center justify-center group/handle"
+        >
+          <div className="w-0.5 h-8 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
+        </div>
+      )}
 
       <button
         onClick={(e) => {

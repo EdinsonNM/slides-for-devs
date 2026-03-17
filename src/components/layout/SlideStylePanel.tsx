@@ -42,6 +42,20 @@ function PreviewContentFull() {
   );
 }
 
+/** Miniatura: título arriba, debajo placeholder de imagen */
+function PreviewContentPanelFull() {
+  return (
+    <div className="w-full aspect-video bg-white border border-stone-200 rounded-lg overflow-hidden flex flex-col p-0.5 gap-1">
+      <div className="h-1.5 w-3/4 bg-stone-300 rounded shrink-0" />
+      <div className="flex-1 min-h-0 bg-stone-100 rounded flex items-center justify-center p-1">
+        <div className="w-full h-full rounded border border-dashed border-stone-300 flex items-center justify-center bg-stone-50">
+          <ImageIcon className="w-5 h-5 text-stone-400" strokeWidth={1.5} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Miniatura: diagrama Excalidraw */
 function PreviewDiagram() {
   return (
@@ -54,13 +68,14 @@ function PreviewDiagram() {
 }
 
 const TEMPLATES: {
-  id: "title" | "content-split" | "content-full" | "diagram";
+  id: "title" | "content-split" | "content-full" | "content-panel-full" | "diagram";
   label: string;
   Preview: () => JSX.Element;
 }[] = [
   { id: "title", label: "Título", Preview: PreviewTitle },
   { id: "content-split", label: "Contenido (con panel)", Preview: PreviewContentSplit },
   { id: "content-full", label: "Contenido (solo texto)", Preview: PreviewContentFull },
+  { id: "content-panel-full", label: "Título + panel", Preview: PreviewContentPanelFull },
   { id: "diagram", label: "Diagrama", Preview: PreviewDiagram },
 ];
 
@@ -83,12 +98,15 @@ export function SlideStylePanel() {
     currentSlide.type === "content" && (currentSlide.contentLayout ?? "split") === "split";
   const isContentFull =
     currentSlide.type === "content" && currentSlide.contentLayout === "full";
+  const isContentPanelFull =
+    currentSlide.type === "content" && currentSlide.contentLayout === "panel-full";
   const contentType = currentSlide.contentType ?? "image";
 
   const getSelectedId = (): (typeof TEMPLATES)[number]["id"] => {
     if (isTitle) return "title";
     if (isDiagram) return "diagram";
     if (isContentFull) return "content-full";
+    if (isContentPanelFull) return "content-panel-full";
     return "content-split";
   };
   const selectedId = getSelectedId();
@@ -126,6 +144,9 @@ export function SlideStylePanel() {
                 else if (id === "content-split") {
                   setCurrentSlideType("content");
                   setCurrentSlideContentLayout("split");
+                } else if (id === "content-panel-full") {
+                  setCurrentSlideType("content");
+                  setCurrentSlideContentLayout("panel-full");
                 } else {
                   setCurrentSlideType("content");
                   setCurrentSlideContentLayout("full");
@@ -154,9 +175,9 @@ export function SlideStylePanel() {
             </button>
           ))}
         </div>
-        {isContentSplit && (
+        {(isContentSplit || isContentPanelFull) && (
           <div className="px-4 pb-3 pt-3 flex items-center gap-2 flex-wrap border-t border-stone-100">
-            <span className="text-xs font-medium text-stone-500">Panel derecho:</span>
+            <span className="text-xs font-medium text-stone-500">Panel:</span>
             {[
               { id: "image" as const, label: "Imagen", icon: ImageIcon },
               { id: "code" as const, label: "Código", icon: Code2 },

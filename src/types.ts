@@ -21,8 +21,8 @@ export interface Slide {
   editorHeight?: number;
   videoUrl?: string;
   contentType?: "image" | "code" | "video";
-  /** Distribución del contenido: split = título+texto a la izquierda y panel derecho (imagen/código/video); full = solo título+texto a ancho completo. Solo aplica cuando type === "content". */
-  contentLayout?: "split" | "full";
+  /** Distribución del contenido: split = título+texto a la izquierda y panel derecho; full = solo título+texto a ancho completo; panel-full = título arriba, descripción como subtítulo opcional y panel ocupa todo el resto. Solo aplica cuando type === "content". */
+  contentLayout?: "split" | "full" | "panel-full";
   /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a este slide. */
   imageWidthPercent?: number;
   /** Notas del presentador (solo visibles en modo presentador) */

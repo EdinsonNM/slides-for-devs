@@ -27,6 +27,8 @@ export function PresenterSlideSummary({ slide }: PresenterSlideSummaryProps) {
           )
         ) : slide.type === "diagram" ? (
           <p className="text-stone-400 text-xs">Diagrama editable</p>
+        ) : slide.contentLayout === "panel-full" && slide.subtitle ? (
+          <p className="text-stone-400 text-xs line-clamp-2">{slide.subtitle}</p>
         ) : (
           <p className="text-stone-400 text-xs line-clamp-2 overflow-hidden">
             {slide.content

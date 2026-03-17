@@ -13,6 +13,8 @@ export function SlideContentDefault() {
     setIsEditing,
     editTitle,
     setEditTitle,
+    editSubtitle,
+    setEditSubtitle,
     editContent,
     setEditContent,
     handleSaveManualEdit,
@@ -21,6 +23,102 @@ export function SlideContentDefault() {
   } = usePresentation();
 
   if (!currentSlide) return null;
+
+  const isPanelFull = currentSlide.contentLayout === "panel-full";
+
+  if (isPanelFull) {
+    return (
+      <>
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <div className="shrink-0 px-8 pt-6 pb-4 border-b border-stone-100 flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              {isEditing ? (
+                <>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Título"
+                    className="font-serif italic text-stone-900 leading-tight bg-transparent border-b border-stone-200 focus:outline-none focus:border-emerald-500 w-full"
+                    style={{ fontSize: "var(--slide-title)" }}
+                  />
+                  <input
+                    type="text"
+                    value={editSubtitle}
+                    onChange={(e) => setEditSubtitle(e.target.value)}
+                    placeholder="Subtítulo o descripción (opcional)"
+                    className="text-stone-500 bg-transparent border-b border-stone-100 focus:outline-none focus:border-emerald-500 w-full text-sm"
+                  />
+                </>
+              ) : (
+                <>
+                  <h2
+                    className="font-serif italic text-stone-900 leading-tight cursor-text hover:bg-stone-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+                    style={{ fontSize: "var(--slide-title)" }}
+                    onClick={() => setIsEditing(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && setIsEditing(true)}
+                    title="Clic para editar"
+                  >
+                    {currentSlide.title || "Sin título"}
+                  </h2>
+                  {currentSlide.subtitle ? (
+                    <p
+                      className="text-stone-500 text-sm cursor-text hover:bg-stone-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+                      onClick={() => setIsEditing(true)}
+                      role="button"
+                      tabIndex={0}
+                      title="Clic para editar subtítulo"
+                    >
+                      {currentSlide.subtitle}
+                    </p>
+                  ) : (
+                    <p
+                      className="text-stone-400 text-sm italic cursor-text hover:bg-stone-50 rounded px-1 -mx-1 py-0.5"
+                      onClick={() => setIsEditing(true)}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      Clic para añadir subtítulo (opcional)
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => {
+                  if (isEditing) handleSaveManualEdit();
+                  else setIsEditing(true);
+                }}
+                className={cn(
+                  "p-1.5 rounded-md transition-colors",
+                  isEditing
+                    ? "bg-emerald-600 text-white"
+                    : "text-stone-500 hover:bg-stone-100 hover:text-emerald-600"
+                )}
+                title={isEditing ? "Guardar cambios" : "Editar"}
+              >
+                {isEditing ? <Check size={16} /> : <Pencil size={16} />}
+              </button>
+              {isEditing && (
+                <button
+                  onClick={handleSaveManualEdit}
+                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+                >
+                  <Save size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <SlideRightPanel fullWidth />
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

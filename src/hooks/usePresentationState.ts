@@ -112,6 +112,11 @@ export function usePresentationState() {
   const [showCharactersPanel, setShowCharactersPanel] = useState(false);
   const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
   const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] = useState(false);
+  /** Cuando está setado, la presentación se está generando en segundo plano; se muestra modal y al terminar se guarda. */
+  const [pendingGeneration, setPendingGeneration] = useState<{
+    topic: string;
+    modelId: string;
+  } | null>(null);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -170,6 +175,53 @@ export function usePresentationState() {
   useEffect(() => {
     listCharacters().then(setSavedCharacters).catch(() => setSavedCharacters([]));
   }, []);
+
+  // Generación en segundo plano: al tener pendingGeneration, llamar API, actualizar slides y guardar.
+  useEffect(() => {
+    const pending = pendingGeneration;
+    if (!pending) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const option = PRESENTATION_MODELS.find((m) => m.id === pending.modelId);
+        const generatedSlides =
+          option?.provider === "openai"
+            ? await generatePresentationOpenAI(pending.topic, pending.modelId)
+            : await generatePresentation(pending.topic, pending.modelId);
+        if (cancelled) return;
+        const cleanedSlides = generatedSlides.map((slide) => ({
+          ...slide,
+          id: crypto.randomUUID(),
+          content: formatMarkdown(slide.content),
+        }));
+        setSlides(cleanedSlides);
+        setCurrentIndex(0);
+        const presentation = {
+          topic: pending.topic,
+          slides: cleanedSlides,
+          characterId: selectedCharacterId ?? undefined,
+        };
+        const id = await savePresentation(presentation);
+        if (cancelled) return;
+        setCurrentSavedId(id);
+        setPendingGeneration(null);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Error generating presentation:", error);
+        alert(
+          "Hubo un error al generar la presentación. Por favor intenta de nuevo."
+        );
+        setPendingGeneration(null);
+        setSlides([]);
+        setTopic("");
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingGeneration]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -327,8 +379,8 @@ export function usePresentationState() {
     });
   };
 
-  /** Cambia la distribución del contenido: split = con panel derecho; full = solo texto a ancho completo. Solo para type "content". */
-  const setCurrentSlideContentLayout = (contentLayout: "split" | "full") => {
+  /** Cambia la distribución del contenido: split = con panel derecho; full = solo texto; panel-full = título + subtítulo arriba y panel a ancho completo. Solo para type "content". */
+  const setCurrentSlideContentLayout = (contentLayout: "split" | "full" | "panel-full") => {
     if (!currentSlide || currentSlide.type !== "content") return;
     if (currentSlide.contentLayout === contentLayout) return;
     setSlides((prev) => {
@@ -349,33 +401,20 @@ export function usePresentationState() {
     });
   };
 
-  const handleGenerate = async (e: React.FormEvent) => {
+  const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!topic.trim()) return;
-    setIsLoading(true);
-    try {
-      const option = PRESENTATION_MODELS.find(
-        (m) => m.id === presentationModelId
-      );
-      const generatedSlides =
-        option?.provider === "openai"
-          ? await generatePresentationOpenAI(topic, presentationModelId)
-          : await generatePresentation(topic, presentationModelId);
-      const cleanedSlides = generatedSlides.map((slide) => ({
-        ...slide,
-        id: crypto.randomUUID(),
-        content: formatMarkdown(slide.content),
-      }));
-      setSlides(cleanedSlides);
-      setCurrentIndex(0);
-    } catch (error) {
-      console.error("Error generating presentation:", error);
-      alert(
-        "Hubo un error al generar la presentación. Por favor intenta de nuevo."
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    const trimmedTopic = topic.trim();
+    if (!trimmedTopic) return;
+    const placeholderSlide: Slide = {
+      id: crypto.randomUUID(),
+      type: "content",
+      title: "Generando…",
+      content: "Preparando tu presentación.",
+    };
+    setTopic(trimmedTopic);
+    setSlides([placeholderSlide]);
+    setCurrentIndex(0);
+    setPendingGeneration({ topic: trimmedTopic, modelId: presentationModelId });
   };
 
   const handleImageGenerate = async () => {
@@ -1069,6 +1108,7 @@ export function usePresentationState() {
     setIsSidebarOpen,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    pendingGeneration,
   };
 }
 

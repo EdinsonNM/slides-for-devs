@@ -25,9 +25,10 @@ import { ApiConfigModal } from "./components/modals/ApiConfigModal";
 import { CharacterCreatorModal } from "./components/modals/CharacterCreatorModal";
 import { PreviewOverlay } from "./components/preview/PreviewOverlay";
 import { PresenterView } from "./components/presenter/PresenterView";
+import { GeneratingPresentationModal } from "./components/modals/GeneratingPresentationModal";
 
 export default function App() {
-  const { slides } = usePresentation();
+  const { slides, pendingGeneration } = usePresentation();
   const [isPresenterWindow, setIsPresenterWindow] = useState(
     () => window.location.hash === "#/presenter"
   );
@@ -104,6 +105,7 @@ export default function App() {
 
   return (
     <div className="h-screen bg-[#E4E3E0] flex flex-col font-sans overflow-hidden">
+      <GeneratingPresentationModal isOpen={pendingGeneration !== null} />
       <Header onOpenConfig={() => setShowApiConfigModal(true)} />
       <CharactersPanel />
       <SlideStylePanel />

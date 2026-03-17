@@ -62,6 +62,63 @@ export function PreviewSlideContent({
             fitToViewOnLoad
           />
         </div>
+      ) : slide.contentLayout === "panel-full" ? (
+        <>
+          <div className="shrink-0 px-10 pt-8 pb-5 border-b border-stone-100">
+            <h2
+              className="font-serif italic text-stone-900 leading-tight"
+              style={{ fontSize: "var(--slide-title)" }}
+            >
+              {slide.title}
+            </h2>
+            {slide.subtitle && (
+              <p
+                className="text-stone-500 mt-1"
+                style={{ fontSize: "var(--slide-subtitle)" }}
+              >
+                {slide.subtitle}
+              </p>
+            )}
+            <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
+          </div>
+          <div className="flex-1 min-h-0 min-w-0 p-8 flex items-center justify-center">
+            {slide.contentType === "code" ? (
+              <CodeDisplay
+                code={slide.code ?? ""}
+                language={slide.language}
+                fontSize={slide.fontSize ?? 14}
+                showChrome={true}
+                responsiveFontSize={true}
+                className="w-full h-full"
+              />
+            ) : slide.contentType === "video" ? (
+              <div className="w-full h-full bg-stone-900 rounded-2xl overflow-hidden border border-white/10">
+                {slide.videoUrl ? (
+                  <iframe
+                    src={getEmbedUrl(slide.videoUrl)}
+                    className="w-full h-full"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-stone-500 italic">
+                    // Sin video
+                  </div>
+                )}
+              </div>
+            ) : slide.imageUrl ? (
+              <img
+                src={slide.imageUrl}
+                alt={slide.title}
+                className="w-full h-full object-contain rounded-2xl"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-stone-300">
+                <ImageIcon size={120} strokeWidth={1} />
+              </div>
+            )}
+          </div>
+        </>
       ) : (
         <>
           <div className="flex-1 p-12 flex flex-col overflow-hidden min-h-0">

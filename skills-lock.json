@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "tailwind-design-system": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "0fc7b79d08ee5168d46c6887014cbe5bd02f2c5e458858470e20fc8ecedefb46"
+    },
+    "tauri-v2": {
+      "source": "nodnarbnitram/claude-code-extensions",
+      "sourceType": "github",
+      "computedHash": "a333d119fa97f6a4c72d7f5a0e7c44c1c614254b8d67383f83ff23ac1af2afb0"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "ff602214356ac15c65aa8702aff5a2aedaf958d66d301e3279f1dfeaf18c94e9"
+    }
+  }
+}
