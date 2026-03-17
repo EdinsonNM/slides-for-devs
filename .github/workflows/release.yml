@@ -123,10 +123,9 @@ jobs:
           fi
 
       - name: inject Firebase config for release bundle
-        if: secrets.FIREBASE_CONFIG_JSON != ''
         env:
           FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
-        run: node -e "require('fs').writeFileSync('src-tauri/firebase_config.bundle.json', process.env.FIREBASE_CONFIG_JSON || '')"
+        run: node -e "const c = process.env.FIREBASE_CONFIG_JSON?.trim(); if (c) require('fs').writeFileSync('src-tauri/firebase_config.bundle.json', c);"
 
       - name: build Tauri app
         env:
