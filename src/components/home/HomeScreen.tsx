@@ -34,6 +34,10 @@ export function HomeScreen(props: HomeScreenProps) {
     presentationModelId,
     setPresentationModelId,
     presentationModels,
+    cloudSyncAvailable,
+    syncingToCloudId,
+    handleSyncPresentationToCloud,
+    openCloudPresentationsModal,
   } = usePresentation();
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
@@ -54,6 +58,8 @@ export function HomeScreen(props: HomeScreenProps) {
         presentationModelId={presentationModelId}
         setPresentationModelId={setPresentationModelId}
         presentationModels={presentationModels}
+        cloudSyncAvailable={cloudSyncAvailable}
+        onOpenCloudPresentations={openCloudPresentationsModal}
       />
       </>
     );
@@ -78,6 +84,10 @@ export function HomeScreen(props: HomeScreenProps) {
       onGenerateCover={handleGenerateCoverForPresentation}
       generatingCoverId={generatingCoverId}
       coverImageCache={coverImageCache}
+      cloudSyncAvailable={cloudSyncAvailable}
+      onSyncToCloud={handleSyncPresentationToCloud}
+      syncingToCloudId={syncingToCloudId}
+      onOpenCloudPresentations={openCloudPresentationsModal}
     />
     </>
   );

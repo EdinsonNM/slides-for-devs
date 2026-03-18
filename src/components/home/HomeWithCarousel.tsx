@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ImagePlus,
+  Loader2,
+  Trash2,
+  Cloud,
+  CloudUpload,
+} from "lucide-react";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
 import { AvatarMenu } from "../shared/AvatarMenu";
@@ -33,6 +40,10 @@ export interface HomeWithCarouselProps {
   onGenerateCover: (id: string) => void;
   generatingCoverId: string | null;
   coverImageCache: Record<string, string>;
+  cloudSyncAvailable?: boolean;
+  onSyncToCloud?: (id: string) => void;
+  syncingToCloudId?: string | null;
+  onOpenCloudPresentations?: () => void;
 }
 
 /**
@@ -55,6 +66,10 @@ export function HomeWithCarousel({
   onGenerateCover,
   generatingCoverId,
   coverImageCache,
+  cloudSyncAvailable = false,
+  onSyncToCloud,
+  syncingToCloudId = null,
+  onOpenCloudPresentations,
 }: HomeWithCarouselProps) {
   const [showExploreAll, setShowExploreAll] = useState(false);
 
@@ -110,21 +125,34 @@ export function HomeWithCarousel({
               transition={{ duration: 0.2 }}
               className="flex flex-col flex-1 min-h-0"
             >
-              <button
-                type="button"
-                onClick={() => setShowExploreAll(false)}
-                className="self-start flex items-center gap-2 text-sm text-stone-500 hover:text-emerald-600 mb-4 transition-colors"
-              >
-                <ArrowLeft size={18} />
-                Volver
-              </button>
-              <h2 className="text-lg font-semibold text-stone-900 mb-4">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setShowExploreAll(false)}
+                  className="self-start flex items-center gap-2 text-sm text-stone-500 hover:text-emerald-600 transition-colors"
+                >
+                  <ArrowLeft size={18} />
+                  Volver
+                </button>
+                {cloudSyncAvailable && onOpenCloudPresentations && (
+                  <button
+                    type="button"
+                    onClick={onOpenCloudPresentations}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                  >
+                    <Cloud size={16} />
+                    Presentaciones en la nube
+                  </button>
+                )}
+              </div>
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-4">
                 Mis presentaciones
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto pb-8">
                 {savedList.map((p, index) => {
                   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
                   const isGeneratingCover = generatingCoverId === p.id;
+                  const isSyncingCloud = syncingToCloudId === p.id;
                   return (
                     <motion.div
                       key={p.id}
@@ -171,7 +199,33 @@ export function HomeWithCarousel({
                           </p>
                         </div>
                       </button>
+                      {p.cloudId && (
+                        <div className="absolute top-5 left-5 z-30 flex items-center gap-1 rounded-lg bg-emerald-600/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          <Cloud size={12} />
+                          Nube
+                        </div>
+                      )}
                       <div className="absolute top-5 right-5 flex flex-col gap-1 z-30 pointer-events-auto">
+                        {cloudSyncAvailable && onSyncToCloud && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onSyncToCloud(p.id);
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            disabled={isGeneratingCover || isSyncingCloud}
+                            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors disabled:opacity-60"
+                            title="Sincronizar con la nube"
+                          >
+                            {isSyncingCloud ? (
+                              <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                              <CloudUpload size={18} />
+                            )}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -200,7 +254,7 @@ export function HomeWithCarousel({
                           <Trash2 size={18} />
                         </button>
                       </div>
-                      {isGeneratingCover && (
+                      {(isGeneratingCover || isSyncingCloud) && (
                         <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center z-20">
                           <Loader2 className="w-10 h-10 text-white animate-spin" />
                         </div>
@@ -217,6 +271,18 @@ export function HomeWithCarousel({
               transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="flex flex-col items-center justify-center flex-1 py-4 sm:py-6 overflow-visible"
             >
+              {cloudSyncAvailable && onOpenCloudPresentations && (
+                <div className="w-full flex justify-start mb-4 sm:mb-5 shrink-0 pl-4 sm:pl-6">
+                  <button
+                    type="button"
+                    onClick={onOpenCloudPresentations}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-200 bg-white/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-600 shadow-sm hover:border-emerald-300 dark:hover:border-emerald-700 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors"
+                  >
+                    <Cloud size={18} className="text-emerald-600 shrink-0" />
+                    Presentaciones en la nube
+                  </button>
+                </div>
+              )}
               <SavedCarousel
                 savedList={savedList}
                 onOpen={onOpenSaved}
@@ -225,6 +291,9 @@ export function HomeWithCarousel({
                 generatingCoverId={generatingCoverId}
                 coverImageCache={coverImageCache}
                 onOpenSavedListModal={() => setShowExploreAll(true)}
+                cloudSyncAvailable={cloudSyncAvailable}
+                onSyncToCloud={onSyncToCloud}
+                syncingToCloudId={syncingToCloudId}
               />
             </motion.div>
           )}

@@ -1,6 +1,14 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, ArrowRight, ImagePlus, Trash2, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ImagePlus,
+  Trash2,
+  Loader2,
+  CloudUpload,
+  Cloud,
+} from "lucide-react";
 import { cn } from "../../utils/cn";
 import type { SavedPresentationMeta } from "../../types";
 
@@ -24,6 +32,9 @@ export interface SavedCarouselProps {
   generatingCoverId: string | null;
   coverImageCache: Record<string, string>;
   onOpenSavedListModal: () => void;
+  cloudSyncAvailable?: boolean;
+  onSyncToCloud?: (id: string) => void;
+  syncingToCloudId?: string | null;
 }
 
 export function SavedCarousel({
@@ -34,6 +45,9 @@ export function SavedCarousel({
   generatingCoverId,
   coverImageCache,
   onOpenSavedListModal,
+  cloudSyncAvailable = false,
+  onSyncToCloud,
+  syncingToCloudId = null,
 }: SavedCarouselProps) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const firstSlotRef = useRef<HTMLDivElement>(null);
@@ -140,6 +154,7 @@ export function SavedCarousel({
           {savedList.map((p, index) => {
             const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
             const isGeneratingCover = generatingCoverId === p.id;
+            const isSyncingCloud = syncingToCloudId === p.id;
             const slotWidthClass = "w-[276px] sm:w-[316px]";
             return (
               <div
@@ -191,7 +206,36 @@ export function SavedCarousel({
                       </p>
                     </div>
                   </button>
+                  {p.cloudId && (
+                    <div
+                      className="absolute top-5 left-5 z-30 flex items-center gap-1 rounded-lg bg-emerald-600/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white"
+                      title="Sincronizada con la nube"
+                    >
+                      <Cloud size={12} />
+                      Nube
+                    </div>
+                  )}
                   <div className="absolute top-5 right-5 flex flex-col gap-1 z-30 pointer-events-auto">
+                    {cloudSyncAvailable && onSyncToCloud && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          onSyncToCloud(p.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        disabled={isGeneratingCover || isSyncingCloud}
+                        className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors disabled:opacity-60"
+                        title="Sincronizar con la nube"
+                      >
+                        {isSyncingCloud ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <CloudUpload size={18} />
+                        )}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -220,7 +264,7 @@ export function SavedCarousel({
                       <Trash2 size={18} />
                     </button>
                   </div>
-                  {isGeneratingCover && (
+                  {(isGeneratingCover || isSyncingCloud) && (
                     <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center z-20">
                       <Loader2 className="w-10 h-10 text-white animate-spin" />
                     </div>

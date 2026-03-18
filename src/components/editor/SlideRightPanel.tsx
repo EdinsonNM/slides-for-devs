@@ -46,8 +46,8 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
           e.stopPropagation();
           toggleContentType();
         }}
-        className="absolute top-4 right-4 z-20 p-2 bg-white/80 dark:bg-surface-elevated/90 backdrop-blur-sm border border-stone-200 dark:border-border rounded-lg text-stone-600 dark:text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-200 dark:hover:border-emerald-600 transition-all shadow-sm opacity-0 group-hover:opacity-100 flex items-center gap-2"
-        title="Cambiar tipo de contenido"
+        className="absolute top-4 left-6 z-20 p-2 bg-white/80 dark:bg-surface-elevated/90 backdrop-blur-sm border border-stone-200 dark:border-border rounded-lg text-stone-600 dark:text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-200 dark:hover:border-emerald-600 transition-all shadow-sm opacity-0 group-hover:opacity-100 flex items-center gap-2"
+        title="Cambiar tipo de contenido (código / video / imagen)"
       >
         {currentSlide.contentType === "code" ? (
           <>

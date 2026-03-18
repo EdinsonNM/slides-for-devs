@@ -70,4 +70,7 @@ export interface SavedPresentationMeta {
   topic: string;
   savedAt: string;
   slideCount: number;
+  cloudId?: string;
+  cloudSyncedAt?: string;
+  cloudRevision?: number;
 }

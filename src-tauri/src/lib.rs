@@ -56,6 +56,36 @@ fn delete_presentation(db_path: tauri::State<DbPath>, id: String) -> Result<(), 
 }
 
 #[tauri::command]
+fn import_saved_presentation(
+    db_path: tauri::State<DbPath>,
+    saved: db::SavedPresentation,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::import_saved_presentation(&conn, &saved).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_presentation_cloud_state(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    cloud_id: Option<String>,
+    cloud_synced_at: Option<String>,
+    cloud_revision: Option<i64>,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::set_presentation_cloud_state(
+        &conn,
+        &id,
+        cloud_id.as_deref(),
+        cloud_synced_at.as_deref(),
+        cloud_revision,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn list_characters(db_path: tauri::State<DbPath>) -> Result<Vec<db::SavedCharacter>, String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
@@ -331,6 +361,8 @@ pub fn run() {
             load_presentation,
             list_presentations,
             delete_presentation,
+            import_saved_presentation,
+            set_presentation_cloud_state,
             migrate_json_presentations,
             list_characters,
             save_character,

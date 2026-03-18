@@ -1,5 +1,13 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import type { Slide, SlideType, ImageStyle, SavedCharacter, SavedPresentationMeta } from "../types";
+import type {
+  Slide,
+  SlideType,
+  ImageStyle,
+  SavedCharacter,
+  SavedPresentationMeta,
+} from "../types";
+
+const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
 import { formatMarkdown } from "../utils/markdown";
 import {
   generateCodeForSlide as generateCodeForSlideApi,
@@ -30,7 +38,19 @@ import {
   listCharacters,
   saveCharacter as saveCharacterStorage,
   deleteCharacter as deleteCharacterStorage,
+  importSavedPresentation,
+  setPresentationCloudState,
 } from "../services/storage";
+import {
+  pushPresentationToCloud,
+  listCloudPresentations,
+  pullPresentationFromCloud,
+  CloudSyncConflictError,
+  type CloudPresentationListItem,
+} from "../services/presentationCloud";
+import { initFirebase } from "../services/firebase";
+import { formatCloudSyncUserMessage } from "../utils/cloudSyncErrors";
+import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
   PRESENTATION_MODELS,
@@ -52,6 +72,7 @@ export const LAST_OPENED_PRESENTATION_KEY = "slides-for-devs-last-opened";
 export type HomeTab = "recent" | "mine" | "templates";
 
 export function usePresentationState() {
+  const { user, firebaseReady } = useAuth();
   const [topic, setTopic] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -107,6 +128,30 @@ export function usePresentationState() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
   const [coverImageCache, setCoverImageCache] = useState<Record<string, string>>({});
+  const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
+  const [showCloudPresentationsModal, setShowCloudPresentationsModal] =
+    useState(false);
+  const [cloudPresentationsItems, setCloudPresentationsItems] = useState<
+    CloudPresentationListItem[]
+  >([]);
+  const [cloudModalLoading, setCloudModalLoading] = useState(false);
+  const [cloudModalError, setCloudModalError] = useState<string | null>(null);
+  const [downloadingCloudId, setDownloadingCloudId] = useState<string | null>(
+    null
+  );
+  const [autoCloudSyncOnSave, setAutoCloudSyncOnSaveState] = useState(() => {
+    try {
+      return localStorage.getItem(AUTO_CLOUD_SYNC_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [cloudSyncConflict, setCloudSyncConflict] = useState<{
+    localId: string;
+    cloudId: string;
+    expectedRevision: number;
+    remoteRevision: number;
+  } | null>(null);
   /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
   const diagramFlushRef = useRef<(() => string | null) | null>(null);
   const [presentationModelId, setPresentationModelId] = useState(
@@ -125,6 +170,9 @@ export function usePresentationState() {
   } | null>(null);
   /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
   const [apiKeysVersion, setApiKeysVersion] = useState(0);
+  const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
+    async () => {}
+  );
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -142,6 +190,15 @@ export function usePresentationState() {
 
   const refreshApiKeys = useCallback(() => {
     setApiKeysVersion((v) => v + 1);
+  }, []);
+
+  const setAutoCloudSyncOnSave = useCallback((value: boolean) => {
+    try {
+      localStorage.setItem(AUTO_CLOUD_SYNC_STORAGE_KEY, value ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    setAutoCloudSyncOnSaveState(value);
   }, []);
 
   // Modelo para operaciones Gemini (dividir, reescribir, prompt de imagen, código, notas, chat).
@@ -229,6 +286,14 @@ export function usePresentationState() {
         const id = await savePresentation(presentation);
         if (cancelled) return;
         setCurrentSavedId(id);
+        if (
+          autoCloudSyncOnSave &&
+          user &&
+          typeof window !== "undefined" &&
+          (window as unknown as { __TAURI__?: unknown }).__TAURI__
+        ) {
+          void runAutoSyncAfterSaveRef.current(id);
+        }
         setPendingGeneration(null);
         trackEvent(ANALYTICS_EVENTS.PRESENTATION_GENERATED, {
           slide_count: cleanedSlides.length,
@@ -248,7 +313,7 @@ export function usePresentationState() {
     return () => {
       cancelled = true;
     };
-  }, [pendingGeneration]);
+  }, [pendingGeneration, autoCloudSyncOnSave, user]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -652,13 +717,78 @@ export function usePresentationState() {
     return diagramFlushRef.current?.() ?? null;
   }, []);
 
-  /** Guarda una presentación con el payload dado; si no hay currentSavedId, crea uno y lo asigna. */
+  const refreshSavedList = useCallback(async () => {
+    try {
+      const list = await listPresentations();
+      setSavedList(list);
+    } catch {
+      setSavedList([]);
+    }
+  }, []);
+
+  const maybeAutoSyncAfterLocalSave = useCallback(
+    async (localId: string) => {
+      if (!autoCloudSyncOnSave || !user) return;
+      if (
+        typeof window === "undefined" ||
+        (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
+      )
+        return;
+      const fb = await initFirebase();
+      if (!fb?.firestore) return;
+      let meta: SavedPresentationMeta | undefined;
+      try {
+        const list = await listPresentations();
+        meta = list.find((p) => p.id === localId);
+        const saved = await loadPresentation(localId);
+        const existingCloudId = meta?.cloudId ?? null;
+        const { cloudId, syncedAt, newRevision } = await pushPresentationToCloud(
+          user.uid,
+          saved,
+          existingCloudId,
+          {
+            localExpectedRevision:
+              existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
+          }
+        );
+        await setPresentationCloudState(
+          localId,
+          cloudId,
+          syncedAt,
+          newRevision
+        );
+        await refreshSavedList();
+      } catch (e) {
+        if (e instanceof CloudSyncConflictError) {
+          setCloudSyncConflict({
+            localId,
+            cloudId: meta?.cloudId ?? "",
+            expectedRevision: e.expectedRevision,
+            remoteRevision: e.remoteRevision,
+          });
+        } else {
+          console.error("Auto-sync nube:", e);
+        }
+      }
+    },
+    [user, autoCloudSyncOnSave, refreshSavedList]
+  );
+
+  runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
+
+  /** Guarda una presentación con el payload dado; si no hay currentSavedId, crea uno y lo asigna. Devuelve el id guardado. */
   const savePresentationNow = useCallback(
-    async (presentation: { topic: string; slides: Slide[]; characterId?: string }) => {
-      if (presentation.slides.length === 0) return;
+    async (presentation: {
+      topic: string;
+      slides: Slide[];
+      characterId?: string;
+    }): Promise<string | null> => {
+      if (presentation.slides.length === 0) return null;
+      let savedId: string | null = null;
       try {
         if (currentSavedId) {
           await updatePresentation(currentSavedId, presentation);
+          savedId = currentSavedId;
           setSaveMessage("Guardado");
           try {
             sessionStorage.setItem(LAST_OPENED_PRESENTATION_KEY, currentSavedId);
@@ -668,6 +798,7 @@ export function usePresentationState() {
         } else {
           const id = await savePresentation(presentation);
           setCurrentSavedId(id);
+          savedId = id;
           setSaveMessage("Guardado");
           try {
             sessionStorage.setItem(LAST_OPENED_PRESENTATION_KEY, id);
@@ -677,12 +808,23 @@ export function usePresentationState() {
         }
         trackEvent(ANALYTICS_EVENTS.PRESENTATION_SAVED);
         setTimeout(() => setSaveMessage(null), 2000);
+        if (
+          savedId &&
+          autoCloudSyncOnSave &&
+          user &&
+          typeof window !== "undefined" &&
+          (window as unknown as { __TAURI__?: unknown }).__TAURI__
+        ) {
+          void maybeAutoSyncAfterLocalSave(savedId);
+        }
       } catch (e) {
         console.error(e);
         setSaveMessage("Error al guardar");
+        return null;
       }
+      return savedId;
     },
-    [currentSavedId]
+    [currentSavedId, autoCloudSyncOnSave, user, maybeAutoSyncAfterLocalSave]
   );
 
   const handleSave = async () => {
@@ -706,6 +848,85 @@ export function usePresentationState() {
       setIsSaving(false);
     }
   };
+
+  const handleSyncPresentationToCloud = useCallback(
+    async (localId: string) => {
+      if (!user) {
+        alert("Inicia sesión para sincronizar con la nube.");
+        return;
+      }
+      const fb = await initFirebase();
+      if (!fb?.firestore) {
+        alert("Firebase no está configurado.");
+        return;
+      }
+      setSyncingToCloudId(localId);
+      try {
+        const list = await listPresentations();
+        const meta = list.find((p) => p.id === localId);
+        const saved = await loadPresentation(localId);
+        const existingCloudId = meta?.cloudId ?? null;
+        const { cloudId, syncedAt, newRevision } = await pushPresentationToCloud(
+          user.uid,
+          saved,
+          existingCloudId,
+          {
+            localExpectedRevision:
+              existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
+          }
+        );
+        await setPresentationCloudState(
+          localId,
+          cloudId,
+          syncedAt,
+          newRevision
+        );
+        await refreshSavedList();
+      } catch (e) {
+        if (e instanceof CloudSyncConflictError) {
+          const list = await listPresentations().catch(() => []);
+          const meta = list.find((p) => p.id === localId);
+          setCloudSyncConflict({
+            localId,
+            cloudId: meta?.cloudId ?? "",
+            expectedRevision: e.expectedRevision,
+            remoteRevision: e.remoteRevision,
+          });
+        } else {
+          console.error(e);
+          alert(`No se pudo sincronizar: ${formatCloudSyncUserMessage(e)}`);
+        }
+      } finally {
+        setSyncingToCloudId(null);
+      }
+    },
+    [user, refreshSavedList]
+  );
+
+  const openCloudPresentationsModal = useCallback(async () => {
+    if (!user) {
+      alert("Inicia sesión para ver la nube.");
+      return;
+    }
+    const fb = await initFirebase();
+    if (!fb?.firestore) {
+      alert("Firebase no está configurado.");
+      return;
+    }
+    setShowCloudPresentationsModal(true);
+    setCloudModalError(null);
+    setCloudModalLoading(true);
+    setCloudPresentationsItems([]);
+    try {
+      const items = await listCloudPresentations(user.uid);
+      setCloudPresentationsItems(items);
+    } catch (e) {
+      console.error(e);
+      setCloudModalError(formatCloudSyncUserMessage(e));
+    } finally {
+      setCloudModalLoading(false);
+    }
+  }, [user]);
 
   const openSavedListModal = async () => {
     setShowSavedListModal(true);
@@ -748,6 +969,43 @@ export function usePresentationState() {
       alert("No se pudo abrir la presentación.");
     }
   };
+
+  const handleDownloadFromCloud = useCallback(
+    async (cloudId: string) => {
+      if (!user) return;
+      const existing = savedList.find((p) => p.cloudId === cloudId);
+      if (existing) {
+        await handleOpenSaved(existing.id);
+        setShowCloudPresentationsModal(false);
+        return;
+      }
+      setDownloadingCloudId(cloudId);
+      try {
+        const { presentation: pulled, cloudRevision } =
+          await pullPresentationFromCloud(user.uid, cloudId);
+        const localId = crypto.randomUUID();
+        await importSavedPresentation({
+          ...pulled,
+          id: localId,
+        });
+        await setPresentationCloudState(
+          localId,
+          cloudId,
+          new Date().toISOString(),
+          cloudRevision
+        );
+        await refreshSavedList();
+        setShowCloudPresentationsModal(false);
+        await handleOpenSaved(localId);
+      } catch (e) {
+        console.error(e);
+        alert(`Error al descargar: ${formatCloudSyncUserMessage(e)}`);
+      } finally {
+        setDownloadingCloudId(null);
+      }
+    },
+    [user, savedList, refreshSavedList, handleOpenSaved]
+  );
 
   /** Restaura la última presentación abierta (desde sessionStorage). Usado al cargar /editor tras refresco. */
   const restoreLastOpenedPresentation = useCallback(async (): Promise<boolean> => {
@@ -853,6 +1111,14 @@ export function usePresentationState() {
           slides: updatedSlides,
           characterId: saved.characterId,
         });
+        if (
+          autoCloudSyncOnSave &&
+          user &&
+          typeof window !== "undefined" &&
+          (window as unknown as { __TAURI__?: unknown }).__TAURI__
+        ) {
+          void runAutoSyncAfterSaveRef.current(id);
+        }
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
         trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
       } else {
@@ -865,6 +1131,86 @@ export function usePresentationState() {
       setGeneratingCoverId(null);
     }
   };
+
+  const dismissCloudSyncConflict = useCallback(
+    () => setCloudSyncConflict(null),
+    []
+  );
+
+  const resolveCloudConflictUseRemote = useCallback(async () => {
+    if (!cloudSyncConflict || !user) return;
+    const { localId, cloudId } = cloudSyncConflict;
+    if (!cloudId) {
+      alert("No hay vínculo con la nube. Sincroniza manualmente primero.");
+      setCloudSyncConflict(null);
+      return;
+    }
+    setCloudSyncConflict(null);
+    try {
+      const { presentation, cloudRevision } = await pullPresentationFromCloud(
+        user.uid,
+        cloudId
+      );
+      await updatePresentation(localId, {
+        topic: presentation.topic,
+        slides: presentation.slides,
+        characterId: presentation.characterId,
+      });
+      await setPresentationCloudState(
+        localId,
+        cloudId,
+        new Date().toISOString(),
+        cloudRevision
+      );
+      if (currentSavedId === localId) {
+        setTopic(presentation.topic);
+        setSlides(
+          presentation.slides.map((s) => ({
+            ...s,
+            id: crypto.randomUUID(),
+            content: formatMarkdown(s.content ?? ""),
+          }))
+        );
+        setSelectedCharacterId(presentation.characterId ?? null);
+      }
+      await refreshSavedList();
+    } catch (e) {
+      console.error(e);
+      alert(`No se pudo traer la versión de la nube: ${formatCloudSyncUserMessage(e)}`);
+    }
+  }, [
+    cloudSyncConflict,
+    user,
+    currentSavedId,
+    formatMarkdown,
+    refreshSavedList,
+  ]);
+
+  const resolveCloudConflictForceLocal = useCallback(async () => {
+    if (!cloudSyncConflict || !user) return;
+    const { localId, cloudId } = cloudSyncConflict;
+    setCloudSyncConflict(null);
+    try {
+      const saved = await loadPresentation(localId);
+      const cid =
+        cloudId ||
+        (await listPresentations()).find((p) => p.id === localId)?.cloudId;
+      if (!cid) {
+        alert("Falta vínculo con la nube.");
+        return;
+      }
+      const { cloudId: outId, syncedAt, newRevision } =
+        await pushPresentationToCloud(user.uid, saved, cid, {
+          localExpectedRevision: 0,
+          force: true,
+        });
+      await setPresentationCloudState(localId, outId, syncedAt, newRevision);
+      await refreshSavedList();
+    } catch (e) {
+      console.error(e);
+      alert(`No se pudo forzar la subida: ${formatCloudSyncUserMessage(e)}`);
+    }
+  }, [cloudSyncConflict, user, refreshSavedList]);
 
   const goHome = () => {
     setSlides([]);
@@ -1238,6 +1584,27 @@ export function usePresentationState() {
     generatingCoverId,
     handleGenerateCoverForPresentation,
     coverImageCache,
+    cloudSyncAvailable:
+      !!user &&
+      firebaseReady === true &&
+      typeof window !== "undefined" &&
+      (window as unknown as { __TAURI__?: unknown }).__TAURI__ !== undefined,
+    syncingToCloudId,
+    handleSyncPresentationToCloud,
+    showCloudPresentationsModal,
+    setShowCloudPresentationsModal,
+    cloudPresentationsItems,
+    cloudModalLoading,
+    cloudModalError,
+    openCloudPresentationsModal,
+    handleDownloadFromCloud,
+    downloadingCloudId,
+    autoCloudSyncOnSave,
+    setAutoCloudSyncOnSave,
+    cloudSyncConflict,
+    dismissCloudSyncConflict,
+    resolveCloudConflictUseRemote,
+    resolveCloudConflictForceLocal,
     goHome,
     deleteSlideAt,
     insertSlideAfter,

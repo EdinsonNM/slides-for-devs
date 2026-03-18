@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { Cloud } from "lucide-react";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
@@ -13,6 +14,8 @@ export interface HomeEmptyStateProps {
   presentationModelId?: string;
   setPresentationModelId?: (id: string) => void;
   presentationModels?: PresentationModel[];
+  cloudSyncAvailable?: boolean;
+  onOpenCloudPresentations?: () => void;
 }
 
 /**
@@ -29,6 +32,8 @@ export function HomeEmptyState({
   presentationModelId,
   setPresentationModelId,
   presentationModels,
+  cloudSyncAvailable = false,
+  onOpenCloudPresentations,
 }: HomeEmptyStateProps) {
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-gradient-to-br from-emerald-200/80 via-green-100 to-teal-200/80 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
@@ -75,6 +80,16 @@ export function HomeEmptyState({
             setPresentationModelId={setPresentationModelId}
             presentationModels={presentationModels}
           />
+          {cloudSyncAvailable && onOpenCloudPresentations && (
+            <button
+              type="button"
+              onClick={onOpenCloudPresentations}
+              className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-emerald-800 dark:text-emerald-300 bg-white/80 dark:bg-stone-800/80 border border-emerald-200/80 dark:border-emerald-800 shadow-sm hover:bg-white dark:hover:bg-stone-800"
+            >
+              <Cloud size={18} />
+              Presentaciones en la nube
+            </button>
+          )}
         </motion.div>
       </div>
     </div>

@@ -50,6 +50,9 @@ export function Header(props: HeaderProps) {
     setShowCharactersPanel,
     showSlideStylePanel,
     setShowSlideStylePanel,
+    cloudSyncAvailable,
+    autoCloudSyncOnSave,
+    setAutoCloudSyncOnSave,
   } = usePresentation();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -190,6 +193,20 @@ export function Header(props: HeaderProps) {
             onClick={openSavedListModal}
             className="hidden sm:inline-flex"
           />
+          {cloudSyncAvailable && slides.length > 0 && (
+            <label
+              className="hidden xl:flex items-center gap-2 text-xs text-stone-600 dark:text-stone-400 cursor-pointer shrink-0 max-w-[9rem] leading-tight"
+              title="Si está activo, tras cada guardado se sube la presentación a la nube (con control de conflictos entre dispositivos)."
+            >
+              <input
+                type="checkbox"
+                checked={autoCloudSyncOnSave}
+                onChange={(e) => setAutoCloudSyncOnSave(e.target.checked)}
+                className="rounded border-stone-300 dark:border-stone-600 shrink-0"
+              />
+              <span className="select-none">Auto-sync nube</span>
+            </label>
+          )}
           {slides.length > 0 && (
             <IconButton
               variant="primary"

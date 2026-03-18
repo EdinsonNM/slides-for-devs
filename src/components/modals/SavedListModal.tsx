@@ -1,4 +1,4 @@
-import { Trash2, X } from "lucide-react";
+import { Trash2, X, CloudUpload, Loader2 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 
 export function SavedListModal() {
@@ -8,6 +8,9 @@ export function SavedListModal() {
     savedList,
     handleOpenSaved,
     handleDeleteSaved,
+    cloudSyncAvailable,
+    syncingToCloudId,
+    handleSyncPresentationToCloud,
   } = usePresentation();
 
   if (!showSavedListModal) return null;
@@ -64,6 +67,21 @@ export function SavedListModal() {
                     >
                       Abrir
                     </button>
+                    {cloudSyncAvailable && (
+                      <button
+                        type="button"
+                        onClick={() => handleSyncPresentationToCloud(p.id)}
+                        disabled={syncingToCloudId === p.id}
+                        className="p-2.5 text-stone-500 hover:text-emerald-600 border-l border-stone-200 dark:border-border disabled:opacity-50"
+                        title="Sincronizar con la nube"
+                      >
+                        {syncingToCloudId === p.id ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <CloudUpload size={18} />
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteSaved(p.id)}
                       className="p-2.5 text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border-l border-stone-200 dark:border-border"

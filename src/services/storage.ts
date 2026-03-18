@@ -39,6 +39,27 @@ export async function deletePresentation(id: string): Promise<void> {
   await invoke("delete_presentation", { id });
 }
 
+/** Importa una presentación completa (p. ej. descargada de la nube). `saved.id` = id local nuevo. */
+export async function importSavedPresentation(
+  saved: SavedPresentation
+): Promise<void> {
+  await invoke("import_saved_presentation", { saved });
+}
+
+export async function setPresentationCloudState(
+  id: string,
+  cloudId: string | null,
+  cloudSyncedAt: string | null,
+  cloudRevision?: number | null
+): Promise<void> {
+  await invoke("set_presentation_cloud_state", {
+    id,
+    cloudId: cloudId ?? undefined,
+    cloudSyncedAt: cloudSyncedAt ?? undefined,
+    cloudRevision: cloudRevision ?? undefined,
+  });
+}
+
 /**
  * Migra presentaciones guardadas en JSON (formato antiguo) a SQLite.
  * Devuelve el número de archivos migrados. Se puede llamar al iniciar la app.

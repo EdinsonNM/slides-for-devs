@@ -29,4 +29,9 @@ export interface SavedPresentationMeta {
   topic: string;
   savedAt: string;
   slideCount: number;
+  /** Firestore document id when synced to cloud */
+  cloudId?: string;
+  cloudSyncedAt?: string;
+  /** Revisión Firestore tras el último sync (control de conflictos entre dispositivos). */
+  cloudRevision?: number;
 }

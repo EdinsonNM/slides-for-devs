@@ -18,6 +18,8 @@ import { useAuth } from "./context/AuthContext";
 import { SlideEditor } from "./components/editor/SlideEditor";
 import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
+import { CloudPresentationsModal } from "./components/modals/CloudPresentationsModal";
+import { CloudSyncConflictModal } from "./components/modals/CloudSyncConflictModal";
 import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
 import { ImageUploadModal } from "./components/modals/ImageUploadModal";
 import { CodeGenerationModal } from "./components/modals/CodeGenerationModal";
@@ -165,7 +167,23 @@ function EditorRoute({ onOpenConfig }: EditorRouteProps) {
 
 export default function App() {
   const location = useLocation();
-  const { refreshApiKeys, pendingGeneration } = usePresentation();
+  const {
+    refreshApiKeys,
+    pendingGeneration,
+    showCloudPresentationsModal,
+    setShowCloudPresentationsModal,
+    cloudPresentationsItems,
+    cloudModalLoading,
+    cloudModalError,
+    handleDownloadFromCloud,
+    downloadingCloudId,
+    savedList,
+    handleOpenSaved,
+    cloudSyncConflict,
+    dismissCloudSyncConflict,
+    resolveCloudConflictUseRemote,
+    resolveCloudConflictForceLocal,
+  } = usePresentation();
   const [apiConfigVersion, setApiConfigVersion] = useState(0);
   const [showApiConfigModal, setShowApiConfigModal] = useState(false);
   const [skipLogin, setSkipLogin] = useState(false);
@@ -220,6 +238,25 @@ export default function App() {
           refreshApiKeys();
           setShowApiConfigModal(false);
         }}
+      />
+      <CloudPresentationsModal
+        open={showCloudPresentationsModal}
+        onClose={() => setShowCloudPresentationsModal(false)}
+        items={cloudPresentationsItems}
+        loading={cloudModalLoading}
+        error={cloudModalError}
+        savedList={savedList}
+        downloadingCloudId={downloadingCloudId}
+        onDownload={handleDownloadFromCloud}
+        onOpenLocal={handleOpenSaved}
+      />
+      <CloudSyncConflictModal
+        open={cloudSyncConflict !== null}
+        expectedRevision={cloudSyncConflict?.expectedRevision ?? 0}
+        remoteRevision={cloudSyncConflict?.remoteRevision ?? 0}
+        onDismiss={dismissCloudSyncConflict}
+        onUseRemote={resolveCloudConflictUseRemote}
+        onForceLocal={resolveCloudConflictForceLocal}
       />
       <Routes>
         <Route

@@ -12,6 +12,8 @@ import {
   type Auth,
 } from "firebase/auth";
 import { getAnalytics, type Analytics } from "firebase/analytics";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -82,6 +84,8 @@ export async function getFirebaseConfig(): Promise<FirebaseConfig | null> {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let analytics: Analytics | null = null;
+let firestore: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 /**
  * Inicializa Firebase con la config obtenida de Tauri o .env.
@@ -91,9 +95,11 @@ export async function initFirebase(): Promise<{
   app: FirebaseApp;
   auth: Auth;
   analytics: Analytics | null;
+  firestore: Firestore;
+  storage: FirebaseStorage;
 } | null> {
-  if (app && auth) {
-    return { app, auth, analytics };
+  if (app && auth && firestore && storage) {
+    return { app, auth, analytics, firestore, storage };
   }
 
   const config = await getFirebaseConfig();
@@ -114,6 +120,8 @@ export async function initFirebase(): Promise<{
   }
 
   auth = getAuth(app);
+  firestore = getFirestore(app);
+  storage = getStorage(app);
   if (typeof window !== "undefined" && config.measurementId) {
     try {
       analytics = getAnalytics(app);
@@ -122,7 +130,15 @@ export async function initFirebase(): Promise<{
     }
   }
 
-  return { app, auth, analytics };
+  return { app, auth, analytics, firestore, storage };
+}
+
+export function getFirestoreInstance(): Firestore | null {
+  return firestore;
+}
+
+export function getFirebaseStorageInstance(): FirebaseStorage | null {
+  return storage;
 }
 
 export function getAuthInstance(): Auth | null {

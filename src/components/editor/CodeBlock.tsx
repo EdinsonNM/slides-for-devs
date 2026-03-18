@@ -1,9 +1,21 @@
 import { useRef, useState, useEffect } from "react";
-import { Pencil, Check, X, Sparkles, GripHorizontal } from "lucide-react";
+import {
+  Pencil,
+  Check,
+  X,
+  Sparkles,
+  GripHorizontal,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  vscDarkPlus,
+  oneLight,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import { usePresentation } from "../../context/PresentationContext";
 import { LANGUAGES } from "../../constants/languages";
+import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 
 const MIN_EDITOR_HEIGHT = 120;
 const MAX_EDITOR_HEIGHT = 560;
@@ -24,6 +36,8 @@ export function CodeBlock() {
     handleSaveManualEdit,
     openCodeGenModal,
   } = usePresentation();
+
+  const { theme, toggleTheme, isLight } = useCodeEditorTheme();
 
   const [isResizing, setIsResizing] = useState(false);
   const startYRef = useRef(0);
@@ -54,22 +68,44 @@ export function CodeBlock() {
 
   if (!currentSlide) return null;
 
+  const shell = isLight
+    ? "bg-[#fafafa] border-stone-300 shadow-xl"
+    : "bg-[#1e1e1e] border-white/10 shadow-2xl";
+  const titleBar = isLight
+    ? "bg-stone-200/90 border-b border-stone-300"
+    : "bg-[#2d2d2d]";
+  const editorArea = isLight ? "bg-[#fafafa]" : "bg-[#1e1e1e]";
+  const resizeBar = isLight
+    ? "bg-stone-200 border-t border-stone-300 hover:bg-stone-300"
+    : "bg-[#2d2d2d] border-t border-white/10 hover:bg-stone-600";
+  const controlBtn = isLight
+    ? "border-stone-400 text-stone-700 hover:bg-stone-300"
+    : "border-stone-700 text-stone-300 hover:bg-stone-700";
+  const selectLang = isLight
+    ? "bg-white border-stone-400 text-emerald-700"
+    : "bg-stone-800 border-stone-700 text-emerald-500";
+  const iconMuted = isLight ? "text-stone-600" : "text-stone-500";
+
   return (
     <div
       className="flex-1 p-6 flex items-center justify-center overflow-hidden cursor-text"
       onClick={() => !isEditing && setIsEditing(true)}
     >
       <div
-        className="w-full min-w-0 max-h-[90vh] bg-[#1e1e1e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col relative group/window"
+        className={`w-full min-w-0 max-h-[90vh] rounded-2xl border overflow-hidden flex flex-col relative group/window ${shell}`}
         style={{ height: "fit-content" }}
       >
-        <div className="h-9 bg-[#2d2d2d] px-4 flex items-center justify-between shrink-0">
+        <div
+          className={`h-9 px-4 flex items-center justify-between shrink-0 ${titleBar}`}
+        >
           <div className="flex gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
             <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
             <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
           </div>
-          <div className="text-[10px] text-stone-400 font-mono uppercase tracking-wider flex items-center gap-3">
+          <div
+            className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-3 ${isLight ? "text-stone-600" : "text-stone-400"}`}
+          >
             {isEditing ? (
               <>
                 <div className="flex items-center gap-1 border-r border-stone-700 pr-2 mr-1">
@@ -78,12 +114,14 @@ export function CodeBlock() {
                       e.stopPropagation();
                       setEditFontSize((prev) => Math.max(8, prev - 2));
                     }}
-                    className="w-7 h-7 flex items-center justify-center hover:bg-stone-700 rounded text-stone-300 transition-colors border border-stone-700"
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-colors border ${controlBtn}`}
                     title="Disminuir fuente"
                   >
                     <span className="text-[10px] font-bold">-</span>
                   </button>
-                  <span className="w-10 text-center text-[11px] font-bold text-emerald-500">
+                  <span
+                    className={`w-10 text-center text-[11px] font-bold ${isLight ? "text-emerald-700" : "text-emerald-500"}`}
+                  >
                     {editFontSize}px
                   </span>
                   <button
@@ -91,7 +129,7 @@ export function CodeBlock() {
                       e.stopPropagation();
                       setEditFontSize((prev) => Math.min(64, prev + 2));
                     }}
-                    className="w-7 h-7 flex items-center justify-center hover:bg-stone-700 rounded text-stone-300 transition-colors border border-stone-700"
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-colors border ${controlBtn}`}
                     title="Aumentar fuente"
                   >
                     <span className="text-[10px] font-bold">+</span>
@@ -101,7 +139,7 @@ export function CodeBlock() {
                   value={editLanguage}
                   onChange={(e) => setEditLanguage(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-stone-800 border border-stone-700 focus:outline-none text-center w-32 text-emerald-500 rounded px-2 py-1 cursor-pointer text-[10px] font-bold appearance-none"
+                  className={`focus:outline-none text-center w-32 rounded px-2 py-1 cursor-pointer text-[10px] font-bold appearance-none border ${selectLang}`}
                 >
                   {LANGUAGES.map((lang) => (
                     <option key={lang.id} value={lang.id}>
@@ -144,10 +182,14 @@ export function CodeBlock() {
               </>
             ) : (
               <>
-                <span className="text-[9px] opacity-50 bg-stone-800 px-1.5 py-0.5 rounded">
+                <span
+                  className={`text-[9px] opacity-70 px-1.5 py-0.5 rounded ${isLight ? "bg-stone-300 text-stone-700" : "opacity-50 bg-stone-800"}`}
+                >
                   {currentSlide.fontSize || 14}px
                 </span>
-                <span className="bg-stone-800 px-1.5 py-0.5 rounded">
+                <span
+                  className={`px-1.5 py-0.5 rounded ${isLight ? "bg-stone-300 text-stone-800" : "bg-stone-800"}`}
+                >
                   {LANGUAGES.find((l) => l.id === currentSlide.language)
                     ?.name ||
                     currentSlide.language ||
@@ -167,10 +209,35 @@ export function CodeBlock() {
               </>
             )}
           </div>
-          <div className="w-12" />
+          <div className="flex items-center justify-end shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleTheme();
+              }}
+              className={`p-1.5 rounded-md transition-colors ${isLight ? "bg-stone-300 hover:bg-stone-400 text-amber-700" : "bg-stone-700 hover:bg-stone-600 text-amber-400"}`}
+              title={
+                theme === "dark"
+                  ? "Tema claro del editor"
+                  : "Tema oscuro del editor"
+              }
+              aria-label={
+                theme === "dark"
+                  ? "Cambiar a tema claro del editor"
+                  : "Cambiar a tema oscuro del editor"
+              }
+            >
+              {theme === "dark" ? (
+                <Sun size={16} strokeWidth={2} />
+              ) : (
+                <Moon size={16} strokeWidth={2} />
+              )}
+            </button>
+          </div>
         </div>
         <div
-          className="min-h-[80px] p-0 font-mono overflow-auto custom-scrollbar bg-[#1e1e1e] shrink-0"
+          className={`min-h-[80px] p-0 font-mono overflow-auto custom-scrollbar shrink-0 ${editorArea} ${isLight ? "[&::-webkit-scrollbar-thumb]:bg-stone-400" : ""}`}
           style={{ height: editEditorHeight, maxHeight: "calc(90vh - 3rem)" }}
         >
           {isEditing ? (
@@ -186,16 +253,16 @@ export function CodeBlock() {
                   setIsEditing(false);
                 }
               }}
-              className="w-full h-full min-h-[80px] bg-transparent text-stone-300 p-4 border-none focus:outline-none resize-none leading-relaxed block"
+              className={`w-full h-full min-h-[80px] bg-transparent p-4 border-none focus:outline-none resize-none leading-relaxed block ${isLight ? "text-stone-800 placeholder:text-stone-400" : "text-stone-300"}`}
               style={{ fontSize: `${editFontSize}px` }}
               placeholder="// Escribe tu código aquí... (Ctrl+Enter para guardar)"
             />
           ) : (
-            <div>
+            <div className="min-w-full inline-block align-top max-w-none">
               {currentSlide.code ? (
                 <SyntaxHighlighter
                   language={currentSlide.language || "javascript"}
-                  style={vscDarkPlus}
+                  style={isLight ? oneLight : vscDarkPlus}
                   codeTagProps={{
                     style: {
                       fontSize: "inherit",
@@ -210,14 +277,14 @@ export function CodeBlock() {
                     fontSize: `${currentSlide.fontSize || 14}px`,
                     lineHeight: "1.5",
                     overflow: "visible",
-                    width: "max-content",
-                    minWidth: "100%",
                   }}
                 >
                   {currentSlide.code}
                 </SyntaxHighlighter>
               ) : (
-                <div className="p-6 flex flex-col items-center justify-center gap-3 text-stone-500">
+                <div
+                  className={`p-6 flex flex-col items-center justify-center gap-3 ${isLight ? "text-stone-600" : "text-stone-500"}`}
+                >
                   <span className="italic">
                     // Haz clic para escribir código...
                   </span>
@@ -246,15 +313,17 @@ export function CodeBlock() {
             startHeightRef.current = editEditorHeight;
             setIsResizing(true);
           }}
-          className="h-3 shrink-0 bg-[#2d2d2d] border-t border-white/10 flex items-center justify-center cursor-ns-resize hover:bg-stone-600 transition-colors group/resize"
+          className={`h-3 shrink-0 flex items-center justify-center cursor-ns-resize transition-colors group/resize ${resizeBar}`}
         >
           <GripHorizontal
-            className="w-4 h-4 text-stone-500 group-hover/resize:text-stone-400"
+            className={`w-4 h-4 group-hover/resize:opacity-80 ${iconMuted}`}
             strokeWidth={2}
           />
         </div>
         {!isEditing && (
-          <div className="absolute inset-0 bg-emerald-600/0 group-hover/window:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover/window:opacity-100 pointer-events-none">
+          <div
+            className={`absolute inset-0 group-hover/window:transition-colors flex items-center justify-center opacity-0 group-hover/window:opacity-100 pointer-events-none ${isLight ? "bg-emerald-600/0 group-hover/window:bg-emerald-500/10" : "bg-emerald-600/0 group-hover/window:bg-emerald-600/5"}`}
+          >
             <div className="px-3 py-1.5 bg-white rounded-full shadow-lg text-emerald-600 text-xs font-medium flex items-center gap-2">
               <Pencil size={12} />
               Editar Código

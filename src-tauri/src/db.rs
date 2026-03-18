@@ -126,6 +126,13 @@ pub struct SavedPresentationMeta {
     pub topic: String,
     pub saved_at: String,
     pub slide_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cloud_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cloud_synced_at: Option<String>,
+    /// Revisión conocida en Firestore (control de concurrencia entre dispositivos).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cloud_revision: Option<i64>,
 }
 
 /// Creates the database file and tables if they don't exist.
@@ -172,6 +179,30 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
     if has_content_layout == 0 {
         conn.execute("ALTER TABLE slides ADD COLUMN content_layout TEXT", [])?;
         conn.execute("ALTER TABLE slides ADD COLUMN panel_height_percent INTEGER", [])?;
+    }
+    // Migration: cloud sync metadata
+    let has_cloud_id: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='cloud_id'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_cloud_id == 0 {
+        conn.execute("ALTER TABLE presentations ADD COLUMN cloud_id TEXT", [])?;
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN cloud_synced_at TEXT",
+            [],
+        )?;
+    }
+    let has_cloud_rev: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='cloud_revision'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_cloud_rev == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN cloud_revision INTEGER",
+            [],
+        )?;
     }
     Ok(())
 }
@@ -454,10 +485,11 @@ pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentatio
 pub fn list_presentations(conn: &Connection) -> Result<Vec<SavedPresentationMeta>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         r#"
-        SELECT p.id, p.topic, p.saved_at, COUNT(s.ordinal) AS slide_count
+        SELECT p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision,
+               COUNT(s.ordinal) AS slide_count
         FROM presentations p
         LEFT JOIN slides s ON s.presentation_id = p.id
-        GROUP BY p.id
+        GROUP BY p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision
         ORDER BY p.saved_at DESC
         "#,
     )?;
@@ -466,10 +498,36 @@ pub fn list_presentations(conn: &Connection) -> Result<Vec<SavedPresentationMeta
             id: row.get(0)?,
             topic: row.get(1)?,
             saved_at: row.get(2)?,
-            slide_count: row.get(3)?,
+            cloud_id: row.get(3)?,
+            cloud_synced_at: row.get(4)?,
+            cloud_revision: row.get(5)?,
+            slide_count: row.get(6)?,
         })
     })?;
     rows.collect()
+}
+
+/// Updates Firestore/cloud linkage after sync or cloud download.
+pub fn set_presentation_cloud_state(
+    conn: &Connection,
+    id: &str,
+    cloud_id: Option<&str>,
+    cloud_synced_at: Option<&str>,
+    cloud_revision: Option<i64>,
+) -> Result<(), rusqlite::Error> {
+    let n = conn.execute(
+        "UPDATE presentations SET cloud_id = ?1, cloud_synced_at = ?2, cloud_revision = ?3 WHERE id = ?4",
+        params![cloud_id, cloud_synced_at, cloud_revision, id],
+    )?;
+    if n == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+    Ok(())
+}
+
+/// Import a full saved presentation (e.g. from cloud). Uses `saved.id` as local row id.
+pub fn import_saved_presentation(conn: &Connection, saved: &SavedPresentation) -> Result<(), rusqlite::Error> {
+    import_presentation(conn, saved)
 }
 
 pub fn delete_presentation(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
