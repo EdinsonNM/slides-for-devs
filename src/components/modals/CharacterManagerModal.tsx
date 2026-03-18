@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, UserPlus, Trash2, Users } from "lucide-react";
+import {
+  X,
+  UserPlus,
+  Trash2,
+  Users,
+  CloudUpload,
+  CloudDownload,
+  Loader2,
+} from "lucide-react";
 import type { SavedCharacter } from "../../types";
 import { cn } from "../../utils/cn";
 
@@ -10,6 +18,11 @@ interface CharacterManagerModalProps {
   savedCharacters: SavedCharacter[];
   onSaveCharacter: (character: SavedCharacter) => Promise<void>;
   onDeleteCharacter: (id: string) => Promise<void>;
+  /** Escritorio + Firebase logueado (misma condición que presentaciones). */
+  cloudSyncAvailable?: boolean;
+  onPushCharactersToCloud?: () => void | Promise<void>;
+  onPullCharactersFromCloud?: () => void | Promise<void>;
+  isSyncingCharactersCloud?: boolean;
 }
 
 export function CharacterManagerModal({
@@ -18,6 +31,10 @@ export function CharacterManagerModal({
   savedCharacters,
   onSaveCharacter,
   onDeleteCharacter,
+  cloudSyncAvailable = false,
+  onPushCharactersToCloud,
+  onPullCharactersFromCloud,
+  isSyncingCharactersCloud = false,
 }: CharacterManagerModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -77,7 +94,8 @@ export function CharacterManagerModal({
               <div>
                 <h3 className="font-medium text-stone-900">Personajes</h3>
                 <p className="text-xs text-stone-500">
-                  Guarda personajes para reutilizarlos en todas las imágenes
+                  Reutilízalos en cualquier diapositiva; sincronízalos en la nube
+                  para usarlos en otros equipos.
                 </p>
               </div>
             </div>
@@ -119,6 +137,49 @@ export function CharacterManagerModal({
               </button>
             </div>
 
+            {cloudSyncAvailable &&
+              onPushCharactersToCloud &&
+              onPullCharactersFromCloud && (
+                <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-violet-700 flex items-center gap-2">
+                    <CloudUpload size={14} />
+                    Nube (misma cuenta que las presentaciones)
+                  </span>
+                  <p className="text-xs text-violet-900/80">
+                    Los personajes se identifican por id: las presentaciones que
+                    usen el mismo personaje seguirán enlazadas tras sincronizar.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={isSyncingCharactersCloud}
+                      onClick={() => void onPushCharactersToCloud()}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {isSyncingCharactersCloud ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <CloudUpload size={16} />
+                      )}
+                      Subir todos
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSyncingCharactersCloud}
+                      onClick={() => void onPullCharactersFromCloud()}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-violet-300 bg-white text-violet-800 text-sm font-medium hover:bg-violet-50 disabled:opacity-50"
+                    >
+                      {isSyncingCharactersCloud ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <CloudDownload size={16} />
+                      )}
+                      Traer de la nube
+                    </button>
+                  </div>
+                </div>
+              )}
+
             <div className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
                 Personajes guardados ({savedCharacters.length})
@@ -132,7 +193,17 @@ export function CharacterManagerModal({
                     )}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-stone-900 text-sm">{c.name}</p>
+                      <p className="font-medium text-stone-900 text-sm flex items-center gap-1.5 flex-wrap">
+                        {c.name}
+                        {c.cloudRevision != null && (
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-700"
+                            title="Sincronizado en la nube"
+                          >
+                            Nube
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-stone-500 line-clamp-2 mt-0.5">
                         {c.description}
                       </p>

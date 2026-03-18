@@ -116,6 +116,10 @@ pub struct SavedCharacter {
     /// Data URL of the reference image (matches TS referenceImageDataUrl).
     #[serde(skip_serializing_if = "Option::is_none", rename = "referenceImageDataUrl")]
     pub reference_image_data_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "cloudSyncedAt")]
+    pub cloud_synced_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "cloudRevision")]
+    pub cloud_revision: Option<i64>,
 }
 
 /// Metadata for list (no slides, no images).
@@ -201,6 +205,21 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
     if has_cloud_rev == 0 {
         conn.execute(
             "ALTER TABLE presentations ADD COLUMN cloud_revision INTEGER",
+            [],
+        )?;
+    }
+    let ch_cloud_sync: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('saved_characters') WHERE name='cloud_synced_at'",
+        [],
+        |r| r.get(0),
+    )?;
+    if ch_cloud_sync == 0 {
+        conn.execute(
+            "ALTER TABLE saved_characters ADD COLUMN cloud_synced_at TEXT",
+            [],
+        )?;
+        conn.execute(
+            "ALTER TABLE saved_characters ADD COLUMN cloud_revision INTEGER",
             [],
         )?;
     }
@@ -539,7 +558,7 @@ pub fn delete_presentation(conn: &Connection, id: &str) -> Result<(), rusqlite::
 
 pub fn list_characters(conn: &Connection) -> Result<Vec<SavedCharacter>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, description, reference_image_url FROM saved_characters ORDER BY name",
+        "SELECT id, name, description, reference_image_url, cloud_synced_at, cloud_revision FROM saved_characters ORDER BY name",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(SavedCharacter {
@@ -547,6 +566,8 @@ pub fn list_characters(conn: &Connection) -> Result<Vec<SavedCharacter>, rusqlit
             name: row.get(1)?,
             description: row.get(2)?,
             reference_image_data_url: row.get(3)?,
+            cloud_synced_at: row.get(4)?,
+            cloud_revision: row.get(5)?,
         })
     })?;
     rows.collect()
@@ -554,14 +575,32 @@ pub fn list_characters(conn: &Connection) -> Result<Vec<SavedCharacter>, rusqlit
 
 pub fn save_character(conn: &Connection, character: &SavedCharacter) -> Result<(), rusqlite::Error> {
     conn.execute(
-        "INSERT OR REPLACE INTO saved_characters (id, name, description, reference_image_url) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT OR REPLACE INTO saved_characters (id, name, description, reference_image_url, cloud_synced_at, cloud_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             character.id,
             character.name,
             character.description,
             character.reference_image_data_url,
+            character.cloud_synced_at,
+            character.cloud_revision,
         ],
     )?;
+    Ok(())
+}
+
+pub fn set_character_cloud_state(
+    conn: &Connection,
+    id: &str,
+    cloud_synced_at: Option<&str>,
+    cloud_revision: Option<i64>,
+) -> Result<(), rusqlite::Error> {
+    let n = conn.execute(
+        "UPDATE saved_characters SET cloud_synced_at = ?1, cloud_revision = ?2 WHERE id = ?3",
+        params![cloud_synced_at, cloud_revision, id],
+    )?;
+    if n == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
     Ok(())
 }
 

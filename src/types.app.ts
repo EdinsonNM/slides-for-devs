@@ -11,6 +11,9 @@ export interface SavedCharacter {
   name: string;
   description: string;
   referenceImageDataUrl?: string;
+  /** Tras subir a Firebase (mismo uid que presentaciones). */
+  cloudSyncedAt?: string;
+  cloudRevision?: number;
 }
 
 export interface Presentation {

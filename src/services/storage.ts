@@ -107,3 +107,29 @@ export async function deleteCharacter(id: string): Promise<void> {
     );
   }
 }
+
+export async function setCharacterCloudState(
+  id: string,
+  cloudSyncedAt: string | null,
+  cloudRevision: number | null
+): Promise<void> {
+  try {
+    await invoke("set_character_cloud_state", {
+      id,
+      cloudSyncedAt: cloudSyncedAt ?? undefined,
+      cloudRevision: cloudRevision ?? undefined,
+    });
+  } catch {
+    const list = await listCharacters();
+    const next = list.map((c) =>
+      c.id === id
+        ? {
+            ...c,
+            ...(cloudSyncedAt != null ? { cloudSyncedAt } : {}),
+            ...(cloudRevision != null ? { cloudRevision } : {}),
+          }
+        : c
+    );
+    localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(next));
+  }
+}

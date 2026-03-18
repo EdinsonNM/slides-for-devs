@@ -2,8 +2,8 @@
 
 La app escribe en:
 
-- **Firestore**: `users/{userId}/presentations/{presentationId}`
-- **Storage**: `users/{userId}/presentations/{presentationId}/...`
+- **Firestore**: `users/{userId}/presentations/{presentationId}` y `users/{userId}/characters/{characterId}`
+- **Storage**: `users/{userId}/presentations/...` y `users/{userId}/characters/{characterId}/ref.*`
 
 Solo el usuario autenticado debe acceder a su propio prefijo `users/{userId}/`.
 
@@ -14,6 +14,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/presentations/{presId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/characters/{charId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
@@ -27,6 +30,9 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /users/{userId}/presentations/{presId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/characters/{charId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }

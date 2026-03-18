@@ -109,6 +109,24 @@ fn delete_character(db_path: tauri::State<DbPath>, id: String) -> Result<(), Str
     db::delete_character(&conn, &id).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn set_character_cloud_state(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    cloud_synced_at: Option<String>,
+    cloud_revision: Option<i64>,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::set_character_cloud_state(
+        &conn,
+        &id,
+        cloud_synced_at.as_deref(),
+        cloud_revision,
+    )
+    .map_err(|e| e.to_string())
+}
+
 /// Escribe un archivo binario desde base64. Usado para exportar .pptx (el frontend abre el diálogo de guardar).
 #[tauri::command]
 fn write_binary_file(path: String, base64_content: String) -> Result<(), String> {
@@ -367,6 +385,7 @@ pub fn run() {
             list_characters,
             save_character,
             delete_character,
+            set_character_cloud_state,
             write_binary_file,
         ])
         .run(tauri::generate_context!())

@@ -42,15 +42,6 @@ export interface Slide {
   excalidrawData?: string;
 }
 
-/** Personaje guardado para reutilizar en generaciones de imagen (misma apariencia en todas las escenas). */
-export interface SavedCharacter {
-  id: string;
-  name: string;
-  description: string;
-  /** Imagen de referencia (data URL) para que Gemini mantenga el personaje idéntico. */
-  referenceImageDataUrl?: string;
-}
-
 export interface Presentation {
   topic: string;
   slides: Slide[];

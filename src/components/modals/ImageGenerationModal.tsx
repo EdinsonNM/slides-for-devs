@@ -33,6 +33,10 @@ export function ImageGenerationModal() {
     savedCharacters,
     saveCharacter,
     deleteCharacter,
+    cloudSyncAvailable,
+    handlePushAllCharactersToCloud,
+    handlePullCharactersFromCloud,
+    isSyncingCharactersCloud,
   } = usePresentation();
 
   const [showCharacterManager, setShowCharacterManager] = useState(false);
@@ -320,6 +324,10 @@ export function ImageGenerationModal() {
         savedCharacters={savedCharacters}
         onSaveCharacter={saveCharacter}
         onDeleteCharacter={deleteCharacter}
+        cloudSyncAvailable={cloudSyncAvailable}
+        onPushCharactersToCloud={handlePushAllCharactersToCloud}
+        onPullCharactersFromCloud={handlePullCharactersFromCloud}
+        isSyncingCharactersCloud={isSyncingCharactersCloud}
       />
     </AnimatePresence>
   );

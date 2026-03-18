@@ -41,7 +41,14 @@ import {
   deleteCharacter as deleteCharacterStorage,
   importSavedPresentation,
   setPresentationCloudState,
+  setCharacterCloudState,
 } from "../services/storage";
+import {
+  pushCharacterToCloud,
+  pullAllCharactersFromCloud,
+  deleteCharacterFromCloud,
+  CharacterCloudSyncConflictError,
+} from "../services/charactersCloud";
 import {
   pushPresentationToCloud,
   listCloudPresentations,
@@ -130,6 +137,7 @@ export function usePresentationState() {
   const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
   const [coverImageCache, setCoverImageCache] = useState<Record<string, string>>({});
   const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
+  const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] = useState(false);
   const [showCloudPresentationsModal, setShowCloudPresentationsModal] =
     useState(false);
   const [cloudPresentationsItems, setCloudPresentationsItems] = useState<
@@ -1229,17 +1237,141 @@ export function usePresentationState() {
     listCharacters().then(setSavedCharacters).catch(() => setSavedCharacters([]));
   };
 
-  const handleSaveCharacter = async (character: SavedCharacter) => {
-    await saveCharacterStorage(character);
+  const handleSaveCharacter = async (incoming: SavedCharacter) => {
+    const existing = savedCharacters.find((c) => c.id === incoming.id);
+    let referenceImageDataUrl = incoming.referenceImageDataUrl;
+    if (referenceImageDataUrl?.startsWith("data:")) {
+      try {
+        referenceImageDataUrl = await optimizeImageDataUrl(referenceImageDataUrl);
+      } catch {
+        /* mantener */
+      }
+    }
+    const toSave: SavedCharacter = {
+      ...incoming,
+      referenceImageDataUrl,
+      cloudRevision: incoming.cloudRevision ?? existing?.cloudRevision,
+      cloudSyncedAt: incoming.cloudSyncedAt ?? existing?.cloudSyncedAt,
+    };
+    await saveCharacterStorage(toSave);
     refreshSavedCharacters();
     trackEvent(ANALYTICS_EVENTS.CHARACTER_SAVED);
+
+    if (
+      autoCloudSyncOnSave &&
+      user &&
+      typeof window !== "undefined" &&
+      (window as unknown as { __TAURI__?: unknown }).__TAURI__
+    ) {
+      const fb = await initFirebase();
+      if (fb?.firestore) {
+        try {
+          const list = await listCharacters();
+          const c = list.find((x) => x.id === toSave.id) ?? toSave;
+          const { syncedAt, newRevision } = await pushCharacterToCloud(
+            user.uid,
+            c,
+            { localExpectedRevision: c.cloudRevision ?? null }
+          );
+          await setCharacterCloudState(c.id, syncedAt, newRevision);
+          listCharacters().then(setSavedCharacters).catch(() => undefined);
+        } catch (e) {
+          if (e instanceof CharacterCloudSyncConflictError) {
+            console.warn("Auto-sync personaje: conflicto de revisión", e.characterId);
+          } else {
+            console.error("Auto-sync personaje:", e);
+          }
+        }
+      }
+    }
   };
 
   const handleDeleteCharacter = async (id: string) => {
+    const char = savedCharacters.find((c) => c.id === id);
+    if (
+      user &&
+      (char?.cloudRevision != null || char?.cloudSyncedAt) &&
+      typeof window !== "undefined" &&
+      (window as unknown as { __TAURI__?: unknown }).__TAURI__
+    ) {
+      try {
+        await deleteCharacterFromCloud(user.uid, id);
+      } catch (e) {
+        console.error("Eliminar personaje en la nube:", e);
+      }
+    }
     await deleteCharacterStorage(id);
     if (selectedCharacterId === id) setSelectedCharacterId(null);
     refreshSavedCharacters();
   };
+
+  const handlePushAllCharactersToCloud = useCallback(async () => {
+    if (!user) return;
+    setIsSyncingCharactersCloud(true);
+    try {
+      const chars = await listCharacters();
+      let ok = 0;
+      const conflicts: string[] = [];
+      for (const c of chars) {
+        try {
+          const { syncedAt, newRevision } = await pushCharacterToCloud(
+            user.uid,
+            c,
+            { localExpectedRevision: c.cloudRevision ?? null }
+          );
+          await setCharacterCloudState(c.id, syncedAt, newRevision);
+          ok++;
+        } catch (e) {
+          if (e instanceof CharacterCloudSyncConflictError) {
+            conflicts.push(c.name);
+          } else {
+            throw e;
+          }
+        }
+      }
+      refreshSavedCharacters();
+      if (conflicts.length) {
+        alert(
+          `Subidos ${ok} personaje(s). Conflicto de versión en: ${conflicts.join(", ")}. Trae desde la nube o vuelve a subir tras alinear.`
+        );
+      } else if (ok > 0) {
+        alert(`Subidos ${ok} personaje(s) a la nube.`);
+      } else {
+        alert("No hay personajes locales para subir.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert(
+        `Error al subir personajes: ${e instanceof Error ? e.message : String(e)}`
+      );
+    } finally {
+      setIsSyncingCharactersCloud(false);
+    }
+  }, [user, refreshSavedCharacters]);
+
+  const handlePullCharactersFromCloud = useCallback(async () => {
+    if (!user) return;
+    setIsSyncingCharactersCloud(true);
+    try {
+      const remote = await pullAllCharactersFromCloud(user.uid);
+      for (const r of remote) {
+        await saveCharacterStorage(r);
+      }
+      refreshSavedCharacters();
+      alert(
+        remote.length
+          ? `Actualizados ${remote.length} personaje(s) desde la nube (por id). Los que solo existían localmente se mantienen.`
+          : "No hay personajes en la nube."
+      );
+    } catch (e) {
+      console.error(e);
+      alert(
+        `Error al traer personajes: ${e instanceof Error ? e.message : String(e)}`
+      );
+    } finally {
+      setIsSyncingCharactersCloud(false);
+    }
+  }, [user, refreshSavedCharacters]);
 
   /** Genera una vista previa del personaje (solo la imagen, sin asignar a slide). Contexto fijo para personaje aislado. */
   const generateCharacterPreview = async (
@@ -1649,6 +1781,9 @@ export function usePresentationState() {
     isNotesPanelOpen,
     setIsNotesPanelOpen,
     pendingGeneration,
+    isSyncingCharactersCloud,
+    handlePushAllCharactersToCloud,
+    handlePullCharactersFromCloud,
   };
 }
 
