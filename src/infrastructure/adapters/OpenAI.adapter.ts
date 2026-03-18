@@ -227,7 +227,7 @@ export class OpenAIAdapter
       size: "1024x1536", // 2:3 portrait; formato vertical cercano a 9:16
     };
     if (isGptImage) {
-      body.quality = "high";
+      body.quality = "medium";
       // gpt-image-* devuelve b64 por defecto; no acepta response_format
     } else {
       body.quality = "standard";

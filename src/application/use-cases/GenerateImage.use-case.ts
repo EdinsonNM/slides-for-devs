@@ -1,4 +1,5 @@
 import type { ImageGeneratorPort } from "../../domain/ports";
+import { optimizeImageDataUrl } from "../../utils/imageOptimize";
 
 export class GenerateImageUseCase {
   constructor(private resolveGenerator: (providerId: "gemini" | "openai") => ImageGeneratorPort) {}
@@ -14,7 +15,7 @@ export class GenerateImageUseCase {
     characterReferenceImageDataUrl?: string;
   }): Promise<string | undefined> {
     const generator = this.resolveGenerator(params.providerId);
-    return generator.generateImage({
+    const raw = await generator.generateImage({
       slideContext: params.slideContext,
       userPrompt: params.userPrompt,
       stylePrompt: params.stylePrompt,
@@ -23,5 +24,12 @@ export class GenerateImageUseCase {
       characterPrompt: params.characterPrompt,
       characterReferenceImageDataUrl: params.characterReferenceImageDataUrl,
     });
+    if (!raw?.trim()) return raw;
+    if (typeof window === "undefined") return raw;
+    try {
+      return await optimizeImageDataUrl(raw);
+    } catch {
+      return raw;
+    }
   }
 }

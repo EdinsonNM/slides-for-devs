@@ -9,6 +9,7 @@ import type {
 
 const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
 import { formatMarkdown } from "../utils/markdown";
+import { optimizeImageDataUrl } from "../utils/imageOptimize";
 import {
   generateCodeForSlide as generateCodeForSlideApi,
   generatePresenterNotes as generatePresenterNotesApi,
@@ -1314,18 +1315,25 @@ export function usePresentationState() {
 
   const handleImageUpload = (file: File) => {
     if (!currentSlide) return;
+    const index = currentIndex;
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setSlides((prev) => {
-        const updated = [...prev];
-        updated[currentIndex] = {
-          ...currentSlide,
-          imageUrl: dataUrl,
-        };
-        return updated;
-      });
-      setShowImageUploadModal(false);
+      void (async () => {
+        let dataUrl = reader.result as string;
+        try {
+          dataUrl = await optimizeImageDataUrl(dataUrl);
+        } catch {
+          /* mantener original */
+        }
+        setSlides((prev) => {
+          const updated = [...prev];
+          const cur = updated[index];
+          if (!cur) return prev;
+          updated[index] = { ...cur, imageUrl: dataUrl };
+          return updated;
+        });
+        setShowImageUploadModal(false);
+      })();
     };
     reader.readAsDataURL(file);
   };

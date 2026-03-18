@@ -15,6 +15,10 @@ import { deleteObject, getBytes, ref, uploadBytes, type FirebaseStorage } from "
 import type { Slide } from "../types";
 import type { SavedPresentation } from "../types";
 import { initFirebase } from "./firebase";
+import {
+  dataUrlToCloudImagePayload,
+  optimizeRasterBytesForCloud,
+} from "../utils/imageOptimize";
 
 const SCHEMA_VERSION = 1;
 
@@ -236,20 +240,38 @@ export async function pushPresentationToCloud(
     let imageUrl: string | undefined = slide.imageUrl;
 
     if (slide.imageUrl?.startsWith("data:")) {
-      const parsed = dataUrlToBytes(slide.imageUrl);
-      if (parsed) {
-        const name = `slide_${i}.${parsed.ext}`;
+      let payload = await dataUrlToCloudImagePayload(slide.imageUrl);
+      if (!payload) {
+        const parsed = dataUrlToBytes(slide.imageUrl);
+        if (parsed) {
+          payload = {
+            bytes: parsed.bytes,
+            contentType: parsed.contentType,
+            ext: parsed.ext,
+          };
+        }
+      }
+      if (payload) {
+        const name = `slide_${i}.${payload.ext}`;
         const path = `${prefix}/${name}`;
-        await uploadBytes(ref(st, path), parsed.bytes, { contentType: parsed.contentType });
+        await uploadBytes(ref(st, path), payload.bytes, {
+          contentType: payload.contentType,
+        });
         slideImagePaths[String(i)] = name;
         imageUrl = undefined;
       }
     } else if (slide.imageUrl?.startsWith("http://") || slide.imageUrl?.startsWith("https://")) {
       const fetched = await fetchUrlAsBytes(slide.imageUrl);
       if (fetched) {
-        const name = `slide_${i}.${fetched.ext}`;
+        const opt = await optimizeRasterBytesForCloud(fetched.bytes, fetched.contentType);
+        const use = opt ?? {
+          bytes: fetched.bytes,
+          contentType: fetched.contentType,
+          ext: fetched.ext,
+        };
+        const name = `slide_${i}.${use.ext}`;
         const path = `${prefix}/${name}`;
-        await uploadBytes(ref(st, path), fetched.bytes, { contentType: fetched.contentType });
+        await uploadBytes(ref(st, path), use.bytes, { contentType: use.contentType });
         slideImagePaths[String(i)] = name;
         imageUrl = undefined;
       }
