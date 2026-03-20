@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { Cloud, Loader2 } from "lucide-react";
+import { ArrowLeft, Cloud, Loader2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { GoogleIcon } from "../shared/GoogleIcon";
+
+export interface SignInInviteBarProps {
+  /** Vuelve a la pantalla de bienvenida (login / continuar sin cuenta). */
+  onBackToWelcome?: () => void;
+}
 
 /**
  * Barra que invita a iniciar sesión con Google para sincronizar en la nube.
  * Se muestra en el home cuando el usuario está en modo local (sin cuenta).
  */
-export function SignInInviteBar() {
+export function SignInInviteBar({ onBackToWelcome }: SignInInviteBarProps) {
   const { user, firebaseReady, signInWithGoogle } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +33,18 @@ export function SignInInviteBar() {
   };
 
   return (
-    <div className="shrink-0 flex items-center justify-center gap-3 px-4 py-2.5 bg-emerald-500/15 dark:bg-emerald-600/20 border-b border-emerald-500/20 dark:border-emerald-500/30">
+    <div className="shrink-0 flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-4 py-2.5 bg-emerald-500/15 dark:bg-emerald-600/20 border-b border-emerald-500/20 dark:border-emerald-500/30">
+      {onBackToWelcome && (
+        <button
+          type="button"
+          onClick={onBackToWelcome}
+          aria-label="Volver a la pantalla de bienvenida"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-900/5 dark:hover:bg-white/10 transition-colors order-first sm:order-0"
+        >
+          <ArrowLeft size={14} className="shrink-0" aria-hidden />
+          Bienvenida
+        </button>
+      )}
       <Cloud size={18} className="text-emerald-700 dark:text-emerald-400 shrink-0" />
       <span className="text-sm text-stone-700 dark:text-stone-200">
         Inicia sesión con Google para sincronizar tus presentaciones en la nube

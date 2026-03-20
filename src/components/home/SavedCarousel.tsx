@@ -8,6 +8,7 @@ import {
   Loader2,
   CloudUpload,
   Cloud,
+  Share2,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 import type { SavedPresentationMeta } from "../../types";
@@ -35,6 +36,7 @@ export interface SavedCarouselProps {
   cloudSyncAvailable?: boolean;
   onSyncToCloud?: (id: string) => void;
   syncingToCloudId?: string | null;
+  onSharePresentation?: (localId: string) => void;
 }
 
 export function SavedCarousel({
@@ -48,6 +50,7 @@ export function SavedCarousel({
   cloudSyncAvailable = false,
   onSyncToCloud,
   syncingToCloudId = null,
+  onSharePresentation,
 }: SavedCarouselProps) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const firstSlotRef = useRef<HTMLDivElement>(null);
@@ -234,6 +237,21 @@ export function SavedCarousel({
                         ) : (
                           <CloudUpload size={18} />
                         )}
+                      </button>
+                    )}
+                    {cloudSyncAvailable && p.cloudId && onSharePresentation && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          onSharePresentation(p.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
+                        title="Compartir (correo o UID)"
+                      >
+                        <Share2 size={18} />
                       </button>
                     )}
                     <button

@@ -5,6 +5,8 @@ import { SignInInviteBar } from "./SignInInviteBar";
 
 export interface HomeScreenProps {
   onOpenConfig?: () => void;
+  /** Vuelve a la pantalla de bienvenida (modo sin cuenta en el home). */
+  onBackToWelcome?: () => void;
   /** Solo en Tauri: al pulsar se busca actualización y se muestra diálogo con el resultado. */
   onCheckUpdates?: () => void;
   /** Si se proporciona, se usa en lugar del contexto al abrir una presentación guardada (p. ej. para navegar a /editor). */
@@ -19,7 +21,13 @@ export interface HomeScreenProps {
  * - HomeWithCarousel: cuando hay al menos una presentación guardada.
  */
 export function HomeScreen(props: HomeScreenProps) {
-  const { onOpenConfig, onCheckUpdates, onOpenSaved: onOpenSavedProp, onGenerate: onGenerateProp } = props;
+  const {
+    onOpenConfig,
+    onBackToWelcome,
+    onCheckUpdates,
+    onOpenSaved: onOpenSavedProp,
+    onGenerate: onGenerateProp,
+  } = props;
   const {
     topic,
     setTopic,
@@ -38,6 +46,7 @@ export function HomeScreen(props: HomeScreenProps) {
     syncingToCloudId,
     handleSyncPresentationToCloud,
     openCloudPresentationsModal,
+    openSharePresentationModal,
   } = usePresentation();
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
@@ -47,7 +56,7 @@ export function HomeScreen(props: HomeScreenProps) {
   if (!hasItems) {
     return (
       <>
-        <SignInInviteBar />
+        <SignInInviteBar onBackToWelcome={onBackToWelcome} />
         <HomeEmptyState
         onOpenConfig={onOpenConfig}
         onCheckUpdates={onCheckUpdates}
@@ -67,7 +76,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
   return (
     <>
-      <SignInInviteBar />
+      <SignInInviteBar onBackToWelcome={onBackToWelcome} />
       <HomeWithCarousel
       onOpenConfig={onOpenConfig}
       onCheckUpdates={onCheckUpdates}
@@ -88,6 +97,7 @@ export function HomeScreen(props: HomeScreenProps) {
       onSyncToCloud={handleSyncPresentationToCloud}
       syncingToCloudId={syncingToCloudId}
       onOpenCloudPresentations={openCloudPresentationsModal}
+      onSharePresentation={openSharePresentationModal}
     />
     </>
   );

@@ -13,10 +13,11 @@ struct DbPath(PathBuf);
 fn save_presentation(
     db_path: tauri::State<DbPath>,
     presentation: db::Presentation,
+    account_scope: String,
 ) -> Result<String, String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::save_presentation(&conn, &presentation).map_err(|e| e.to_string())
+    db::save_presentation(&conn, &presentation, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -24,46 +25,54 @@ fn update_presentation(
     db_path: tauri::State<DbPath>,
     id: String,
     presentation: db::Presentation,
+    account_scope: String,
 ) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::update_presentation(&conn, &id, &presentation).map_err(|e| e.to_string())
+    db::update_presentation(&conn, &id, &presentation, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn load_presentation(
     db_path: tauri::State<DbPath>,
     id: String,
+    account_scope: String,
 ) -> Result<db::SavedPresentation, String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::load_presentation(&conn, &id).map_err(|e| e.to_string())
+    db::load_presentation(&conn, &id, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn list_presentations(
     db_path: tauri::State<DbPath>,
+    account_scope: String,
 ) -> Result<Vec<db::SavedPresentationMeta>, String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::list_presentations(&conn).map_err(|e| e.to_string())
+    db::list_presentations(&conn, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn delete_presentation(db_path: tauri::State<DbPath>, id: String) -> Result<(), String> {
+fn delete_presentation(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    account_scope: String,
+) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::delete_presentation(&conn, &id).map_err(|e| e.to_string())
+    db::delete_presentation(&conn, &id, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn import_saved_presentation(
     db_path: tauri::State<DbPath>,
     saved: db::SavedPresentation,
+    account_scope: String,
 ) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::import_saved_presentation(&conn, &saved).map_err(|e| e.to_string())
+    db::import_saved_presentation(&conn, &saved, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -73,6 +82,7 @@ fn set_presentation_cloud_state(
     cloud_id: Option<String>,
     cloud_synced_at: Option<String>,
     cloud_revision: Option<i64>,
+    account_scope: String,
 ) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
@@ -82,32 +92,41 @@ fn set_presentation_cloud_state(
         cloud_id.as_deref(),
         cloud_synced_at.as_deref(),
         cloud_revision,
+        &account_scope,
     )
     .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn list_characters(db_path: tauri::State<DbPath>) -> Result<Vec<db::SavedCharacter>, String> {
+fn list_characters(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+) -> Result<Vec<db::SavedCharacter>, String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::list_characters(&conn).map_err(|e| e.to_string())
+    db::list_characters(&conn, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn save_character(
     db_path: tauri::State<DbPath>,
     character: db::SavedCharacter,
+    account_scope: String,
 ) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::save_character(&conn, &character).map_err(|e| e.to_string())
+    db::save_character(&conn, &character, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn delete_character(db_path: tauri::State<DbPath>, id: String) -> Result<(), String> {
+fn delete_character(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    account_scope: String,
+) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
-    db::delete_character(&conn, &id).map_err(|e| e.to_string())
+    db::delete_character(&conn, &id, &account_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -116,6 +135,7 @@ fn set_character_cloud_state(
     id: String,
     cloud_synced_at: Option<String>,
     cloud_revision: Option<i64>,
+    account_scope: String,
 ) -> Result<(), String> {
     let path = &db_path.0;
     let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
@@ -124,6 +144,7 @@ fn set_character_cloud_state(
         &id,
         cloud_synced_at.as_deref(),
         cloud_revision,
+        &account_scope,
     )
     .map_err(|e| e.to_string())
 }
@@ -357,7 +378,7 @@ fn migrate_json_presentations(
             if saved.topic.is_empty() || saved.slides.is_empty() {
                 continue;
             }
-            if db::import_presentation(&conn, &saved).is_err() {
+            if db::import_presentation(&conn, &saved, db::ACCOUNT_SCOPE_GUEST).is_err() {
                 continue;
             }
             let _ = std::fs::remove_file(&path);

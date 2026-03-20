@@ -8,55 +8,96 @@ import type {
 
 const CHARACTERS_STORAGE_KEY = "slides-for-devs-characters";
 
+/** Ámbito SQLite para sesión sin cuenta; con sesión Firebase usar `user.uid`. */
+export const LOCAL_ACCOUNT_SCOPE_GUEST = "__guest__";
+
+export function localAccountScopeForUser(
+  uid: string | null | undefined
+): string {
+  return uid && uid.trim().length > 0 ? uid.trim() : LOCAL_ACCOUNT_SCOPE_GUEST;
+}
+
+function charactersWebStorageKey(accountScope: string): string {
+  return `${CHARACTERS_STORAGE_KEY}:${accountScope}`;
+}
+
 /** Guarda la presentación en SQLite (backend) y devuelve su id */
 export async function savePresentation(
-  presentation: Presentation
+  presentation: Presentation,
+  accountScope: string
 ): Promise<string> {
-  return invoke<string>("save_presentation", { presentation });
+  return invoke<string>("save_presentation", {
+    presentation,
+    accountScope,
+  });
 }
 
 /** Actualiza una presentación ya guardada por id */
 export async function updatePresentation(
   id: string,
-  presentation: Presentation
+  presentation: Presentation,
+  accountScope: string
 ): Promise<void> {
-  await invoke("update_presentation", { id, presentation });
+  await invoke("update_presentation", {
+    id,
+    presentation,
+    accountScope,
+  });
 }
 
 /** Lista las presentaciones guardadas (solo metadatos, desde SQLite) */
-export async function listPresentations(): Promise<SavedPresentationMeta[]> {
-  const list = await invoke<SavedPresentationMeta[]>("list_presentations");
+export async function listPresentations(
+  accountScope: string
+): Promise<SavedPresentationMeta[]> {
+  const list = await invoke<SavedPresentationMeta[]>("list_presentations", {
+    accountScope,
+  });
   return list ?? [];
 }
 
 /** Carga una presentación por id desde SQLite */
-export async function loadPresentation(id: string): Promise<SavedPresentation> {
-  return invoke<SavedPresentation>("load_presentation", { id });
+export async function loadPresentation(
+  id: string,
+  accountScope: string
+): Promise<SavedPresentation> {
+  return invoke<SavedPresentation>("load_presentation", {
+    id,
+    accountScope,
+  });
 }
 
 /** Elimina una presentación guardada */
-export async function deletePresentation(id: string): Promise<void> {
-  await invoke("delete_presentation", { id });
+export async function deletePresentation(
+  id: string,
+  accountScope: string
+): Promise<void> {
+  await invoke("delete_presentation", { id, accountScope });
 }
 
 /** Importa una presentación completa (p. ej. descargada de la nube). `saved.id` = id local nuevo. */
 export async function importSavedPresentation(
-  saved: SavedPresentation
+  saved: SavedPresentation,
+  accountScope: string
 ): Promise<void> {
-  await invoke("import_saved_presentation", { saved });
+  await invoke("import_saved_presentation", {
+    saved,
+    accountScope,
+  });
 }
 
 export async function setPresentationCloudState(
   id: string,
   cloudId: string | null,
   cloudSyncedAt: string | null,
-  cloudRevision?: number | null
+  cloudRevision: number | null | undefined,
+  accountScope: string
 ): Promise<void> {
   await invoke("set_presentation_cloud_state", {
     id,
     cloudId: cloudId ?? undefined,
     cloudSyncedAt: cloudSyncedAt ?? undefined,
     cloudRevision: cloudRevision ?? undefined,
+    accountScope,
   });
 }
 
@@ -68,12 +109,18 @@ export async function migrateJsonPresentations(): Promise<number> {
   return invoke<number>("migrate_json_presentations");
 }
 
-/** Lista los personajes guardados (Tauri: SQLite; web: localStorage). */
-export async function listCharacters(): Promise<SavedCharacter[]> {
+/** Lista los personajes guardados (Tauri: SQLite; web: localStorage por ámbito). */
+export async function listCharacters(
+  accountScope: string
+): Promise<SavedCharacter[]> {
   try {
-    return (await invoke<SavedCharacter[]>("list_characters")) ?? [];
+    return (
+      (await invoke<SavedCharacter[]>("list_characters", {
+        accountScope,
+      })) ?? []
+    );
   } catch {
-    const raw = localStorage.getItem(CHARACTERS_STORAGE_KEY);
+    const raw = localStorage.getItem(charactersWebStorageKey(accountScope));
     if (!raw) return [];
     try {
       return JSON.parse(raw);
@@ -84,25 +131,40 @@ export async function listCharacters(): Promise<SavedCharacter[]> {
 }
 
 /** Guarda o actualiza un personaje (Tauri: SQLite; web: localStorage). */
-export async function saveCharacter(character: SavedCharacter): Promise<void> {
+export async function saveCharacter(
+  character: SavedCharacter,
+  accountScope: string
+): Promise<void> {
   try {
-    await invoke("save_character", { character });
+    await invoke("save_character", {
+      character,
+      accountScope,
+    });
   } catch {
-    const list = await listCharacters();
+    const list = await listCharacters(accountScope);
     const idx = list.findIndex((c) => c.id === character.id);
-    const next = idx >= 0 ? list.map((c, i) => (i === idx ? character : c)) : [...list, character];
-    localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(next));
+    const next =
+      idx >= 0
+        ? list.map((c, i) => (i === idx ? character : c))
+        : [...list, character];
+    localStorage.setItem(
+      charactersWebStorageKey(accountScope),
+      JSON.stringify(next)
+    );
   }
 }
 
 /** Elimina un personaje por id (Tauri: SQLite; web: localStorage). */
-export async function deleteCharacter(id: string): Promise<void> {
+export async function deleteCharacter(
+  id: string,
+  accountScope: string
+): Promise<void> {
   try {
-    await invoke("delete_character", { id });
+    await invoke("delete_character", { id, accountScope });
   } catch {
-    const list = await listCharacters();
+    const list = await listCharacters(accountScope);
     localStorage.setItem(
-      CHARACTERS_STORAGE_KEY,
+      charactersWebStorageKey(accountScope),
       JSON.stringify(list.filter((c) => c.id !== id))
     );
   }
@@ -111,16 +173,18 @@ export async function deleteCharacter(id: string): Promise<void> {
 export async function setCharacterCloudState(
   id: string,
   cloudSyncedAt: string | null,
-  cloudRevision: number | null
+  cloudRevision: number | null,
+  accountScope: string
 ): Promise<void> {
   try {
     await invoke("set_character_cloud_state", {
       id,
       cloudSyncedAt: cloudSyncedAt ?? undefined,
       cloudRevision: cloudRevision ?? undefined,
+      accountScope,
     });
   } catch {
-    const list = await listCharacters();
+    const list = await listCharacters(accountScope);
     const next = list.map((c) =>
       c.id === id
         ? {
@@ -130,6 +194,9 @@ export async function setCharacterCloudState(
           }
         : c
     );
-    localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(
+      charactersWebStorageKey(accountScope),
+      JSON.stringify(next)
+    );
   }
 }

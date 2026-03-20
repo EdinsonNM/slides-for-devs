@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ChevronDown,
+  Copy,
   Loader2,
   LogOut,
   Monitor,
@@ -37,6 +38,7 @@ export function AvatarMenu({
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [copyUidDone, setCopyUidDone] = useState(false);
   const { firebaseReady, user, signInWithGoogle, signOut } = useAuth();
   const { preference, setPreference } = useTheme();
 
@@ -69,6 +71,17 @@ export function AvatarMenu({
   const handleSignOut = async () => {
     setAuthMenuOpen(false);
     await signOut();
+  };
+
+  const handleCopyMyUid = async () => {
+    if (!user?.uid) return;
+    try {
+      await navigator.clipboard.writeText(user.uid);
+      setCopyUidDone(true);
+      window.setTimeout(() => setCopyUidDone(false), 2000);
+    } catch {
+      setCopyUidDone(false);
+    }
   };
 
   const isHome = variant === "home";
@@ -132,6 +145,16 @@ export function AvatarMenu({
                   <p className="text-[11px] text-stone-500 dark:text-muted-foreground truncate">
                     {user.email}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleCopyMyUid();
+                    }}
+                    className="mt-2 w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-[11px] text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/80 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200/80 dark:border-border"
+                  >
+                    <Copy size={14} />
+                    {copyUidDone ? "UID copiado" : "Copiar mi UID (para compartir)"}
+                  </button>
                 </div>
                 {onOpenConfig && (
                   <button

@@ -13,9 +13,9 @@ export function formatCloudSyncUserMessage(error: unknown): string {
   if (code === "permission-denied") {
     return (
       "Firebase rechazó la operación (permisos insuficientes). " +
-      "Publica en la consola las reglas de Firestore y de Storage descritas en docs/firebase-rules.md " +
-      "(ambas: usuarios solo en users/{suId}/presentations/...). " +
-      "Si ya las publicaste, revisa que el bucket de Storage en .env (VITE_FIREBASE_STORAGE_BUCKET) sea el del proyecto."
+      "Publica las reglas de Firestore y de Storage (mismo contenido que docs/firebase-rules.md; en el repo: firestore.rules y storage.rules). " +
+      "Consola: Firestore → Reglas y Storage → Reglas; o CLI: firebase deploy --only firestore:rules,storage (ver docs/firebase-rules.md). " +
+      "Si ya las publicaste, comprueba que VITE_FIREBASE_STORAGE_BUCKET y VITE_FIREBASE_PROJECT_ID en .env sean del mismo proyecto."
     );
   }
 

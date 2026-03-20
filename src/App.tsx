@@ -19,6 +19,7 @@ import { SlideEditor } from "./components/editor/SlideEditor";
 import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
 import { CloudPresentationsModal } from "./components/modals/CloudPresentationsModal";
+import { SharePresentationModal } from "./components/modals/SharePresentationModal";
 import { CloudSyncConflictModal } from "./components/modals/CloudSyncConflictModal";
 import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
 import { ImageUploadModal } from "./components/modals/ImageUploadModal";
@@ -39,6 +40,7 @@ interface HomeOrRedirectProps {
   setShowApiConfigModal: (v: boolean) => void;
   skipLogin: boolean;
   onContinueWithoutAccount: () => void;
+  onBackToWelcome: () => void;
 }
 
 function HomeOrRedirect({
@@ -47,6 +49,7 @@ function HomeOrRedirect({
   setShowApiConfigModal,
   skipLogin,
   onContinueWithoutAccount,
+  onBackToWelcome,
 }: HomeOrRedirectProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -94,6 +97,7 @@ function HomeOrRedirect({
     <>
       <HomeScreen
         onOpenConfig={onOpenConfig}
+        onBackToWelcome={!user ? onBackToWelcome : undefined}
         onCheckUpdates={() => checkForAppUpdates(false)}
         onOpenSaved={onOpenSavedAndGo}
         onGenerate={onGenerateAndGo}
@@ -176,7 +180,9 @@ export default function App() {
     cloudModalLoading,
     cloudModalError,
     handleDownloadFromCloud,
-    downloadingCloudId,
+    downloadingCloudKey,
+    sharePresentationLocalId,
+    closeSharePresentationModal,
     savedList,
     handleOpenSaved,
     cloudSyncConflict,
@@ -184,6 +190,11 @@ export default function App() {
     resolveCloudConflictUseRemote,
     resolveCloudConflictForceLocal,
   } = usePresentation();
+  const { user: shareUser } = useAuth();
+  const shareMeta =
+    sharePresentationLocalId != null
+      ? savedList.find((p) => p.id === sharePresentationLocalId)
+      : undefined;
   const [apiConfigVersion, setApiConfigVersion] = useState(0);
   const [showApiConfigModal, setShowApiConfigModal] = useState(false);
   const [skipLogin, setSkipLogin] = useState(false);
@@ -246,9 +257,20 @@ export default function App() {
         loading={cloudModalLoading}
         error={cloudModalError}
         savedList={savedList}
-        downloadingCloudId={downloadingCloudId}
+        downloadingCloudKey={downloadingCloudKey}
         onDownload={handleDownloadFromCloud}
         onOpenLocal={handleOpenSaved}
+      />
+      <SharePresentationModal
+        open={
+          sharePresentationLocalId !== null &&
+          !!shareMeta?.cloudId &&
+          !!shareUser
+        }
+        onClose={closeSharePresentationModal}
+        ownerUid={shareUser?.uid ?? ""}
+        cloudId={shareMeta?.cloudId ?? ""}
+        topic={shareMeta?.topic ?? ""}
       />
       <CloudSyncConflictModal
         open={cloudSyncConflict !== null}
@@ -268,6 +290,7 @@ export default function App() {
               setShowApiConfigModal={setShowApiConfigModal}
               skipLogin={skipLogin}
               onContinueWithoutAccount={() => setSkipLogin(true)}
+              onBackToWelcome={() => setSkipLogin(false)}
             />
           }
         />

@@ -4,11 +4,16 @@
  */
 import {
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
+  query,
   runTransaction,
   serverTimestamp,
+  updateDoc,
+  where,
+  type QueryDocumentSnapshot,
   type Timestamp,
 } from "firebase/firestore";
 import { deleteObject, getBytes, ref, uploadBytes, type FirebaseStorage } from "firebase/storage";
@@ -45,11 +50,28 @@ export interface PushCloudOptions {
 /** Diagramas mayores se suben a Storage (límite práctico doc Firestore ~1MB). */
 const EXCALIDRAW_STORAGE_THRESHOLD = 80 * 1024;
 
+/** Correos en minúsculas para `shareInviteEmails` y consultas `array-contains`. */
+export function normalizeShareEmail(raw: string): string | null {
+  const s = raw.trim().toLowerCase();
+  if (!s || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return null;
+  return s;
+}
+
+export interface PresentationShareAccess {
+  sharedWithUids: string[];
+  /** Correos normalizados (minúsculas); acceso si coinciden con `request.auth.token.email`. */
+  shareInviteEmails: string[];
+}
+
 export interface CloudPresentationListItem {
   cloudId: string;
+  /** Propietario del documento en `users/{ownerUid}/presentations/...`. */
+  ownerUid: string;
   topic: string;
   savedAt: string;
   updatedAt: string | null;
+  /** Presentación propia sincronizada vs compartida por otro usuario. */
+  source: "mine" | "shared";
 }
 
 function userPresentationsRef(db: import("firebase/firestore").Firestore, uid: string) {
@@ -316,6 +338,23 @@ export async function pushPresentationToCloud(
       ? Number((snap.data() as Record<string, unknown>).revision ?? 0)
       : 0;
 
+    let preservedSharedWith: string[] = [];
+    let preservedShareInviteEmails: string[] = [];
+    if (snap.exists()) {
+      const d = snap.data() as Record<string, unknown>;
+      const sw = d.sharedWith;
+      if (Array.isArray(sw)) {
+        preservedSharedWith = sw.filter((x): x is string => typeof x === "string");
+      }
+      const em = d.shareInviteEmails;
+      if (Array.isArray(em)) {
+        preservedShareInviteEmails = em
+          .filter((x): x is string => typeof x === "string")
+          .map((e) => normalizeShareEmail(e))
+          .filter((e): e is string => e != null);
+      }
+    }
+
     if (!force && snap.exists()) {
       const expected = localExpectedRevision ?? 0;
       if (remoteRev !== expected) {
@@ -326,6 +365,8 @@ export async function pushPresentationToCloud(
     const nextRev = snap.exists() ? remoteRev + 1 : 1;
     transaction.set(docRef, {
       ...payload,
+      sharedWith: preservedSharedWith,
+      shareInviteEmails: preservedShareInviteEmails,
       revision: nextRev,
       updatedAt: serverTimestamp(),
     });
@@ -354,6 +395,8 @@ export async function listCloudPresentations(
     const data = d.data() as Record<string, unknown>;
     return {
       cloudId: d.id,
+      ownerUid: uid,
+      source: "mine" as const,
       topic: String(data.topic ?? ""),
       savedAt: String(data.savedAt ?? ""),
       updatedAt: timestampToIso(data.updatedAt),
@@ -367,13 +410,136 @@ export async function listCloudPresentations(
   return out;
 }
 
+function mergeSharedPresentationDocs(
+  docs: QueryDocumentSnapshot[],
+  myUid: string
+): CloudPresentationListItem[] {
+  const byKey = new Map<string, CloudPresentationListItem>();
+  for (const d of docs) {
+    const ownerUid = d.ref.parent.parent?.id;
+    if (!ownerUid || ownerUid === myUid) continue;
+    const key = `${ownerUid}::${d.id}`;
+    if (byKey.has(key)) continue;
+    const data = d.data() as Record<string, unknown>;
+    byKey.set(key, {
+      cloudId: d.id,
+      ownerUid,
+      source: "shared",
+      topic: String(data.topic ?? ""),
+      savedAt: String(data.savedAt ?? ""),
+      updatedAt: timestampToIso(data.updatedAt),
+    });
+  }
+  const out = [...byKey.values()];
+  out.sort((a, b) => {
+    const ta = a.updatedAt || a.savedAt || "";
+    const tb = b.updatedAt || b.savedAt || "";
+    return tb.localeCompare(ta);
+  });
+  return out;
+}
+
+/**
+ * Presentaciones compartidas contigo por UID (`sharedWith`) o por correo (`shareInviteEmails`).
+ * Requiere índices de collection group (Firebase suele ofrecer el enlace al primer error).
+ */
+export async function listCloudPresentationsSharedWithMe(
+  myUid: string
+): Promise<CloudPresentationListItem[]> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  if (!inst.auth.currentUser || inst.auth.currentUser.uid !== myUid) {
+    throw new Error(
+      "La sesión de Firebase no coincide. Vuelve a iniciar sesión e inténtalo de nuevo."
+    );
+  }
+  const db = inst.firestore;
+  const emailNorm = inst.auth.currentUser.email
+    ? normalizeShareEmail(inst.auth.currentUser.email)
+    : null;
+
+  const qUid = query(
+    collectionGroup(db, "presentations"),
+    where("sharedWith", "array-contains", myUid)
+  );
+  const snapUid = await getDocs(qUid);
+  const collected = [...snapUid.docs];
+
+  if (emailNorm) {
+    const qEmail = query(
+      collectionGroup(db, "presentations"),
+      where("shareInviteEmails", "array-contains", emailNorm)
+    );
+    const snapEmail = await getDocs(qEmail);
+    collected.push(...snapEmail.docs);
+  }
+
+  return mergeSharedPresentationDocs(collected, myUid);
+}
+
+export async function getPresentationShareAccess(
+  ownerUid: string,
+  cloudId: string
+): Promise<PresentationShareAccess> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser) {
+    throw new Error("Inicia sesión para ver los permisos.");
+  }
+  const dref = presentationDoc(db, ownerUid, cloudId);
+  const snap = await getDoc(dref);
+  if (!snap.exists()) {
+    return { sharedWithUids: [], shareInviteEmails: [] };
+  }
+  const data = snap.data() as Record<string, unknown>;
+  const sw = data.sharedWith;
+  const em = data.shareInviteEmails;
+  const sharedWithUids = Array.isArray(sw)
+    ? sw.filter((x): x is string => typeof x === "string")
+    : [];
+  const shareInviteEmails = Array.isArray(em)
+    ? [...new Set(em.filter((x): x is string => typeof x === "string").map((e) => normalizeShareEmail(e)).filter((e): e is string => e != null))]
+    : [];
+  return { sharedWithUids, shareInviteEmails };
+}
+
+/** Solo el propietario puede actualizar; reglas Firestore deben coincidir. */
+export async function setPresentationShareAccess(
+  ownerUid: string,
+  cloudId: string,
+  access: PresentationShareAccess
+): Promise<void> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
+    throw new Error("Solo el propietario puede cambiar con quién se comparte.");
+  }
+  const uids = [...new Set(access.sharedWithUids.map((u) => u.trim()).filter(Boolean))];
+  const emails = [
+    ...new Set(
+      access.shareInviteEmails
+        .map((e) => normalizeShareEmail(e))
+        .filter((e): e is string => e != null)
+    ),
+  ];
+  const dref = presentationDoc(db, ownerUid, cloudId);
+  const snap = await getDoc(dref);
+  if (!snap.exists()) {
+    throw new Error("La presentación no está en la nube. Sincronízala primero.");
+  }
+  await updateDoc(dref, { sharedWith: uids, shareInviteEmails: emails });
+}
+
 /**
  * Descarga una presentación desde la nube (lista para importar con id local nuevo).
+ * `ownerUid` es el dueño del documento; el usuario actual debe ser el dueño o estar en `sharedWith`.
  */
 export type PulledPresentation = Omit<SavedPresentation, "id">;
 
 export async function pullPresentationFromCloud(
-  uid: string,
+  ownerUid: string,
   cloudId: string
 ): Promise<{ presentation: PulledPresentation; cloudRevision: number }> {
   const inst = await initFirebase();
@@ -381,18 +547,16 @@ export async function pullPresentationFromCloud(
     throw new Error("Firebase no inicializado");
   }
   const { firestore: db, storage: st, auth: fbAuth } = inst;
-  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== uid) {
-    throw new Error(
-      "La sesión de Firebase no coincide. Vuelve a iniciar sesión e inténtalo de nuevo."
-    );
+  if (!fbAuth.currentUser) {
+    throw new Error("Inicia sesión para descargar desde la nube.");
   }
-  const dref = presentationDoc(db, uid, cloudId);
+  const dref = presentationDoc(db, ownerUid, cloudId);
   const snap = await getDoc(dref);
   if (!snap.exists()) throw new Error("Presentación no encontrada en la nube");
 
   const data = snap.data() as Record<string, unknown>;
   const cloudRevision = Number(data.revision ?? 0);
-  const prefix = storagePrefix(uid, cloudId);
+  const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (data.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (data.excalidrawPaths as Record<string, string>) ?? {};
   const rawSlides = (data.slides as Record<string, unknown>[]) ?? [];

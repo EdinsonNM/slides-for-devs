@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use uuid::Uuid;
 
+/// Ámbito local para sesión sin cuenta (Firebase). Las presentaciones/personajes con otro valor pertenecen a ese `uid`.
+pub const ACCOUNT_SCOPE_GUEST: &str = "__guest__";
+
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS presentations (
     id TEXT PRIMARY KEY,
@@ -223,31 +226,112 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
             [],
         )?;
     }
+    // Migration: account_scope on presentations (guest vs Firebase uid).
+    let has_pres_scope: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='account_scope'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_pres_scope == 0 {
+        conn.execute("ALTER TABLE presentations ADD COLUMN account_scope TEXT", [])?;
+        conn.execute(
+            "UPDATE presentations SET account_scope = ?1 WHERE account_scope IS NULL OR TRIM(account_scope) = ''",
+            params![ACCOUNT_SCOPE_GUEST],
+        )?;
+    }
+    // Migration: saved_characters composite PK (account_scope, id) for per-account isolation.
+    let has_ch_scope: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('saved_characters') WHERE name='account_scope'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_ch_scope == 0 {
+        conn.execute_batch(&format!(
+            r#"
+            CREATE TABLE saved_characters_new (
+                account_scope TEXT NOT NULL,
+                id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                reference_image_url TEXT,
+                cloud_synced_at TEXT,
+                cloud_revision INTEGER,
+                PRIMARY KEY (account_scope, id)
+            );
+            INSERT INTO saved_characters_new (account_scope, id, name, description, reference_image_url, cloud_synced_at, cloud_revision)
+            SELECT '{guest}', id, name, description, reference_image_url, cloud_synced_at, cloud_revision FROM saved_characters;
+            DROP TABLE saved_characters;
+            ALTER TABLE saved_characters_new RENAME TO saved_characters;
+            "#,
+            guest = ACCOUNT_SCOPE_GUEST
+        ))?;
+    }
     Ok(())
 }
 
-/// Extract raw bytes from a data URL "data:image/png;base64,..." or return None.
+/// Extract raw bytes from a raster data URL (PNG, JPEG, WebP). Returns None if not a supported image data URL.
+/// El frontend optimiza slides a WebP (`imageOptimize.ts`); sin WebP aquí las imágenes no se guardaban en `slide_images`.
 fn data_url_to_bytes(data_url: &str) -> Option<Vec<u8>> {
-    let prefix = "data:image/png;base64,";
-    let b64 = data_url.strip_prefix(prefix).or_else(|| {
-        data_url.strip_prefix("data:image/jpeg;base64,")
-    })?;
+    let s = data_url.trim();
+    let lower = s.to_ascii_lowercase();
+    if !lower.starts_with("data:image/") {
+        return None;
+    }
+    let sep = ";base64,";
+    let idx = lower.find(sep)?;
+    let subtype = &lower["data:image/".len()..idx];
+    let allowed = matches!(subtype, "png" | "jpeg" | "jpg" | "webp");
+    if !allowed {
+        return None;
+    }
+    let b64_start = idx + sep.len();
+    let b64: String = s[b64_start..].chars().filter(|c| !c.is_whitespace()).collect();
     BASE64.decode(b64.as_bytes()).ok()
 }
 
-/// Build data URL from raw PNG/JPEG bytes (we store as PNG).
+/// Build data URL from stored BLOB bytes (mime por firma mágica).
 fn bytes_to_data_url(data: &[u8]) -> String {
+    let mime = if data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
+        "image/jpeg"
+    } else if data.len() >= 4
+        && data[0] == 0x89
+        && data[1] == 0x50
+        && data[2] == 0x4E
+        && data[3] == 0x47
+    {
+        "image/png"
+    } else if data.len() >= 12
+        && data[0] == 0x52
+        && data[1] == 0x49
+        && data[2] == 0x46
+        && data[3] == 0x46
+        && &data[8..12] == b"WEBP"
+    {
+        "image/webp"
+    } else {
+        "image/png"
+    };
     let b64 = BASE64.encode(data);
-    format!("data:image/png;base64,{b64}")
+    format!("data:{mime};base64,{b64}")
 }
 
-pub fn save_presentation(conn: &Connection, presentation: &Presentation) -> Result<String, rusqlite::Error> {
+pub fn save_presentation(
+    conn: &Connection,
+    presentation: &Presentation,
+    account_scope: &str,
+) -> Result<String, rusqlite::Error> {
     let id = Uuid::new_v4().to_string();
     let saved_at = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO presentations (id, topic, saved_at, character_id) VALUES (?1, ?2, ?3, ?4)",
-        params![id, presentation.topic, saved_at, presentation.character_id],
+        "INSERT INTO presentations (id, topic, saved_at, character_id, account_scope) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            id,
+            presentation.topic,
+            saved_at,
+            presentation.character_id,
+            account_scope
+        ],
     )?;
 
     for (ordinal, slide) in presentation.slides.iter().enumerate() {
@@ -300,10 +384,17 @@ pub fn save_presentation(conn: &Connection, presentation: &Presentation) -> Resu
 pub fn import_presentation(
     conn: &Connection,
     saved: &SavedPresentation,
+    account_scope: &str,
 ) -> Result<(), rusqlite::Error> {
     conn.execute(
-        "INSERT OR REPLACE INTO presentations (id, topic, saved_at, character_id) VALUES (?1, ?2, ?3, ?4)",
-        params![saved.id, saved.topic, saved.saved_at, saved.character_id],
+        "INSERT OR REPLACE INTO presentations (id, topic, saved_at, character_id, account_scope) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            saved.id,
+            saved.topic,
+            saved.saved_at,
+            saved.character_id,
+            account_scope
+        ],
     )?;
 
     conn.execute("DELETE FROM slide_images WHERE presentation_id = ?1", params![saved.id])?;
@@ -359,12 +450,19 @@ pub fn update_presentation(
     conn: &Connection,
     id: &str,
     presentation: &Presentation,
+    account_scope: &str,
 ) -> Result<(), rusqlite::Error> {
     let saved_at = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3 WHERE id = ?4",
-        params![presentation.topic, saved_at, presentation.character_id, id],
+        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3 WHERE id = ?4 AND account_scope = ?5",
+        params![
+            presentation.topic,
+            saved_at,
+            presentation.character_id,
+            id,
+            account_scope
+        ],
     )?;
     if conn.changes() == 0 {
         return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -419,10 +517,14 @@ pub fn update_presentation(
     Ok(())
 }
 
-pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentation, rusqlite::Error> {
+pub fn load_presentation(
+    conn: &Connection,
+    id: &str,
+    account_scope: &str,
+) -> Result<SavedPresentation, rusqlite::Error> {
     let (topic, saved_at, character_id): (String, String, Option<String>) = conn.query_row(
-        "SELECT topic, saved_at, character_id FROM presentations WHERE id = ?1",
-        params![id],
+        "SELECT topic, saved_at, character_id FROM presentations WHERE id = ?1 AND account_scope = ?2",
+        params![id, account_scope],
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     )?;
 
@@ -501,18 +603,22 @@ pub fn load_presentation(conn: &Connection, id: &str) -> Result<SavedPresentatio
     })
 }
 
-pub fn list_presentations(conn: &Connection) -> Result<Vec<SavedPresentationMeta>, rusqlite::Error> {
+pub fn list_presentations(
+    conn: &Connection,
+    account_scope: &str,
+) -> Result<Vec<SavedPresentationMeta>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         r#"
         SELECT p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision,
                COUNT(s.ordinal) AS slide_count
         FROM presentations p
         LEFT JOIN slides s ON s.presentation_id = p.id
+        WHERE p.account_scope = ?1
         GROUP BY p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision
         ORDER BY p.saved_at DESC
         "#,
     )?;
-    let rows = stmt.query_map([], |row| {
+    let rows = stmt.query_map(params![account_scope], |row| {
         Ok(SavedPresentationMeta {
             id: row.get(0)?,
             topic: row.get(1)?,
@@ -533,10 +639,11 @@ pub fn set_presentation_cloud_state(
     cloud_id: Option<&str>,
     cloud_synced_at: Option<&str>,
     cloud_revision: Option<i64>,
+    account_scope: &str,
 ) -> Result<(), rusqlite::Error> {
     let n = conn.execute(
-        "UPDATE presentations SET cloud_id = ?1, cloud_synced_at = ?2, cloud_revision = ?3 WHERE id = ?4",
-        params![cloud_id, cloud_synced_at, cloud_revision, id],
+        "UPDATE presentations SET cloud_id = ?1, cloud_synced_at = ?2, cloud_revision = ?3 WHERE id = ?4 AND account_scope = ?5",
+        params![cloud_id, cloud_synced_at, cloud_revision, id, account_scope],
     )?;
     if n == 0 {
         return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -545,22 +652,36 @@ pub fn set_presentation_cloud_state(
 }
 
 /// Import a full saved presentation (e.g. from cloud). Uses `saved.id` as local row id.
-pub fn import_saved_presentation(conn: &Connection, saved: &SavedPresentation) -> Result<(), rusqlite::Error> {
-    import_presentation(conn, saved)
+pub fn import_saved_presentation(
+    conn: &Connection,
+    saved: &SavedPresentation,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
+    import_presentation(conn, saved, account_scope)
 }
 
-pub fn delete_presentation(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
-    conn.execute("DELETE FROM presentations WHERE id = ?1", params![id])?;
+pub fn delete_presentation(
+    conn: &Connection,
+    id: &str,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM presentations WHERE id = ?1 AND account_scope = ?2",
+        params![id, account_scope],
+    )?;
     Ok(())
 }
 
 // --- Saved characters ---
 
-pub fn list_characters(conn: &Connection) -> Result<Vec<SavedCharacter>, rusqlite::Error> {
+pub fn list_characters(
+    conn: &Connection,
+    account_scope: &str,
+) -> Result<Vec<SavedCharacter>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, description, reference_image_url, cloud_synced_at, cloud_revision FROM saved_characters ORDER BY name",
+        "SELECT id, name, description, reference_image_url, cloud_synced_at, cloud_revision FROM saved_characters WHERE account_scope = ?1 ORDER BY name",
     )?;
-    let rows = stmt.query_map([], |row| {
+    let rows = stmt.query_map(params![account_scope], |row| {
         Ok(SavedCharacter {
             id: row.get(0)?,
             name: row.get(1)?,
@@ -573,10 +694,15 @@ pub fn list_characters(conn: &Connection) -> Result<Vec<SavedCharacter>, rusqlit
     rows.collect()
 }
 
-pub fn save_character(conn: &Connection, character: &SavedCharacter) -> Result<(), rusqlite::Error> {
+pub fn save_character(
+    conn: &Connection,
+    character: &SavedCharacter,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
     conn.execute(
-        "INSERT OR REPLACE INTO saved_characters (id, name, description, reference_image_url, cloud_synced_at, cloud_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT OR REPLACE INTO saved_characters (account_scope, id, name, description, reference_image_url, cloud_synced_at, cloud_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
+            account_scope,
             character.id,
             character.name,
             character.description,
@@ -593,10 +719,11 @@ pub fn set_character_cloud_state(
     id: &str,
     cloud_synced_at: Option<&str>,
     cloud_revision: Option<i64>,
+    account_scope: &str,
 ) -> Result<(), rusqlite::Error> {
     let n = conn.execute(
-        "UPDATE saved_characters SET cloud_synced_at = ?1, cloud_revision = ?2 WHERE id = ?3",
-        params![cloud_synced_at, cloud_revision, id],
+        "UPDATE saved_characters SET cloud_synced_at = ?1, cloud_revision = ?2 WHERE id = ?3 AND account_scope = ?4",
+        params![cloud_synced_at, cloud_revision, id, account_scope],
     )?;
     if n == 0 {
         return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -604,7 +731,14 @@ pub fn set_character_cloud_state(
     Ok(())
 }
 
-pub fn delete_character(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
-    conn.execute("DELETE FROM saved_characters WHERE id = ?1", params![id])?;
+pub fn delete_character(
+    conn: &Connection,
+    id: &str,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM saved_characters WHERE id = ?1 AND account_scope = ?2",
+        params![id, account_scope],
+    )?;
     Ok(())
 }

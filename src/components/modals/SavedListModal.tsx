@@ -1,4 +1,4 @@
-import { Trash2, X, CloudUpload, Loader2 } from "lucide-react";
+import { Trash2, X, CloudUpload, Loader2, Share2 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 
 export function SavedListModal() {
@@ -11,6 +11,7 @@ export function SavedListModal() {
     cloudSyncAvailable,
     syncingToCloudId,
     handleSyncPresentationToCloud,
+    openSharePresentationModal,
   } = usePresentation();
 
   if (!showSavedListModal) return null;
@@ -80,6 +81,16 @@ export function SavedListModal() {
                         ) : (
                           <CloudUpload size={18} />
                         )}
+                      </button>
+                    )}
+                    {cloudSyncAvailable && p.cloudId && (
+                      <button
+                        type="button"
+                        onClick={() => openSharePresentationModal(p.id)}
+                        className="p-2.5 text-stone-500 hover:text-violet-600 border-l border-stone-200 dark:border-border"
+                        title="Compartir (correo o UID)"
+                      >
+                        <Share2 size={18} />
                       </button>
                     )}
                     <button

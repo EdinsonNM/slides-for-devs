@@ -1,0 +1,37 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function presentationPath(ownerId, presId) {
+      return /databases/(default)/documents/users/$(ownerId)/presentations/$(presId);
+    }
+    function presentationFirestoreData(ownerId, presId) {
+      return firestore.get(presentationPath(ownerId, presId)).data;
+    }
+    function canReadPresentationFiles(ownerId, presId) {
+      return request.auth != null && (
+        request.auth.uid == ownerId ||
+        (
+          firestore.exists(presentationPath(ownerId, presId)) &&
+          (
+            (
+              presentationFirestoreData(ownerId, presId).sharedWith is list &&
+              request.auth.uid in presentationFirestoreData(ownerId, presId).sharedWith
+            ) ||
+            (
+              request.auth.token.email != null &&
+              presentationFirestoreData(ownerId, presId).shareInviteEmails is list &&
+              request.auth.token.email.lower() in presentationFirestoreData(ownerId, presId).shareInviteEmails
+            )
+          )
+        )
+      );
+    }
+    match /users/{userId}/presentations/{presId}/{allPaths=**} {
+      allow read: if canReadPresentationFiles(userId, presId);
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/characters/{charId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

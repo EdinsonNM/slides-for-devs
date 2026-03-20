@@ -7,6 +7,7 @@ import {
   Trash2,
   Cloud,
   CloudUpload,
+  Share2,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
@@ -44,6 +45,8 @@ export interface HomeWithCarouselProps {
   onSyncToCloud?: (id: string) => void;
   syncingToCloudId?: string | null;
   onOpenCloudPresentations?: () => void;
+  /** Compartir por UID (solo si la tarjeta tiene `cloudId`). */
+  onSharePresentation?: (localId: string) => void;
 }
 
 /**
@@ -70,6 +73,7 @@ export function HomeWithCarousel({
   onSyncToCloud,
   syncingToCloudId = null,
   onOpenCloudPresentations,
+  onSharePresentation,
 }: HomeWithCarouselProps) {
   const [showExploreAll, setShowExploreAll] = useState(false);
 
@@ -226,6 +230,21 @@ export function HomeWithCarousel({
                             )}
                           </button>
                         )}
+                        {cloudSyncAvailable && p.cloudId && onSharePresentation && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onSharePresentation(p.id);
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
+                            title="Compartir (correo o UID)"
+                          >
+                            <Share2 size={18} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -294,6 +313,7 @@ export function HomeWithCarousel({
                 cloudSyncAvailable={cloudSyncAvailable}
                 onSyncToCloud={onSyncToCloud}
                 syncingToCloudId={syncingToCloudId}
+                onSharePresentation={onSharePresentation}
               />
             </motion.div>
           )}
