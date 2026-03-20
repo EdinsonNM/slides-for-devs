@@ -1,4 +1,7 @@
-import { PRESENTATION_MODELS } from "../constants/presentationModels";
+import {
+  PRESENTATION_MODELS,
+  type PresentationProvider,
+} from "../constants/presentationModels";
 import type { PresentationGeneratorPort, SlideOperationsPort, ImageGeneratorPort } from "../domain/ports";
 import {
   GeneratePresentationUseCase,
@@ -7,16 +10,45 @@ import {
   GenerateImagePromptAlternativesUseCase,
   GenerateImageUseCase,
 } from "../application/use-cases";
-import { GeminiAdapter, OpenAIAdapter, XaiAdapter } from "../infrastructure/adapters";
+import { GeminiAdapter, OpenAIAdapter, XaiAdapter, OpenAiCompatibleAdapter } from "../infrastructure/adapters";
+import { getGroqApiKey, getCerebrasApiKey, getOpenRouterApiKey } from "../services/apiConfig";
 
 const gemini = new GeminiAdapter();
 const openai = new OpenAIAdapter();
 const xai = new XaiAdapter();
+const groq = new OpenAiCompatibleAdapter({
+  providerId: "groq",
+  chatUrl: "https://api.groq.com/openai/v1/chat/completions",
+  getApiKey: getGroqApiKey,
+  label: "Groq",
+  defaultModel: "openai/gpt-oss-20b",
+});
+const cerebras = new OpenAiCompatibleAdapter({
+  providerId: "cerebras",
+  chatUrl: "https://api.cerebras.ai/v1/chat/completions",
+  getApiKey: getCerebrasApiKey,
+  label: "Cerebras",
+  defaultModel: "llama3.1-8b",
+});
+const openrouter = new OpenAiCompatibleAdapter({
+  providerId: "openrouter",
+  chatUrl: "https://openrouter.ai/api/v1/chat/completions",
+  getApiKey: getOpenRouterApiKey,
+  label: "OpenRouter",
+  defaultModel: "openrouter/free",
+  extraHeaders: {
+    "HTTP-Referer": "https://slaim.app",
+    "X-Title": "Slaim",
+  },
+});
 
-const byProvider: Record<string, PresentationGeneratorPort> = {
+const byProvider: Record<PresentationProvider, PresentationGeneratorPort> = {
   gemini,
   openai,
   xai,
+  groq,
+  cerebras,
+  openrouter,
 };
 
 function getPresentationGenerator(modelId: string): PresentationGeneratorPort {
@@ -27,7 +59,7 @@ function getPresentationGenerator(modelId: string): PresentationGeneratorPort {
 function getSlideOperations(modelId: string): SlideOperationsPort | null {
   const option = PRESENTATION_MODELS.find((m) => m.id === modelId);
   if (option?.provider === "xai") return null;
-  return byProvider[option?.provider ?? "gemini"] as SlideOperationsPort;
+  return byProvider[option?.provider ?? "gemini"] as unknown as SlideOperationsPort;
 }
 
 const imageByProvider: Record<"gemini" | "openai", ImageGeneratorPort> = {

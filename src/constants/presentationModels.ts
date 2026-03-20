@@ -1,4 +1,22 @@
-export type PresentationProvider = "gemini" | "openai" | "xai";
+export type PresentationProvider =
+  | "gemini"
+  | "openai"
+  | "xai"
+  | "groq"
+  | "cerebras"
+  | "openrouter";
+
+/** Usar el modelo del combo para split / rewrite / alternativas de prompt (API chat tipo OpenAI). */
+export function usesChatCompletionSlideOps(
+  provider: PresentationProvider | undefined
+): boolean {
+  return (
+    provider === "openai" ||
+    provider === "groq" ||
+    provider === "cerebras" ||
+    provider === "openrouter"
+  );
+}
 
 export interface PresentationModelOption {
   id: string;
@@ -82,6 +100,21 @@ export const PRESENTATION_MODELS: PresentationModelOption[] = [
     id: "grok-3-mini",
     label: "Grok 3 mini",
     provider: "xai",
+  },
+  {
+    id: "openai/gpt-oss-20b",
+    label: "Groq — GPT-OSS 20B",
+    provider: "groq",
+  },
+  {
+    id: "openrouter/free",
+    label: "OpenRouter (free)",
+    provider: "openrouter",
+  },
+  {
+    id: "llama3.1-8b",
+    label: "Cerebras Llama 3.1 8B",
+    provider: "cerebras",
   },
 ];
 

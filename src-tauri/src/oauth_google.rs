@@ -131,6 +131,7 @@ fn exchange_code_for_tokens(
     }
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(15))
+        .no_zstd()
         .build()
         .map_err(|e| e.to_string())?;
     let res = client

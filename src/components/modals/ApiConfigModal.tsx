@@ -4,9 +4,15 @@ import {
   getGeminiApiKey,
   getOpenAIApiKey,
   getXaiApiKey,
+  getGroqApiKey,
+  getCerebrasApiKey,
+  getOpenRouterApiKey,
   setGeminiApiKey,
   setOpenAIApiKey,
   setXaiApiKey,
+  setGroqApiKey,
+  setCerebrasApiKey,
+  setOpenRouterApiKey,
 } from "../../services/apiConfig";
 import { BaseModal } from "./BaseModal";
 import { cn } from "../../utils/cn";
@@ -25,6 +31,9 @@ export function ApiConfigModal({
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
   const [xaiKey, setXaiKey] = useState("");
+  const [groqKey, setGroqKey] = useState("");
+  const [cerebrasKey, setCerebrasKey] = useState("");
+  const [openrouterKey, setOpenrouterKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
@@ -33,6 +42,9 @@ export function ApiConfigModal({
       setGeminiKey(getGeminiApiKey() ?? "");
       setOpenaiKey(getOpenAIApiKey() ?? "");
       setXaiKey(getXaiApiKey() ?? "");
+      setGroqKey(getGroqApiKey() ?? "");
+      setCerebrasKey(getCerebrasApiKey() ?? "");
+      setOpenrouterKey(getOpenRouterApiKey() ?? "");
       setTouched(false);
     }
   }, [isOpen]);
@@ -40,7 +52,11 @@ export function ApiConfigModal({
   const hasGemini = geminiKey.trim().length > 0;
   const hasOpenAI = openaiKey.trim().length > 0;
   const hasXai = xaiKey.trim().length > 0;
-  const canSave = hasGemini || hasOpenAI || hasXai;
+  const hasGroq = groqKey.trim().length > 0;
+  const hasCerebras = cerebrasKey.trim().length > 0;
+  const hasOpenRouter = openrouterKey.trim().length > 0;
+  const canSave =
+    hasGemini || hasOpenAI || hasXai || hasGroq || hasCerebras || hasOpenRouter;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +67,9 @@ export function ApiConfigModal({
       await setGeminiApiKey(geminiKey);
       await setOpenAIApiKey(openaiKey);
       await setXaiApiKey(xaiKey);
+      await setGroqApiKey(groqKey);
+      await setCerebrasApiKey(cerebrasKey);
+      await setOpenRouterApiKey(openrouterKey);
       onSaved?.();
       onClose();
     } finally {
@@ -183,6 +202,126 @@ export function ApiConfigModal({
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
             <a
               href="https://console.x.ai/team/default/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              Obtener clave
+            </a>
+          </p>
+        </div>
+
+        <div>
+          <label
+            htmlFor="config-groq-key"
+            className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1"
+          >
+            API Key de Groq (opcional)
+          </label>
+          <div className="relative">
+            <input
+              id="config-groq-key"
+              type="password"
+              value={groqKey}
+              onChange={(e) => setGroqKey(e.target.value)}
+              placeholder="Ej: gsk_..."
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg border text-sm",
+                "bg-white dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
+                "border-stone-200 dark:border-border"
+              )}
+              autoComplete="off"
+            />
+            {hasGroq && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
+                <Check size={16} />
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+            <a
+              href="https://console.groq.com/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              Obtener clave
+            </a>
+          </p>
+        </div>
+
+        <div>
+          <label
+            htmlFor="config-cerebras-key"
+            className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1"
+          >
+            API Key de Cerebras (opcional)
+          </label>
+          <div className="relative">
+            <input
+              id="config-cerebras-key"
+              type="password"
+              value={cerebrasKey}
+              onChange={(e) => setCerebrasKey(e.target.value)}
+              placeholder="Clave de API"
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg border text-sm",
+                "bg-white dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
+                "border-stone-200 dark:border-border"
+              )}
+              autoComplete="off"
+            />
+            {hasCerebras && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
+                <Check size={16} />
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+            <a
+              href="https://cloud.cerebras.ai/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              Cerebras Cloud
+            </a>
+          </p>
+        </div>
+
+        <div>
+          <label
+            htmlFor="config-openrouter-key"
+            className="block text-sm font-medium text-stone-700 dark:text-foreground mb-1"
+          >
+            API Key de OpenRouter (opcional)
+          </label>
+          <div className="relative">
+            <input
+              id="config-openrouter-key"
+              type="password"
+              value={openrouterKey}
+              onChange={(e) => setOpenrouterKey(e.target.value)}
+              placeholder="Ej: sk-or-..."
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg border text-sm",
+                "bg-white dark:bg-surface text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500",
+                "border-stone-200 dark:border-border"
+              )}
+              autoComplete="off"
+            />
+            {hasOpenRouter && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
+                <Check size={16} />
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+            <a
+              href="https://openrouter.ai/keys"
               target="_blank"
               rel="noopener noreferrer"
               className="text-emerald-600 dark:text-emerald-400 hover:underline"

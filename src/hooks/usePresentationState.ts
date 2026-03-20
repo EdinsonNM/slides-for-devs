@@ -28,6 +28,9 @@ import {
   getGeminiApiKey,
   getOpenAIApiKey,
   getXaiApiKey,
+  getGroqApiKey,
+  getCerebrasApiKey,
+  getOpenRouterApiKey,
 } from "../services/apiConfig";
 import {
   savePresentation,
@@ -63,6 +66,7 @@ import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
   PRESENTATION_MODELS,
   DEFAULT_PRESENTATION_MODEL_ID,
+  usesChatCompletionSlideOps,
 } from "../constants/presentationModels";
 import {
   GEMINI_IMAGE_MODELS,
@@ -186,15 +190,29 @@ export function usePresentationState() {
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
   const hasXai = !!getXaiApiKey();
+  const hasGroq = !!getGroqApiKey();
+  const hasCerebras = !!getCerebrasApiKey();
+  const hasOpenRouter = !!getOpenRouterApiKey();
   const presentationModels = useMemo(
     () =>
       PRESENTATION_MODELS.filter(
         (m) =>
           (m.provider === "gemini" && hasGemini) ||
           (m.provider === "openai" && hasOpenAI) ||
-          (m.provider === "xai" && hasXai)
+          (m.provider === "xai" && hasXai) ||
+          (m.provider === "groq" && hasGroq) ||
+          (m.provider === "cerebras" && hasCerebras) ||
+          (m.provider === "openrouter" && hasOpenRouter)
       ),
-    [hasGemini, hasOpenAI, hasXai, apiKeysVersion]
+    [
+      hasGemini,
+      hasOpenAI,
+      hasXai,
+      hasGroq,
+      hasCerebras,
+      hasOpenRouter,
+      apiKeysVersion,
+    ]
   );
 
   const refreshApiKeys = useCallback(() => {
@@ -310,9 +328,11 @@ export function usePresentationState() {
       } catch (error) {
         if (cancelled) return;
         console.error("Error generating presentation:", error);
-        alert(
-          "Hubo un error al generar la presentación. Por favor intenta de nuevo."
-        );
+        const errorMessage =
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "Hubo un error al generar la presentación. Por favor intenta de nuevo.";
+        alert(`Error al generar la presentación:\n${errorMessage}`);
         setPendingGeneration(null);
         setSlides([]);
         setTopic("");
@@ -612,10 +632,9 @@ export function usePresentationState() {
     const characterPrompt = selectedCharacterId
       ? savedCharacters.find((c) => c.id === selectedCharacterId)?.description
       : undefined;
-    const modelId =
-      presentationModelOption?.provider === "openai"
-        ? presentationModelId
-        : effectiveGeminiModel;
+    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+      ? presentationModelId
+      : effectiveGeminiModel;
     try {
       const alternative = await generateImagePromptAlternatives.run(
         slideContext,
@@ -638,10 +657,9 @@ export function usePresentationState() {
   const handleSplitSlide = async () => {
     if (!splitPrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
-    const modelId =
-      presentationModelOption?.provider === "openai"
-        ? presentationModelId
-        : effectiveGeminiModel;
+    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+      ? presentationModelId
+      : effectiveGeminiModel;
     try {
       const newSlides = await splitSlideUseCase.run(
         currentSlide,
@@ -676,10 +694,9 @@ export function usePresentationState() {
   const handleRewriteSlide = async () => {
     if (!rewritePrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
-    const modelId =
-      presentationModelOption?.provider === "openai"
-        ? presentationModelId
-        : effectiveGeminiModel;
+    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+      ? presentationModelId
+      : effectiveGeminiModel;
     try {
       const result = await rewriteSlideUseCase.run(
         currentSlide,

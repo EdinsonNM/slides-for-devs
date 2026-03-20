@@ -8,12 +8,24 @@ import { slideSchemaItemToSlide } from "./slide.schema";
  */
 export type PresentationResponse = { slides: SlideSchemaItem[] } | SlideSchemaItem[];
 
+/** Quita ```json ... ``` si el modelo envolvió el JSON en un fence markdown. */
+function stripMarkdownJsonFence(s: string): string {
+  let t = s.trim();
+  const fenced = /^```(?:json)?\s*\r?\n?([\s\S]*?)\r?\n?```\s*$/i;
+  const m = t.match(fenced);
+  if (m) return m[1].trim();
+  if (t.startsWith("```")) {
+    t = t.replace(/^```(?:json)?\s*\r?\n?/i, "").replace(/\r?\n?```\s*$/i, "");
+  }
+  return t.trim();
+}
+
 /**
  * Parsea el texto de respuesta del LLM y devuelve un array de Slide.
  * Acepta JSON con clave "slides" o array directo. Extrae el array si viene envuelto en texto.
  */
 export function parseSlidesFromResponse(text: string): Slide[] {
-  const trimmed = (text || "").trim();
+  const trimmed = stripMarkdownJsonFence(text || "");
   if (!trimmed) return [];
 
   try {

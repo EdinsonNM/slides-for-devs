@@ -1,4 +1,5 @@
 mod api_keys;
+mod ai_providers;
 mod db;
 mod oauth_google;
 
@@ -170,8 +171,46 @@ fn set_xai_api_key(key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_groq_api_key() -> Result<Option<String>, String> {
+    api_keys::get_groq_api_key()
+}
+
+#[tauri::command]
+fn set_groq_api_key(key: String) -> Result<(), String> {
+    api_keys::set_groq_api_key(&key)
+}
+
+#[tauri::command]
+fn get_cerebras_api_key() -> Result<Option<String>, String> {
+    api_keys::get_cerebras_api_key()
+}
+
+#[tauri::command]
+fn set_cerebras_api_key(key: String) -> Result<(), String> {
+    api_keys::set_cerebras_api_key(&key)
+}
+
+#[tauri::command]
+fn get_openrouter_api_key() -> Result<Option<String>, String> {
+    api_keys::get_openrouter_api_key()
+}
+
+#[tauri::command]
+fn set_openrouter_api_key(key: String) -> Result<(), String> {
+    api_keys::set_openrouter_api_key(&key)
+}
+
+#[tauri::command]
 fn has_any_api_configured() -> Result<bool, String> {
     api_keys::has_any_api_configured()
+}
+
+#[tauri::command]
+fn provider_chat_completion(
+    provider: String,
+    request: ai_providers::ProviderChatRequest,
+) -> Result<ai_providers::ProviderTextResponse, String> {
+    ai_providers::provider_chat_completion(provider, request)
 }
 
 // --- Firebase (Slaim en la nube): config desde archivo en AppData o raíz del proyecto ---
@@ -373,7 +412,14 @@ pub fn run() {
             set_openai_api_key,
             get_xai_api_key,
             set_xai_api_key,
+            get_groq_api_key,
+            set_groq_api_key,
+            get_cerebras_api_key,
+            set_cerebras_api_key,
+            get_openrouter_api_key,
+            set_openrouter_api_key,
             has_any_api_configured,
+            provider_chat_completion,
             save_presentation,
             update_presentation,
             load_presentation,

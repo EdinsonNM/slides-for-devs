@@ -1,16 +1,25 @@
 const STORAGE_GEMINI = "slaim_gemini_api_key";
 const STORAGE_OPENAI = "slaim_openai_api_key";
 const STORAGE_XAI = "slaim_xai_api_key";
+const STORAGE_GROQ = "slaim_groq_api_key";
+const STORAGE_CEREBRAS = "slaim_cerebras_api_key";
+const STORAGE_OPENROUTER = "slaim_openrouter_api_key";
 
 /** Cache en memoria cuando corre en Tauri (keychain); se rellena con loadApiKeysFromBackend(). */
 const inMemoryCache: {
   gemini: string | null;
   openai: string | null;
   xai: string | null;
+  groq: string | null;
+  cerebras: string | null;
+  openrouter: string | null;
 } = {
   gemini: null,
   openai: null,
   xai: null,
+  groq: null,
+  cerebras: null,
+  openrouter: null,
 };
 
 function isTauri(): boolean {
@@ -25,30 +34,56 @@ export async function loadApiKeysFromBackend(): Promise<void> {
   if (!isTauri()) return;
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const [gemini, openai, xai] = await Promise.all([
+    const [
+      gemini,
+      openai,
+      xai,
+      groq,
+      cerebras,
+      openrouter,
+    ] = await Promise.all([
       invoke<string | null>("get_gemini_api_key"),
       invoke<string | null>("get_openai_api_key"),
       invoke<string | null>("get_xai_api_key"),
+      invoke<string | null>("get_groq_api_key"),
+      invoke<string | null>("get_cerebras_api_key"),
+      invoke<string | null>("get_openrouter_api_key"),
     ]);
     inMemoryCache.gemini = gemini?.trim() || null;
     inMemoryCache.openai = openai?.trim() || null;
     inMemoryCache.xai = xai?.trim() || null;
+    inMemoryCache.groq = groq?.trim() || null;
+    inMemoryCache.cerebras = cerebras?.trim() || null;
+    inMemoryCache.openrouter = openrouter?.trim() || null;
   } catch {
     inMemoryCache.gemini = null;
     inMemoryCache.openai = null;
     inMemoryCache.xai = null;
+    inMemoryCache.groq = null;
+    inMemoryCache.cerebras = null;
+    inMemoryCache.openrouter = null;
   }
 }
 
 /** Devuelve si hay al menos una API configurada (solo las configuradas en la app, no env). */
 export function hasAnyApiConfiguredSync(): boolean {
   if (isTauri()) {
-    return !!(inMemoryCache.gemini || inMemoryCache.openai || inMemoryCache.xai);
+    return !!(
+      inMemoryCache.gemini ||
+      inMemoryCache.openai ||
+      inMemoryCache.xai ||
+      inMemoryCache.groq ||
+      inMemoryCache.cerebras ||
+      inMemoryCache.openrouter
+    );
   }
   const stored =
     localStorage.getItem(STORAGE_GEMINI)?.trim() ||
     localStorage.getItem(STORAGE_OPENAI)?.trim() ||
-    localStorage.getItem(STORAGE_XAI)?.trim();
+    localStorage.getItem(STORAGE_XAI)?.trim() ||
+    localStorage.getItem(STORAGE_GROQ)?.trim() ||
+    localStorage.getItem(STORAGE_CEREBRAS)?.trim() ||
+    localStorage.getItem(STORAGE_OPENROUTER)?.trim();
   return !!stored;
 }
 
@@ -81,6 +116,21 @@ export function getOpenAIApiKey(): string | undefined {
 export function getXaiApiKey(): string | undefined {
   if (isTauri()) return inMemoryCache.xai ?? undefined;
   return localStorage.getItem(STORAGE_XAI)?.trim() || undefined;
+}
+
+export function getGroqApiKey(): string | undefined {
+  if (isTauri()) return inMemoryCache.groq ?? undefined;
+  return localStorage.getItem(STORAGE_GROQ)?.trim() || undefined;
+}
+
+export function getCerebrasApiKey(): string | undefined {
+  if (isTauri()) return inMemoryCache.cerebras ?? undefined;
+  return localStorage.getItem(STORAGE_CEREBRAS)?.trim() || undefined;
+}
+
+export function getOpenRouterApiKey(): string | undefined {
+  if (isTauri()) return inMemoryCache.openrouter ?? undefined;
+  return localStorage.getItem(STORAGE_OPENROUTER)?.trim() || undefined;
 }
 
 /** Guarda la clave de Gemini. En Tauri usa keychain y actualiza el cache. */
@@ -119,6 +169,42 @@ export async function setXaiApiKey(key: string): Promise<void> {
   } else {
     if (trimmed) localStorage.setItem(STORAGE_XAI, trimmed);
     else localStorage.removeItem(STORAGE_XAI);
+  }
+}
+
+export async function setGroqApiKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_groq_api_key", { key: trimmed || "" });
+    inMemoryCache.groq = trimmed || null;
+  } else {
+    if (trimmed) localStorage.setItem(STORAGE_GROQ, trimmed);
+    else localStorage.removeItem(STORAGE_GROQ);
+  }
+}
+
+export async function setCerebrasApiKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_cerebras_api_key", { key: trimmed || "" });
+    inMemoryCache.cerebras = trimmed || null;
+  } else {
+    if (trimmed) localStorage.setItem(STORAGE_CEREBRAS, trimmed);
+    else localStorage.removeItem(STORAGE_CEREBRAS);
+  }
+}
+
+export async function setOpenRouterApiKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_openrouter_api_key", { key: trimmed || "" });
+    inMemoryCache.openrouter = trimmed || null;
+  } else {
+    if (trimmed) localStorage.setItem(STORAGE_OPENROUTER, trimmed);
+    else localStorage.removeItem(STORAGE_OPENROUTER);
   }
 }
 
