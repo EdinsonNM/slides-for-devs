@@ -1,16 +1,29 @@
 import { Monitor } from "lucide-react";
 import type { Slide } from "../../types";
+import { cn } from "../../utils/cn";
 
 export interface PresenterSlideSummaryProps {
   slide: Slide;
+  /**
+   * `inline`: panel estrecho a la izquierda (layout clásico).
+   * `stacked`: ancho completo arriba del bloque de notas (columna con escenario de diapositiva).
+   */
+  layout?: "inline" | "stacked";
 }
 
 /**
  * Resumen de la diapositiva actual en el panel lateral del presentador.
  */
-export function PresenterSlideSummary({ slide }: PresenterSlideSummaryProps) {
+export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSlideSummaryProps) {
   return (
-    <aside className="shrink-0 flex flex-col gap-2 p-3 border-b md:border-b-0 md:border-r border-stone-700 md:w-[min(220px,28%)] md:min-w-[160px] md:max-w-[260px] max-h-[120px] md:max-h-[140px]">
+    <aside
+      className={cn(
+        "shrink-0 flex flex-col gap-2 border-stone-700 p-3",
+        layout === "stacked"
+          ? "max-h-[min(120px,22vh)] w-full border-b"
+          : "max-h-[120px] border-b md:max-h-[140px] md:w-[min(220px,28%)] md:min-w-[160px] md:max-w-[260px] md:border-b-0 md:border-r",
+      )}
+    >
       <h2 className="text-[10px] font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1.5 shrink-0">
         <Monitor size={12} />
         Diapositiva actual
@@ -57,6 +70,11 @@ export function PresenterSlideSummary({ slide }: PresenterSlideSummaryProps) {
           {slide.contentType === "video" && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Video
+            </span>
+          )}
+          {slide.contentType === "presenter3d" && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              Presentador 3D
             </span>
           )}
         </div>

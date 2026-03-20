@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { deleteObject, getBytes, ref, uploadBytes, type FirebaseStorage } from "firebase/storage";
 import type { Slide } from "../types";
+import { parsePresenter3dViewState } from "../utils/presenter3dView";
 import type { SavedPresentation } from "../types";
 import { initFirebase } from "./firebase";
 import {
@@ -161,6 +162,9 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     fontSize: s.fontSize ?? null,
     videoUrl: s.videoUrl ?? null,
     contentType: s.contentType ?? null,
+    presenter3dDeviceId: s.presenter3dDeviceId ?? null,
+    presenter3dScreenMedia: s.presenter3dScreenMedia ?? null,
+    presenter3dViewState: s.presenter3dViewState ?? null,
     imageWidthPercent: s.imageWidthPercent ?? null,
     contentLayout: s.contentLayout ?? null,
     panelHeightPercent: s.panelHeightPercent ?? null,
@@ -184,6 +188,13 @@ function plainToSlide(p: Record<string, unknown>): Slide {
     fontSize: typeof p.fontSize === "number" ? p.fontSize : undefined,
     videoUrl: p.videoUrl != null ? String(p.videoUrl) : undefined,
     contentType: p.contentType as Slide["contentType"] | undefined,
+    presenter3dDeviceId:
+      p.presenter3dDeviceId != null ? String(p.presenter3dDeviceId) : undefined,
+    presenter3dScreenMedia:
+      p.presenter3dScreenMedia === "image" || p.presenter3dScreenMedia === "video"
+        ? p.presenter3dScreenMedia
+        : undefined,
+    presenter3dViewState: parsePresenter3dViewState(p.presenter3dViewState),
     imageWidthPercent:
       typeof p.imageWidthPercent === "number" ? p.imageWidthPercent : undefined,
     contentLayout: p.contentLayout as Slide["contentLayout"] | undefined,

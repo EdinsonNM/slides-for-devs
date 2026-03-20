@@ -1,1 +1,1 @@
-export type { Slide, SlideType } from "./Slide";
+export type { Slide, SlideType, SlidePanelContentType } from "./Slide";

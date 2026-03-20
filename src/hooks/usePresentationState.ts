@@ -76,6 +76,8 @@ import {
 } from "../constants/geminiImageModels";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 import { trackEvent, ANALYTICS_EVENTS } from "../services/analytics";
+import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
+import type { Presenter3dViewState } from "../utils/presenter3dView";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
@@ -524,14 +526,23 @@ export function usePresentationState() {
 
   const toggleContentType = () => {
     if (!currentSlide) return;
-    let newType: "image" | "code" | "video" = "code";
+    let newType: NonNullable<Slide["contentType"]> = "code";
     if (currentSlide.contentType === "code") newType = "video";
     else if (currentSlide.contentType === "video") newType = "image";
+    else if (currentSlide.contentType === "image") newType = "presenter3d";
     else newType = "code";
 
     setSlides((prev) => {
       const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, contentType: newType };
+      const base = { ...currentSlide, contentType: newType };
+      updated[currentIndex] =
+        newType === "presenter3d"
+          ? {
+              ...base,
+              presenter3dDeviceId: base.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
+              presenter3dScreenMedia: base.presenter3dScreenMedia ?? "image",
+            }
+          : base;
       return updated;
     });
   };
@@ -577,12 +588,52 @@ export function usePresentationState() {
   };
 
   /** Cambia el tipo de contenido del panel derecho (solo para diapositivas de contenido con layout split). */
-  const setCurrentSlideContentType = (contentType: "image" | "code" | "video") => {
+  const setCurrentSlideContentType = (contentType: NonNullable<Slide["contentType"]>) => {
     if (!currentSlide || currentSlide.type !== "content") return;
     if (currentSlide.contentType === contentType) return;
     setSlides((prev) => {
       const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, contentType };
+      let next: Slide = { ...currentSlide, contentType };
+      if (contentType === "presenter3d") {
+        next = {
+          ...next,
+          presenter3dDeviceId: next.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
+          presenter3dScreenMedia: next.presenter3dScreenMedia ?? "image",
+        };
+      }
+      updated[currentIndex] = next;
+      return updated;
+    });
+  };
+
+  const setCurrentSlidePresenter3dDeviceId = (presenter3dDeviceId: string) => {
+    if (!currentSlide || currentSlide.type !== "content") return;
+    if (currentSlide.contentType !== "presenter3d") return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, presenter3dDeviceId };
+      return updated;
+    });
+  };
+
+  const setCurrentSlidePresenter3dScreenMedia = (
+    presenter3dScreenMedia: "image" | "video"
+  ) => {
+    if (!currentSlide || currentSlide.type !== "content") return;
+    if (currentSlide.contentType !== "presenter3d") return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, presenter3dScreenMedia };
+      return updated;
+    });
+  };
+
+  const setCurrentSlidePresenter3dViewState = (presenter3dViewState: Presenter3dViewState) => {
+    if (!currentSlide || currentSlide.type !== "content") return;
+    if (currentSlide.contentType !== "presenter3d") return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, presenter3dViewState };
       return updated;
     });
   };
@@ -1843,6 +1894,9 @@ export function usePresentationState() {
     setCurrentSlideExcalidrawData,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
+    setCurrentSlidePresenter3dDeviceId,
+    setCurrentSlidePresenter3dScreenMedia,
+    setCurrentSlidePresenter3dViewState,
     handleGenerate,
     handleImageGenerate,
     handleGeneratePromptAlternatives,

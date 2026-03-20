@@ -1,9 +1,10 @@
-import { Code2, Video, Image as ImageIcon } from "lucide-react";
+import { Code2, Video, Image as ImageIcon, Smartphone } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
+import { Presenter3DPanel } from "./Presenter3DPanel";
 
 export interface SlideRightPanelProps {
   /** Si true, el panel ocupa todo el espacio (layout panel-full), sin borde ni resize. */
@@ -47,7 +48,7 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
           toggleContentType();
         }}
         className="absolute top-4 left-6 z-20 p-2 bg-white/80 dark:bg-surface-elevated/90 backdrop-blur-sm border border-stone-200 dark:border-border rounded-lg text-stone-600 dark:text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-200 dark:hover:border-emerald-600 transition-all shadow-sm opacity-0 group-hover:opacity-100 flex items-center gap-2"
-        title="Cambiar tipo de contenido (código / video / imagen)"
+        title="Cambiar tipo de contenido (código / video / imagen / presentador 3D)"
       >
         {currentSlide.contentType === "code" ? (
           <>
@@ -63,11 +64,18 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
               Imagen
             </span>
           </>
-        ) : (
+        ) : currentSlide.contentType === "presenter3d" ? (
           <>
             <Code2 size={18} />
             <span className="text-[10px] font-bold uppercase tracking-wider">
               Código
+            </span>
+          </>
+        ) : (
+          <>
+            <Smartphone size={18} />
+            <span className="text-[10px] font-bold uppercase tracking-wider">
+              3D
             </span>
           </>
         )}
@@ -77,6 +85,8 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
         <CodeBlock />
       ) : currentSlide.contentType === "video" ? (
         <VideoPanel />
+      ) : currentSlide.contentType === "presenter3d" ? (
+        <Presenter3DPanel />
       ) : (
         <ImagePanel />
       )}

@@ -179,10 +179,13 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
 
   // type === "content"
   const bodyY = 0.9;
+  const hasSplitPanel =
+    Boolean(slide.imageUrl || slide.code || slide.videoUrl) ||
+    slide.contentType === "presenter3d";
   s.addText(slide.title, {
     x: 0.5,
     y: 0.3,
-    w: slide.imageUrl || slide.code || slide.videoUrl ? "55%" : "90%",
+    w: hasSplitPanel ? "55%" : "90%",
     h: 0.55,
     fontSize: 24,
     bold: true,
@@ -201,7 +204,7 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
     s.addText(bodyText, {
       x: 0.5,
       y: bodyY,
-      w: slide.imageUrl || slide.code || slide.videoUrl ? "55%" : "90%",
+      w: hasSplitPanel ? "55%" : "90%",
       h: 3.8,
       fontSize: 12,
       fontFace: "Arial",
@@ -210,8 +213,7 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
     });
   }
 
-  const hasRightContent =
-    slide.imageUrl || slide.code || slide.videoUrl;
+  const hasRightContent = hasSplitPanel;
   if (hasRightContent) {
     const imgW = 4.2;
     const imgH = 3.2;
@@ -229,7 +231,11 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
         fill: { color: "F5F5F5" },
         align: "left",
       });
-    } else if (slide.contentType === "video" && slide.videoUrl) {
+    } else if (
+      (slide.contentType === "video" ||
+        (slide.contentType === "presenter3d" && slide.presenter3dScreenMedia === "video")) &&
+      slide.videoUrl
+    ) {
       s.addText(`Video: ${slide.videoUrl}`, {
         x: xRight,
         y: bodyY + 1.2,
@@ -239,7 +245,10 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
         fontFace: "Arial",
         hyperlink: { url: slide.videoUrl, tooltip: "Abrir video" },
       });
-    } else if (slide.imageUrl) {
+    } else if (
+      slide.imageUrl &&
+      (slide.contentType !== "presenter3d" || slide.presenter3dScreenMedia !== "video")
+    ) {
       const parsed = parseDataUrl(slide.imageUrl);
       if (parsed) {
         s.addImage({
@@ -272,6 +281,19 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
           });
         }
       }
+    } else if (slide.contentType === "presenter3d") {
+      s.addText(
+        "[Presentador 3D — la maqueta no se exporta a PPTX; la textura de pantalla sí, si hay imagen o enlace de vídeo válido]",
+        {
+          x: xRight,
+          y: bodyY + 0.8,
+          w: imgW,
+          h: 1.5,
+          fontSize: 10,
+          fontFace: "Arial",
+          color: "7F7F7F",
+        }
+      );
     }
   }
 }

@@ -173,7 +173,7 @@ export function PreviewOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-white flex flex-col"
+        className="group/preview fixed inset-0 z-[100] flex flex-col bg-white"
       >
         <PreviewToolbar
           currentIndex={currentIndex}
@@ -185,8 +185,8 @@ export function PreviewOverlay() {
         <div
           className={
             currentSlide.type === "diagram"
-              ? "flex-1 flex min-h-0 min-w-0 w-full"
-              : "flex-1 flex items-center justify-center p-12 min-h-0"
+              ? "relative z-20 flex-1 flex min-h-0 min-w-0 w-full"
+              : "relative z-20 flex-1 flex items-center justify-center p-12 min-h-0"
           }
         >
           <PreviewSlideContent
@@ -197,21 +197,25 @@ export function PreviewOverlay() {
           />
         </div>
 
-        <div
-          className="absolute inset-y-0 left-0 w-32 cursor-pointer group flex items-center justify-center z-10 pointer-events-auto"
-          onClick={prevSlide}
-        >
-          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
-            <ChevronLeft size={32} />
-          </div>
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-30 flex w-16 items-center justify-center md:w-20">
+          <button
+            type="button"
+            aria-label="Diapositiva anterior"
+            className="pointer-events-auto flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-white/15 text-stone-900 opacity-70 shadow-xl backdrop-blur-md transition-opacity hover:opacity-100 md:opacity-0 md:group-hover/preview:opacity-100"
+            onClick={prevSlide}
+          >
+            <ChevronLeft size={28} />
+          </button>
         </div>
-        <div
-          className="absolute inset-y-0 right-0 w-32 cursor-pointer group flex items-center justify-center z-10 pointer-events-auto"
-          onClick={nextSlide}
-        >
-          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
-            <ChevronRight size={32} />
-          </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-30 flex w-16 items-center justify-center md:w-20">
+          <button
+            type="button"
+            aria-label="Diapositiva siguiente"
+            className="pointer-events-auto flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-white/15 text-stone-900 opacity-70 shadow-xl backdrop-blur-md transition-opacity hover:opacity-100 md:opacity-0 md:group-hover/preview:opacity-100"
+            onClick={nextSlide}
+          >
+            <ChevronRight size={28} />
+          </button>
         </div>
       </motion.div>
     </AnimatePresence>

@@ -154,7 +154,10 @@ export function SlideSidebar() {
                       "rounded shrink-0 overflow-hidden",
                       !slide.imageUrl && "bg-stone-100 dark:bg-stone-700 animate-pulse",
                       !slide.imageUrl && slide.contentType === "code" && "bg-amber-100/80 dark:bg-amber-900/40",
-                      !slide.imageUrl && slide.contentType === "video" && "bg-sky-100/80 dark:bg-sky-900/40"
+                      !slide.imageUrl && slide.contentType === "video" && "bg-sky-100/80 dark:bg-sky-900/40",
+                      !slide.imageUrl &&
+                        slide.contentType === "presenter3d" &&
+                        "bg-violet-100/80 dark:bg-violet-900/40"
                     )}
                     style={{ width: "36%" }}
                   >

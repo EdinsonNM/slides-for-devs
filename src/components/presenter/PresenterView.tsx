@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { Monitor, StickyNote, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Slide } from "../../types";
+import { usePresentation } from "../../context/PresentationContext";
 import { presenterChat } from "../../services/gemini";
+import { PreviewSlideContent } from "../preview/PreviewSlideContent";
 import { PresenterHeader } from "./PresenterHeader";
 import { PresenterSlideSummary } from "./PresenterSlideSummary";
 import { PresenterChat, type ChatMessage } from "./PresenterChat";
@@ -18,6 +20,7 @@ function getOrigin(): string {
 }
 
 export function PresenterView() {
+  const { formatMarkdown, imageWidthPercent, panelHeightPercent } = usePresentation();
   const [state, setState] = useState<PresenterState | null>(null);
   const [activeTab, setActiveTab] = useState<"notas" | "chat">("notas");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -171,69 +174,86 @@ export function PresenterView() {
         onClose={handleClose}
       />
 
-      <main className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-        <PresenterSlideSummary slide={currentSlide} />
-
-        <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <div className="shrink-0 flex border-b border-stone-700">
-            <button
-              type="button"
-              onClick={() => setActiveTab("notas")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === "notas"
-                  ? "text-amber-400 border-b-2 border-amber-400 bg-stone-800/50"
-                  : "text-stone-400 hover:text-stone-200"
-              }`}
-            >
-              <StickyNote size={16} />
-              Notas
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("chat")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === "chat"
-                  ? "text-amber-400 border-b-2 border-amber-400 bg-stone-800/50"
-                  : "text-stone-400 hover:text-stone-200"
-              }`}
-            >
-              <MessageCircle size={16} />
-              Chat IA
-            </button>
-          </div>
-
-          {activeTab === "notas" ? (
-            <>
-              <div className="flex-1 min-h-0 overflow-auto p-4">
-                <div className="bg-stone-800 rounded-lg border border-stone-700 p-4 min-h-[80px]">
-                  <p className="text-stone-300 text-sm whitespace-pre-wrap leading-relaxed">
-                    {currentSlide.presenterNotes ||
-                      (currentSlide as { speech?: string }).speech ||
-                      "— Sin notas para esta diapositiva —"}
-                  </p>
-                </div>
-              </div>
-              {nextSlide && (
-                <div className="shrink-0 px-4 pb-3 pt-1 border-t border-stone-800">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-1">
-                    Siguiente
-                  </p>
-                  <p className="font-serif italic text-stone-400 text-sm truncate">
-                    {nextSlide.title}
-                  </p>
-                </div>
-              )}
-            </>
-          ) : (
-            <PresenterChat
-              messages={chatMessages}
-              input={chatInput}
-              loading={chatLoading}
-              onInputChange={setChatInput}
-              onSend={handleSendChat}
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
+        <section
+          className={
+            currentSlide.type === "diagram"
+              ? "relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col bg-stone-950 p-2 md:order-1 md:p-3"
+              : "relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4"
+          }
+        >
+          <div className="flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-white text-stone-900 shadow-2xl">
+            <PreviewSlideContent
+              slide={currentSlide}
+              formatMarkdown={formatMarkdown}
+              imageWidthPercent={imageWidthPercent}
+              panelHeightPercent={panelHeightPercent}
             />
-          )}
+          </div>
         </section>
+
+        <div className="order-1 flex min-h-0 w-full shrink-0 flex-col border-stone-700 bg-stone-900 md:order-2 md:w-[min(400px,40vw)] md:max-w-md md:min-w-[280px] md:border-l">
+          <PresenterSlideSummary slide={currentSlide} layout="stacked" />
+
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-t border-stone-800 md:border-t-0">
+            <div className="flex shrink-0 border-b border-stone-700">
+              <button
+                type="button"
+                onClick={() => setActiveTab("notas")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === "notas"
+                    ? "border-b-2 border-amber-400 bg-stone-800/50 text-amber-400"
+                    : "text-stone-400 hover:text-stone-200"
+                }`}
+              >
+                <StickyNote size={16} />
+                Notas
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("chat")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === "chat"
+                    ? "border-b-2 border-amber-400 bg-stone-800/50 text-amber-400"
+                    : "text-stone-400 hover:text-stone-200"
+                }`}
+              >
+                <MessageCircle size={16} />
+                Chat IA
+              </button>
+            </div>
+
+            {activeTab === "notas" ? (
+              <>
+                <div className="min-h-0 flex-1 overflow-auto p-4">
+                  <div className="min-h-[80px] rounded-lg border border-stone-700 bg-stone-800 p-4">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-stone-300">
+                      {currentSlide.presenterNotes ||
+                        (currentSlide as { speech?: string }).speech ||
+                        "— Sin notas para esta diapositiva —"}
+                    </p>
+                  </div>
+                </div>
+                {nextSlide && (
+                  <div className="shrink-0 border-t border-stone-800 px-4 pt-1 pb-3">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                      Siguiente
+                    </p>
+                    <p className="truncate font-serif text-sm italic text-stone-400">{nextSlide.title}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <PresenterChat
+                messages={chatMessages}
+                input={chatInput}
+                loading={chatLoading}
+                onInputChange={setChatInput}
+                onSend={handleSendChat}
+              />
+            )}
+          </section>
+        </div>
       </main>
 
       <footer className="shrink-0 px-4 py-3 border-t border-stone-700 flex items-center justify-between gap-3">

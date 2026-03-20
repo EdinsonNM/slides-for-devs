@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { X, Image as ImageIcon, Code2, Video, PencilRuler } from "lucide-react";
+import { X, Image as ImageIcon, Code2, Video, PencilRuler, Smartphone } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 
@@ -182,6 +182,7 @@ export function SlideStylePanel() {
               { id: "image" as const, label: "Imagen", icon: ImageIcon },
               { id: "code" as const, label: "Código", icon: Code2 },
               { id: "video" as const, label: "Video", icon: Video },
+              { id: "presenter3d" as const, label: "Presentador 3D", icon: Smartphone },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}

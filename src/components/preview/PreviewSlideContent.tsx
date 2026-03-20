@@ -6,6 +6,7 @@ import { CodeDisplay } from "../shared/CodeDisplay";
 import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
 import { getEmbedUrl } from "../../utils/video";
 import type { Slide } from "../../types";
+import { Device3DViewport } from "../shared/Device3DViewport";
 
 export interface PreviewSlideContentProps {
   slide: Slide;
@@ -117,6 +118,19 @@ export function PreviewSlideContent({
                   </div>
                 )}
               </div>
+            ) : slide.contentType === "presenter3d" ? (
+              <div className="w-full h-full min-h-[min(50vh,320px)] rounded-2xl overflow-hidden">
+                <Device3DViewport
+                  slideId={slide.id}
+                  deviceId={slide.presenter3dDeviceId}
+                  screenMedia={slide.presenter3dScreenMedia ?? "image"}
+                  imageUrl={slide.imageUrl}
+                  videoUrl={slide.videoUrl}
+                  viewState={slide.presenter3dViewState}
+                  showInteractionHint={false}
+                  className="h-full min-h-[min(50vh,320px)]"
+                />
+              </div>
             ) : slide.imageUrl ? (
               <img
                 src={slide.imageUrl}
@@ -133,19 +147,32 @@ export function PreviewSlideContent({
         </>
       ) : (
         <>
-          <div className="flex-1 p-12 flex flex-col overflow-hidden min-h-0">
-            <div className="shrink-0 mb-8">
-              <h2
-                className="font-serif italic text-stone-900 leading-tight mb-4"
-                style={{ fontSize: "var(--slide-title)" }}
-              >
-                {slide.title}
-              </h2>
-              <div className="h-1.5 w-20 bg-emerald-600 rounded-full" />
+          <div className="flex-1 p-12 flex flex-col min-h-0 overflow-hidden">
+            {/* Espaciadores + bloque central: centra en vertical sin colapsar flex-1/basis-0 del cuerpo */}
+            <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
+            <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-4 flex flex-col gap-8 scrollbar-on-hover">
+              <div className="shrink-0">
+                <h2
+                  className="font-serif italic text-stone-900 leading-tight"
+                  style={{ fontSize: "var(--slide-title)" }}
+                >
+                  {slide.title}
+                </h2>
+                {slide.subtitle && (
+                  <p
+                    className="text-stone-500 mt-2"
+                    style={{ fontSize: "var(--slide-subtitle)" }}
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
+                <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
+              </div>
+              <div className="shrink-0">
+                <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
+              </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto pr-4 scrollbar-on-hover">
-              <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
-            </div>
+            <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
           </div>
           <div
             className="flex flex-col relative"
@@ -174,6 +201,19 @@ export function PreviewSlideContent({
                       // Sin video
                     </div>
                   )}
+                </div>
+              ) : slide.contentType === "presenter3d" ? (
+                <div className="w-full h-full min-h-[min(45vh,280px)] rounded-2xl overflow-hidden">
+                  <Device3DViewport
+                    slideId={slide.id}
+                    deviceId={slide.presenter3dDeviceId}
+                    screenMedia={slide.presenter3dScreenMedia ?? "image"}
+                    imageUrl={slide.imageUrl}
+                    videoUrl={slide.videoUrl}
+                    viewState={slide.presenter3dViewState}
+                    showInteractionHint={false}
+                    className="h-full min-h-[min(45vh,280px)]"
+                  />
                 </div>
               ) : slide.imageUrl ? (
                 <img
