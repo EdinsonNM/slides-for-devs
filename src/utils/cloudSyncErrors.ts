@@ -23,6 +23,13 @@ export function formatCloudSyncUserMessage(error: unknown): string {
     return "Sesión no válida. Cierra sesión, vuelve a entrar e inténtalo de nuevo.";
   }
 
+  if (code === "failed-precondition") {
+    return (
+      "Falta un índice de Firestore para completar la consulta de compartidas. " +
+      "Abre el enlace que aparece en la consola del navegador (Create index), créalo y vuelve a intentar."
+    );
+  }
+
   if (error instanceof Error) return error.message;
   return "Error al sincronizar con la nube.";
 }

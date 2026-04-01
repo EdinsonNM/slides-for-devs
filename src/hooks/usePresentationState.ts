@@ -160,6 +160,9 @@ export function usePresentationState() {
   >([]);
   const [cloudModalLoading, setCloudModalLoading] = useState(false);
   const [cloudModalError, setCloudModalError] = useState<string | null>(null);
+  const [cloudSharedWarning, setCloudSharedWarning] = useState<string | null>(
+    null
+  );
   const [downloadingCloudKey, setDownloadingCloudKey] = useState<string | null>(
     null
   );
@@ -1041,6 +1044,7 @@ export function usePresentationState() {
     }
     setShowCloudPresentationsModal(true);
     setCloudModalError(null);
+    setCloudSharedWarning(null);
     setCloudModalLoading(true);
     setCloudPresentationsItems([]);
     try {
@@ -1053,6 +1057,7 @@ export function usePresentationState() {
           "Listado de presentaciones compartidas omitido (reglas, índice o permisos):",
           shareErr
         );
+        setCloudSharedWarning(formatCloudSyncUserMessage(shareErr));
       }
       setCloudPresentationsItems([...mine, ...shared]);
     } catch (e) {
@@ -1923,6 +1928,7 @@ export function usePresentationState() {
     cloudPresentationsItems,
     cloudModalLoading,
     cloudModalError,
+    cloudSharedWarning,
     openCloudPresentationsModal,
     handleDownloadFromCloud,
     downloadingCloudKey,

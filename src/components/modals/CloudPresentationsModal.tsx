@@ -12,6 +12,7 @@ export interface CloudPresentationsModalProps {
   items: CloudPresentationListItem[];
   loading: boolean;
   error: string | null;
+  sharedWarning?: string | null;
   savedList: SavedPresentationMeta[];
   downloadingCloudKey: string | null;
   onDownload: (cloudId: string, ownerUid?: string) => void;
@@ -24,6 +25,7 @@ export function CloudPresentationsModal({
   items,
   loading,
   error,
+  sharedWarning,
   savedList,
   downloadingCloudKey,
   onDownload,
@@ -38,6 +40,8 @@ export function CloudPresentationsModal({
 
   const mine = items.filter((i) => i.source === "mine");
   const shared = items.filter((i) => i.source === "shared");
+  /** Si no hay ninguna fila pero falló el listado de compartidas, igual hay que mostrar secciones y el aviso (no el estado vacío único). */
+  const showCloudBody = items.length > 0 || !!sharedWarning;
 
   const renderList = (list: CloudPresentationListItem[], emptyLabel: string) => {
     if (list.length === 0) {
@@ -148,12 +152,12 @@ export function CloudPresentationsModal({
           {!loading && error && (
             <p className="text-sm text-red-600 dark:text-red-400 text-center py-8">{error}</p>
           )}
-          {!loading && !error && items.length === 0 && (
+          {!loading && !error && !showCloudBody && (
             <p className="text-stone-500 dark:text-stone-400 text-center py-8 text-sm">
               No hay presentaciones en la nube. Sincroniza desde las tarjetas del inicio.
             </p>
           )}
-          {!loading && !error && items.length > 0 && (
+          {!loading && !error && showCloudBody && (
             <>
               <section>
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-2">
@@ -169,7 +173,17 @@ export function CloudPresentationsModal({
                   <Users size={14} />
                   Compartidas conmigo
                 </h4>
-                {renderList(shared, "Nadie ha compartido contigo aún (por UID).")}
+                {sharedWarning && (
+                  <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
+                    No se pudo cargar este bloque: {sharedWarning}
+                  </p>
+                )}
+                {renderList(
+                  shared,
+                  sharedWarning
+                    ? "Si ves un aviso arriba, revisa la consola de Firebase (índice de collection group) o vuelve a abrir este panel."
+                    : "Nadie ha compartido contigo aún, o el correo/UID no coincide con tu sesión."
+                )}
               </section>
             </>
           )}

@@ -179,6 +179,7 @@ export default function App() {
     cloudPresentationsItems,
     cloudModalLoading,
     cloudModalError,
+    cloudSharedWarning,
     handleDownloadFromCloud,
     downloadingCloudKey,
     sharePresentationLocalId,
@@ -256,6 +257,7 @@ export default function App() {
         items={cloudPresentationsItems}
         loading={cloudModalLoading}
         error={cloudModalError}
+        sharedWarning={cloudSharedWarning}
         savedList={savedList}
         downloadingCloudKey={downloadingCloudKey}
         onDownload={handleDownloadFromCloud}
