@@ -85,6 +85,50 @@ import type { Presenter3dViewState } from "../utils/presenter3dView";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
+const MAX_SLIDES_UNDO = 50;
+
+function cloneSlideDeck(slides: Slide[]): Slide[] {
+  if (typeof structuredClone === "function") {
+    return structuredClone(slides) as Slide[];
+  }
+  return JSON.parse(JSON.stringify(slides)) as Slide[];
+}
+
+function slidePatchedFromEditBuffers(
+  base: Slide,
+  buffers: {
+    title: string;
+    subtitle: string;
+    content: string;
+    code: string;
+    language: string;
+    fontSize: number;
+    editorHeight: number;
+  },
+): Slide {
+  return {
+    ...base,
+    title: buffers.title,
+    subtitle: buffers.subtitle.trim() || undefined,
+    content: buffers.content,
+    code: buffers.code,
+    language: buffers.language,
+    fontSize: buffers.fontSize,
+    editorHeight: buffers.editorHeight,
+  };
+}
+
+function isSlidePatchedDifferent(a: Slide, b: Slide): boolean {
+  return (
+    a.title !== b.title ||
+    (a.subtitle ?? "") !== (b.subtitle ?? "") ||
+    a.content !== b.content ||
+    (a.code ?? "") !== (b.code ?? "") ||
+    (a.language || "javascript") !== (b.language || "javascript") ||
+    (a.fontSize ?? 14) !== (b.fontSize ?? 14) ||
+    (a.editorHeight ?? 280) !== (b.editorHeight ?? 280)
+  );
+}
 
 /** Clave para persistir el id de la última presentación abierta (restaurar al refrescar en /editor). */
 export const LAST_OPENED_PRESENTATION_KEY = "slides-for-devs-last-opened";
@@ -162,6 +206,18 @@ export function usePresentationState() {
   const [editLanguage, setEditLanguage] = useState("javascript");
   const [editFontSize, setEditFontSize] = useState(14);
   const [editEditorHeight, setEditEditorHeight] = useState(280);
+  const slidesUndoRef = useRef<Slide[][]>([]);
+  const slidesRedoRef = useRef<Slide[][]>([]);
+  const currentIndexRef = useRef(0);
+  const prevSlideIndexForFlushRef = useRef(0);
+  const isEditingRef = useRef(false);
+  const editTitleRef = useRef("");
+  const editSubtitleRef = useRef("");
+  const editContentRef = useRef("");
+  const editCodeRef = useRef("");
+  const editLanguageRef = useRef("javascript");
+  const editFontSizeRef = useRef(14);
+  const editEditorHeightRef = useRef(280);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
@@ -317,6 +373,149 @@ export function usePresentationState() {
       ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
       : DEFAULT_PANEL_HEIGHT_PERCENT;
 
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
+
+  useEffect(() => {
+    editTitleRef.current = editTitle;
+    editSubtitleRef.current = editSubtitle;
+    editContentRef.current = editContent;
+    editCodeRef.current = editCode;
+    editLanguageRef.current = editLanguage;
+    editFontSizeRef.current = editFontSize;
+    editEditorHeightRef.current = editEditorHeight;
+  }, [
+    editTitle,
+    editSubtitle,
+    editContent,
+    editCode,
+    editLanguage,
+    editFontSize,
+    editEditorHeight,
+  ]);
+
+  const pushSlidesUndo = useCallback((snapshot: Slide[]) => {
+    slidesUndoRef.current = [
+      ...slidesUndoRef.current.slice(-(MAX_SLIDES_UNDO - 1)),
+      cloneSlideDeck(snapshot),
+    ];
+    slidesRedoRef.current = [];
+  }, []);
+
+  const flushEditsToSlideIndex = useCallback(
+    (slideIndex: number) => {
+      setSlides((prevSlides) => {
+        if (slideIndex < 0 || slideIndex >= prevSlides.length) {
+          return prevSlides;
+        }
+        const cur = prevSlides[slideIndex];
+        if (!cur) return prevSlides;
+        const buffers = {
+          title: editTitleRef.current,
+          subtitle: editSubtitleRef.current,
+          content: editContentRef.current,
+          code: editCodeRef.current,
+          language: editLanguageRef.current,
+          fontSize: editFontSizeRef.current,
+          editorHeight: editEditorHeightRef.current,
+        };
+        const next = slidePatchedFromEditBuffers(cur, buffers);
+        if (!isSlidePatchedDifferent(cur, next)) return prevSlides;
+        pushSlidesUndo(prevSlides);
+        const updated = [...prevSlides];
+        updated[slideIndex] = next;
+        return updated;
+      });
+      setIsEditing(false);
+    },
+    [pushSlidesUndo],
+  );
+
+  const commitSlideEdits = useCallback(
+    (options?: { keepEditing?: boolean }) => {
+      setSlides((prevSlides) => {
+        const slideIndex = currentIndexRef.current;
+        if (slideIndex < 0 || slideIndex >= prevSlides.length) {
+          return prevSlides;
+        }
+        const cur = prevSlides[slideIndex];
+        if (!cur) return prevSlides;
+        const buffers = {
+          title: editTitleRef.current,
+          subtitle: editSubtitleRef.current,
+          content: editContentRef.current,
+          code: editCodeRef.current,
+          language: editLanguageRef.current,
+          fontSize: editFontSizeRef.current,
+          editorHeight: editEditorHeightRef.current,
+        };
+        const next = slidePatchedFromEditBuffers(cur, buffers);
+        if (!isSlidePatchedDifferent(cur, next)) return prevSlides;
+        pushSlidesUndo(prevSlides);
+        const updated = [...prevSlides];
+        updated[slideIndex] = next;
+        return updated;
+      });
+      if (!options?.keepEditing) {
+        setIsEditing(false);
+      }
+    },
+    [pushSlidesUndo],
+  );
+
+  const syncEditFieldsFromSlide = useCallback((s: Slide) => {
+    setEditTitle(s.title);
+    setEditSubtitle(s.subtitle ?? "");
+    setEditContent(formatMarkdown(s.content));
+    setEditCode(s.code || "");
+    setEditLanguage(s.language || "javascript");
+    setEditFontSize(s.fontSize || 14);
+    setEditEditorHeight(s.editorHeight ?? 280);
+  }, []);
+
+  const applySlidesUndo = useCallback(() => {
+    const stack = slidesUndoRef.current;
+    if (stack.length === 0) return;
+    const snapshot = stack[stack.length - 1]!;
+    slidesUndoRef.current = stack.slice(0, -1);
+    setSlides((cur) => {
+      slidesRedoRef.current.push(cloneSlideDeck(cur));
+      return cloneSlideDeck(snapshot);
+    });
+    const restored = cloneSlideDeck(snapshot);
+    const idx = Math.min(
+      currentIndexRef.current,
+      Math.max(0, restored.length - 1),
+    );
+    const s = restored[idx];
+    if (s) syncEditFieldsFromSlide(s);
+    setIsEditing(false);
+  }, [syncEditFieldsFromSlide]);
+
+  const applySlidesRedo = useCallback(() => {
+    const stack = slidesRedoRef.current;
+    if (stack.length === 0) return;
+    const snapshot = stack[stack.length - 1]!;
+    slidesRedoRef.current = stack.slice(0, -1);
+    setSlides((cur) => {
+      slidesUndoRef.current.push(cloneSlideDeck(cur));
+      return cloneSlideDeck(snapshot);
+    });
+    const restored = cloneSlideDeck(snapshot);
+    const idx = Math.min(
+      currentIndexRef.current,
+      Math.max(0, restored.length - 1),
+    );
+    const s = restored[idx];
+    if (s) syncEditFieldsFromSlide(s);
+    setIsEditing(false);
+  }, [syncEditFieldsFromSlide]);
+
   // Ajustar modelo seleccionado si no está entre los permitidos (solo APIs configuradas)
   useEffect(() => {
     const allowedIds = presentationModels.map((m) => m.id);
@@ -347,6 +546,8 @@ export function usePresentationState() {
     }
     if (prevLocalAccountScopeRef.current === localAccountScope) return;
     prevLocalAccountScopeRef.current = localAccountScope;
+    slidesUndoRef.current = [];
+    slidesRedoRef.current = [];
     setSlides([]);
     setTopic("");
     setCurrentSavedId(null);
@@ -407,6 +608,8 @@ export function usePresentationState() {
           id: crypto.randomUUID(),
           content: formatMarkdown(slide.content),
         }));
+        slidesUndoRef.current = [];
+        slidesRedoRef.current = [];
         setSlides(cleanedSlides);
         setCurrentIndex(0);
         const presentation = {
@@ -540,6 +743,14 @@ export function usePresentationState() {
   }, [isResizingPanelHeight, currentIndex]);
 
   useEffect(() => {
+    const prevIdx = prevSlideIndexForFlushRef.current;
+    if (prevIdx !== currentIndex && isEditingRef.current) {
+      flushEditsToSlideIndex(prevIdx);
+    }
+    prevSlideIndexForFlushRef.current = currentIndex;
+  }, [currentIndex, flushEditsToSlideIndex]);
+
+  useEffect(() => {
     if (currentSlide) {
       setEditTitle(currentSlide.title);
       setEditSubtitle(currentSlide.subtitle ?? "");
@@ -561,11 +772,32 @@ export function usePresentationState() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inTextField =
+        target != null &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
+        if (inTextField) return;
+        e.preventDefault();
+        applySlidesUndo();
+        return;
+      }
       if (
-        document.activeElement?.tagName === "INPUT" ||
-        document.activeElement?.tagName === "TEXTAREA" ||
-        isEditing
+        (mod && e.shiftKey && e.key.toLowerCase() === "z") ||
+        (e.ctrlKey && e.key.toLowerCase() === "y")
       ) {
+        if (inTextField) return;
+        e.preventDefault();
+        applySlidesRedo();
+        return;
+      }
+
+      if (inTextField || isEditing) {
         return;
       }
 
@@ -582,26 +814,18 @@ export function usePresentationState() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, slides.length, isEditing, isPreviewMode]);
+  }, [
+    currentIndex,
+    slides.length,
+    isEditing,
+    isPreviewMode,
+    applySlidesUndo,
+    applySlidesRedo,
+  ]);
 
-  const handleSaveManualEdit = () => {
-    if (!currentSlide) return;
-    setSlides((prevSlides) => {
-      const updated = [...prevSlides];
-      updated[currentIndex] = {
-        ...updated[currentIndex],
-        title: editTitle,
-        subtitle: editSubtitle.trim() || undefined,
-        content: editContent,
-        code: editCode,
-        language: editLanguage,
-        fontSize: editFontSize,
-        editorHeight: editEditorHeight,
-      };
-      return updated;
-    });
-    setIsEditing(false);
-  };
+  const handleSaveManualEdit = useCallback(() => {
+    commitSlideEdits();
+  }, [commitSlideEdits]);
 
   const setEditorHeightForCurrentSlide = (height: number) => {
     const clamped = Math.min(560, Math.max(120, height));
@@ -1077,6 +1301,8 @@ export function usePresentationState() {
         Math.max(0, snap.currentIndex),
         Math.max(0, sl.length - 1),
       );
+      slidesUndoRef.current = [];
+      slidesRedoRef.current = [];
       setTopic(snap.topic);
       setSlides(sl);
       setCurrentIndex(idx);
@@ -1207,6 +1433,8 @@ export function usePresentationState() {
   const createBlankPresentation = useCallback(async () => {
     generationErrorRestoreRef.current = null;
     setPendingGeneration(null);
+    slidesUndoRef.current = [];
+    slidesRedoRef.current = [];
     const blankSlide: Slide = {
       id: crypto.randomUUID(),
       type: "content",
@@ -1354,6 +1582,8 @@ export function usePresentationState() {
   const handleOpenSaved = async (id: string) => {
     try {
       const saved = await loadPresentation(id, localAccountScope);
+      slidesUndoRef.current = [];
+      slidesRedoRef.current = [];
       setTopic(saved.topic);
       setSlides(
         saved.slides.map((s) => ({
@@ -1457,6 +1687,8 @@ export function usePresentationState() {
       if (!id) return false;
       try {
         const saved = await loadPresentation(id, localAccountScope);
+        slidesUndoRef.current = [];
+        slidesRedoRef.current = [];
         setTopic(saved.topic);
         setSlides(
           saved.slides.map((s) => ({
@@ -1490,6 +1722,8 @@ export function usePresentationState() {
       if (currentSavedId === id) {
         setCurrentSavedId(null);
         setTopic("");
+        slidesUndoRef.current = [];
+        slidesRedoRef.current = [];
         setSlides([]);
       }
       setSavedList((prev) => prev.filter((p) => p.id !== id));
@@ -1623,6 +1857,8 @@ export function usePresentationState() {
       );
       if (currentSavedId === localId) {
         setTopic(presentation.topic);
+        slidesUndoRef.current = [];
+        slidesRedoRef.current = [];
         setSlides(
           presentation.slides.map((s) => ({
             ...s,
@@ -1719,6 +1955,8 @@ export function usePresentationState() {
       content: "",
     };
     setTopic("");
+    slidesUndoRef.current = [];
+    slidesRedoRef.current = [];
     setSlides([blankSlide]);
     setCurrentIndex(0);
     setCurrentSavedId(null);
@@ -1749,6 +1987,8 @@ export function usePresentationState() {
   );
 
   const goHome = () => {
+    slidesUndoRef.current = [];
+    slidesRedoRef.current = [];
     setSlides([]);
     setTopic("");
     setCurrentSavedId(null);
@@ -2258,6 +2498,7 @@ export function usePresentationState() {
     setHomeTab,
     formatMarkdown,
     handleSaveManualEdit,
+    commitSlideEdits,
     toggleContentType,
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,

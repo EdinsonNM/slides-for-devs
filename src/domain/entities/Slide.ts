@@ -27,6 +27,14 @@ export interface Slide {
   contentLayout?: "split" | "full" | "panel-full";
   imageWidthPercent?: number;
   panelHeightPercent?: number;
+  /** Editor: ancho del bloque de título (% del área de texto izquierda, ~30–100). */
+  editorTitleWidthPercent?: number;
+  /** Editor: alto mínimo del bloque de título (px). */
+  editorTitleMinHeightPx?: number;
+  /** Editor: ancho del bloque de cuerpo (% del área de contenido). */
+  editorContentWidthPercent?: number;
+  /** Editor: alto mínimo del bloque de cuerpo (px). */
+  editorContentMinHeightPx?: number;
   presenterNotes?: string;
   speech?: string;
   excalidrawData?: string;

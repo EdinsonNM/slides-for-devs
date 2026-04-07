@@ -99,6 +99,14 @@ pub struct Slide {
     pub presenter_3d_screen_media: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "presenter3dViewState")]
     pub presenter_3d_view_state: Option<Presenter3dViewStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "editorTitleWidthPercent")]
+    pub editor_title_width_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "editorTitleMinHeightPx")]
+    pub editor_title_min_height_px: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "editorContentWidthPercent")]
+    pub editor_content_width_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "editorContentMinHeightPx")]
+    pub editor_content_min_height_px: Option<f64>,
 }
 
 /// Frontend-compatible presentation.
@@ -317,6 +325,30 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
             [],
         )?;
     }
+    // Migration: editor text frame layout (title/content width & min height in editor)
+    let has_etw: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('slides') WHERE name='editor_title_width_percent'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_etw == 0 {
+        conn.execute(
+            "ALTER TABLE slides ADD COLUMN editor_title_width_percent INTEGER",
+            [],
+        )?;
+        conn.execute(
+            "ALTER TABLE slides ADD COLUMN editor_title_min_height_px INTEGER",
+            [],
+        )?;
+        conn.execute(
+            "ALTER TABLE slides ADD COLUMN editor_content_width_percent INTEGER",
+            [],
+        )?;
+        conn.execute(
+            "ALTER TABLE slides ADD COLUMN editor_content_min_height_px INTEGER",
+            [],
+        )?;
+    }
     Ok(())
 }
 
@@ -397,8 +429,9 @@ pub fn save_presentation(
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
-                presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
+                presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
+                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
             "#,
             params![
                 id,
@@ -424,6 +457,18 @@ pub fn save_presentation(
                 slide.presenter_3d_screen_media,
                 None::<f64>,
                 presenter_3d_view_json,
+                slide
+                    .editor_title_width_percent
+                    .map(|n| n.round().clamp(0., 100.) as i32),
+                slide
+                    .editor_title_min_height_px
+                    .map(|n| n.round().clamp(24., 2000.) as i32),
+                slide
+                    .editor_content_width_percent
+                    .map(|n| n.round().clamp(0., 100.) as i32),
+                slide
+                    .editor_content_min_height_px
+                    .map(|n| n.round().clamp(40., 2000.) as i32),
             ],
         )?;
 
@@ -472,8 +517,9 @@ pub fn import_presentation(
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
-                presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
+                presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
+                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
             "#,
             params![
                 saved.id,
@@ -499,6 +545,18 @@ pub fn import_presentation(
                 slide.presenter_3d_screen_media,
                 None::<f64>,
                 presenter_3d_view_json,
+                slide
+                    .editor_title_width_percent
+                    .map(|n| n.round().clamp(0., 100.) as i32),
+                slide
+                    .editor_title_min_height_px
+                    .map(|n| n.round().clamp(24., 2000.) as i32),
+                slide
+                    .editor_content_width_percent
+                    .map(|n| n.round().clamp(0., 100.) as i32),
+                slide
+                    .editor_content_min_height_px
+                    .map(|n| n.round().clamp(40., 2000.) as i32),
             ],
         )?;
 
@@ -552,8 +610,9 @@ pub fn update_presentation(
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
-                presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
+                presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
+                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
             "#,
             params![
                 id,
@@ -579,6 +638,18 @@ pub fn update_presentation(
                 slide.presenter_3d_screen_media,
                 None::<f64>,
                 presenter_3d_view_json,
+                slide
+                    .editor_title_width_percent
+                    .map(|n| n.round().clamp(0., 100.) as i32),
+                slide
+                    .editor_title_min_height_px
+                    .map(|n| n.round().clamp(24., 2000.) as i32),
+                slide
+                    .editor_content_width_percent
+                    .map(|n| n.round().clamp(0., 100.) as i32),
+                slide
+                    .editor_content_min_height_px
+                    .map(|n| n.round().clamp(40., 2000.) as i32),
             ],
         )?;
 
@@ -612,7 +683,8 @@ pub fn load_presentation(
         SELECT ordinal, id, type, title, subtitle, content, image_prompt, code, language,
                font_size, video_url, content_type, image_width_percent, content_layout, panel_height_percent,
                presenter_notes, speech, excalidraw_data, presenter_3d_device_id, presenter_3d_screen_media,
-               presenter_3d_model_scale, presenter_3d_view_state
+               presenter_3d_model_scale, presenter_3d_view_state,
+               editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
         FROM slides WHERE presentation_id = ?1 ORDER BY ordinal
         "#,
     )?;
@@ -640,6 +712,10 @@ pub fn load_presentation(
             row.get::<_, Option<String>>(19)?,
             row.get::<_, Option<f64>>(20)?,
             row.get::<_, Option<String>>(21)?,
+            row.get::<_, Option<i32>>(22)?,
+            row.get::<_, Option<i32>>(23)?,
+            row.get::<_, Option<i32>>(24)?,
+            row.get::<_, Option<i32>>(25)?,
         ))
     })?;
 
@@ -667,6 +743,10 @@ pub fn load_presentation(
             presenter_3d_screen_media,
             _presenter_3d_model_scale_legacy,
             presenter_3d_view_json,
+            editor_title_width_percent,
+            editor_title_min_height_px,
+            editor_content_width_percent,
+            editor_content_min_height_px,
         ) = row?;
 
         let presenter_3d_view_state: Option<Presenter3dViewStateDto> = presenter_3d_view_json
@@ -703,6 +783,10 @@ pub fn load_presentation(
             presenter_3d_device_id,
             presenter_3d_screen_media,
             presenter_3d_view_state,
+            editor_title_width_percent: editor_title_width_percent.map(|n| n as f64),
+            editor_title_min_height_px: editor_title_min_height_px.map(|n| n as f64),
+            editor_content_width_percent: editor_content_width_percent.map(|n| n as f64),
+            editor_content_min_height_px: editor_content_min_height_px.map(|n| n as f64),
         });
     }
 

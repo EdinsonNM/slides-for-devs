@@ -6,7 +6,6 @@ import {
   Maximize2,
   Loader2,
   Sparkles,
-  StickyNote,
   Mic,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -31,11 +30,6 @@ export function EditorFloatingToolbar({
     flushDiagramPending,
     setIsPreviewMode,
     openGenerateFullDeckModal,
-    isNotesPanelOpen,
-    setIsNotesPanelOpen,
-    setInspectorSection,
-    setShowSlideStylePanel,
-    setShowCharactersPanel,
     setShowSpeechModal,
   } = usePresentation();
 
@@ -83,30 +77,6 @@ export function EditorFloatingToolbar({
             onClick={() => openGenerateFullDeckModal()}
           >
             <Sparkles size={18} />
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/10",
-              isNotesPanelOpen && "bg-primary/15 text-primary",
-            )}
-            aria-label={isNotesPanelOpen ? "Ocultar notas" : "Notas"}
-            title="Notas del presentador"
-            onClick={() => {
-              const next = !isNotesPanelOpen;
-              setIsNotesPanelOpen(next);
-              if (next) {
-                setInspectorSection("notes");
-                setShowSlideStylePanel(false);
-                setShowCharactersPanel(false);
-              } else {
-                setInspectorSection("slide");
-                setShowSlideStylePanel(true);
-                setShowCharactersPanel(false);
-              }
-            }}
-          >
-            <StickyNote size={18} />
           </button>
           <button
             type="button"

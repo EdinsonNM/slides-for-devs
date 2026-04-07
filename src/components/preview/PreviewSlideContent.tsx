@@ -46,7 +46,7 @@ export function PreviewSlideContent({
         <div className="text-center space-y-8">
           <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
           <h1
-            className="font-serif italic text-stone-900 leading-tight"
+            className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word max-w-full"
             style={{ fontSize: "var(--slide-title-chapter)" }}
           >
             {slide.title}
@@ -76,14 +76,14 @@ export function PreviewSlideContent({
             style={{ flex: `0 0 ${100 - panelHeightPercent}%` }}
           >
             <h2
-              className="font-serif italic text-stone-900 leading-tight"
+              className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
               style={{ fontSize: "var(--slide-title)" }}
             >
               {slide.title}
             </h2>
             {slide.subtitle && (
               <p
-                className="text-stone-500 mt-1"
+                className="text-stone-500 mt-1 whitespace-pre-wrap wrap-break-word"
                 style={{ fontSize: "var(--slide-subtitle)" }}
               >
                 {slide.subtitle}
@@ -153,7 +153,7 @@ export function PreviewSlideContent({
             <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-4 flex flex-col gap-8 scrollbar-on-hover">
               <div className="shrink-0">
                 <h2
-                  className="font-serif italic text-stone-900 leading-tight"
+                  className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
                   style={{ fontSize: "var(--slide-title)" }}
                 >
                   {slide.title}
