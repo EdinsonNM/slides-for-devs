@@ -167,7 +167,7 @@ export function AvatarMenu({
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
                   >
                     <Settings size={16} />
-                    Configuración (API keys)
+                    Configuración
                   </button>
                 )}
                 <button
@@ -277,7 +277,7 @@ export function AvatarMenu({
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
                   >
                     <Settings size={16} />
-                    Configuración (API keys)
+                    Configuración
                   </button>
                 )}
                 <button

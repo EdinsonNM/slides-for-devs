@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { KeyRound, Check } from "lucide-react";
+import { KeyRound, Check, Cloud } from "lucide-react";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -14,7 +14,9 @@ import {
   setCerebrasApiKey,
   setOpenRouterApiKey,
 } from "../../services/apiConfig";
+import { usePresentation } from "../../context/PresentationContext";
 import { BaseModal } from "./BaseModal";
+import { ModelSelect } from "../shared/ModelSelect";
 import { cn } from "../../utils/cn";
 
 interface ApiConfigModalProps {
@@ -28,6 +30,14 @@ export function ApiConfigModal({
   onClose,
   onSaved,
 }: ApiConfigModalProps) {
+  const {
+    presentationModelId,
+    setPresentationModelId,
+    presentationModels,
+    cloudSyncAvailable,
+    autoCloudSyncOnSave,
+    setAutoCloudSyncOnSave,
+  } = usePresentation();
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
   const [xaiKey, setXaiKey] = useState("");
@@ -81,8 +91,8 @@ export function ApiConfigModal({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Configuración de API"
-      subtitle="Actualiza las claves si el token ha vencido"
+      title="Configuración"
+      subtitle="Claves de API, modelo de IA por defecto y sincronización"
       icon={
         <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
           <KeyRound size={22} />
@@ -329,6 +339,47 @@ export function ApiConfigModal({
               Obtener clave
             </a>
           </p>
+        </div>
+
+        <div className="border-t border-stone-200 dark:border-border pt-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-stone-800 dark:text-foreground mb-1">
+              Modelo de texto (IA)
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mb-2">
+              Se usa al generar o reescribir contenido, código, notas y chat.
+            </p>
+            <div className="w-full [&_button]:max-w-none">
+              <ModelSelect
+                value={presentationModelId}
+                options={presentationModels}
+                onChange={setPresentationModelId}
+                size="sm"
+                title="Modelo para texto (presentación, reescribir, código, notas, chat)"
+                aria-label="Modelo para texto"
+                className="w-full"
+              />
+            </div>
+          </div>
+          {cloudSyncAvailable && (
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-stone-200 dark:border-border p-3 hover:bg-stone-50 dark:hover:bg-stone-800/40">
+              <input
+                type="checkbox"
+                checked={autoCloudSyncOnSave}
+                onChange={(e) => setAutoCloudSyncOnSave(e.target.checked)}
+                className="rounded border-stone-300 dark:border-stone-600 shrink-0 mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-2 text-sm font-medium text-stone-800 dark:text-foreground">
+                  <Cloud size={16} className="shrink-0 opacity-80" />
+                  Auto-sync con la nube al guardar
+                </span>
+                <span className="block text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Tras cada guardado se sube la presentación (escritorio con sesión). Incluye control de conflictos entre dispositivos.
+                </span>
+              </span>
+            </label>
+          )}
         </div>
 
         {touched && !canSave && (
