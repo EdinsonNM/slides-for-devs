@@ -1,10 +1,65 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, PanelLeftOpen, Trash2, Plus, Image as ImageIcon } from "lucide-react";
+import {
+  ChevronLeft,
+  PanelLeftOpen,
+  Trash2,
+  Plus,
+  Image as ImageIcon,
+  Code2,
+  Video,
+  Box,
+} from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+import type { Slide } from "../../domain/entities/Slide";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
 
 const SIDEBAR_WIDTH = 256;
+
+function sidebarPanelKind(contentType: Slide["contentType"]): NonNullable<Slide["contentType"]> {
+  return contentType ?? "image";
+}
+
+function sidebarSplitStripSurfaceClass(
+  kind: NonNullable<Slide["contentType"]>,
+  hasImageUrl: boolean,
+): string {
+  if (kind === "image" && !hasImageUrl) {
+    return "bg-stone-100 dark:bg-stone-700 animate-pulse";
+  }
+  if (kind === "code") return "bg-amber-100/80 dark:bg-amber-900/40";
+  if (kind === "video") return "bg-sky-100/80 dark:bg-sky-900/40";
+  if (kind === "presenter3d") return "bg-violet-100/80 dark:bg-violet-900/40";
+  return "";
+}
+
+const SIDEBAR_MEDIA_ICON_CLASS =
+  "w-4 h-4 text-stone-500 dark:text-stone-400 shrink-0";
+
+/** Miniatura del panel derecho: imagen si es tipo imagen; icono para código, video o 3D. */
+function SidebarPanelMediaPreview({ slide }: { slide: Slide }) {
+  const kind = sidebarPanelKind(slide.contentType);
+  if (kind === "image") {
+    return slide.imageUrl ? (
+      <img
+        src={slide.imageUrl}
+        alt=""
+        className="w-full h-full object-cover"
+        referrerPolicy="no-referrer"
+      />
+    ) : null;
+  }
+  if (kind === "code") {
+    return <Code2 className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+  }
+  if (kind === "video") {
+    return <Video className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+  }
+  if (kind === "presenter3d") {
+    return <Box className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+  }
+  return null;
+}
 
 export function SlideSidebar() {
   const {
@@ -69,7 +124,9 @@ export function SlideSidebar() {
         />
       </div>
       <div className="p-2 space-y-2 overflow-y-auto relative">
-        {slides.map((slide, index) => (
+        {slides.map((slide, index) => {
+          const panelKind = sidebarPanelKind(slide.contentType);
+          return (
           <button
             key={slide.id}
             onClick={() => {
@@ -124,15 +181,22 @@ export function SlideSidebar() {
                   </span>
                   <div className="h-0.5 w-3/4 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
                   <div className="flex-1 min-h-0 rounded border border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center bg-stone-50 dark:bg-stone-800 p-0.5">
-                    {slide.imageUrl ? (
-                      <img
-                        src={slide.imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover rounded"
-                        referrerPolicy="no-referrer"
-                      />
+                    {panelKind === "image" ? (
+                      slide.imageUrl ? (
+                        <img
+                          src={slide.imageUrl}
+                          alt=""
+                          className="w-full h-full object-cover rounded"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <ImageIcon
+                          className="w-4 h-4 text-stone-400 dark:text-stone-500"
+                          strokeWidth={1.5}
+                        />
+                      )
                     ) : (
-                      <ImageIcon className="w-4 h-4 text-stone-400 dark:text-stone-500" strokeWidth={1.5} />
+                      <SidebarPanelMediaPreview slide={slide} />
                     )}
                   </div>
                 </div>
@@ -151,30 +215,19 @@ export function SlideSidebar() {
                   </div>
                   <div
                     className={cn(
-                      "rounded shrink-0 overflow-hidden",
-                      !slide.imageUrl && "bg-stone-100 dark:bg-stone-700 animate-pulse",
-                      !slide.imageUrl && slide.contentType === "code" && "bg-amber-100/80 dark:bg-amber-900/40",
-                      !slide.imageUrl && slide.contentType === "video" && "bg-sky-100/80 dark:bg-sky-900/40",
-                      !slide.imageUrl &&
-                        slide.contentType === "presenter3d" &&
-                        "bg-violet-100/80 dark:bg-violet-900/40"
+                      "rounded shrink-0 overflow-hidden flex items-center justify-center",
+                      sidebarSplitStripSurfaceClass(panelKind, Boolean(slide.imageUrl)),
                     )}
                     style={{ width: "36%" }}
                   >
-                    {slide.imageUrl ? (
-                      <img
-                        src={slide.imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : null}
+                    <SidebarPanelMediaPreview slide={slide} />
                   </div>
                 </div>
               )}
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {contextMenu !== null && (
