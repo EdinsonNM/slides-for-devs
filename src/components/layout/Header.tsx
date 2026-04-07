@@ -110,7 +110,10 @@ export function Header(props: HeaderProps) {
   useEffect(() => {
     if (!moreMenuOpen) return;
     const close = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
         setMoreMenuOpen(false);
       }
     };
@@ -130,7 +133,11 @@ export function Header(props: HeaderProps) {
         variant="default"
         icon={<StickyNote size={18} />}
         aria-label={isNotesPanelOpen ? "Ocultar notas" : "Mostrar notas"}
-        title={isNotesPanelOpen ? "Ocultar notas del presentador" : "Mostrar notas del presentador"}
+        title={
+          isNotesPanelOpen
+            ? "Ocultar notas del presentador"
+            : "Mostrar notas del presentador"
+        }
         onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
         className={cn(isNotesPanelOpen && panelActiveClass)}
       />
@@ -227,7 +234,7 @@ export function Header(props: HeaderProps) {
             }}
             className={cn(
               "font-serif italic text-lg text-stone-900 dark:text-foreground bg-stone-50 dark:bg-surface border border-stone-300 dark:border-border rounded px-2 py-0.5 min-w-0 max-w-[40vw]",
-              "focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              "focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500",
             )}
             placeholder="Título de la presentación"
           />
@@ -257,7 +264,9 @@ export function Header(props: HeaderProps) {
             />
           </HeaderToolbarGroup>
           <HeaderToolbarGroup>{workspaceButtons}</HeaderToolbarGroup>
-          <HeaderToolbarGroup className="hidden xl:flex">{fileCloudInline}</HeaderToolbarGroup>
+          <HeaderToolbarGroup className="hidden xl:flex">
+            {fileCloudInline}
+          </HeaderToolbarGroup>
           <HeaderToolbarGroup className="items-center">
             {exportButton}
             {slides.length > 0 && (
@@ -296,7 +305,10 @@ export function Header(props: HeaderProps) {
               </span>
             )}
           </HeaderToolbarGroup>
-          <div ref={moreMenuRef} className="relative shrink-0 xl:hidden border-l border-stone-200 dark:border-border pl-3 ml-0">
+          <div
+            ref={moreMenuRef}
+            className="relative shrink-0 xl:hidden border-l border-stone-200 dark:border-border pl-3 ml-0"
+          >
             <IconButton
               variant="default"
               icon={<MoreHorizontal size={18} />}
@@ -316,7 +328,7 @@ export function Header(props: HeaderProps) {
                   type="button"
                   role="menuitem"
                   className={cn(
-                    "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface"
+                    "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
                   )}
                   onClick={() => {
                     setMoreMenuOpen(false);
@@ -331,7 +343,7 @@ export function Header(props: HeaderProps) {
                   role="menuitem"
                   className={cn(
                     "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
-                    showCharactersPanel && "bg-stone-100 dark:bg-surface"
+                    showCharactersPanel && "bg-stone-100 dark:bg-surface",
                   )}
                   onClick={() => {
                     toggleCharactersPanel();
@@ -347,7 +359,7 @@ export function Header(props: HeaderProps) {
                     role="menuitem"
                     className={cn(
                       "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
-                      showSlideStylePanel && "bg-stone-100 dark:bg-surface"
+                      showSlideStylePanel && "bg-stone-100 dark:bg-surface",
                     )}
                     onClick={() => {
                       toggleSlideStylePanel();

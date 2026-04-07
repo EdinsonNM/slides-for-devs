@@ -26,7 +26,9 @@ export function SavedListModal() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-stone-200 dark:border-border flex items-center justify-between shrink-0">
-          <h3 className="font-semibold text-stone-900 dark:text-foreground">Mis presentaciones</h3>
+          <h3 className="font-semibold text-stone-900 dark:text-foreground">
+            Mis presentaciones
+          </h3>
           <button
             onClick={() => setShowSavedListModal(false)}
             className="p-2 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg text-stone-600 dark:text-stone-400"

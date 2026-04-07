@@ -95,14 +95,15 @@ export function usePresentationState() {
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
     () => localAccountScopeForUser(user?.uid),
-    [user?.uid]
+    [user?.uid],
   );
   const lastOpenedSessionKey = `${LAST_OPENED_PRESENTATION_KEY}:${localAccountScope}`;
   const prevLocalAccountScopeRef = useRef<string | null>(null);
   /** Si falla la generación completa iniciada desde el editor, restaurar slides y título. */
-  const generationErrorRestoreRef = useRef<{ slides: Slide[]; topic: string } | null>(
-    null
-  );
+  const generationErrorRestoreRef = useRef<{
+    slides: Slide[];
+    topic: string;
+  } | null>(null);
 
   const [topic, setTopic] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -116,24 +117,26 @@ export function usePresentationState() {
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [showRewriteModal, setShowRewriteModal] = useState(false);
-  const [showGenerateFullDeckModal, setShowGenerateFullDeckModal] = useState(false);
+  const [showGenerateFullDeckModal, setShowGenerateFullDeckModal] =
+    useState(false);
   const [generateFullDeckTopic, setGenerateFullDeckTopic] = useState("");
   const [showGenerateSlideContentModal, setShowGenerateSlideContentModal] =
     useState(false);
-  const [generateSlideContentPrompt, setGenerateSlideContentPrompt] = useState("");
+  const [generateSlideContentPrompt, setGenerateSlideContentPrompt] =
+    useState("");
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [splitPrompt, setSplitPrompt] = useState("");
   const [rewritePrompt, setRewritePrompt] = useState("");
   const [videoUrlInput, setVideoUrlInput] = useState("");
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
-    IMAGE_STYLES[0]
+    IMAGE_STYLES[0],
   );
   const [imageProvider, setImageProvider] = useState<"gemini" | "openai">(
-    "gemini"
+    "gemini",
   );
   const [geminiImageModelId, setGeminiImageModelId] = useState(
-    DEFAULT_GEMINI_IMAGE_MODEL_ID
+    DEFAULT_GEMINI_IMAGE_MODEL_ID,
   );
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -162,10 +165,15 @@ export function usePresentationState() {
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
   const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
-  const [coverImageCache, setCoverImageCache] = useState<Record<string, string>>({});
+  const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(
+    null,
+  );
+  const [coverImageCache, setCoverImageCache] = useState<
+    Record<string, string>
+  >({});
   const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
-  const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] = useState(false);
+  const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
+    useState(false);
   const [showCloudPresentationsModal, setShowCloudPresentationsModal] =
     useState(false);
   const [cloudPresentationsItems, setCloudPresentationsItems] = useState<
@@ -174,10 +182,10 @@ export function usePresentationState() {
   const [cloudModalLoading, setCloudModalLoading] = useState(false);
   const [cloudModalError, setCloudModalError] = useState<string | null>(null);
   const [cloudSharedWarning, setCloudSharedWarning] = useState<string | null>(
-    null
+    null,
   );
   const [downloadingCloudKey, setDownloadingCloudKey] = useState<string | null>(
-    null
+    null,
   );
   const [sharePresentationLocalId, setSharePresentationLocalId] = useState<
     string | null
@@ -198,14 +206,18 @@ export function usePresentationState() {
   /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
   const diagramFlushRef = useRef<(() => string | null) | null>(null);
   const [presentationModelId, setPresentationModelId] = useState(
-    DEFAULT_PRESENTATION_MODEL_ID
+    DEFAULT_PRESENTATION_MODEL_ID,
   );
-  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
+    null,
+  );
   const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
-  const [showCharacterCreatorModal, setShowCharacterCreatorModal] = useState(false);
+  const [showCharacterCreatorModal, setShowCharacterCreatorModal] =
+    useState(false);
   const [showCharactersPanel, setShowCharactersPanel] = useState(false);
   const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
-  const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] = useState(false);
+  const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] =
+    useState(false);
   /** Cuando está setado, la presentación se está generando en segundo plano; se muestra modal y al terminar se guarda. */
   const [pendingGeneration, setPendingGeneration] = useState<{
     topic: string;
@@ -216,7 +228,7 @@ export function usePresentationState() {
   /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
   const [apiKeysVersion, setApiKeysVersion] = useState(0);
   const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
-    async () => {}
+    async () => {},
   );
 
   const hasGemini = !!getGeminiApiKey();
@@ -234,7 +246,7 @@ export function usePresentationState() {
           (m.provider === "xai" && hasXai) ||
           (m.provider === "groq" && hasGroq) ||
           (m.provider === "cerebras" && hasCerebras) ||
-          (m.provider === "openrouter" && hasOpenRouter)
+          (m.provider === "openrouter" && hasOpenRouter),
       ),
     [
       hasGemini,
@@ -244,7 +256,7 @@ export function usePresentationState() {
       hasCerebras,
       hasOpenRouter,
       apiKeysVersion,
-    ]
+    ],
   );
 
   const refreshApiKeys = useCallback(() => {
@@ -344,7 +356,7 @@ export function usePresentationState() {
       try {
         const generatedSlides = await generatePresentation.run(
           pending.topic,
-          pending.modelId
+          pending.modelId,
         );
         if (cancelled) return;
         const cleanedSlides = generatedSlides.map((slide) => ({
@@ -361,7 +373,11 @@ export function usePresentationState() {
         };
         let id: string;
         if (pending.reuseSavedId) {
-          await updatePresentation(pending.reuseSavedId, presentation, localAccountScope);
+          await updatePresentation(
+            pending.reuseSavedId,
+            presentation,
+            localAccountScope,
+          );
           id = pending.reuseSavedId;
         } else {
           id = await savePresentation(presentation, localAccountScope);
@@ -455,10 +471,7 @@ export function usePresentationState() {
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const y = e.clientY - rect.top;
-      const percent = Math.min(
-        Math.max(25, 100 - (y / rect.height) * 100),
-        95
-      );
+      const percent = Math.min(Math.max(25, 100 - (y / rect.height) * 100), 95);
       setSlides((prev) => {
         const idx = currentIndex;
         if (idx < 0 || idx >= prev.length) return prev;
@@ -578,7 +591,8 @@ export function usePresentationState() {
         newType === "presenter3d"
           ? {
               ...base,
-              presenter3dDeviceId: base.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
+              presenter3dDeviceId:
+                base.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
               presenter3dScreenMedia: base.presenter3dScreenMedia ?? "image",
             }
           : base;
@@ -595,7 +609,8 @@ export function usePresentationState() {
       if (type === "chapter" || type === "diagram") {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
-        if (type === "diagram" && !next.excalidrawData) next.excalidrawData = "{}";
+        if (type === "diagram" && !next.excalidrawData)
+          next.excalidrawData = "{}";
       } else {
         if (!next.contentType) next.contentType = "image";
         if (!next.contentLayout) next.contentLayout = "split";
@@ -616,7 +631,9 @@ export function usePresentationState() {
   };
 
   /** Cambia la distribución del contenido: split = con panel derecho; full = solo texto; panel-full = título + subtítulo arriba y panel a ancho completo. Solo para type "content". */
-  const setCurrentSlideContentLayout = (contentLayout: "split" | "full" | "panel-full") => {
+  const setCurrentSlideContentLayout = (
+    contentLayout: "split" | "full" | "panel-full",
+  ) => {
     setSlides((prev) => {
       const slide = prev[currentIndex];
       if (!slide || slide.type !== "content") return prev;
@@ -628,7 +645,9 @@ export function usePresentationState() {
   };
 
   /** Cambia el tipo de contenido del panel derecho (solo para diapositivas de contenido con layout split). */
-  const setCurrentSlideContentType = (contentType: NonNullable<Slide["contentType"]>) => {
+  const setCurrentSlideContentType = (
+    contentType: NonNullable<Slide["contentType"]>,
+  ) => {
     if (!currentSlide || currentSlide.type !== "content") return;
     if (currentSlide.contentType === contentType) return;
     setSlides((prev) => {
@@ -657,7 +676,7 @@ export function usePresentationState() {
   };
 
   const setCurrentSlidePresenter3dScreenMedia = (
-    presenter3dScreenMedia: "image" | "video"
+    presenter3dScreenMedia: "image" | "video",
   ) => {
     if (!currentSlide || currentSlide.type !== "content") return;
     if (currentSlide.contentType !== "presenter3d") return;
@@ -668,7 +687,9 @@ export function usePresentationState() {
     });
   };
 
-  const setCurrentSlidePresenter3dViewState = (presenter3dViewState: Presenter3dViewState) => {
+  const setCurrentSlidePresenter3dViewState = (
+    presenter3dViewState: Presenter3dViewState,
+  ) => {
     if (!currentSlide || currentSlide.type !== "content") return;
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
@@ -684,7 +705,7 @@ export function usePresentationState() {
       options?: {
         errorRestore?: { slides: Slide[]; topic: string };
         reuseSavedId?: string | null;
-      }
+      },
     ) => {
       const t = trimmedTopic.trim();
       if (!t) return;
@@ -704,7 +725,7 @@ export function usePresentationState() {
         reuseSavedId: options?.reuseSavedId ?? undefined,
       });
     },
-    [presentationModelId]
+    [presentationModelId],
   );
 
   const handleGenerate = (e: React.FormEvent) => {
@@ -761,7 +782,9 @@ export function usePresentationState() {
     const characterReferenceImageForOpenAI =
       imageProvider === "openai" ? character?.referenceImageDataUrl : undefined;
     const imageModelId =
-      imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
+      imageProvider === "gemini"
+        ? geminiImageModelId
+        : DEFAULT_OPENAI_IMAGE_MODEL_ID;
     try {
       const imageUrl = await generateImageUseCase.run({
         providerId: imageProvider,
@@ -806,7 +829,9 @@ export function usePresentationState() {
     const characterPrompt = selectedCharacterId
       ? savedCharacters.find((c) => c.id === selectedCharacterId)?.description
       : undefined;
-    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+    const modelId = usesChatCompletionSlideOps(
+      presentationModelOption?.provider,
+    )
       ? presentationModelId
       : effectiveGeminiModel;
     try {
@@ -817,7 +842,7 @@ export function usePresentationState() {
         selectedStyle.prompt,
         modelId,
         characterPrompt,
-        includeBackground
+        includeBackground,
       );
       if (alternative) setImagePrompt(alternative);
     } catch (error) {
@@ -831,14 +856,16 @@ export function usePresentationState() {
   const handleSplitSlide = async () => {
     if (!splitPrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
-    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+    const modelId = usesChatCompletionSlideOps(
+      presentationModelOption?.provider,
+    )
       ? presentationModelId
       : effectiveGeminiModel;
     try {
       const newSlides = await splitSlideUseCase.run(
         currentSlide,
         splitPrompt,
-        modelId
+        modelId,
       );
       if (newSlides.length > 0) {
         const cleanedNewSlides = newSlides.map((slide) => ({
@@ -868,14 +895,16 @@ export function usePresentationState() {
   const handleRewriteSlide = async () => {
     if (!rewritePrompt.trim() || !currentSlide) return;
     setIsProcessing(true);
-    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+    const modelId = usesChatCompletionSlideOps(
+      presentationModelOption?.provider,
+    )
       ? presentationModelId
       : effectiveGeminiModel;
     try {
       const result = await rewriteSlideUseCase.run(
         currentSlide,
         rewritePrompt,
-        modelId
+        modelId,
       );
       const formattedContent = formatMarkdown(result.content);
       setSlides((prev) => {
@@ -907,7 +936,9 @@ export function usePresentationState() {
     const instr = generateSlideContentPrompt.trim();
     if (!instr) return;
     setIsProcessing(true);
-    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+    const modelId = usesChatCompletionSlideOps(
+      presentationModelOption?.provider,
+    )
       ? presentationModelId
       : effectiveGeminiModel;
     try {
@@ -915,7 +946,7 @@ export function usePresentationState() {
         topic.trim(),
         currentSlide,
         instr,
-        modelId
+        modelId,
       );
       const formattedContent = formatMarkdown(result.content);
       setSlides((prev) => {
@@ -987,21 +1018,17 @@ export function usePresentationState() {
         meta = list.find((p) => p.id === localId);
         const saved = await loadPresentation(localId, localAccountScope);
         const existingCloudId = meta?.cloudId ?? null;
-        const { cloudId, syncedAt, newRevision } = await pushPresentationToCloud(
-          user.uid,
-          saved,
-          existingCloudId,
-          {
+        const { cloudId, syncedAt, newRevision } =
+          await pushPresentationToCloud(user.uid, saved, existingCloudId, {
             localExpectedRevision:
               existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
-          }
-        );
+          });
         await setPresentationCloudState(
           localId,
           cloudId,
           syncedAt,
           newRevision,
-          localAccountScope
+          localAccountScope,
         );
         await refreshSavedList();
       } catch (e) {
@@ -1017,7 +1044,7 @@ export function usePresentationState() {
         }
       }
     },
-    [user, autoCloudSyncOnSave, refreshSavedList, localAccountScope]
+    [user, autoCloudSyncOnSave, refreshSavedList, localAccountScope],
   );
 
   runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
@@ -1036,7 +1063,7 @@ export function usePresentationState() {
           await updatePresentation(
             currentSavedId,
             presentation,
-            localAccountScope
+            localAccountScope,
           );
           savedId = currentSavedId;
           setSaveMessage("Guardado");
@@ -1081,7 +1108,7 @@ export function usePresentationState() {
       maybeAutoSyncAfterLocalSave,
       localAccountScope,
       lastOpenedSessionKey,
-    ]
+    ],
   );
 
   const createBlankPresentation = useCallback(async () => {
@@ -1112,7 +1139,7 @@ export function usePresentationState() {
     const slidesToSave =
       pendingDiagram != null && currentSlide?.type === "diagram"
         ? slides.map((s, i) =>
-            i === currentIndex ? { ...s, excalidrawData: pendingDiagram } : s
+            i === currentIndex ? { ...s, excalidrawData: pendingDiagram } : s,
           )
         : slides;
     setIsSaving(true);
@@ -1145,27 +1172,23 @@ export function usePresentationState() {
         const meta = list.find((p) => p.id === localId);
         const saved = await loadPresentation(localId, localAccountScope);
         const existingCloudId = meta?.cloudId ?? null;
-        const { cloudId, syncedAt, newRevision } = await pushPresentationToCloud(
-          user.uid,
-          saved,
-          existingCloudId,
-          {
+        const { cloudId, syncedAt, newRevision } =
+          await pushPresentationToCloud(user.uid, saved, existingCloudId, {
             localExpectedRevision:
               existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
-          }
-        );
+          });
         await setPresentationCloudState(
           localId,
           cloudId,
           syncedAt,
           newRevision,
-          localAccountScope
+          localAccountScope,
         );
         await refreshSavedList();
       } catch (e) {
         if (e instanceof CloudSyncConflictError) {
           const list = await listPresentations(localAccountScope).catch(
-            () => []
+            () => [],
           );
           const meta = list.find((p) => p.id === localId);
           setCloudSyncConflict({
@@ -1182,7 +1205,7 @@ export function usePresentationState() {
         setSyncingToCloudId(null);
       }
     },
-    [user, refreshSavedList, localAccountScope]
+    [user, refreshSavedList, localAccountScope],
   );
 
   const openCloudPresentationsModal = useCallback(async () => {
@@ -1208,11 +1231,11 @@ export function usePresentationState() {
       } catch (shareErr) {
         console.warn(
           "Listado de presentaciones compartidas omitido (reglas, índice o permisos):",
-          shareErr
+          shareErr,
         );
         const cfg = await getFirebaseConfig();
         setCloudSharedWarning(
-          formatCloudSharedListError(shareErr, cfg?.projectId)
+          formatCloudSharedListError(shareErr, cfg?.projectId),
         );
       }
       setCloudPresentationsItems([...mine, ...shared]);
@@ -1244,7 +1267,7 @@ export function usePresentationState() {
           ...s,
           id: crypto.randomUUID(),
           content: formatMarkdown(s.content ?? ""),
-        }))
+        })),
       );
       setCurrentIndex(0);
       setCurrentSavedId(saved.id);
@@ -1289,7 +1312,7 @@ export function usePresentationState() {
             ...pulled,
             id: localId,
           },
-          localAccountScope
+          localAccountScope,
         );
         if (isSharedFromOther) {
           await setPresentationCloudState(
@@ -1297,7 +1320,7 @@ export function usePresentationState() {
             null,
             null,
             null,
-            localAccountScope
+            localAccountScope,
           );
         } else {
           await setPresentationCloudState(
@@ -1305,7 +1328,7 @@ export function usePresentationState() {
             cloudId,
             new Date().toISOString(),
             cloudRevision,
-            localAccountScope
+            localAccountScope,
           );
         }
         await refreshSavedList();
@@ -1318,7 +1341,7 @@ export function usePresentationState() {
         setDownloadingCloudKey(null);
       }
     },
-    [user, savedList, refreshSavedList, handleOpenSaved, localAccountScope]
+    [user, savedList, refreshSavedList, handleOpenSaved, localAccountScope],
   );
 
   const openSharePresentationModal = useCallback((localId: string) => {
@@ -1330,41 +1353,42 @@ export function usePresentationState() {
   }, []);
 
   /** Restaura la última presentación abierta (desde sessionStorage). Usado al cargar /editor tras refresco. */
-  const restoreLastOpenedPresentation = useCallback(async (): Promise<boolean> => {
-    let id: string | null = null;
-    try {
-      id = sessionStorage.getItem(lastOpenedSessionKey);
-    } catch {
-      return false;
-    }
-    if (!id) return false;
-    try {
-      const saved = await loadPresentation(id, localAccountScope);
-      setTopic(saved.topic);
-      setSlides(
-        saved.slides.map((s) => ({
-          ...s,
-          id: crypto.randomUUID(),
-          content: formatMarkdown(s.content ?? ""),
-        }))
-      );
-      setCurrentIndex(0);
-      setCurrentSavedId(saved.id);
-      setSelectedCharacterId(saved.characterId ?? null);
-      const firstImage = saved.slides[0]?.imageUrl;
-      if (firstImage) {
-        setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
-      }
-      return true;
-    } catch {
+  const restoreLastOpenedPresentation =
+    useCallback(async (): Promise<boolean> => {
+      let id: string | null = null;
       try {
-        sessionStorage.removeItem(lastOpenedSessionKey);
+        id = sessionStorage.getItem(lastOpenedSessionKey);
       } catch {
-        // ignore
+        return false;
       }
-      return false;
-    }
-  }, [formatMarkdown, lastOpenedSessionKey, localAccountScope]);
+      if (!id) return false;
+      try {
+        const saved = await loadPresentation(id, localAccountScope);
+        setTopic(saved.topic);
+        setSlides(
+          saved.slides.map((s) => ({
+            ...s,
+            id: crypto.randomUUID(),
+            content: formatMarkdown(s.content ?? ""),
+          })),
+        );
+        setCurrentIndex(0);
+        setCurrentSavedId(saved.id);
+        setSelectedCharacterId(saved.characterId ?? null);
+        const firstImage = saved.slides[0]?.imageUrl;
+        if (firstImage) {
+          setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
+        }
+        return true;
+      } catch {
+        try {
+          sessionStorage.removeItem(lastOpenedSessionKey);
+        } catch {
+          // ignore
+        }
+        return false;
+      }
+    }, [formatMarkdown, lastOpenedSessionKey, localAccountScope]);
 
   const handleDeleteSaved = async (id: string) => {
     if (!confirm("¿Eliminar esta presentación guardada?")) return;
@@ -1397,17 +1421,24 @@ export function usePresentationState() {
       }
       const firstSlide = saved.slides[0];
       const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
-      const coverPrompt = "Portada profesional y moderna para esta presentación, estilo minimalista y atractivo, sin texto.";
+      const coverPrompt =
+        "Portada profesional y moderna para esta presentación, estilo minimalista y atractivo, sin texto.";
       const coverCharacter = saved.characterId
         ? savedCharacters.find((c) => c.id === saved.characterId)
         : undefined;
       const characterPrompt = coverCharacter?.description;
       const characterReferenceImageDataUrl =
-        imageProvider === "gemini" ? coverCharacter?.referenceImageDataUrl : undefined;
+        imageProvider === "gemini"
+          ? coverCharacter?.referenceImageDataUrl
+          : undefined;
       const coverCharacterImageForOpenAI =
-        imageProvider === "openai" ? coverCharacter?.referenceImageDataUrl : undefined;
+        imageProvider === "openai"
+          ? coverCharacter?.referenceImageDataUrl
+          : undefined;
       const imageModelId =
-        imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
+        imageProvider === "gemini"
+          ? geminiImageModelId
+          : DEFAULT_OPENAI_IMAGE_MODEL_ID;
       const imageUrl = await generateImageUseCase.run({
         providerId: imageProvider,
         slideContext,
@@ -1435,7 +1466,7 @@ export function usePresentationState() {
             slides: updatedSlides,
             characterId: saved.characterId,
           },
-          localAccountScope
+          localAccountScope,
         );
         if (
           autoCloudSyncOnSave &&
@@ -1448,11 +1479,15 @@ export function usePresentationState() {
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
         trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
       } else {
-        alert("No se pudo generar la imagen. Comprueba tu API key de Gemini o OpenAI.");
+        alert(
+          "No se pudo generar la imagen. Comprueba tu API key de Gemini o OpenAI.",
+        );
       }
     } catch (e) {
       console.error(e);
-      alert("Error al generar la portada. Comprueba la consola y tu configuración de API.");
+      alert(
+        "Error al generar la portada. Comprueba la consola y tu configuración de API.",
+      );
     } finally {
       setGeneratingCoverId(null);
     }
@@ -1460,7 +1495,7 @@ export function usePresentationState() {
 
   const dismissCloudSyncConflict = useCallback(
     () => setCloudSyncConflict(null),
-    []
+    [],
   );
 
   const resolveCloudConflictUseRemote = useCallback(async () => {
@@ -1475,7 +1510,7 @@ export function usePresentationState() {
     try {
       const { presentation, cloudRevision } = await pullPresentationFromCloud(
         user.uid,
-        cloudId
+        cloudId,
       );
       await updatePresentation(
         localId,
@@ -1484,14 +1519,14 @@ export function usePresentationState() {
           slides: presentation.slides,
           characterId: presentation.characterId,
         },
-        localAccountScope
+        localAccountScope,
       );
       await setPresentationCloudState(
         localId,
         cloudId,
         new Date().toISOString(),
         cloudRevision,
-        localAccountScope
+        localAccountScope,
       );
       if (currentSavedId === localId) {
         setTopic(presentation.topic);
@@ -1500,14 +1535,16 @@ export function usePresentationState() {
             ...s,
             id: crypto.randomUUID(),
             content: formatMarkdown(s.content ?? ""),
-          }))
+          })),
         );
         setSelectedCharacterId(presentation.characterId ?? null);
       }
       await refreshSavedList();
     } catch (e) {
       console.error(e);
-      alert(`No se pudo traer la versión de la nube: ${formatCloudSyncUserMessage(e)}`);
+      alert(
+        `No se pudo traer la versión de la nube: ${formatCloudSyncUserMessage(e)}`,
+      );
     }
   }, [
     cloudSyncConflict,
@@ -1527,23 +1564,26 @@ export function usePresentationState() {
       const cid =
         cloudId ||
         (await listPresentations(localAccountScope)).find(
-          (p) => p.id === localId
+          (p) => p.id === localId,
         )?.cloudId;
       if (!cid) {
         alert("Falta vínculo con la nube.");
         return;
       }
-      const { cloudId: outId, syncedAt, newRevision } =
-        await pushPresentationToCloud(user.uid, saved, cid, {
-          localExpectedRevision: 0,
-          force: true,
-        });
+      const {
+        cloudId: outId,
+        syncedAt,
+        newRevision,
+      } = await pushPresentationToCloud(user.uid, saved, cid, {
+        localExpectedRevision: 0,
+        force: true,
+      });
       await setPresentationCloudState(
         localId,
         outId,
         syncedAt,
         newRevision,
-        localAccountScope
+        localAccountScope,
       );
       await refreshSavedList();
     } catch (e) {
@@ -1575,7 +1615,9 @@ export function usePresentationState() {
     let referenceImageDataUrl = incoming.referenceImageDataUrl;
     if (referenceImageDataUrl?.startsWith("data:")) {
       try {
-        referenceImageDataUrl = await optimizeImageDataUrl(referenceImageDataUrl);
+        referenceImageDataUrl = await optimizeImageDataUrl(
+          referenceImageDataUrl,
+        );
       } catch {
         /* mantener */
       }
@@ -1604,20 +1646,23 @@ export function usePresentationState() {
           const { syncedAt, newRevision } = await pushCharacterToCloud(
             user.uid,
             c,
-            { localExpectedRevision: c.cloudRevision ?? null }
+            { localExpectedRevision: c.cloudRevision ?? null },
           );
           await setCharacterCloudState(
             c.id,
             syncedAt,
             newRevision,
-            localAccountScope
+            localAccountScope,
           );
           listCharacters(localAccountScope)
             .then(setSavedCharacters)
             .catch(() => undefined);
         } catch (e) {
           if (e instanceof CharacterCloudSyncConflictError) {
-            console.warn("Auto-sync personaje: conflicto de revisión", e.characterId);
+            console.warn(
+              "Auto-sync personaje: conflicto de revisión",
+              e.characterId,
+            );
           } else {
             console.error("Auto-sync personaje:", e);
           }
@@ -1657,13 +1702,13 @@ export function usePresentationState() {
           const { syncedAt, newRevision } = await pushCharacterToCloud(
             user.uid,
             c,
-            { localExpectedRevision: c.cloudRevision ?? null }
+            { localExpectedRevision: c.cloudRevision ?? null },
           );
           await setCharacterCloudState(
             c.id,
             syncedAt,
             newRevision,
-            localAccountScope
+            localAccountScope,
           );
           ok++;
         } catch (e) {
@@ -1677,7 +1722,7 @@ export function usePresentationState() {
       refreshSavedCharacters();
       if (conflicts.length) {
         alert(
-          `Subidos ${ok} personaje(s). Conflicto de versión en: ${conflicts.join(", ")}. Trae desde la nube o vuelve a subir tras alinear.`
+          `Subidos ${ok} personaje(s). Conflicto de versión en: ${conflicts.join(", ")}. Trae desde la nube o vuelve a subir tras alinear.`,
         );
       } else if (ok > 0) {
         alert(`Subidos ${ok} personaje(s) a la nube.`);
@@ -1687,7 +1732,7 @@ export function usePresentationState() {
     } catch (e) {
       console.error(e);
       alert(
-        `Error al subir personajes: ${e instanceof Error ? e.message : String(e)}`
+        `Error al subir personajes: ${e instanceof Error ? e.message : String(e)}`,
       );
     } finally {
       setIsSyncingCharactersCloud(false);
@@ -1706,12 +1751,12 @@ export function usePresentationState() {
       alert(
         remote.length
           ? `Actualizados ${remote.length} personaje(s) desde la nube (por id). Los que solo existían localmente se mantienen.`
-          : "No hay personajes en la nube."
+          : "No hay personajes en la nube.",
       );
     } catch (e) {
       console.error(e);
       alert(
-        `Error al traer personajes: ${e instanceof Error ? e.message : String(e)}`
+        `Error al traer personajes: ${e instanceof Error ? e.message : String(e)}`,
       );
     } finally {
       setIsSyncingCharactersCloud(false);
@@ -1720,7 +1765,7 @@ export function usePresentationState() {
 
   /** Genera una vista previa del personaje (solo la imagen, sin asignar a slide). Contexto fijo para personaje aislado. */
   const generateCharacterPreview = async (
-    characterDescription: string
+    characterDescription: string,
   ): Promise<string | undefined> => {
     if (!characterDescription.trim()) return undefined;
     setIsGeneratingCharacterPreview(true);
@@ -1728,7 +1773,9 @@ export function usePresentationState() {
       const context =
         "Personaje aislado para usar en presentaciones. Debe ser el mismo personaje en todas las escenas. Fondo limpio.";
       const imageModelId =
-        imageProvider === "gemini" ? geminiImageModelId : DEFAULT_OPENAI_IMAGE_MODEL_ID;
+        imageProvider === "gemini"
+          ? geminiImageModelId
+          : DEFAULT_OPENAI_IMAGE_MODEL_ID;
       return generateImageUseCase.run({
         providerId: imageProvider,
         slideContext: context,
@@ -1829,7 +1876,7 @@ export function usePresentationState() {
         currentSlide,
         codeGenLanguage,
         codeGenPrompt.trim() || undefined,
-        modelForGeminiOps
+        modelForGeminiOps,
       );
       setSlides((prev) => {
         const updated = [...prev];
@@ -1872,7 +1919,7 @@ export function usePresentationState() {
     try {
       const notes = await generatePresenterNotesApi(
         currentSlide,
-        modelForGeminiOps
+        modelForGeminiOps,
       );
       setPresenterNotesForCurrentSlide(notes);
       trackEvent(ANALYTICS_EVENTS.PRESENTER_NOTES_GENERATED);
@@ -1891,7 +1938,7 @@ export function usePresentationState() {
       const text = await generateSpeechForSlideApi(
         currentSlide,
         prompt,
-        modelForGeminiOps
+        modelForGeminiOps,
       );
       setPresenterNotesForCurrentSlide(text);
       trackEvent(ANALYTICS_EVENTS.SPEECH_SLIDE_GENERATED);
@@ -1915,7 +1962,7 @@ export function usePresentationState() {
       const refined = await refinePresenterNotesApi(
         currentSlide,
         current,
-        modelForGeminiOps
+        modelForGeminiOps,
       );
       setPresenterNotesForCurrentSlide(refined);
     } catch (e) {
@@ -1933,13 +1980,13 @@ export function usePresentationState() {
       const results = await generateSpeechForAllApi(
         slides,
         speechGeneralPrompt,
-        modelForGeminiOps
+        modelForGeminiOps,
       );
       setSlides((prev) =>
         prev.map((s, i) => ({
           ...s,
           presenterNotes: results[i] ?? s.presenterNotes ?? "",
-        }))
+        })),
       );
       setShowSpeechModal(false);
       setSpeechGeneralPrompt("");

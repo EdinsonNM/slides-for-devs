@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { usePresentation } from "./context/PresentationContext";
 import {
   hasAnyApiConfiguredSync,
@@ -91,7 +97,9 @@ function HomeOrRedirect({
   if (!user && !skipLogin) {
     return (
       <>
-        <WelcomeSignInPanel onContinueWithoutAccount={onContinueWithoutAccount} />
+        <WelcomeSignInPanel
+          onContinueWithoutAccount={onContinueWithoutAccount}
+        />
         <ApiConfigModal
           isOpen={showApiConfigModal}
           onClose={() => setShowApiConfigModal(false)}
@@ -219,7 +227,7 @@ export default function App() {
     typeof window !== "undefined" &&
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
       ? hasAnyApiConfiguredSync()
-      : null
+      : null,
   );
 
   const isPresenterWindow = location.pathname === "/presenter";
@@ -313,7 +321,9 @@ export default function App() {
         />
         <Route
           path="/editor"
-          element={<EditorRoute onOpenConfig={() => setShowApiConfigModal(true)} />}
+          element={
+            <EditorRoute onOpenConfig={() => setShowApiConfigModal(true)} />
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
