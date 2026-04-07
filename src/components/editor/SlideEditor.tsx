@@ -22,7 +22,9 @@ export function SlideEditor() {
           exit={{ opacity: 0, scale: 1.02 }}
           className={cn(
             "slide-content w-full max-w-5xl aspect-video bg-white dark:bg-surface-elevated shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200 dark:border-border",
-            currentSlide.type === "chapter" ? "justify-center items-center" : ""
+            currentSlide.type === "chapter"
+              ? "justify-center items-center"
+              : "",
           )}
         >
           {currentSlide.type === "chapter" ? (

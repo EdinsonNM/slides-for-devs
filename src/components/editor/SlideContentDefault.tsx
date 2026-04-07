@@ -33,7 +33,7 @@ export function SlideContentDefault() {
     const titleHeightPercent = 100 - panelHeightPercent;
     return (
       <>
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 h-full relative">
             <div
               className="px-8 pt-6 pb-4 border-stone-100 dark:border-border flex items-start justify-between gap-4 overflow-hidden"
             style={{ flex: `0 0 ${titleHeightPercent}%`, minHeight: 0, borderBottomWidth: isResizingPanelHeight ? 0 : 1 }}
@@ -130,10 +130,7 @@ export function SlideContentDefault() {
           >
             <div className="w-12 h-0.5 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
           </div>
-          <div
-            className="min-h-0 relative overflow-hidden"
-            style={{ flex: `0 0 ${panelHeightPercent}%` }}
-          >
+          <div className="min-h-0 flex-1 flex flex-col relative overflow-hidden">
             <SlideRightPanel fullWidth />
           </div>
         </div>

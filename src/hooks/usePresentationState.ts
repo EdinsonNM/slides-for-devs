@@ -584,11 +584,12 @@ export function usePresentationState() {
 
   /** Cambia la distribución del contenido: split = con panel derecho; full = solo texto; panel-full = título + subtítulo arriba y panel a ancho completo. Solo para type "content". */
   const setCurrentSlideContentLayout = (contentLayout: "split" | "full" | "panel-full") => {
-    if (!currentSlide || currentSlide.type !== "content") return;
-    if (currentSlide.contentLayout === contentLayout) return;
     setSlides((prev) => {
+      const slide = prev[currentIndex];
+      if (!slide || slide.type !== "content") return prev;
+      if (slide.contentLayout === contentLayout) return prev;
       const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, contentLayout };
+      updated[currentIndex] = { ...slide, contentLayout };
       return updated;
     });
   };
