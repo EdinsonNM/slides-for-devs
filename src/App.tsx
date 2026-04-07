@@ -13,16 +13,12 @@ import {
 } from "./services/apiConfig";
 import { checkForAppUpdates } from "./services/updater";
 import { LoadingScreen } from "./components/shared/LoadingScreen";
-import { Header } from "./components/layout/Header";
-import { CharactersPanel } from "./components/layout/CharactersPanel";
-import { SlideStylePanel } from "./components/layout/SlideStylePanel";
-import { SlideSidebar } from "./components/layout/SlideSidebar";
+import { EditorShell } from "./components/layout/EditorShell";
 import { HomeScreen } from "./components/home/HomeScreen";
 import { WelcomeSignInPanel } from "./components/home/WelcomeSignInPanel";
 import { ApiSetupScreen } from "./components/home/ApiSetupScreen";
 import { useAuth } from "./context/AuthContext";
 import { SlideEditor } from "./components/editor/SlideEditor";
-import { PresenterNotesPanel } from "./components/editor/PresenterNotesPanel";
 import { SavedListModal } from "./components/modals/SavedListModal";
 import { CloudPresentationsModal } from "./components/modals/CloudPresentationsModal";
 import { SharePresentationModal } from "./components/modals/SharePresentationModal";
@@ -134,19 +130,8 @@ interface EditorLayoutProps {
 
 function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
   return (
-    <div className="h-screen bg-surface-elevated flex flex-col font-sans overflow-hidden">
-      <Header onOpenConfig={onOpenConfig} />
-      <main className="flex-1 flex overflow-hidden min-w-0">
-        <SlideSidebar />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <CharactersPanel />
-          <SlideStylePanel />
-          <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
-            <SlideEditor />
-            <PresenterNotesPanel />
-          </div>
-        </div>
-      </main>
+    <>
+      <EditorShell onOpenConfig={onOpenConfig} />
       <SavedListModal />
       <CharacterCreatorModal />
       <ImageGenerationModal />
@@ -159,7 +144,7 @@ function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
       <GenerateFullDeckModal />
       <GenerateSlideContentModal />
       <PreviewOverlay />
-    </div>
+    </>
   );
 }
 

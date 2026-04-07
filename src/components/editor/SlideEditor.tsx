@@ -4,7 +4,6 @@ import { cn } from "../../utils/cn";
 import { SlideContentChapter } from "./SlideContentChapter";
 import { SlideContentDefault } from "./SlideContentDefault";
 import { SlideContentDiagram } from "./SlideContentDiagram";
-import { NavigationControls } from "./NavigationControls";
 
 export function SlideEditor() {
   const { currentSlide, currentIndex } = usePresentation();
@@ -12,7 +11,7 @@ export function SlideEditor() {
   if (!currentSlide) return null;
 
   return (
-    <section className="flex-1 flex flex-col p-6 min-w-0 relative overflow-hidden items-center justify-center bg-stone-200/50 dark:bg-stone-800/70">
+    <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-stone-200/50 p-6 pb-24 dark:bg-stone-900/60">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentIndex}
@@ -21,7 +20,7 @@ export function SlideEditor() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.02 }}
           className={cn(
-            "slide-content w-full max-w-5xl aspect-video bg-white dark:bg-surface-elevated shadow-2xl rounded-xl overflow-hidden flex relative border border-stone-200 dark:border-border",
+            "slide-content relative flex aspect-video w-full max-w-5xl overflow-hidden rounded-lg border border-stone-200/90 bg-white shadow-md shadow-stone-900/5 ring-1 ring-stone-900/[0.04] dark:border-border dark:bg-surface-elevated dark:shadow-xl dark:ring-white/10",
             currentSlide.type === "chapter"
               ? "justify-center items-center"
               : "",
@@ -36,8 +35,6 @@ export function SlideEditor() {
           )}
         </motion.div>
       </AnimatePresence>
-
-      <NavigationControls />
     </section>
   );
 }

@@ -5,7 +5,11 @@ import { usePresentation } from "../../context/PresentationContext";
 import { CharacterDetailModal } from "../modals/CharacterDetailModal";
 import { cn } from "../../utils/cn";
 
-export function CharactersPanel() {
+interface CharactersPanelProps {
+  variant?: "toolbar" | "inspector";
+}
+
+export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
   const {
     showCharactersPanel,
     setShowCharactersPanel,
@@ -31,32 +35,41 @@ export function CharactersPanel() {
     setShowCharacterCreatorModal(true);
   };
 
-  if (!showCharactersPanel) return null;
+  const visible = variant === "inspector" || showCharactersPanel;
+  if (!visible) return null;
 
-  return (
+  const list = (
     <>
-      <AnimatePresence>
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border shrink-0 overflow-hidden"
+      <div
+        className={cn(
+          "px-3 py-2.5 flex items-center justify-between gap-3 border-b shrink-0",
+          variant === "inspector"
+            ? "border-stone-100 bg-stone-50/60 dark:border-border dark:bg-surface"
+            : "border-stone-100 dark:border-border bg-white dark:bg-surface-elevated",
+        )}
+      >
+        <span
+          className={cn(
+            "text-[10px] font-semibold uppercase tracking-wider",
+            variant === "inspector"
+              ? "text-muted-foreground"
+              : "text-stone-500 dark:text-muted-foreground",
+          )}
         >
-          <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-stone-100 dark:border-border">
-            <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-muted-foreground">
-              Personajes
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowCharactersPanel(false)}
-              className="p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-600 dark:hover:text-foreground transition-colors"
-              title="Cerrar panel"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto px-4 py-3 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar">
+          Personajes
+        </span>
+        {variant === "toolbar" && (
+          <button
+            type="button"
+            onClick={() => setShowCharactersPanel(false)}
+            className="p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-600 dark:hover:text-foreground transition-colors"
+            title="Cerrar panel"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+      <div className="flex gap-3 overflow-x-auto px-3 py-3 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar min-h-0 flex-1">
             <button
               type="button"
               onClick={openCreator}
@@ -120,6 +133,37 @@ export function CharactersPanel() {
               </div>
             ))}
           </div>
+    </>
+  );
+
+  if (variant === "inspector") {
+    return (
+      <>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-surface-elevated">
+          {list}
+        </div>
+        <CharacterDetailModal
+          character={detailCharacter}
+          onClose={() => setDetailCharacter(null)}
+          onDelete={(id) => handleDelete(id)}
+          onRegenerateSuccess={(c) => setDetailCharacter(c)}
+          isDeleting={deletingId !== null}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <AnimatePresence>
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border shrink-0 overflow-hidden"
+        >
+          {list}
         </motion.div>
       </AnimatePresence>
 

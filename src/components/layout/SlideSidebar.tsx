@@ -37,14 +37,14 @@ export function SlideSidebar() {
 
   if (!isSidebarOpen) {
     return (
-      <aside className="w-12 bg-stone-100 dark:bg-surface border-r border-stone-300 dark:border-border shrink-0 flex flex-col items-center py-3 hidden md:flex">
+      <aside className="hidden w-12 shrink-0 flex-col items-center border-r border-stone-200/90 bg-white py-3 md:flex dark:border-border dark:bg-surface-elevated">
         <IconButton
           variant="default"
           icon={<PanelLeftOpen size={20} />}
           aria-label="Mostrar diapositivas"
           title="Mostrar diapositivas"
           onClick={() => setIsSidebarOpen(true)}
-          className="hover:bg-stone-200 dark:hover:bg-surface-elevated"
+          className="border-transparent text-muted-foreground hover:bg-stone-100 dark:hover:bg-white/10"
         />
       </aside>
     );
@@ -52,11 +52,11 @@ export function SlideSidebar() {
 
   return (
     <aside
-      className="bg-stone-100 dark:bg-surface border-r border-stone-300 dark:border-border overflow-y-auto shrink-0 hidden md:flex flex-col"
+      className="hidden shrink-0 flex-col overflow-y-auto border-r border-stone-200/90 bg-white text-foreground md:flex dark:border-border dark:bg-surface-elevated"
       style={{ width: SIDEBAR_WIDTH }}
     >
-      <div className="p-2 flex items-center justify-between border-b border-stone-200 dark:border-border shrink-0">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-muted-foreground px-1">
+      <div className="flex shrink-0 items-center justify-between border-b border-stone-100 p-2 dark:border-border">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
           Diapositivas
         </span>
         <IconButton
@@ -65,7 +65,7 @@ export function SlideSidebar() {
           aria-label="Ocultar listado"
           title="Ocultar listado"
           onClick={() => setIsSidebarOpen(false)}
-          className="p-1.5 hover:bg-stone-200 dark:hover:bg-surface-elevated text-stone-400 hover:text-stone-600 dark:hover:text-foreground"
+          className="border-transparent p-1.5 text-muted-foreground hover:bg-stone-100 hover:text-foreground dark:hover:bg-white/10"
         />
       </div>
       <div className="p-2 space-y-2 overflow-y-auto relative">
@@ -81,10 +81,10 @@ export function SlideSidebar() {
               setContextMenu({ x: e.clientX, y: e.clientY, index });
             }}
             className={cn(
-              "w-full aspect-video rounded-lg border-2 transition-all overflow-hidden relative group shrink-0",
+              "w-full aspect-video rounded-md border transition-all overflow-hidden relative group shrink-0",
               currentIndex === index
-                ? "border-emerald-600 dark:border-emerald-500 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30"
-                : "border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500"
+                ? "border-primary ring-2 ring-primary/30"
+                : "border-border hover:border-stone-400 dark:hover:border-stone-500"
             )}
           >
             <div className="absolute inset-0 bg-white dark:bg-surface-elevated p-1.5 flex flex-col">

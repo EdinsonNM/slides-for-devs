@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Image as ImageIcon, Code2, Video, PencilRuler, Smartphone } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -70,7 +71,7 @@ function PreviewDiagram() {
 const TEMPLATES: {
   id: "title" | "content-split" | "content-full" | "content-panel-full" | "diagram";
   label: string;
-  Preview: () => JSX.Element;
+  Preview: () => ReactElement;
 }[] = [
   { id: "title", label: "Título", Preview: PreviewTitle },
   { id: "content-split", label: "Contenido (con panel)", Preview: PreviewContentSplit },
@@ -79,7 +80,11 @@ const TEMPLATES: {
   { id: "diagram", label: "Diagrama", Preview: PreviewDiagram },
 ];
 
-export function SlideStylePanel() {
+interface SlideStylePanelProps {
+  variant?: "toolbar" | "inspector";
+}
+
+export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
   const {
     currentSlide,
     slides,
@@ -90,7 +95,8 @@ export function SlideStylePanel() {
     setCurrentSlideContentType,
   } = usePresentation();
 
-  if (!showSlideStylePanel || !currentSlide || slides.length === 0) return null;
+  const visible = variant === "inspector" || showSlideStylePanel;
+  if (!visible || !currentSlide || slides.length === 0) return null;
 
   const isTitle = currentSlide.type === "chapter";
   const isDiagram = currentSlide.type === "diagram";
@@ -111,29 +117,45 @@ export function SlideStylePanel() {
   };
   const selectedId = getSelectedId();
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: "auto", opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border shrink-0 overflow-hidden"
+  const header = (
+    <div
+      className={cn(
+        "px-3 py-2.5 flex items-center justify-between gap-3 border-b shrink-0",
+        variant === "inspector"
+          ? "border-stone-100 bg-stone-50/60 dark:border-border dark:bg-surface"
+          : "border-stone-100 dark:border-border bg-white dark:bg-surface-elevated",
+      )}
+    >
+      <span
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-wider",
+          variant === "inspector"
+            ? "text-muted-foreground"
+            : "text-stone-500 dark:text-muted-foreground",
+        )}
       >
-        <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-stone-100 dark:border-border">
-          <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-muted-foreground">
-            Plantilla de la diapositiva
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowSlideStylePanel(false)}
-            className="p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-600 dark:hover:text-foreground transition-colors"
-            title="Cerrar panel"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="flex gap-4 overflow-x-auto px-4 py-4 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar">
+        Plantilla de la diapositiva
+      </span>
+      {variant === "toolbar" && (
+        <button
+          type="button"
+          onClick={() => setShowSlideStylePanel(false)}
+          className="p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-600 dark:hover:text-foreground transition-colors"
+          title="Cerrar panel"
+        >
+          <X size={18} />
+        </button>
+      )}
+    </div>
+  );
+
+  const templatesRow = (
+    <div
+      className={cn(
+        "flex gap-3 overflow-x-auto px-3 py-3 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar",
+        variant === "inspector" && "flex-wrap",
+      )}
+    >
           {TEMPLATES.map(({ id, label, Preview }) => (
             <button
               key={id}
@@ -175,8 +197,11 @@ export function SlideStylePanel() {
             </button>
           ))}
         </div>
-        {(isContentSplit || isContentPanelFull) && (
-          <div className="px-4 pb-3 pt-3 flex items-center gap-2 flex-wrap border-t border-stone-100 dark:border-border">
+  );
+
+  const panelTypes =
+    (isContentSplit || isContentPanelFull) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 px-3 pb-3 pt-2 dark:border-border">
             <span className="text-xs font-medium text-stone-500 dark:text-muted-foreground">Panel:</span>
             {[
               { id: "image" as const, label: "Imagen", icon: ImageIcon },
@@ -200,7 +225,30 @@ export function SlideStylePanel() {
               </button>
             ))}
           </div>
-        )}
+        );
+
+  if (variant === "inspector") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-surface-elevated">
+        {header}
+        {templatesRow}
+        {panelTypes}
+      </div>
+    );
+  }
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: "auto", opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border shrink-0 overflow-hidden"
+      >
+        {header}
+        {templatesRow}
+        {panelTypes}
       </motion.div>
     </AnimatePresence>
   );

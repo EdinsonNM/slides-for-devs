@@ -91,6 +91,20 @@ export const LAST_OPENED_PRESENTATION_KEY = "slides-for-devs-last-opened";
 
 export type HomeTab = "recent" | "mine" | "templates";
 
+/** Estado de una pestaña del editor (varias presentaciones abiertas en memoria). */
+export type EditorWorkspaceSnapshot = {
+  topic: string;
+  slides: Slide[];
+  currentIndex: number;
+  currentSavedId: string | null;
+  selectedCharacterId: string | null;
+};
+
+export type EditorTab = {
+  id: string;
+  title: string;
+};
+
 export function usePresentationState() {
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
@@ -216,6 +230,10 @@ export function usePresentationState() {
     useState(false);
   const [showCharactersPanel, setShowCharactersPanel] = useState(false);
   const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
+  /** Pestaña activa del panel derecho estilo Figma. */
+  const [inspectorSection, setInspectorSection] = useState<
+    "slide" | "characters" | "notes"
+  >("slide");
   const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] =
     useState(false);
   /** Cuando está setado, la presentación se está generando en segundo plano; se muestra modal y al terminar se guarda. */
@@ -230,6 +248,10 @@ export function usePresentationState() {
   const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
     async () => {},
   );
+
+  const tabSnapshotsRef = useRef<Record<string, EditorWorkspaceSnapshot>>({});
+  const [editorTabs, setEditorTabs] = useState<EditorTab[]>([]);
+  const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -330,6 +352,9 @@ export function usePresentationState() {
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setCurrentIndex(0);
+    setEditorTabs([]);
+    setActiveEditorTabId(null);
+    tabSnapshotsRef.current = {};
   }, [localAccountScope]);
 
   useEffect(() => {
@@ -339,6 +364,24 @@ export function usePresentationState() {
         .catch(() => setSavedList([]));
     }
   }, [slides.length, localAccountScope]);
+
+  useEffect(() => {
+    if (slides.length === 0) return;
+    if (editorTabs.length > 0) return;
+    const id = crypto.randomUUID();
+    setEditorTabs([{ id, title: (topic || "Sin título").slice(0, 64) }]);
+    setActiveEditorTabId(id);
+  }, [slides.length, editorTabs.length, topic]);
+
+  useEffect(() => {
+    if (!activeEditorTabId || slides.length === 0) return;
+    const label = (topic || "Sin título").slice(0, 64);
+    setEditorTabs((tabs) =>
+      tabs.map((t) =>
+        t.id === activeEditorTabId ? { ...t, title: label } : t,
+      ),
+    );
+  }, [topic, activeEditorTabId, slides.length]);
 
   useEffect(() => {
     listCharacters(localAccountScope)
@@ -993,6 +1036,56 @@ export function usePresentationState() {
     return diagramFlushRef.current?.() ?? null;
   }, []);
 
+  const cloneSlidesForTab = useCallback((list: Slide[]) => {
+    try {
+      return structuredClone(list) as Slide[];
+    } catch {
+      return list.map((s) => ({ ...s }));
+    }
+  }, []);
+
+  const captureWorkspaceSnapshot = useCallback((): EditorWorkspaceSnapshot => {
+    const pending = flushDiagramPending();
+    const s =
+      pending != null && currentSlide?.type === "diagram"
+        ? slides.map((sl, i) =>
+            i === currentIndex ? { ...sl, excalidrawData: pending } : sl,
+          )
+        : slides;
+    return {
+      topic,
+      slides: cloneSlidesForTab(s),
+      currentIndex,
+      currentSavedId,
+      selectedCharacterId,
+    };
+  }, [
+    flushDiagramPending,
+    currentSlide?.type,
+    slides,
+    currentIndex,
+    topic,
+    currentSavedId,
+    selectedCharacterId,
+    cloneSlidesForTab,
+  ]);
+
+  const applyWorkspaceSnapshot = useCallback(
+    (snap: EditorWorkspaceSnapshot) => {
+      const sl = cloneSlidesForTab(snap.slides);
+      const idx = Math.min(
+        Math.max(0, snap.currentIndex),
+        Math.max(0, sl.length - 1),
+      );
+      setTopic(snap.topic);
+      setSlides(sl);
+      setCurrentIndex(idx);
+      setCurrentSavedId(snap.currentSavedId);
+      setSelectedCharacterId(snap.selectedCharacterId);
+    },
+    [cloneSlidesForTab],
+  );
+
   const refreshSavedList = useCallback(async () => {
     try {
       const list = await listPresentations(localAccountScope);
@@ -1592,11 +1685,77 @@ export function usePresentationState() {
     }
   }, [cloudSyncConflict, user, refreshSavedList, localAccountScope]);
 
+  const switchEditorTab = useCallback(
+    (tabId: string) => {
+      if (tabId === activeEditorTabId) return;
+      if (activeEditorTabId) {
+        tabSnapshotsRef.current[activeEditorTabId] =
+          captureWorkspaceSnapshot();
+      }
+      const incoming = tabSnapshotsRef.current[tabId];
+      if (incoming) {
+        applyWorkspaceSnapshot(incoming);
+        delete tabSnapshotsRef.current[tabId];
+      }
+      setActiveEditorTabId(tabId);
+    },
+    [
+      activeEditorTabId,
+      captureWorkspaceSnapshot,
+      applyWorkspaceSnapshot,
+    ],
+  );
+
+  const addEditorTab = useCallback(() => {
+    if (activeEditorTabId) {
+      tabSnapshotsRef.current[activeEditorTabId] =
+        captureWorkspaceSnapshot();
+    }
+    const newId = crypto.randomUUID();
+    const blankSlide: Slide = {
+      id: crypto.randomUUID(),
+      type: "content",
+      title: "Nueva diapositiva",
+      content: "",
+    };
+    setTopic("");
+    setSlides([blankSlide]);
+    setCurrentIndex(0);
+    setCurrentSavedId(null);
+    setSelectedCharacterId(null);
+    setEditorTabs((tabs) => [...tabs, { id: newId, title: "Sin título" }]);
+    setActiveEditorTabId(newId);
+  }, [activeEditorTabId, captureWorkspaceSnapshot]);
+
+  const closeEditorTab = useCallback(
+    (tabId: string) => {
+      const tabs = editorTabs;
+      if (tabs.length <= 1) return;
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      if (idx < 0) return;
+      delete tabSnapshotsRef.current[tabId];
+      const neighbor = tabs[idx + 1] ?? tabs[idx - 1];
+      if (tabId === activeEditorTabId && neighbor) {
+        const incoming = tabSnapshotsRef.current[neighbor.id];
+        if (incoming) {
+          applyWorkspaceSnapshot(incoming);
+          delete tabSnapshotsRef.current[neighbor.id];
+        }
+        setActiveEditorTabId(neighbor.id);
+      }
+      setEditorTabs((t) => t.filter((x) => x.id !== tabId));
+    },
+    [editorTabs, activeEditorTabId, applyWorkspaceSnapshot],
+  );
+
   const goHome = () => {
     setSlides([]);
     setTopic("");
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
+    setEditorTabs([]);
+    setActiveEditorTabId(null);
+    tabSnapshotsRef.current = {};
     try {
       sessionStorage.removeItem(lastOpenedSessionKey);
     } catch {
@@ -2062,6 +2221,8 @@ export function usePresentationState() {
     setShowCharactersPanel,
     showSlideStylePanel,
     setShowSlideStylePanel,
+    inspectorSection,
+    setInspectorSection,
     isGeneratingCharacterPreview,
     generateCharacterPreview,
     isPreviewMode,
@@ -2195,6 +2356,11 @@ export function usePresentationState() {
     isSyncingCharactersCloud,
     handlePushAllCharactersToCloud,
     handlePullCharactersFromCloud,
+    editorTabs,
+    activeEditorTabId,
+    switchEditorTab,
+    addEditorTab,
+    closeEditorTab,
   };
 }
 
