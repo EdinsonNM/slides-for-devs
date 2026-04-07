@@ -1,10 +1,12 @@
 import { Video, Pencil } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { getEmbedUrl } from "../../utils/video";
+import { useMinWidthLg } from "../../hooks/useMatchMedia";
 
 export function VideoPanel() {
   const { currentSlide, setVideoUrlInput, setShowVideoModal } =
     usePresentation();
+  const isLgUp = useMinWidthLg();
 
   if (!currentSlide) return null;
 
@@ -17,15 +19,18 @@ export function VideoPanel() {
             className="w-full h-full"
             allowFullScreen
           />
-          <button
-            onClick={() => {
-              setVideoUrlInput(currentSlide.videoUrl || "");
-              setShowVideoModal(true);
-            }}
-            className="absolute bottom-4 right-4 p-2 bg-white/80 backdrop-blur-sm border border-stone-200 rounded-lg text-stone-600 hover:text-emerald-600 transition-all shadow-lg opacity-0 group-hover/video:opacity-100"
-          >
-            <Pencil size={16} />
-          </button>
+          {!isLgUp && (
+            <button
+              onClick={() => {
+                setVideoUrlInput(currentSlide.videoUrl || "");
+                setShowVideoModal(true);
+              }}
+              className="absolute bottom-4 right-4 p-2 bg-white/80 backdrop-blur-sm border border-stone-200 rounded-lg text-stone-600 hover:text-emerald-600 transition-all shadow-lg opacity-0 group-hover/video:opacity-100"
+              title="Cambiar vídeo"
+            >
+              <Pencil size={16} />
+            </button>
+          )}
         </div>
       </div>
     );

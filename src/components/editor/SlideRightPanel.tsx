@@ -1,6 +1,6 @@
-import { Code2, Video, Image as ImageIcon, Smartphone } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { useMinWidthLg } from "../../hooks/useMatchMedia";
 import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
@@ -12,13 +12,9 @@ export interface SlideRightPanelProps {
 }
 
 export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
-  const {
-    currentSlide,
-    imageWidthPercent,
-    isResizing,
-    setIsResizing,
-    toggleContentType,
-  } = usePresentation();
+  const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
+    usePresentation();
+  const isLgUp = useMinWidthLg();
 
   if (!currentSlide) return null;
 
@@ -42,47 +38,8 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
         </div>
       )}
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleContentType();
-        }}
-        className="absolute top-4 left-6 z-20 p-2 bg-white/80 dark:bg-surface-elevated/90 backdrop-blur-sm border border-stone-200 dark:border-border rounded-lg text-stone-600 dark:text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-200 dark:hover:border-emerald-600 transition-all shadow-sm opacity-0 group-hover:opacity-100 flex items-center gap-2"
-        title="Cambiar tipo de contenido (código / video / imagen / presentador 3D)"
-      >
-        {currentSlide.contentType === "code" ? (
-          <>
-            <Video size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Video
-            </span>
-          </>
-        ) : currentSlide.contentType === "video" ? (
-          <>
-            <ImageIcon size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Imagen
-            </span>
-          </>
-        ) : currentSlide.contentType === "presenter3d" ? (
-          <>
-            <Code2 size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Código
-            </span>
-          </>
-        ) : (
-          <>
-            <Smartphone size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              3D
-            </span>
-          </>
-        )}
-      </button>
-
       {currentSlide.contentType === "code" ? (
-        <CodeBlock />
+        <CodeBlock titleBarMode={isLgUp ? "minimal" : "full"} />
       ) : currentSlide.contentType === "video" ? (
         <VideoPanel />
       ) : currentSlide.contentType === "presenter3d" ? (

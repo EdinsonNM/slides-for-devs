@@ -15,12 +15,18 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { usePresentation } from "../../context/PresentationContext";
 import { LANGUAGES } from "../../constants/languages";
+import { cn } from "../../utils/cn";
 import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 
 const MIN_EDITOR_HEIGHT = 120;
 const MAX_EDITOR_HEIGHT = 560;
 
-export function CodeBlock() {
+export interface CodeBlockProps {
+  /** En vista grande los controles viven en el inspector; solo se muestran los dots de la ventana. */
+  titleBarMode?: "full" | "minimal";
+}
+
+export function CodeBlock({ titleBarMode = "full" }: CodeBlockProps) {
   const {
     currentSlide,
     isEditing,
@@ -96,13 +102,18 @@ export function CodeBlock() {
         style={{ height: "fit-content" }}
       >
         <div
-          className={`h-9 px-4 flex items-center justify-between shrink-0 ${titleBar}`}
+          className={cn(
+            "h-9 px-4 flex items-center shrink-0",
+            titleBarMode === "minimal" ? "justify-start" : "justify-between",
+            titleBar,
+          )}
         >
           <div className="flex gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
             <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
             <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
           </div>
+          {titleBarMode === "minimal" ? null : (
           <div
             className={`text-[10px] font-mono uppercase tracking-wider flex items-center gap-3 ${isLight ? "text-stone-600" : "text-stone-400"}`}
           >
@@ -209,6 +220,8 @@ export function CodeBlock() {
               </>
             )}
           </div>
+          )}
+          {titleBarMode === "minimal" ? null : (
           <div className="flex items-center justify-end shrink-0">
             <button
               type="button"
@@ -235,6 +248,7 @@ export function CodeBlock() {
               )}
             </button>
           </div>
+          )}
         </div>
         <div
           className={`min-h-[80px] p-0 font-mono overflow-auto custom-scrollbar shrink-0 ${editorArea} ${isLight ? "[&::-webkit-scrollbar-thumb]:bg-stone-400" : ""}`}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Image as ImageIcon, Code2, Video, PencilRuler, Smartphone } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { ContentPanelProperties } from "./ContentPanelProperties";
 
 /** Miniatura: solo título centrado */
 function PreviewTitle() {
@@ -233,6 +234,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {header}
         {templatesRow}
         {panelTypes}
+        {(isContentSplit || isContentPanelFull) && <ContentPanelProperties />}
       </div>
     );
   }
@@ -249,6 +251,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {header}
         {templatesRow}
         {panelTypes}
+        {(isContentSplit || isContentPanelFull) && <ContentPanelProperties />}
       </motion.div>
     </AnimatePresence>
   );
