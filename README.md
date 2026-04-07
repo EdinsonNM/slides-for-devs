@@ -78,6 +78,24 @@ A diferencia de PowerPoint, Google Slides o otras apps centradas en diseños vis
 - **Actualizador**  
   La app de escritorio comprueba y aplica actualizaciones desde GitHub Releases.
 
+- **Editor y layout**  
+  Shell del editor (`EditorShell`) con layout responsive, panel de propiedades de contenido (`ContentPanelProperties`) y ajustes de tema en `SlideStylePanel`. La barra lateral de slides incluye vista previa de medios y mejor manejo de tipos de contenido.
+
+- **Edición en lienzo**  
+  Marco de selección tipo canvas (`CanvaSelectionFrame`) para redimensionar y deseleccionar elementos con más control.
+
+- **Slides 3D**  
+  En el viewport 3D (`Device3DViewport`), autoencuadre y ajuste de límites para encajar mejor el dispositivo en la escena.
+
+- **Título de la presentación**  
+  Borrador del título en la cabecera antes de guardar o confirmar cambios (sincronizado con el estado de presentación).
+
+- **IA: generación por modales**  
+  Modales dedicados para generar contenido de una slide o el deck completo desde la barra de herramientas.
+
+- **Nube: compartir presentaciones**  
+  Reglas e índices de Firestore para invitaciones (`presentationShareGrants`), listado de compartidas y almacenamiento alineado. Detalle en [docs/firebase-rules.md](docs/firebase-rules.md) y despliegue de índices con `firebase deploy --only firestore:indexes` según `firestore.indexes.json`.
+
 ---
 
 ## Requisitos
@@ -162,7 +180,7 @@ Las claves de **Gemini** (Google AI) y **OpenAI** se configuran dentro de la apl
 
 ## Descargas
 
-Los binarios se publican en [GitHub Releases](https://github.com/EdinsonNM/slides-for-devs/releases) para:
+Último release publicado en esta línea de trabajo: **v0.1.18**. Los binarios están en [GitHub Releases](https://github.com/EdinsonNM/slides-for-devs/releases) para:
 
 - **Windows** (x86_64)
 - **macOS** (x86_64 y aarch64)
@@ -181,6 +199,16 @@ Las contribuciones son bienvenidas. Si quieres reportar un bug, proponer una mej
 ## Licencia
 
 Este proyecto está bajo la [licencia MIT](LICENSE): uso libre (uso, copia, modificación, distribución) manteniendo el aviso de copyright y de la licencia.
+
+---
+
+## Sincronización de esta documentación
+
+Para saber hasta qué punto del historial de Git quedó alineado este README (y [AGENTS.md](AGENTS.md)):
+
+`497ffa6a977d7cf8897d4466361a575374abbd45`
+
+Al volver a actualizar la documentación, sustituye ese hash por el de `HEAD` en el momento de la revisión.
 
 ---
 

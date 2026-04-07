@@ -993,10 +993,16 @@ export async function pullPresentationFromCloud(
               ? "image/webp"
               : ext === "gif"
                 ? "image/gif"
-                : "image/png";
+                : ext === "svg"
+                  ? "image/svg+xml"
+                  : "image/png";
         slide = { ...slide, imageUrl: await bytesToDataUrlAsync(bytes, mime) };
-      } catch {
-        /* deja sin imagen */
+      } catch (e) {
+        console.warn(
+          `[cloud] No se pudo descargar imagen del slide ${i} (${imgName}):`,
+          e
+        );
+        /* sin imagen desde Storage; puede quedar imageUrl del doc si era URL pública */
       }
     }
 

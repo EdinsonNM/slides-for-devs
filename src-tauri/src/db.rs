@@ -363,7 +363,7 @@ fn data_url_to_bytes(data_url: &str) -> Option<Vec<u8>> {
     let sep = ";base64,";
     let idx = lower.find(sep)?;
     let subtype = &lower["data:image/".len()..idx];
-    let allowed = matches!(subtype, "png" | "jpeg" | "jpg" | "webp");
+    let allowed = matches!(subtype, "png" | "jpeg" | "jpg" | "webp" | "gif");
     if !allowed {
         return None;
     }
@@ -383,6 +383,15 @@ fn bytes_to_data_url(data: &[u8]) -> String {
         && data[3] == 0x47
     {
         "image/png"
+    } else if data.len() >= 6
+        && data[0] == 0x47
+        && data[1] == 0x49
+        && data[2] == 0x46
+        && data[3] == 0x38
+        && (data[4] == 0x37 || data[4] == 0x39)
+        && data[5] == 0x61
+    {
+        "image/gif"
     } else if data.len() >= 12
         && data[0] == 0x52
         && data[1] == 0x49
