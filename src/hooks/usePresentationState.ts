@@ -275,6 +275,11 @@ export function usePresentationState() {
   } | null>(null);
   /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
   const diagramFlushRef = useRef<(() => string | null) | null>(null);
+  /**
+   * Borrador del título de la presentación mientras el input del header está en edición.
+   * Evita guardar un `topic` obsoleto si se pulsa Guardar antes de que React aplique el blur.
+   */
+  const presentationTitleDraftRef = useRef<string | null>(null);
   const [presentationModelId, setPresentationModelId] = useState(
     DEFAULT_PRESENTATION_MODEL_ID,
   );
@@ -1270,14 +1275,31 @@ export function usePresentationState() {
 
   const captureWorkspaceSnapshot = useCallback((): EditorWorkspaceSnapshot => {
     const pending = flushDiagramPending();
+    const idx = currentIndex;
+    const buffers = {
+      title: editTitleRef.current,
+      subtitle: editSubtitleRef.current,
+      content: editContentRef.current,
+      code: editCodeRef.current,
+      language: editLanguageRef.current,
+      fontSize: editFontSizeRef.current,
+      editorHeight: editEditorHeightRef.current,
+    };
+    const merged = slides.map((sl, i) =>
+      i === idx ? slidePatchedFromEditBuffers(sl, buffers) : sl,
+    );
     const s =
-      pending != null && currentSlide?.type === "diagram"
-        ? slides.map((sl, i) =>
-            i === currentIndex ? { ...sl, excalidrawData: pending } : sl,
+      pending != null && merged[idx]?.type === "diagram"
+        ? merged.map((sl, i) =>
+            i === idx ? { ...sl, excalidrawData: pending } : sl,
           )
-        : slides;
+        : merged;
+    const snapTopic =
+      presentationTitleDraftRef.current !== null
+        ? presentationTitleDraftRef.current.trim() || ""
+        : topic;
     return {
-      topic,
+      topic: snapTopic,
       slides: cloneSlidesForTab(s),
       currentIndex,
       currentSavedId,
@@ -1285,7 +1307,6 @@ export function usePresentationState() {
     };
   }, [
     flushDiagramPending,
-    currentSlide?.type,
     slides,
     currentIndex,
     topic,
@@ -1293,6 +1314,10 @@ export function usePresentationState() {
     selectedCharacterId,
     cloneSlidesForTab,
   ]);
+
+  const setPresentationTitleDraft = useCallback((value: string | null) => {
+    presentationTitleDraftRef.current = value;
+  }, []);
 
   const applyWorkspaceSnapshot = useCallback(
     (snap: EditorWorkspaceSnapshot) => {
@@ -1457,20 +1482,44 @@ export function usePresentationState() {
   const handleSave = async () => {
     if (slides.length === 0) return;
     const pendingDiagram = flushDiagramPending();
+    const idx = currentIndexRef.current;
+    const buffers = {
+      title: editTitleRef.current,
+      subtitle: editSubtitleRef.current,
+      content: editContentRef.current,
+      code: editCodeRef.current,
+      language: editLanguageRef.current,
+      fontSize: editFontSizeRef.current,
+      editorHeight: editEditorHeightRef.current,
+    };
+    const merged = slides.map((s, i) =>
+      i === idx ? slidePatchedFromEditBuffers(s, buffers) : s,
+    );
     const slidesToSave =
-      pendingDiagram != null && currentSlide?.type === "diagram"
-        ? slides.map((s, i) =>
-            i === currentIndex ? { ...s, excalidrawData: pendingDiagram } : s,
+      pendingDiagram != null && merged[idx]?.type === "diagram"
+        ? merged.map((s, i) =>
+            i === idx ? { ...s, excalidrawData: pendingDiagram } : s,
           )
-        : slides;
+        : merged;
+
+    const hadTitleDraft = presentationTitleDraftRef.current !== null;
+    const topicSource =
+      hadTitleDraft ? presentationTitleDraftRef.current! : topic;
+    if (hadTitleDraft) {
+      presentationTitleDraftRef.current = null;
+      setTopic(topicSource.trim() || "");
+    }
+    const topicToSave = topicSource.trim() || "Sin título";
+
     setIsSaving(true);
     setSaveMessage(null);
     try {
       await savePresentationNow({
-        topic: topic || "Sin título",
+        topic: topicToSave,
         slides: slidesToSave,
         characterId: selectedCharacterId ?? undefined,
       });
+      setSlides(slidesToSave);
     } finally {
       setIsSaving(false);
     }
@@ -2403,6 +2452,7 @@ export function usePresentationState() {
   return {
     topic,
     setTopic,
+    setPresentationTitleDraft,
     presentationModelId,
     setPresentationModelId,
     presentationModels,

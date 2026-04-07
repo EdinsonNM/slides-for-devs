@@ -35,6 +35,7 @@ export function Header(props: HeaderProps) {
   const {
     topic,
     setTopic,
+    setPresentationTitleDraft,
     goHome,
     openSavedListModal,
     slides,
@@ -81,6 +82,14 @@ export function Header(props: HeaderProps) {
   useEffect(() => {
     setEditTitleValue(topic || "");
   }, [topic]);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      setPresentationTitleDraft(editTitleValue);
+    } else {
+      setPresentationTitleDraft(null);
+    }
+  }, [isEditingTitle, editTitleValue, setPresentationTitleDraft]);
 
   useEffect(() => {
     if (isEditingTitle) {
