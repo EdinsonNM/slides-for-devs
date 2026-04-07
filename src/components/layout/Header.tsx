@@ -12,6 +12,7 @@ import {
   StickyNote,
   UserPlus,
   FileDown,
+  Sparkles,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -53,6 +54,7 @@ export function Header(props: HeaderProps) {
     cloudSyncAvailable,
     autoCloudSyncOnSave,
     setAutoCloudSyncOnSave,
+    openGenerateFullDeckModal,
   } = usePresentation();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -143,6 +145,13 @@ export function Header(props: HeaderProps) {
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
+        <IconButton
+          variant="emerald"
+          icon={<Sparkles size={18} />}
+          aria-label="Generar toda la presentación con IA"
+          title="Generar toda la presentación con IA (reemplaza diapositivas)"
+          onClick={openGenerateFullDeckModal}
+        />
         <ModelSelect
           value={presentationModelId}
           options={presentationModels}

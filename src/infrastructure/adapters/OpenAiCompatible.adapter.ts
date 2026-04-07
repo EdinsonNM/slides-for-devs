@@ -8,6 +8,7 @@ import {
   generatePresentationPrompt,
   splitSlidePrompt,
   rewriteSlidePrompt,
+  generateSlideContentPrompt,
   imageAlternativesPrompt,
 } from "../prompts";
 import { parseSlidesFromResponse } from "../schemas";
@@ -169,6 +170,46 @@ export class OpenAiCompatibleAdapter
     modelId: string
   ): Promise<{ title: string; content: string }> {
     const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const body = {
+      model: this.model(modelId),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      max_tokens: 8192,
+    };
+    const content = this.isTauri()
+      ? await this.tauriChat(body)
+      : await (async () => {
+          const res = await fetch(this.config.chatUrl, {
+            method: "POST",
+            headers: this.headers(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await this.parseError(res));
+          const data = await res.json().catch(() => ({}));
+          return data?.choices?.[0]?.message?.content as string | undefined;
+        })();
+    if (!content || typeof content !== "string")
+      return { title: slide.title, content: slide.content };
+    try {
+      const p = JSON.parse(content) as { title?: string; content?: string };
+      return { title: p.title ?? slide.title, content: p.content ?? slide.content };
+    } catch {
+      return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string }> {
+    const { system, user } = buildPrompt(generateSlideContentPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+    });
     const body = {
       model: this.model(modelId),
       messages: [{ role: "system", content: system }, { role: "user", content: user }],

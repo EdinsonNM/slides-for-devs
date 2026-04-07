@@ -33,6 +33,8 @@ import { CharacterCreatorModal } from "./components/modals/CharacterCreatorModal
 import { PreviewOverlay } from "./components/preview/PreviewOverlay";
 import { PresenterView } from "./components/presenter/PresenterView";
 import { GeneratingPresentationModal } from "./components/modals/GeneratingPresentationModal";
+import { GenerateFullDeckModal } from "./components/modals/GenerateFullDeckModal";
+import { GenerateSlideContentModal } from "./components/modals/GenerateSlideContentModal";
 
 interface HomeOrRedirectProps {
   onOpenConfig: () => void;
@@ -57,6 +59,7 @@ function HomeOrRedirect({
     slides,
     handleOpenSaved,
     handleGenerate,
+    createBlankPresentation,
     refreshApiKeys,
   } = usePresentation();
 
@@ -71,6 +74,11 @@ function HomeOrRedirect({
 
   const onGenerateAndGo = async (e: React.FormEvent) => {
     await handleGenerate(e);
+    navigate("/editor");
+  };
+
+  const onCreateBlankAndGo = async () => {
+    await createBlankPresentation();
     navigate("/editor");
   };
 
@@ -101,6 +109,7 @@ function HomeOrRedirect({
         onCheckUpdates={() => checkForAppUpdates(false)}
         onOpenSaved={onOpenSavedAndGo}
         onGenerate={onGenerateAndGo}
+        onCreateBlank={onCreateBlankAndGo}
       />
       <ApiConfigModal
         isOpen={showApiConfigModal}
@@ -135,6 +144,8 @@ function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
       <SplitSlideModal />
       <RewriteSlideModal />
       <SpeechModal />
+      <GenerateFullDeckModal />
+      <GenerateSlideContentModal />
       <PreviewOverlay />
     </div>
   );

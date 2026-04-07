@@ -21,6 +21,7 @@ import {
   generatePresentation,
   splitSlide as splitSlideUseCase,
   rewriteSlide as rewriteSlideUseCase,
+  generateSlideContent as generateSlideContentUseCase,
   generateImagePromptAlternatives,
   generateImage as generateImageUseCase,
 } from "../composition/container";
@@ -98,6 +99,10 @@ export function usePresentationState() {
   );
   const lastOpenedSessionKey = `${LAST_OPENED_PRESENTATION_KEY}:${localAccountScope}`;
   const prevLocalAccountScopeRef = useRef<string | null>(null);
+  /** Si falla la generación completa iniciada desde el editor, restaurar slides y título. */
+  const generationErrorRestoreRef = useRef<{ slides: Slide[]; topic: string } | null>(
+    null
+  );
 
   const [topic, setTopic] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -111,6 +116,11 @@ export function usePresentationState() {
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [showRewriteModal, setShowRewriteModal] = useState(false);
+  const [showGenerateFullDeckModal, setShowGenerateFullDeckModal] = useState(false);
+  const [generateFullDeckTopic, setGenerateFullDeckTopic] = useState("");
+  const [showGenerateSlideContentModal, setShowGenerateSlideContentModal] =
+    useState(false);
+  const [generateSlideContentPrompt, setGenerateSlideContentPrompt] = useState("");
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [splitPrompt, setSplitPrompt] = useState("");
@@ -200,6 +210,8 @@ export function usePresentationState() {
   const [pendingGeneration, setPendingGeneration] = useState<{
     topic: string;
     modelId: string;
+    /** Si viene del editor con presentación ya guardada, actualizar este id en lugar de crear otra fila. */
+    reuseSavedId?: string | null;
   } | null>(null);
   /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
   const [apiKeysVersion, setApiKeysVersion] = useState(0);
@@ -347,9 +359,23 @@ export function usePresentationState() {
           slides: cleanedSlides,
           characterId: selectedCharacterId ?? undefined,
         };
-        const id = await savePresentation(presentation, localAccountScope);
+        let id: string;
+        if (pending.reuseSavedId) {
+          await updatePresentation(pending.reuseSavedId, presentation, localAccountScope);
+          id = pending.reuseSavedId;
+        } else {
+          id = await savePresentation(presentation, localAccountScope);
+        }
         if (cancelled) return;
         setCurrentSavedId(id);
+        try {
+          sessionStorage.setItem(lastOpenedSessionKey, id);
+        } catch {
+          // ignore
+        }
+        void listPresentations(localAccountScope)
+          .then(setSavedList)
+          .catch(() => setSavedList([]));
         if (
           autoCloudSyncOnSave &&
           user &&
@@ -371,8 +397,15 @@ export function usePresentationState() {
             : "Hubo un error al generar la presentación. Por favor intenta de nuevo.";
         alert(`Error al generar la presentación:\n${errorMessage}`);
         setPendingGeneration(null);
-        setSlides([]);
-        setTopic("");
+        const restore = generationErrorRestoreRef.current;
+        generationErrorRestoreRef.current = null;
+        if (restore) {
+          setSlides(restore.slides);
+          setTopic(restore.topic);
+        } else {
+          setSlides([]);
+          setTopic("");
+        }
       }
     };
     run();
@@ -645,21 +678,75 @@ export function usePresentationState() {
     });
   };
 
+  const queueFullDeckGeneration = useCallback(
+    (
+      trimmedTopic: string,
+      options?: {
+        errorRestore?: { slides: Slide[]; topic: string };
+        reuseSavedId?: string | null;
+      }
+    ) => {
+      const t = trimmedTopic.trim();
+      if (!t) return;
+      generationErrorRestoreRef.current = options?.errorRestore ?? null;
+      setTopic(t);
+      const placeholderSlide: Slide = {
+        id: crypto.randomUUID(),
+        type: "content",
+        title: "Generando…",
+        content: "Preparando tu presentación.",
+      };
+      setSlides([placeholderSlide]);
+      setCurrentIndex(0);
+      setPendingGeneration({
+        topic: t,
+        modelId: presentationModelId,
+        reuseSavedId: options?.reuseSavedId ?? undefined,
+      });
+    },
+    [presentationModelId]
+  );
+
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedTopic = topic.trim();
     if (!trimmedTopic) return;
-    const placeholderSlide: Slide = {
-      id: crypto.randomUUID(),
-      type: "content",
-      title: "Generando…",
-      content: "Preparando tu presentación.",
-    };
-    setTopic(trimmedTopic);
-    setSlides([placeholderSlide]);
-    setCurrentIndex(0);
-    setPendingGeneration({ topic: trimmedTopic, modelId: presentationModelId });
+    queueFullDeckGeneration(trimmedTopic);
   };
+
+  const openGenerateFullDeckModal = useCallback(() => {
+    setGenerateFullDeckTopic(topic.trim());
+    setShowGenerateFullDeckModal(true);
+  }, [topic]);
+
+  const handleConfirmGenerateFullDeck = useCallback(() => {
+    const t = generateFullDeckTopic.trim();
+    if (!t) return;
+    const backupNeeded =
+      slides.length > 1 ||
+      slides.some((s) => {
+        const c = (s.content ?? "").trim();
+        if (c.length > 0) return true;
+        const title = s.title.trim();
+        if (title === "Generando…") return false;
+        return title.length > 0 && title !== "Nueva diapositiva";
+      });
+    const errorRestore = backupNeeded
+      ? { slides: slides.map((s) => ({ ...s })), topic }
+      : undefined;
+    setShowGenerateFullDeckModal(false);
+    setGenerateFullDeckTopic("");
+    queueFullDeckGeneration(t, {
+      errorRestore,
+      reuseSavedId: currentSavedId,
+    });
+  }, [
+    generateFullDeckTopic,
+    slides,
+    topic,
+    currentSavedId,
+    queueFullDeckGeneration,
+  ]);
 
   const handleImageGenerate = async () => {
     if (!imagePrompt.trim() || !currentSlide) return;
@@ -815,6 +902,46 @@ export function usePresentationState() {
     }
   };
 
+  const handleGenerateSlideContentAi = async () => {
+    if (!currentSlide || currentSlide.type !== "content") return;
+    const instr = generateSlideContentPrompt.trim();
+    if (!instr) return;
+    setIsProcessing(true);
+    const modelId = usesChatCompletionSlideOps(presentationModelOption?.provider)
+      ? presentationModelId
+      : effectiveGeminiModel;
+    try {
+      const result = await generateSlideContentUseCase.run(
+        topic.trim(),
+        currentSlide,
+        instr,
+        modelId
+      );
+      const formattedContent = formatMarkdown(result.content);
+      setSlides((prev) => {
+        const updated = [...prev];
+        const slide = updated[currentIndex];
+        if (!slide) return prev;
+        updated[currentIndex] = {
+          ...slide,
+          title: result.title,
+          content: formattedContent,
+        };
+        return updated;
+      });
+      setEditTitle(result.title);
+      setEditContent(formattedContent);
+      setShowGenerateSlideContentModal(false);
+      setGenerateSlideContentPrompt("");
+      trackEvent(ANALYTICS_EVENTS.SLIDE_CONTENT_GENERATED);
+    } catch (error) {
+      console.error("Error generating slide content:", error);
+      alert("No se pudo generar el contenido de la diapositiva.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleSaveVideoUrl = () => {
     if (!videoUrlInput.trim() || !currentSlide) return;
     setSlides((prev) => {
@@ -956,6 +1083,28 @@ export function usePresentationState() {
       lastOpenedSessionKey,
     ]
   );
+
+  const createBlankPresentation = useCallback(async () => {
+    generationErrorRestoreRef.current = null;
+    setPendingGeneration(null);
+    const blankSlide: Slide = {
+      id: crypto.randomUUID(),
+      type: "content",
+      title: "Nueva diapositiva",
+      content: "",
+    };
+    setTopic("");
+    setSlides([blankSlide]);
+    setCurrentIndex(0);
+    setCurrentSavedId(null);
+    setSelectedCharacterId(null);
+    await savePresentationNow({
+      topic: "",
+      slides: [blankSlide],
+      characterId: undefined,
+    });
+    await refreshSavedList();
+  }, [savePresentationNow, refreshSavedList]);
 
   const handleSave = async () => {
     if (slides.length === 0) return;
@@ -1910,6 +2059,18 @@ export function usePresentationState() {
     setCurrentSlidePresenter3dScreenMedia,
     setCurrentSlidePresenter3dViewState,
     handleGenerate,
+    createBlankPresentation,
+    openGenerateFullDeckModal,
+    showGenerateFullDeckModal,
+    setShowGenerateFullDeckModal,
+    generateFullDeckTopic,
+    setGenerateFullDeckTopic,
+    handleConfirmGenerateFullDeck,
+    showGenerateSlideContentModal,
+    setShowGenerateSlideContentModal,
+    generateSlideContentPrompt,
+    setGenerateSlideContentPrompt,
+    handleGenerateSlideContentAi,
     handleImageGenerate,
     handleGeneratePromptAlternatives,
     handleSplitSlide,

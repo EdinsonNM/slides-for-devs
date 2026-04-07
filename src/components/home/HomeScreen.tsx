@@ -13,6 +13,8 @@ export interface HomeScreenProps {
   onOpenSaved?: (id: string) => void | Promise<void>;
   /** Si se proporciona, se usa en lugar del contexto al generar una nueva presentación (p. ej. para navegar a /editor). */
   onGenerate?: (e: React.FormEvent) => void | Promise<void>;
+  /** Crear presentación en blanco y navegar al editor (p. ej. ruta /editor). */
+  onCreateBlank?: () => void | Promise<void>;
 }
 
 /**
@@ -27,6 +29,7 @@ export function HomeScreen(props: HomeScreenProps) {
     onCheckUpdates,
     onOpenSaved: onOpenSavedProp,
     onGenerate: onGenerateProp,
+    onCreateBlank: onCreateBlankProp,
   } = props;
   const {
     topic,
@@ -51,6 +54,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
   const generate = onGenerateProp ?? handleGenerate;
+  const createBlank = onCreateBlankProp;
   const hasItems = savedList.length > 0;
 
   if (!hasItems) {
@@ -64,6 +68,7 @@ export function HomeScreen(props: HomeScreenProps) {
         setTopic={setTopic}
         isLoading={isLoading}
         onGenerate={generate}
+        onCreateBlank={createBlank}
         presentationModelId={presentationModelId}
         setPresentationModelId={setPresentationModelId}
         presentationModels={presentationModels}
@@ -84,6 +89,7 @@ export function HomeScreen(props: HomeScreenProps) {
       setTopic={setTopic}
       isLoading={isLoading}
       onGenerate={generate}
+      onCreateBlank={createBlank}
       presentationModelId={presentationModelId}
       setPresentationModelId={setPresentationModelId}
       presentationModels={presentationModels}

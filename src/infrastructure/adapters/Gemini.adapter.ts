@@ -13,6 +13,7 @@ import {
   generatePresentationPrompt,
   splitSlidePrompt,
   rewriteSlidePrompt,
+  generateSlideContentPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
@@ -122,6 +123,39 @@ export class GeminiAdapter
     modelId: string
   ): Promise<{ title: string; content: string }> {
     const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const content = `${system}\n\n${user}`;
+    const res = await client().models.generateContent({
+      model: modelId || DEFAULT_TEXT,
+      contents: content,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { title: { type: Type.STRING }, content: { type: Type.STRING } },
+          required: ["title", "content"],
+        },
+      },
+    });
+    try {
+      const parsed = JSON.parse(res.text || "{}") as { title?: string; content?: string };
+      return { title: parsed.title ?? slide.title, content: parsed.content ?? slide.content };
+    } catch {
+      return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string }> {
+    const { system, user } = buildPrompt(generateSlideContentPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+    });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
       model: modelId || DEFAULT_TEXT,

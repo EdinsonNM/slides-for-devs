@@ -8,6 +8,7 @@ import {
   Cloud,
   CloudUpload,
   Share2,
+  FilePlus,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
@@ -32,6 +33,7 @@ export interface HomeWithCarouselProps {
   setTopic: (v: string) => void;
   isLoading: boolean;
   onGenerate: (e: React.FormEvent) => void;
+  onCreateBlank?: () => void | Promise<void>;
   presentationModelId?: string;
   setPresentationModelId?: (id: string) => void;
   presentationModels?: PresentationModel[];
@@ -60,6 +62,7 @@ export function HomeWithCarousel({
   setTopic,
   isLoading,
   onGenerate,
+  onCreateBlank,
   presentationModelId,
   setPresentationModelId,
   presentationModels,
@@ -115,7 +118,19 @@ export function HomeWithCarousel({
           />
         </div>
 
-        <div className="flex items-center min-w-0 justify-end shrink-0 pt-0.5">
+        <div className="flex items-center gap-2 min-w-0 justify-end shrink-0 pt-0.5">
+          {onCreateBlank && (
+            <button
+              type="button"
+              onClick={() => void onCreateBlank()}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-stone-200 bg-white/80 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-600 hover:bg-white dark:hover:bg-stone-800 disabled:opacity-50"
+              title="Abrir el editor sin generar contenido"
+            >
+              <FilePlus size={16} />
+              <span className="hidden min-[400px]:inline">En blanco</span>
+            </button>
+          )}
           <AvatarMenu onOpenConfig={onOpenConfig} variant="home" />
         </div>
       </header>

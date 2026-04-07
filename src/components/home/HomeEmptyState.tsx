@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Cloud } from "lucide-react";
+import { Cloud, FilePlus } from "lucide-react";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
@@ -11,6 +11,7 @@ export interface HomeEmptyStateProps {
   setTopic: (v: string) => void;
   isLoading: boolean;
   onGenerate: (e: React.FormEvent) => void;
+  onCreateBlank?: () => void | Promise<void>;
   presentationModelId?: string;
   setPresentationModelId?: (id: string) => void;
   presentationModels?: PresentationModel[];
@@ -29,6 +30,7 @@ export function HomeEmptyState({
   setTopic,
   isLoading,
   onGenerate,
+  onCreateBlank,
   presentationModelId,
   setPresentationModelId,
   presentationModels,
@@ -80,6 +82,17 @@ export function HomeEmptyState({
             setPresentationModelId={setPresentationModelId}
             presentationModels={presentationModels}
           />
+          {onCreateBlank && (
+            <button
+              type="button"
+              onClick={() => void onCreateBlank()}
+              disabled={isLoading}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-200 bg-white/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-600 shadow-sm hover:bg-white dark:hover:bg-stone-800 disabled:opacity-50"
+            >
+              <FilePlus size={18} />
+              Presentación en blanco
+            </button>
+          )}
           {cloudSyncAvailable && onOpenCloudPresentations && (
             <button
               type="button"

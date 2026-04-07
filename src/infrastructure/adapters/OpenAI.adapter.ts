@@ -12,6 +12,7 @@ import {
   generatePresentationPrompt,
   splitSlidePrompt,
   rewriteSlidePrompt,
+  generateSlideContentPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
@@ -101,6 +102,39 @@ export class OpenAIAdapter
     modelId: string
   ): Promise<{ title: string; content: string }> {
     const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const res = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
+      body: JSON.stringify({
+        model: modelId || "gpt-4o-mini",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
+    const content = (await res.json())?.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string")
+      return { title: slide.title, content: slide.content };
+    try {
+      const p = JSON.parse(content) as { title?: string; content?: string };
+      return { title: p.title ?? slide.title, content: p.content ?? slide.content };
+    } catch {
+      return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string }> {
+    const { system, user } = buildPrompt(generateSlideContentPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+    });
     const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },

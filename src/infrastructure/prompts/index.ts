@@ -2,6 +2,7 @@ export { slideCountBounds, parseSlideCountFromTopic, DEFAULT_SLIDES, MIN_SLIDES,
 export { generatePresentationPrompt } from "./generatePresentation.prompt";
 export { splitSlidePrompt } from "./splitSlide.prompt";
 export { rewriteSlidePrompt } from "./rewriteSlide.prompt";
+export { generateSlideContentPrompt } from "./generateSlideContent.prompt";
 export {
   imageAlternativesPrompt,
   imageGenerationPrompt,

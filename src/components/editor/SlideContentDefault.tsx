@@ -1,4 +1,4 @@
-import { Pencil, Check, Save, RefreshCw, Split } from "lucide-react";
+import { Pencil, Check, Save, RefreshCw, Split, Sparkles } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
@@ -19,6 +19,8 @@ export function SlideContentDefault() {
     setEditContent,
     handleSaveManualEdit,
     setShowRewriteModal,
+    setShowGenerateSlideContentModal,
+    setGenerateSlideContentPrompt,
     setShowSplitModal,
     panelHeightPercent,
     isResizingPanelHeight,
@@ -189,6 +191,16 @@ export function SlideContentDefault() {
               title={isEditing ? "Guardar cambios" : "Editar"}
             >
               {isEditing ? <Check size={16} /> : <Pencil size={16} />}
+            </button>
+            <button
+              onClick={() => {
+                setGenerateSlideContentPrompt("");
+                setShowGenerateSlideContentModal(true);
+              }}
+              className="p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              title="Generar contenido de esta diapositiva con IA"
+            >
+              <Sparkles size={16} />
             </button>
             <button
               onClick={() => setShowRewriteModal(true)}

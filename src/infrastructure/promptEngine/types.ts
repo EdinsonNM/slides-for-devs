@@ -66,3 +66,13 @@ export interface RewriteSlideInput {
   slide: { title: string; content: string };
   userPrompt: string;
 }
+
+/**
+ * Input para generateSlideContent (una diapositiva desde instrucción / borrador).
+ */
+export interface GenerateSlideContentInput {
+  presentationTopic: string;
+  slideTitle: string;
+  slideContent: string;
+  userPrompt: string;
+}

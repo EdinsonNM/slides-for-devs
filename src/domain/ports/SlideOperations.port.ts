@@ -7,6 +7,13 @@ export interface SlideOperationsPort {
     prompt: string,
     modelId: string
   ): Promise<{ title: string; content: string }>;
+  /** Genera título y contenido markdown para una sola diapositiva a partir de la instrucción y el tema de la presentación. */
+  generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string }>;
   generateImagePromptAlternatives(
     slideContext: string,
     currentPrompt: string,
