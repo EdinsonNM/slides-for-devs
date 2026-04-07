@@ -41,6 +41,8 @@ export function SlideContentDefault() {
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Tras pulsar el handle de resize, el textarea hace blur; evitar confirmar hasta terminar el gesto. */
   const suppressBlurCommitUntilRef = useRef(0);
+  /** Clic dentro de la diapositiva pero fuera del texto: deseleccionar sin salir del modo edición. */
+  const deselectInsideSlideRef = useRef(false);
 
   const cancelScheduledCommit = useCallback(() => {
     if (blurCommitTimerRef.current != null) {
@@ -60,6 +62,11 @@ export function SlideContentDefault() {
       if (ae instanceof HTMLElement) {
         if (ae.closest(`[${EDIT_FIELD_ATTR}="true"]`)) return;
       }
+      if (deselectInsideSlideRef.current) {
+        deselectInsideSlideRef.current = false;
+        commitSlideEdits({ keepEditing: true });
+        return;
+      }
       commitSlideEdits();
     }, 160);
   }, [isEditing, cancelScheduledCommit, commitSlideEdits]);
@@ -68,6 +75,26 @@ export function SlideContentDefault() {
     cancelScheduledCommit();
     suppressBlurCommitUntilRef.current = Date.now() + 750;
   }, [cancelScheduledCommit]);
+
+  const clearActiveBlockOnSurfacePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isEditing) return;
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      if (
+        el.closest(`[${EDIT_FIELD_ATTR}="true"]`) != null ||
+        el.closest("[data-slide-selection-frame]") != null
+      ) {
+        return;
+      }
+      setActiveBlock((prev) => {
+        if (prev == null) return prev;
+        deselectInsideSlideRef.current = true;
+        return null;
+      });
+    },
+    [isEditing],
+  );
 
   const patchEditorFrame = useCallback(
     (part: "title" | "content", widthPercent: number, minHeightPx: number) => {
@@ -97,12 +124,6 @@ export function SlideContentDefault() {
   useEffect(() => {
     setActiveBlock(null);
   }, [currentSlide?.id, currentIndex]);
-
-  useEffect(() => {
-    if (!isEditing || activeBlock !== null) return;
-    const isPanelFull = currentSlide?.contentLayout === "panel-full";
-    setActiveBlock(isPanelFull ? "title" : "content");
-  }, [isEditing, activeBlock, currentSlide?.contentLayout]);
 
   useLayoutEffect(() => {
     const el = titleTextareaRef.current;
@@ -150,7 +171,10 @@ export function SlideContentDefault() {
     const titleHeightPercent = 100 - panelHeightPercent;
     return (
       <>
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 h-full relative">
+        <div
+          className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 h-full relative"
+          onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
+        >
           <div
             className="px-8 pt-6 pb-4 border-stone-100 dark:border-border flex items-start justify-between gap-4 overflow-visible"
             style={{
@@ -333,7 +357,10 @@ export function SlideContentDefault() {
   }
 
   return (
-    <>
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden"
+      onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
+    >
       <div className="flex-1 p-12 flex flex-col overflow-x-visible overflow-y-hidden min-h-0">
         <div className="mb-8 shrink-0 flex items-start justify-between gap-4 overflow-visible">
           <div className="flex-1 mr-4 min-w-0 flex flex-col overflow-visible">
@@ -561,6 +588,6 @@ export function SlideContentDefault() {
         </div>
       </div>
       {(currentSlide.contentLayout ?? "split") === "split" && <SlideRightPanel />}
-    </>
+    </div>
   );
 }

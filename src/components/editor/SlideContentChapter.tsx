@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Pencil } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -8,13 +8,6 @@ import { CanvaSelectionFrame } from "./CanvaSelectionFrame";
 const EDIT_FIELD_ATTR = "data-slide-edit-field";
 
 type ChapterBlock = "title" | "subtitle";
-
-function isFocusMovingToAnotherEditField(
-  related: EventTarget | null,
-): boolean {
-  if (related == null || !(related instanceof HTMLElement)) return false;
-  return related.closest(`[${EDIT_FIELD_ATTR}="true"]`) != null;
-}
 
 export function SlideContentChapter() {
   const {
@@ -31,6 +24,53 @@ export function SlideContentChapter() {
   const [activeBlock, setActiveBlock] = useState<ChapterBlock | null>(null);
   const titleMeasureRef = useRef<HTMLDivElement>(null);
   const titleTaRef = useRef<HTMLTextAreaElement>(null);
+  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deselectInsideSlideRef = useRef(false);
+
+  const cancelScheduledCommit = useCallback(() => {
+    if (blurCommitTimerRef.current != null) {
+      clearTimeout(blurCommitTimerRef.current);
+      blurCommitTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleCommitAfterBlur = useCallback(() => {
+    if (!isEditing) return;
+    cancelScheduledCommit();
+    blurCommitTimerRef.current = setTimeout(() => {
+      blurCommitTimerRef.current = null;
+      const ae = document.activeElement;
+      if (ae instanceof HTMLElement) {
+        if (ae.closest(`[${EDIT_FIELD_ATTR}="true"]`)) return;
+      }
+      if (deselectInsideSlideRef.current) {
+        deselectInsideSlideRef.current = false;
+        commitSlideEdits({ keepEditing: true });
+        return;
+      }
+      commitSlideEdits();
+    }, 160);
+  }, [isEditing, cancelScheduledCommit, commitSlideEdits]);
+
+  const clearActiveBlockOnSurfacePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isEditing) return;
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      if (
+        el.closest(`[${EDIT_FIELD_ATTR}="true"]`) != null ||
+        el.closest("[data-slide-selection-frame]") != null
+      ) {
+        return;
+      }
+      setActiveBlock((prev) => {
+        if (prev == null) return prev;
+        deselectInsideSlideRef.current = true;
+        return null;
+      });
+    },
+    [isEditing],
+  );
 
   useEffect(() => {
     if (!isEditing) setActiveBlock(null);
@@ -39,11 +79,6 @@ export function SlideContentChapter() {
   useEffect(() => {
     setActiveBlock(null);
   }, [currentSlide?.id]);
-
-  useEffect(() => {
-    if (!isEditing || activeBlock !== null) return;
-    setActiveBlock("title");
-  }, [isEditing, activeBlock]);
 
   useLayoutEffect(() => {
     const el = titleTaRef.current;
@@ -56,11 +91,7 @@ export function SlideContentChapter() {
     el.style.height = `${Math.max(min, el.scrollHeight)}px`;
   }, [editTitle, isEditing, activeBlock, currentSlide?.editorTitleMinHeightPx]);
 
-  const handleEditingFieldBlur = (e: React.FocusEvent) => {
-    if (!isEditing) return;
-    if (isFocusMovingToAnotherEditField(e.relatedTarget)) return;
-    commitSlideEdits();
-  };
+  useEffect(() => () => cancelScheduledCommit(), [cancelScheduledCommit]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -78,7 +109,10 @@ export function SlideContentChapter() {
   const titleW = currentSlide.editorTitleWidthPercent ?? 100;
 
   return (
-    <div className="text-center p-12 space-y-6 overflow-y-auto max-h-full w-full flex flex-col items-center">
+    <div
+      className="text-center p-12 space-y-6 overflow-y-auto max-h-full w-full flex flex-col items-center"
+      onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
+    >
       <motion.div
         initial={{ width: 0 }}
         animate={{ width: 60 }}
@@ -100,7 +134,7 @@ export function SlideContentChapter() {
                 ref={titleTaRef}
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                onBlur={handleEditingFieldBlur}
+                onBlur={scheduleCommitAfterBlur}
                 onFocus={() => setActiveBlock("title")}
                 {...{ [EDIT_FIELD_ATTR]: "true" }}
                 placeholder="Título del capítulo"
@@ -119,7 +153,7 @@ export function SlideContentChapter() {
                 type="text"
                 value={editSubtitle}
                 onChange={(e) => setEditSubtitle(e.target.value)}
-                onBlur={handleEditingFieldBlur}
+                onBlur={scheduleCommitAfterBlur}
                 onFocus={() => setActiveBlock("subtitle")}
                 {...{ [EDIT_FIELD_ATTR]: "true" }}
                 placeholder="Subtítulo (opcional)"
