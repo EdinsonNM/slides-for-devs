@@ -1,15 +1,18 @@
 import React, {
   Suspense,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type ReactNode,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
+  Bounds,
   Center,
   Environment,
   OrbitControls,
+  useBounds,
   useGLTF,
   useTexture,
   useVideoTexture,
@@ -27,6 +30,7 @@ import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import {
   DEFAULT_PRESENTER_3D_VIEW,
   type Presenter3dViewState,
+  presenter3dViewIsTooTightHeadOn,
 } from "../../utils/presenter3dView";
 
 function isScreenMaterial(mesh: THREE.Mesh, mat: THREE.Material): boolean {
@@ -62,6 +66,19 @@ function disposeClonedGeometries(root: THREE.Object3D) {
   });
 }
 
+/** Tras cargar el GLB / texturas, recalcula el encuadre para que el dispositivo quepa en el panel. */
+function BoundsAutoRefresh({ refreshKey }: { refreshKey: string }) {
+  const api = useBounds();
+  useLayoutEffect(() => {
+    api.refresh().clip().fit();
+    const id = requestAnimationFrame(() => {
+      api.refresh().clip().fit();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [api, refreshKey]);
+  return null;
+}
+
 interface GLTFDeviceProps {
   glbUrl: string;
   screenMap: THREE.Texture | null;
@@ -80,7 +97,7 @@ function GLTFDevice({ glbUrl, screenMap }: GLTFDeviceProps) {
   }, [root]);
 
   return (
-    <Center>
+    <Center cacheKey={glbUrl}>
       <group scale={PRESENTER_3D_GLTF_NORMAL_SCALE}>
         <primitive object={root} />
       </group>
@@ -126,11 +143,14 @@ function PersistedOrbitControls({
   viewState,
   onViewCommit,
   disableControls,
+  useAutoframing,
 }: {
   slideId: string;
   viewState?: Presenter3dViewState | null;
   onViewCommit?: (s: Presenter3dViewState) => void;
   disableControls?: boolean;
+  /** Si es true, no fuerza DEFAULT_PRESENTER_3D_VIEW; Bounds ajusta la cámara al modelo. */
+  useAutoframing: boolean;
 }) {
   const ref = useRef<OrbitControlsImpl>(null);
   const { camera } = useThree();
@@ -150,9 +170,15 @@ function PersistedOrbitControls({
       pendingApply.current = false;
       return;
     }
-    const v = viewState ?? DEFAULT_PRESENTER_3D_VIEW;
-    camera.position.set(v.position[0], v.position[1], v.position[2]);
-    ctrl.target.set(v.target[0], v.target[1], v.target[2]);
+    if (viewState) {
+      const v = viewState;
+      camera.position.set(v.position[0], v.position[1], v.position[2]);
+      ctrl.target.set(v.target[0], v.target[1], v.target[2]);
+    } else if (!useAutoframing) {
+      const v = DEFAULT_PRESENTER_3D_VIEW;
+      camera.position.set(v.position[0], v.position[1], v.position[2]);
+      ctrl.target.set(v.target[0], v.target[1], v.target[2]);
+    }
     ctrl.update();
     appliedForSlideId.current = slideId;
     pendingApply.current = false;
@@ -218,6 +244,11 @@ export function Device3DViewport({
 }: Device3DViewportProps) {
   const glbUrl = resolveDevice3dGlbUrl(deviceId);
 
+  const resolvedViewState =
+    viewState && !presenter3dViewIsTooTightHeadOn(viewState)
+      ? viewState
+      : undefined;
+
   const canVideo =
     Boolean(videoUrl?.trim()) && isDirectVideoTextureUrl(videoUrl!.trim());
 
@@ -241,6 +272,17 @@ export function Device3DViewport({
       </group>
     );
   }
+
+  const boundsRefreshKey = `${slideId}|${glbUrl}|${imageUrl ?? ""}|${videoUrl ?? ""}|${screenMedia}`;
+  const sceneBody =
+    resolvedViewState == null ? (
+      <Bounds margin={1.42} clip>
+        {body}
+        <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
+      </Bounds>
+    ) : (
+      body
+    );
 
   return (
     <div
@@ -269,10 +311,13 @@ export function Device3DViewport({
           gl.toneMappingExposure = 0.6;
         }}
       >
-        <Suspense fallback={null}>
-          <Environment preset="studio" environmentIntensity={0.92} />
-          {body}
-        </Suspense>
+        <PersistedOrbitControls
+          slideId={slideId}
+          viewState={resolvedViewState ?? null}
+          onViewCommit={onViewStateCommit}
+          disableControls={disableControls}
+          useAutoframing={resolvedViewState == null}
+        />
         <ambientLight intensity={0.22} />
         <directionalLight
           position={[5.5, 7, 5]}
@@ -289,12 +334,10 @@ export function Device3DViewport({
           intensity={0.32}
           color="#ffffff"
         />
-        <PersistedOrbitControls
-          slideId={slideId}
-          viewState={viewState}
-          onViewCommit={onViewStateCommit}
-          disableControls={disableControls}
-        />
+        <Suspense fallback={null}>
+          <Environment preset="studio" environmentIntensity={0.92} />
+          {sceneBody}
+        </Suspense>
       </Canvas>
       {!disableControls && showInteractionHint && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
