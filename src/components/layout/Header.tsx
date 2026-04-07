@@ -89,6 +89,24 @@ export function Header(props: HeaderProps) {
     }
   }, [isEditingTitle]);
 
+  const toggleCharactersPanel = () => {
+    if (showCharactersPanel) {
+      setShowCharactersPanel(false);
+    } else {
+      setShowSlideStylePanel(false);
+      setShowCharactersPanel(true);
+    }
+  };
+
+  const toggleSlideStylePanel = () => {
+    if (showSlideStylePanel) {
+      setShowSlideStylePanel(false);
+    } else {
+      setShowCharactersPanel(false);
+      setShowSlideStylePanel(true);
+    }
+  };
+
   useEffect(() => {
     if (!moreMenuOpen) return;
     const close = (e: MouseEvent) => {
@@ -129,7 +147,7 @@ export function Header(props: HeaderProps) {
           icon={<UserPlus size={18} />}
           aria-label="Personajes (crear, ver, eliminar)"
           title="Personajes (crear, ver, eliminar)"
-          onClick={() => setShowCharactersPanel(!showCharactersPanel)}
+          onClick={toggleCharactersPanel}
           className={cn(showCharactersPanel && panelActiveClass)}
         />
         {slides.length > 0 && (
@@ -138,7 +156,7 @@ export function Header(props: HeaderProps) {
             icon={<LayoutTemplate size={18} />}
             aria-label="Plantilla de la diapositiva"
             title="Plantilla de la diapositiva"
-            onClick={() => setShowSlideStylePanel(!showSlideStylePanel)}
+            onClick={toggleSlideStylePanel}
             className={cn(showSlideStylePanel && panelActiveClass)}
           />
         )}
@@ -316,7 +334,7 @@ export function Header(props: HeaderProps) {
                     showCharactersPanel && "bg-stone-100 dark:bg-surface"
                   )}
                   onClick={() => {
-                    setShowCharactersPanel(!showCharactersPanel);
+                    toggleCharactersPanel();
                     setMoreMenuOpen(false);
                   }}
                 >
@@ -332,7 +350,7 @@ export function Header(props: HeaderProps) {
                       showSlideStylePanel && "bg-stone-100 dark:bg-surface"
                     )}
                     onClick={() => {
-                      setShowSlideStylePanel(!showSlideStylePanel);
+                      toggleSlideStylePanel();
                       setMoreMenuOpen(false);
                     }}
                   >

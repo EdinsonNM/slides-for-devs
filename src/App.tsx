@@ -128,12 +128,16 @@ function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
   return (
     <div className="h-screen bg-surface-elevated flex flex-col font-sans overflow-hidden">
       <Header onOpenConfig={onOpenConfig} />
-      <CharactersPanel />
-      <SlideStylePanel />
       <main className="flex-1 flex overflow-hidden min-w-0">
         <SlideSidebar />
-        <SlideEditor />
-        <PresenterNotesPanel />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <CharactersPanel />
+          <SlideStylePanel />
+          <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+            <SlideEditor />
+            <PresenterNotesPanel />
+          </div>
+        </div>
       </main>
       <SavedListModal />
       <CharacterCreatorModal />
