@@ -5,4 +5,6 @@ export type {
   Presentation,
   SavedPresentation,
   SavedPresentationMeta,
+  HomePresentationCard,
 } from "./types.app";
+export { homePresentationCardKey } from "./types.app";

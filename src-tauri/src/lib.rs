@@ -65,6 +65,17 @@ fn delete_presentation(
 }
 
 #[tauri::command]
+fn clear_presentation_local_body(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    account_scope: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::clear_presentation_local_body(&conn, &id, &account_scope).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn import_saved_presentation(
     db_path: tauri::State<DbPath>,
     saved: db::SavedPresentation,
@@ -92,6 +103,24 @@ fn set_presentation_cloud_state(
         cloud_id.as_deref(),
         cloud_synced_at.as_deref(),
         cloud_revision,
+        &account_scope,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_presentation_shared_cloud_source(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    shared_cloud_source: Option<String>,
+    account_scope: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::set_presentation_shared_cloud_source(
+        &conn,
+        &id,
+        shared_cloud_source.as_deref(),
         &account_scope,
     )
     .map_err(|e| e.to_string())
@@ -446,8 +475,10 @@ pub fn run() {
             load_presentation,
             list_presentations,
             delete_presentation,
+            clear_presentation_local_body,
             import_saved_presentation,
             set_presentation_cloud_state,
+            set_presentation_shared_cloud_source,
             migrate_json_presentations,
             list_characters,
             save_character,

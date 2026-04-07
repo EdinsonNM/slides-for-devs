@@ -161,6 +161,12 @@ pub struct SavedPresentationMeta {
     /// Revisión conocida en Firestore (control de concurrencia entre dispositivos).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cloud_revision: Option<i64>,
+    /// Sin diapositivas en SQLite; copia sigue en la nube (`cloud_id` requerido).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local_body_cleared: bool,
+    /// Origen si se importó desde compartida: `ownerUid::cloudId`.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "sharedCloudSource")]
+    pub shared_cloud_source: Option<String>,
 }
 
 /// Creates the database file and tables if they don't exist.
@@ -346,6 +352,30 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
         )?;
         conn.execute(
             "ALTER TABLE slides ADD COLUMN editor_content_min_height_px INTEGER",
+            [],
+        )?;
+    }
+    // Migration: local_body_cleared — sin diapositivas locales pero vínculo cloud (stub).
+    let has_lbc: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='local_body_cleared'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_lbc == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN local_body_cleared INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+    // Migration: shared_cloud_source — deduplicar tarjetas compartidas tras import local.
+    let has_scs: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='shared_cloud_source'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_scs == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN shared_cloud_source TEXT",
             [],
         )?;
     }
@@ -591,7 +621,7 @@ pub fn update_presentation(
     let saved_at = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3 WHERE id = ?4 AND account_scope = ?5",
+        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3, local_body_cleared = 0 WHERE id = ?4 AND account_scope = ?5",
         params![
             presentation.topic,
             saved_at,
@@ -815,11 +845,13 @@ pub fn list_presentations(
     let mut stmt = conn.prepare(
         r#"
         SELECT p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision,
+               COALESCE(p.local_body_cleared, 0) AS lbc,
+               p.shared_cloud_source,
                COUNT(s.ordinal) AS slide_count
         FROM presentations p
         LEFT JOIN slides s ON s.presentation_id = p.id
         WHERE p.account_scope = ?1
-        GROUP BY p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision
+        GROUP BY p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision, p.local_body_cleared, p.shared_cloud_source
         ORDER BY p.saved_at DESC
         "#,
     )?;
@@ -831,7 +863,9 @@ pub fn list_presentations(
             cloud_id: row.get(3)?,
             cloud_synced_at: row.get(4)?,
             cloud_revision: row.get(5)?,
-            slide_count: row.get(6)?,
+            local_body_cleared: row.get::<_, i64>(6)? != 0,
+            shared_cloud_source: row.get(7)?,
+            slide_count: row.get(8)?,
         })
     })?;
     rows.collect()
@@ -849,6 +883,23 @@ pub fn set_presentation_cloud_state(
     let n = conn.execute(
         "UPDATE presentations SET cloud_id = ?1, cloud_synced_at = ?2, cloud_revision = ?3 WHERE id = ?4 AND account_scope = ?5",
         params![cloud_id, cloud_synced_at, cloud_revision, id, account_scope],
+    )?;
+    if n == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+    Ok(())
+}
+
+/// Marca el origen `ownerUid::cloudId` tras importar una presentación compartida (dedupe en UI).
+pub fn set_presentation_shared_cloud_source(
+    conn: &Connection,
+    id: &str,
+    shared_cloud_source: Option<&str>,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
+    let n = conn.execute(
+        "UPDATE presentations SET shared_cloud_source = ?1 WHERE id = ?2 AND account_scope = ?3",
+        params![shared_cloud_source, id, account_scope],
     )?;
     if n == 0 {
         return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -874,6 +925,39 @@ pub fn delete_presentation(
         "DELETE FROM presentations WHERE id = ?1 AND account_scope = ?2",
         params![id, account_scope],
     )?;
+    Ok(())
+}
+
+/// Borra diapositivas e imágenes locales y deja un stub con `cloud_id` (copia solo en la nube).
+pub fn clear_presentation_local_body(
+    conn: &Connection,
+    id: &str,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM presentations WHERE id = ?1 AND account_scope = ?2 \
+         AND cloud_id IS NOT NULL AND TRIM(cloud_id) != ''",
+        params![id, account_scope],
+        |r| r.get(0),
+    )?;
+    if n == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+    conn.execute(
+        "DELETE FROM slide_images WHERE presentation_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM slides WHERE presentation_id = ?1",
+        params![id],
+    )?;
+    let updated = conn.execute(
+        "UPDATE presentations SET character_id = NULL, local_body_cleared = 1 WHERE id = ?1 AND account_scope = ?2",
+        params![id, account_scope],
+    )?;
+    if updated == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
     Ok(())
 }
 

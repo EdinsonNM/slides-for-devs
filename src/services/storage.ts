@@ -74,6 +74,14 @@ export async function deletePresentation(
   await invoke("delete_presentation", { id, accountScope });
 }
 
+/** Quita diapositivas e imágenes locales y deja stub con `cloud_id` (copia solo en la nube). */
+export async function clearPresentationLocalBody(
+  id: string,
+  accountScope: string
+): Promise<void> {
+  await invoke("clear_presentation_local_body", { id, accountScope });
+}
+
 /** Importa una presentación completa (p. ej. descargada de la nube). `saved.id` = id local nuevo. */
 export async function importSavedPresentation(
   saved: SavedPresentation,
@@ -97,6 +105,19 @@ export async function setPresentationCloudState(
     cloudId: cloudId ?? undefined,
     cloudSyncedAt: cloudSyncedAt ?? undefined,
     cloudRevision: cloudRevision ?? undefined,
+    accountScope,
+  });
+}
+
+/** Tras importar una copia desde “compartida”: `ownerUid::cloudId` para no duplicar la tarjeta fantasma. */
+export async function setPresentationSharedCloudSource(
+  id: string,
+  sharedCloudSource: string | null,
+  accountScope: string
+): Promise<void> {
+  await invoke("set_presentation_shared_cloud_source", {
+    id,
+    sharedCloudSource: sharedCloudSource ?? undefined,
     accountScope,
   });
 }

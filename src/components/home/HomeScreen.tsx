@@ -36,9 +36,8 @@ export function HomeScreen(props: HomeScreenProps) {
     setTopic,
     isLoading,
     handleGenerate,
-    savedList,
     handleOpenSaved,
-    handleDeleteSaved,
+    requestDeletePresentation,
     generatingCoverId,
     handleGenerateCoverForPresentation,
     coverImageCache,
@@ -48,14 +47,17 @@ export function HomeScreen(props: HomeScreenProps) {
     cloudSyncAvailable,
     syncingToCloudId,
     handleSyncPresentationToCloud,
-    openCloudPresentationsModal,
     openSharePresentationModal,
+    homePresentationCards,
+    handleDownloadFromCloud,
+    downloadingCloudKey,
+    homeCloudSharedListWarning,
   } = usePresentation();
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
   const generate = onGenerateProp ?? handleGenerate;
   const createBlank = onCreateBlankProp;
-  const hasItems = savedList.length > 0;
+  const hasItems = homePresentationCards.length > 0;
 
   if (!hasItems) {
     return (
@@ -72,8 +74,6 @@ export function HomeScreen(props: HomeScreenProps) {
         presentationModelId={presentationModelId}
         setPresentationModelId={setPresentationModelId}
         presentationModels={presentationModels}
-        cloudSyncAvailable={cloudSyncAvailable}
-        onOpenCloudPresentations={openCloudPresentationsModal}
       />
       </>
     );
@@ -84,7 +84,6 @@ export function HomeScreen(props: HomeScreenProps) {
       <SignInInviteBar onBackToWelcome={onBackToWelcome} />
       <HomeWithCarousel
       onOpenConfig={onOpenConfig}
-      onCheckUpdates={onCheckUpdates}
       topic={topic}
       setTopic={setTopic}
       isLoading={isLoading}
@@ -93,17 +92,19 @@ export function HomeScreen(props: HomeScreenProps) {
       presentationModelId={presentationModelId}
       setPresentationModelId={setPresentationModelId}
       presentationModels={presentationModels}
-      savedList={savedList}
+      homePresentationCards={homePresentationCards}
       onOpenSaved={openSaved}
-      onDeleteSaved={handleDeleteSaved}
+      onDeleteSaved={requestDeletePresentation}
       onGenerateCover={handleGenerateCoverForPresentation}
       generatingCoverId={generatingCoverId}
       coverImageCache={coverImageCache}
       cloudSyncAvailable={cloudSyncAvailable}
       onSyncToCloud={handleSyncPresentationToCloud}
       syncingToCloudId={syncingToCloudId}
-      onOpenCloudPresentations={openCloudPresentationsModal}
+      homeCloudSharedListWarning={homeCloudSharedListWarning}
       onSharePresentation={openSharePresentationModal}
+      onDownloadFromCloud={handleDownloadFromCloud}
+      downloadingCloudKey={downloadingCloudKey}
     />
     </>
   );

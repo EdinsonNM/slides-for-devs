@@ -20,9 +20,9 @@ import { ApiSetupScreen } from "./components/home/ApiSetupScreen";
 import { useAuth } from "./context/AuthContext";
 import { SlideEditor } from "./components/editor/SlideEditor";
 import { SavedListModal } from "./components/modals/SavedListModal";
-import { CloudPresentationsModal } from "./components/modals/CloudPresentationsModal";
 import { SharePresentationModal } from "./components/modals/SharePresentationModal";
 import { CloudSyncConflictModal } from "./components/modals/CloudSyncConflictModal";
+import { DeletePresentationModal } from "./components/modals/DeletePresentationModal";
 import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
 import { ImageUploadModal } from "./components/modals/ImageUploadModal";
 import { CodeGenerationModal } from "./components/modals/CodeGenerationModal";
@@ -182,24 +182,22 @@ export default function App() {
   const {
     refreshApiKeys,
     pendingGeneration,
-    showCloudPresentationsModal,
-    setShowCloudPresentationsModal,
-    cloudPresentationsItems,
-    cloudModalLoading,
-    cloudModalError,
-    cloudSharedWarning,
-    handleDownloadFromCloud,
-    downloadingCloudKey,
     sharePresentationLocalId,
     closeSharePresentationModal,
     savedList,
-    handleOpenSaved,
+    cloudSyncAvailable,
+    deletePresentationTarget,
+    closeDeletePresentationModal,
+    confirmDeletePresentationLocalOnly,
+    confirmClearPresentationLocalKeepCloud,
+    confirmDeletePresentationLocalAndCloud,
     cloudSyncConflict,
     dismissCloudSyncConflict,
     resolveCloudConflictUseRemote,
     resolveCloudConflictForceLocal,
   } = usePresentation();
   const { user: shareUser } = useAuth();
+  const isLoggedIn = !!shareUser;
   const shareMeta =
     sharePresentationLocalId != null
       ? savedList.find((p) => p.id === sharePresentationLocalId)
@@ -259,18 +257,6 @@ export default function App() {
           setShowApiConfigModal(false);
         }}
       />
-      <CloudPresentationsModal
-        open={showCloudPresentationsModal}
-        onClose={() => setShowCloudPresentationsModal(false)}
-        items={cloudPresentationsItems}
-        loading={cloudModalLoading}
-        error={cloudModalError}
-        sharedWarning={cloudSharedWarning}
-        savedList={savedList}
-        downloadingCloudKey={downloadingCloudKey}
-        onDownload={handleDownloadFromCloud}
-        onOpenLocal={handleOpenSaved}
-      />
       <SharePresentationModal
         open={
           sharePresentationLocalId !== null &&
@@ -289,6 +275,16 @@ export default function App() {
         onDismiss={dismissCloudSyncConflict}
         onUseRemote={resolveCloudConflictUseRemote}
         onForceLocal={resolveCloudConflictForceLocal}
+      />
+      <DeletePresentationModal
+        open={deletePresentationTarget !== null}
+        meta={deletePresentationTarget}
+        cloudSyncAvailable={cloudSyncAvailable}
+        isLoggedIn={isLoggedIn}
+        onClose={closeDeletePresentationModal}
+        onDeleteLocalOnly={confirmDeletePresentationLocalOnly}
+        onClearLocalKeepCloud={confirmClearPresentationLocalKeepCloud}
+        onDeleteLocalAndCloud={confirmDeletePresentationLocalAndCloud}
       />
       <Routes>
         <Route

@@ -37,4 +37,39 @@ export interface SavedPresentationMeta {
   cloudSyncedAt?: string;
   /** Revisión Firestore tras el último sync (control de conflictos entre dispositivos). */
   cloudRevision?: number;
+  /**
+   * Sin diapositivas en SQLite; el vínculo `cloudId` sigue válido (copia recuperable desde la nube).
+   */
+  localBodyCleared?: boolean;
+  /**
+   * Si se importó desde una presentación compartida: `ownerUid::cloudId` del documento en la nube del autor.
+   * Sirve para no duplicar la tarjeta fantasma en el home tras descargar.
+   */
+  sharedCloudSource?: string;
+}
+
+/** Elemento de la parrilla/carrusel del home: copia local o documento solo en Firestore. */
+export type HomePresentationCard =
+  | { kind: "local"; meta: SavedPresentationMeta }
+  | {
+      kind: "cloud_only_mine";
+      cloudId: string;
+      ownerUid: string;
+      topic: string;
+      savedAt: string;
+      updatedAt: string | null;
+    }
+  | {
+      kind: "cloud_only_shared";
+      cloudId: string;
+      ownerUid: string;
+      topic: string;
+      savedAt: string;
+      updatedAt: string | null;
+    };
+
+export function homePresentationCardKey(card: HomePresentationCard): string {
+  return card.kind === "local"
+    ? card.meta.id
+    : `cloud:${card.ownerUid}:${card.cloudId}`;
 }

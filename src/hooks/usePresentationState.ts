@@ -1,10 +1,17 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import type {
   Slide,
   SlideType,
   ImageStyle,
   SavedCharacter,
   SavedPresentationMeta,
+  HomePresentationCard,
 } from "../types";
 
 const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
@@ -39,12 +46,14 @@ import {
   listPresentations,
   loadPresentation,
   deletePresentation,
+  clearPresentationLocalBody,
   migrateJsonPresentations,
   listCharacters,
   saveCharacter as saveCharacterStorage,
   deleteCharacter as deleteCharacterStorage,
   importSavedPresentation,
   setPresentationCloudState,
+  setPresentationSharedCloudSource,
   setCharacterCloudState,
   localAccountScopeForUser,
 } from "../services/storage";
@@ -59,6 +68,7 @@ import {
   listCloudPresentations,
   listCloudPresentationsSharedWithMe,
   pullPresentationFromCloud,
+  deleteOwnerPresentationFromCloud,
   CloudSyncConflictError,
   type CloudPresentationListItem,
 } from "../services/presentationCloud";
@@ -223,6 +233,15 @@ export function usePresentationState() {
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
   const [showSavedListModal, setShowSavedListModal] = useState(false);
   const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
+  const [cloudMineSnapshot, setCloudMineSnapshot] = useState<
+    CloudPresentationListItem[]
+  >([]);
+  const [cloudSharedSnapshot, setCloudSharedSnapshot] = useState<
+    CloudPresentationListItem[]
+  >([]);
+  const [homeCloudSharedListWarning, setHomeCloudSharedListWarning] = useState<
+    string | null
+  >(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<HomeTab>("recent");
@@ -244,22 +263,15 @@ export function usePresentationState() {
   const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
   const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
     useState(false);
-  const [showCloudPresentationsModal, setShowCloudPresentationsModal] =
-    useState(false);
-  const [cloudPresentationsItems, setCloudPresentationsItems] = useState<
-    CloudPresentationListItem[]
-  >([]);
-  const [cloudModalLoading, setCloudModalLoading] = useState(false);
-  const [cloudModalError, setCloudModalError] = useState<string | null>(null);
-  const [cloudSharedWarning, setCloudSharedWarning] = useState<string | null>(
-    null,
-  );
   const [downloadingCloudKey, setDownloadingCloudKey] = useState<string | null>(
     null,
   );
   const [sharePresentationLocalId, setSharePresentationLocalId] = useState<
     string | null
   >(null);
+  const [deletePresentationId, setDeletePresentationId] = useState<string | null>(
+    null,
+  );
   const [autoCloudSyncOnSave, setAutoCloudSyncOnSaveState] = useState(() => {
     try {
       return localStorage.getItem(AUTO_CLOUD_SYNC_STORAGE_KEY) === "1";
@@ -308,6 +320,25 @@ export function usePresentationState() {
   const [apiKeysVersion, setApiKeysVersion] = useState(0);
   const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
     async () => {},
+  );
+
+  /**
+   * Serializa subidas por id local. Sin esto, dos autosync o un autosync + manual
+   * en paralelo pueden leer `cloudId` aún null y crear dos documentos en «Mías».
+   */
+  const presentationCloudPushTailRef = useRef(
+    new Map<string, Promise<void>>(),
+  );
+
+  const enqueuePresentationCloudPush = useCallback(
+    (localId: string, task: () => Promise<void>): Promise<void> => {
+      const map = presentationCloudPushTailRef.current;
+      const prev = map.get(localId) ?? Promise.resolve();
+      const next = prev.catch(() => {}).then(() => task());
+      map.set(localId, next);
+      return next;
+    },
+    [],
   );
 
   const tabSnapshotsRef = useRef<Record<string, EditorWorkspaceSnapshot>>({});
@@ -562,14 +593,6 @@ export function usePresentationState() {
     setActiveEditorTabId(null);
     tabSnapshotsRef.current = {};
   }, [localAccountScope]);
-
-  useEffect(() => {
-    if (slides.length === 0) {
-      listPresentations(localAccountScope)
-        .then(setSavedList)
-        .catch(() => setSavedList([]));
-    }
-  }, [slides.length, localAccountScope]);
 
   useEffect(() => {
     if (slides.length === 0) return;
@@ -1337,6 +1360,41 @@ export function usePresentationState() {
     [cloneSlidesForTab],
   );
 
+  const refreshCloudMineSnapshot = useCallback(async () => {
+    if (
+      !user ||
+      firebaseReady !== true ||
+      typeof window === "undefined" ||
+      (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
+    ) {
+      setCloudMineSnapshot([]);
+      setCloudSharedSnapshot([]);
+      setHomeCloudSharedListWarning(null);
+      return;
+    }
+    setHomeCloudSharedListWarning(null);
+    try {
+      const mine = await listCloudPresentations(user.uid);
+      setCloudMineSnapshot(mine);
+    } catch {
+      setCloudMineSnapshot([]);
+    }
+    try {
+      const shared = await listCloudPresentationsSharedWithMe(user.uid);
+      setCloudSharedSnapshot(shared);
+    } catch (shareErr) {
+      console.warn(
+        "Listado de presentaciones compartidas (home):",
+        shareErr,
+      );
+      setCloudSharedSnapshot([]);
+      const cfg = await getFirebaseConfig();
+      setHomeCloudSharedListWarning(
+        formatCloudSharedListError(shareErr, cfg?.projectId),
+      );
+    }
+  }, [user, firebaseReady]);
+
   const refreshSavedList = useCallback(async () => {
     try {
       const list = await listPresentations(localAccountScope);
@@ -1344,7 +1402,70 @@ export function usePresentationState() {
     } catch {
       setSavedList([]);
     }
-  }, [localAccountScope]);
+    void refreshCloudMineSnapshot();
+  }, [localAccountScope, refreshCloudMineSnapshot]);
+
+  const homePresentationCards = useMemo((): HomePresentationCard[] => {
+    const hasAnyLocalForCloud = (cloudId: string) =>
+      savedList.some((p) => p.cloudId === cloudId);
+
+    const sharedSourceKey = (ownerUid: string, cloudId: string) =>
+      `${ownerUid}::${cloudId}`;
+
+    const hasLocalForSharedCloud = (ownerUid: string, cloudId: string) =>
+      savedList.some(
+        (p) => p.sharedCloudSource === sharedSourceKey(ownerUid, cloudId),
+      );
+
+    const locals: HomePresentationCard[] = savedList.map((meta) => ({
+      kind: "local",
+      meta,
+    }));
+
+    const cloudOnlyMine: HomePresentationCard[] = cloudMineSnapshot
+      .filter(
+        (item) =>
+          item.source === "mine" && !hasAnyLocalForCloud(item.cloudId),
+      )
+      .map((item) => ({
+        kind: "cloud_only_mine" as const,
+        cloudId: item.cloudId,
+        ownerUid: item.ownerUid,
+        topic: item.topic,
+        savedAt: item.savedAt,
+        updatedAt: item.updatedAt,
+      }));
+
+    const cloudOnlyShared: HomePresentationCard[] = cloudSharedSnapshot
+      .filter(
+        (item) =>
+          item.source === "shared" &&
+          !hasLocalForSharedCloud(item.ownerUid, item.cloudId),
+      )
+      .map((item) => ({
+        kind: "cloud_only_shared" as const,
+        cloudId: item.cloudId,
+        ownerUid: item.ownerUid,
+        topic: item.topic,
+        savedAt: item.savedAt,
+        updatedAt: item.updatedAt,
+      }));
+
+    const merged = [...locals, ...cloudOnlyMine, ...cloudOnlyShared];
+    merged.sort((a, b) => {
+      const ta =
+        a.kind === "local" ? a.meta.savedAt : a.updatedAt || a.savedAt;
+      const tb =
+        b.kind === "local" ? b.meta.savedAt : b.updatedAt || b.savedAt;
+      return tb.localeCompare(ta);
+    });
+    return merged;
+  }, [savedList, cloudMineSnapshot, cloudSharedSnapshot]);
+
+  useEffect(() => {
+    if (slides.length !== 0) return;
+    void refreshSavedList();
+  }, [slides.length, localAccountScope, refreshSavedList]);
 
   const maybeAutoSyncAfterLocalSave = useCallback(
     async (localId: string) => {
@@ -1356,39 +1477,54 @@ export function usePresentationState() {
         return;
       const fb = await initFirebase();
       if (!fb?.firestore) return;
-      let meta: SavedPresentationMeta | undefined;
-      try {
-        const list = await listPresentations(localAccountScope);
-        meta = list.find((p) => p.id === localId);
-        const saved = await loadPresentation(localId, localAccountScope);
-        const existingCloudId = meta?.cloudId ?? null;
-        const { cloudId, syncedAt, newRevision } =
-          await pushPresentationToCloud(user.uid, saved, existingCloudId, {
-            localExpectedRevision:
-              existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
-          });
-        await setPresentationCloudState(
-          localId,
-          cloudId,
-          syncedAt,
-          newRevision,
-          localAccountScope,
-        );
-        await refreshSavedList();
-      } catch (e) {
-        if (e instanceof CloudSyncConflictError) {
-          setCloudSyncConflict({
+      void enqueuePresentationCloudPush(localId, async () => {
+        let meta: SavedPresentationMeta | undefined;
+        try {
+          const list = await listPresentations(localAccountScope);
+          meta = list.find((p) => p.id === localId);
+          if (
+            !meta ||
+            meta.slideCount === 0 ||
+            meta.localBodyCleared
+          ) {
+            return;
+          }
+          const saved = await loadPresentation(localId, localAccountScope);
+          const existingCloudId = meta?.cloudId ?? null;
+          const { cloudId, syncedAt, newRevision } =
+            await pushPresentationToCloud(user.uid, saved, existingCloudId, {
+              localExpectedRevision:
+                existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
+            });
+          await setPresentationCloudState(
             localId,
-            cloudId: meta?.cloudId ?? "",
-            expectedRevision: e.expectedRevision,
-            remoteRevision: e.remoteRevision,
-          });
-        } else {
-          console.error("Auto-sync nube:", e);
+            cloudId,
+            syncedAt,
+            newRevision,
+            localAccountScope,
+          );
+          await refreshSavedList();
+        } catch (e) {
+          if (e instanceof CloudSyncConflictError) {
+            setCloudSyncConflict({
+              localId,
+              cloudId: meta?.cloudId ?? "",
+              expectedRevision: e.expectedRevision,
+              remoteRevision: e.remoteRevision,
+            });
+          } else {
+            console.error("Auto-sync nube:", e);
+          }
         }
-      }
+      });
     },
-    [user, autoCloudSyncOnSave, refreshSavedList, localAccountScope],
+    [
+      user,
+      autoCloudSyncOnSave,
+      refreshSavedList,
+      localAccountScope,
+      enqueuePresentationCloudPush,
+    ],
   );
 
   runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
@@ -1536,86 +1672,67 @@ export function usePresentationState() {
         alert("Firebase no está configurado.");
         return;
       }
-      setSyncingToCloudId(localId);
       try {
-        const list = await listPresentations(localAccountScope);
-        const meta = list.find((p) => p.id === localId);
-        const saved = await loadPresentation(localId, localAccountScope);
-        const existingCloudId = meta?.cloudId ?? null;
-        const { cloudId, syncedAt, newRevision } =
-          await pushPresentationToCloud(user.uid, saved, existingCloudId, {
-            localExpectedRevision:
-              existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
-          });
-        await setPresentationCloudState(
-          localId,
-          cloudId,
-          syncedAt,
-          newRevision,
-          localAccountScope,
-        );
-        await refreshSavedList();
-      } catch (e) {
-        if (e instanceof CloudSyncConflictError) {
-          const list = await listPresentations(localAccountScope).catch(
-            () => [],
+        const listPre = await listPresentations(localAccountScope);
+        const preMeta = listPre.find((p) => p.id === localId);
+        if (preMeta?.localBodyCleared) {
+          alert(
+            "Recupera la copia local desde la nube (abre la tarjeta) antes de sincronizar.",
           );
-          const meta = list.find((p) => p.id === localId);
-          setCloudSyncConflict({
-            localId,
-            cloudId: meta?.cloudId ?? "",
-            expectedRevision: e.expectedRevision,
-            remoteRevision: e.remoteRevision,
-          });
-        } else {
-          console.error(e);
-          alert(`No se pudo sincronizar: ${formatCloudSyncUserMessage(e)}`);
+          return;
         }
-      } finally {
-        setSyncingToCloudId(null);
+      } catch {
+        /* continuar; el push volverá a leer */
+      }
+      try {
+        await enqueuePresentationCloudPush(localId, async () => {
+          setSyncingToCloudId(localId);
+          try {
+            const list = await listPresentations(localAccountScope);
+            const meta = list.find((p) => p.id === localId);
+            const saved = await loadPresentation(localId, localAccountScope);
+            const existingCloudId = meta?.cloudId ?? null;
+            const { cloudId, syncedAt, newRevision } =
+              await pushPresentationToCloud(user.uid, saved, existingCloudId, {
+                localExpectedRevision:
+                  existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
+              });
+            await setPresentationCloudState(
+              localId,
+              cloudId,
+              syncedAt,
+              newRevision,
+              localAccountScope,
+            );
+            await refreshSavedList();
+          } catch (e) {
+            if (e instanceof CloudSyncConflictError) {
+              const list = await listPresentations(localAccountScope).catch(
+                () => [],
+              );
+              const meta = list.find((p) => p.id === localId);
+              setCloudSyncConflict({
+                localId,
+                cloudId: meta?.cloudId ?? "",
+                expectedRevision: e.expectedRevision,
+                remoteRevision: e.remoteRevision,
+              });
+            } else {
+              console.error(e);
+              alert(
+                `No se pudo sincronizar: ${formatCloudSyncUserMessage(e)}`,
+              );
+            }
+          } finally {
+            setSyncingToCloudId(null);
+          }
+        });
+      } catch (e) {
+        console.error(e);
       }
     },
-    [user, refreshSavedList, localAccountScope],
+    [user, refreshSavedList, localAccountScope, enqueuePresentationCloudPush],
   );
-
-  const openCloudPresentationsModal = useCallback(async () => {
-    if (!user) {
-      alert("Inicia sesión para ver la nube.");
-      return;
-    }
-    const fb = await initFirebase();
-    if (!fb?.firestore) {
-      alert("Firebase no está configurado.");
-      return;
-    }
-    setShowCloudPresentationsModal(true);
-    setCloudModalError(null);
-    setCloudSharedWarning(null);
-    setCloudModalLoading(true);
-    setCloudPresentationsItems([]);
-    try {
-      const mine = await listCloudPresentations(user.uid);
-      let shared: CloudPresentationListItem[] = [];
-      try {
-        shared = await listCloudPresentationsSharedWithMe(user.uid);
-      } catch (shareErr) {
-        console.warn(
-          "Listado de presentaciones compartidas omitido (reglas, índice o permisos):",
-          shareErr,
-        );
-        const cfg = await getFirebaseConfig();
-        setCloudSharedWarning(
-          formatCloudSharedListError(shareErr, cfg?.projectId),
-        );
-      }
-      setCloudPresentationsItems([...mine, ...shared]);
-    } catch (e) {
-      console.error(e);
-      setCloudModalError(formatCloudSyncUserMessage(e));
-    } finally {
-      setCloudModalLoading(false);
-    }
-  }, [user]);
 
   const openSavedListModal = async () => {
     setShowSavedListModal(true);
@@ -1628,8 +1745,57 @@ export function usePresentationState() {
     }
   };
 
+  const rehydratePresentationFromMyCloud = useCallback(
+    async (localId: string, cloudId: string) => {
+      if (!user) {
+        throw new Error("Inicia sesión para recuperar desde la nube.");
+      }
+      const { presentation: pulled, cloudRevision } =
+        await pullPresentationFromCloud(user.uid, cloudId);
+      await importSavedPresentation(
+        {
+          ...pulled,
+          id: localId,
+        },
+        localAccountScope,
+      );
+      await setPresentationCloudState(
+        localId,
+        cloudId,
+        new Date().toISOString(),
+        cloudRevision,
+        localAccountScope,
+      );
+      await refreshSavedList();
+    },
+    [user, localAccountScope, refreshSavedList],
+  );
+
   const handleOpenSaved = async (id: string) => {
     try {
+      let metaOpen: SavedPresentationMeta | undefined;
+      try {
+        const listFresh = await listPresentations(localAccountScope);
+        metaOpen = listFresh.find((p) => p.id === id);
+        setSavedList(listFresh);
+      } catch {
+        metaOpen = savedList.find((p) => p.id === id);
+      }
+      if (metaOpen?.localBodyCleared && metaOpen.cloudId) {
+        if (!user) {
+          alert("Inicia sesión para recuperar la copia desde la nube.");
+          return;
+        }
+        try {
+          await rehydratePresentationFromMyCloud(id, metaOpen.cloudId);
+        } catch (e) {
+          console.error(e);
+          alert(
+            `No se pudo recuperar desde la nube: ${formatCloudSyncUserMessage(e)}`,
+          );
+          return;
+        }
+      }
       const saved = await loadPresentation(id, localAccountScope);
       slidesUndoRef.current = [];
       slidesRedoRef.current = [];
@@ -1669,8 +1835,18 @@ export function usePresentationState() {
       const existing =
         !isSharedFromOther && savedList.find((p) => p.cloudId === cloudId);
       if (existing) {
+        if (existing.localBodyCleared && user) {
+          try {
+            await rehydratePresentationFromMyCloud(existing.id, cloudId);
+          } catch (e) {
+            console.error(e);
+            alert(
+              `No se pudo recuperar: ${formatCloudSyncUserMessage(e)}`,
+            );
+            return;
+          }
+        }
         await handleOpenSaved(existing.id);
-        setShowCloudPresentationsModal(false);
         return;
       }
       const dlKey = `${owner}::${cloudId}`;
@@ -1694,6 +1870,11 @@ export function usePresentationState() {
             null,
             localAccountScope,
           );
+          await setPresentationSharedCloudSource(
+            localId,
+            `${owner}::${cloudId}`,
+            localAccountScope,
+          );
         } else {
           await setPresentationCloudState(
             localId,
@@ -1704,7 +1885,6 @@ export function usePresentationState() {
           );
         }
         await refreshSavedList();
-        setShowCloudPresentationsModal(false);
         await handleOpenSaved(localId);
       } catch (e) {
         console.error(e);
@@ -1713,7 +1893,14 @@ export function usePresentationState() {
         setDownloadingCloudKey(null);
       }
     },
-    [user, savedList, refreshSavedList, handleOpenSaved, localAccountScope],
+    [
+      user,
+      savedList,
+      refreshSavedList,
+      handleOpenSaved,
+      localAccountScope,
+      rehydratePresentationFromMyCloud,
+    ],
   );
 
   const openSharePresentationModal = useCallback((localId: string) => {
@@ -1764,8 +1951,22 @@ export function usePresentationState() {
       }
     }, [formatMarkdown, lastOpenedSessionKey, localAccountScope]);
 
-  const handleDeleteSaved = async (id: string) => {
-    if (!confirm("¿Eliminar esta presentación guardada?")) return;
+  const requestDeletePresentation = useCallback((id: string) => {
+    setDeletePresentationId(id);
+  }, []);
+
+  const closeDeletePresentationModal = useCallback(() => {
+    setDeletePresentationId(null);
+  }, []);
+
+  const deletePresentationTarget = useMemo((): SavedPresentationMeta | null => {
+    if (!deletePresentationId) return null;
+    return savedList.find((p) => p.id === deletePresentationId) ?? null;
+  }, [savedList, deletePresentationId]);
+
+  const confirmDeletePresentationLocalOnly = useCallback(async () => {
+    const id = deletePresentationId;
+    if (!id) return;
     try {
       await deletePresentation(id, localAccountScope);
       if (currentSavedId === id) {
@@ -1784,12 +1985,90 @@ export function usePresentationState() {
     } catch (e) {
       console.error(e);
       alert("Error al eliminar.");
+    } finally {
+      setDeletePresentationId(null);
     }
-  };
+  }, [deletePresentationId, currentSavedId]);
+
+  const confirmClearPresentationLocalKeepCloud = useCallback(async () => {
+    const id = deletePresentationId;
+    if (!id) return;
+    try {
+      await clearPresentationLocalBody(id, localAccountScope);
+      await refreshSavedList();
+      if (currentSavedId === id) {
+        setCurrentSavedId(null);
+        setTopic("");
+        slidesUndoRef.current = [];
+        slidesRedoRef.current = [];
+        setSlides([]);
+      }
+      setCoverImageCache((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+      alert(
+        e instanceof Error && e.message
+          ? e.message
+          : "No se pudo quitar la copia local.",
+      );
+    } finally {
+      setDeletePresentationId(null);
+    }
+  }, [deletePresentationId, currentSavedId, refreshSavedList, localAccountScope]);
+
+  const confirmDeletePresentationLocalAndCloud = useCallback(async () => {
+    const id = deletePresentationId;
+    if (!id) return;
+    try {
+      let cloudId: string | null = null;
+      try {
+        const list = await listPresentations(localAccountScope);
+        cloudId = list.find((p) => p.id === id)?.cloudId?.trim() ?? null;
+      } catch {
+        /* ignore */
+      }
+      if (cloudId && user) {
+        await deleteOwnerPresentationFromCloud(user.uid, cloudId);
+      }
+      await deletePresentation(id, localAccountScope);
+      if (currentSavedId === id) {
+        setCurrentSavedId(null);
+        setTopic("");
+        slidesUndoRef.current = [];
+        slidesRedoRef.current = [];
+        setSlides([]);
+      }
+      setSavedList((prev) => prev.filter((p) => p.id !== id));
+      setCoverImageCache((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+      alert(`Error al eliminar: ${formatCloudSyncUserMessage(e)}`);
+    } finally {
+      setDeletePresentationId(null);
+    }
+  }, [deletePresentationId, user, currentSavedId, localAccountScope]);
 
   const handleGenerateCoverForPresentation = async (id: string) => {
     setGeneratingCoverId(id);
     try {
+      try {
+        const list = await listPresentations(localAccountScope);
+        const meta = list.find((p) => p.id === id);
+        if (meta?.localBodyCleared) {
+          alert("Recupera la presentación desde la nube antes de generar la portada.");
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
       const saved = await loadPresentation(id, localAccountScope);
       if (!saved.slides.length) {
         alert("Esta presentación no tiene diapositivas.");
@@ -2542,6 +2821,7 @@ export function usePresentationState() {
     showSavedListModal,
     setShowSavedListModal,
     savedList,
+    homePresentationCards,
     isSaving,
     saveMessage,
     homeTab,
@@ -2579,7 +2859,12 @@ export function usePresentationState() {
     openSavedListModal,
     handleOpenSaved,
     restoreLastOpenedPresentation,
-    handleDeleteSaved,
+    requestDeletePresentation,
+    closeDeletePresentationModal,
+    deletePresentationTarget,
+    confirmDeletePresentationLocalOnly,
+    confirmClearPresentationLocalKeepCloud,
+    confirmDeletePresentationLocalAndCloud,
     generatingCoverId,
     handleGenerateCoverForPresentation,
     coverImageCache,
@@ -2590,13 +2875,7 @@ export function usePresentationState() {
       (window as unknown as { __TAURI__?: unknown }).__TAURI__ !== undefined,
     syncingToCloudId,
     handleSyncPresentationToCloud,
-    showCloudPresentationsModal,
-    setShowCloudPresentationsModal,
-    cloudPresentationsItems,
-    cloudModalLoading,
-    cloudModalError,
-    cloudSharedWarning,
-    openCloudPresentationsModal,
+    homeCloudSharedListWarning,
     handleDownloadFromCloud,
     downloadingCloudKey,
     sharePresentationLocalId,

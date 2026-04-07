@@ -5,6 +5,7 @@
 import {
   collection,
   collectionGroup,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -652,6 +653,48 @@ export async function pushPresentationToCloud(
   }
 
   return { cloudId, syncedAt, newRevision };
+}
+
+/**
+ * Elimina la presentación en Firestore, Storage, grants e índice de correo (solo el propietario).
+ */
+export async function deleteOwnerPresentationFromCloud(
+  uid: string,
+  cloudId: string
+): Promise<void> {
+  const inst = await initFirebase();
+  if (!inst?.firestore || !inst.storage) {
+    throw new Error("Firebase no inicializado");
+  }
+  const { firestore: db, storage: st, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== uid) {
+    throw new Error(
+      "La sesión de Firebase no coincide. Vuelve a iniciar sesión e inténtalo de nuevo."
+    );
+  }
+  const docRef = presentationDoc(db, uid, cloudId.trim());
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data() as Record<string, unknown>;
+  const topic = String(data.topic ?? "");
+  const savedAt = String(data.savedAt ?? "");
+  const updatedAt = timestampToIso(data.updatedAt);
+  const meta = { topic, savedAt, updatedAt };
+
+  await replacePresentationShareGrants(db, uid, cloudId, meta, [], []);
+  const prevInviteEmails = shareInviteEmailsFromDocData(data);
+  await syncPresentationShareEmailIndex(db, uid, cloudId, meta, prevInviteEmails, []);
+
+  const prefix = storagePrefix(uid, cloudId);
+  await deleteKnownPresentationFiles(
+    st,
+    prefix,
+    (data.slideImagePaths as Record<string, string>) ?? {},
+    (data.excalidrawPaths as Record<string, string>) ?? {}
+  );
+
+  await deleteDoc(docRef);
 }
 
 /**
