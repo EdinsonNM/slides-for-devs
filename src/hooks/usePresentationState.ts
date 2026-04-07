@@ -61,8 +61,11 @@ import {
   CloudSyncConflictError,
   type CloudPresentationListItem,
 } from "../services/presentationCloud";
-import { initFirebase } from "../services/firebase";
-import { formatCloudSyncUserMessage } from "../utils/cloudSyncErrors";
+import { getFirebaseConfig, initFirebase } from "../services/firebase";
+import {
+  formatCloudSharedListError,
+  formatCloudSyncUserMessage,
+} from "../utils/cloudSyncErrors";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
@@ -1057,7 +1060,10 @@ export function usePresentationState() {
           "Listado de presentaciones compartidas omitido (reglas, índice o permisos):",
           shareErr
         );
-        setCloudSharedWarning(formatCloudSyncUserMessage(shareErr));
+        const cfg = await getFirebaseConfig();
+        setCloudSharedWarning(
+          formatCloudSharedListError(shareErr, cfg?.projectId)
+        );
       }
       setCloudPresentationsItems([...mine, ...shared]);
     } catch (e) {

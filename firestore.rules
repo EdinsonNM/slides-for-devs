@@ -1,6 +1,120 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function userPresentation(ownerUid, cloudId) {
+      return /databases/$(database)/documents/users/$(ownerUid)/presentations/$(cloudId);
+    }
+
+    function shareInviteEmailsForPresentation(ownerUid, cloudId) {
+      return get(userPresentation(ownerUid, cloudId)).data.get('shareInviteEmails', []);
+    }
+
+    // Gestión de compartidos: un doc por invitado (UID o correo normalizado en el doc).
+    match /users/{ownerUid}/presentationShareGrants/{grantId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        resource.data.recipientUid == request.auth.uid ||
+        (
+          request.auth.token.email != null &&
+          resource.data.recipientEmailNorm is string &&
+          request.auth.token.email.lower() == resource.data.recipientEmailNorm
+        )
+      );
+
+      // list explícito: collection group y listados del dueño alinean mejor con el validador de consultas
+      allow list: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        resource.data.recipientUid == request.auth.uid ||
+        (
+          request.auth.token.email != null &&
+          resource.data.recipientEmailNorm is string &&
+          request.auth.token.email.lower() == resource.data.recipientEmailNorm
+        )
+      );
+
+      allow create: if request.auth != null
+        && request.auth.uid == ownerUid
+        && request.resource.data.ownerUid == ownerUid
+        && request.resource.data.cloudId is string
+        && exists(userPresentation(ownerUid, request.resource.data.cloudId))
+        && (
+          (
+            request.resource.data.recipientUid is string &&
+            request.resource.data.recipientUid.size() > 0 &&
+            request.resource.data.recipientEmailNorm == null
+          ) ||
+          (
+            request.resource.data.recipientEmailNorm is string &&
+            request.resource.data.recipientEmailNorm.size() > 0 &&
+            request.resource.data.recipientUid == null
+          )
+        );
+
+      allow update, delete: if request.auth != null
+        && request.auth.uid == ownerUid;
+    }
+
+    match /{path=**}/presentationShareGrants/{grantId} {
+      allow list: if request.auth != null && (
+        resource.data.recipientUid == request.auth.uid ||
+        (
+          request.auth.token.email != null &&
+          resource.data.recipientEmailNorm is string &&
+          request.auth.token.email.lower() == resource.data.recipientEmailNorm
+        )
+      );
+    }
+
+    // Índice para “compartidas por correo”: el listado no puede usar collectionGroup +
+    // array-contains(email literal) con reglas basadas en request.auth.token.email, porque
+    // el validador de consultas no demuestra que el literal coincida con el token.
+    // Ruta: sharedPresentationIndex/{emailEnMinusculas}/refs/{refId} — el segmento emailKey
+    // se compara con el token en las reglas (list permitido).
+    match /sharedPresentationIndex/{emailKey}/refs/{refId} {
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == emailKey;
+
+      allow list: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == emailKey;
+
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.cloudId is string
+        && exists(userPresentation(request.auth.uid, request.resource.data.cloudId))
+        && shareInviteEmailsForPresentation(request.auth.uid, request.resource.data.cloudId) is list
+        && emailKey in shareInviteEmailsForPresentation(request.auth.uid, request.resource.data.cloudId);
+
+      allow update: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.cloudId == resource.data.cloudId
+        && exists(userPresentation(request.auth.uid, resource.data.cloudId))
+        && shareInviteEmailsForPresentation(request.auth.uid, resource.data.cloudId) is list
+        && emailKey in shareInviteEmailsForPresentation(request.auth.uid, resource.data.cloudId);
+
+      allow delete: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Compat: listado antiguo por array sharedWith en el doc de presentación (sin grants).
+    match /{path=**}/presentations/{presId} {
+      allow list: if request.auth != null
+        && resource.data.sharedWith is list
+        && request.auth.uid in resource.data.sharedWith;
+      allow get: if request.auth != null && (
+        path == 'users/' + request.auth.uid ||
+        (resource.data.sharedWith is list &&
+          request.auth.uid in resource.data.sharedWith) ||
+        (
+          request.auth.token.email != null &&
+          resource.data.shareInviteEmails is list &&
+          request.auth.token.email.lower() in resource.data.shareInviteEmails
+        )
+      );
+    }
     match /users/{userId}/presentations/{presId} {
       allow read: if request.auth != null && (
         request.auth.uid == userId ||

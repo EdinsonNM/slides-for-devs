@@ -2,49 +2,57 @@
 
 La app escribe en:
 
-- **Firestore**: `users/{userId}/presentations/{presentationId}` y `users/{userId}/characters/{characterId}`
+- **Firestore**: presentaciones y personajes bajo `users/{userId}/…`, **`users/{userId}/presentationShareGrants/{grantId}`** (un documento por invitado UID o correo), e **`sharedPresentationIndex/{email}/refs/...`** (solo para listar compartidas por correo con reglas seguras).
 - **Storage**: `users/{userId}/presentations/...` y `users/{userId}/characters/{characterId}/ref.*`
 
-Cada usuario es dueño de su prefijo `users/{userId}/`. Las presentaciones pueden incluir:
+**Gestión de compartidos:** la fuente operativa es `presentationShareGrants` (fácil de listar por `cloudId` como dueño). Los campos **`sharedWith`** y **`shareInviteEmails`** en el documento de la presentación se mantienen **en sincronía** para las reglas de Storage y compatibilidad. El listado “compartidas conmigo” usa `collectionGroup("presentationShareGrants")` con `where("recipientUid", "==", uid)` y, si hay email en sesión, también `where("recipientEmailNorm", "==", emailNorm)`; además **`sharedPresentationIndex/{email}/refs`** para el mismo listado por correo con reglas que comparan el segmento de ruta con el token.
 
-- **`sharedWith`**: UIDs de Firebase Auth con permiso de **lectura**.
-- **`shareInviteEmails`**: correos en **minúsculas**; quien inicie sesión con ese correo (`request.auth.token.email` en las reglas) también tiene **lectura**.
-
-Solo el dueño crea, actualiza y borra el documento y escribe en Storage.
+Los índices de **collection group** para compartidas están en `firestore.indexes.json` (`fieldOverrides` en `presentationShareGrants/recipientUid`, `presentationShareGrants/recipientEmailNorm` y `presentations/sharedWith`). Despliega con `firebase deploy --only firestore:indexes` (o el enlace “Create index” de la consola del navegador).
 
 ## Firestore
+
+El contenido canónico está en `firestore.rules`. Resumen de rutas:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/presentations/{presId} {
-      allow read: if request.auth != null && (
-        request.auth.uid == userId ||
-        (resource.data.sharedWith is list &&
-          request.auth.uid in resource.data.sharedWith) ||
-        (
-          request.auth.token.email != null &&
-          resource.data.shareInviteEmails is list &&
-          request.auth.token.email.lower() in resource.data.shareInviteEmails
-        )
+
+    function userPresentation(ownerUid, cloudId) {
+      return /databases/$(database)/documents/users/$(ownerUid)/presentations/$(cloudId);
+    }
+
+    function shareInviteEmailsForPresentation(ownerUid, cloudId) {
+      return get(userPresentation(ownerUid, cloudId)).data.get('shareInviteEmails', []);
+    }
+
+    match /users/{ownerUid}/presentationShareGrants/{grantId} { /* read/create/update/delete */ }
+    match /{path=**}/presentationShareGrants/{grantId} {
+      allow list: if request.auth != null && (
+        resource.data.recipientUid == request.auth.uid ||
+        (request.auth.token.email != null &&
+          resource.data.recipientEmailNorm is string &&
+          request.auth.token.email.lower() == resource.data.recipientEmailNorm)
       );
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
-    match /users/{userId}/characters/{charId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    match /sharedPresentationIndex/{emailKey}/refs/{refId} { /* … */ }
+
+    match /{path=**}/presentations/{presId} {
+      allow list: if request.auth != null
+        && resource.data.sharedWith is list
+        && request.auth.uid in resource.data.sharedWith;
+      allow get: if /* dueño, sharedWith o shareInviteEmails */;
     }
+    match /users/{userId}/presentations/{presId} { /* … */ }
+    match /users/{userId}/characters/{charId} { /* … */ }
   }
 }
 ```
 
-**Índices collection group:** “Compartidas conmigo” usa:
+Copia el archivo **`firestore.rules`** completo en la consola o despliega con la CLI; el bloque anterior es solo guía.
 
-- `collectionGroup("presentations")` + `where("sharedWith", "array-contains", uid)`
-- y, si el usuario tiene email en el token, `where("shareInviteEmails", "array-contains", emailEnMinúsculas)`
-
-Pueden pedirse **dos** índices; Firebase suele mostrar el enlace en el error de la consola del navegador.
+**Collection group:** además de `presentationShareGrants` + `recipientUid`, se mantiene el listado **legacy** con `presentations` + `sharedWith` para datos antiguos sin grants.
 
 ## Storage
 

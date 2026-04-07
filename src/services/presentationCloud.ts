@@ -11,8 +11,10 @@ import {
   query,
   runTransaction,
   serverTimestamp,
-  updateDoc,
   where,
+  writeBatch,
+  type DocumentReference,
+  type Firestore,
   type QueryDocumentSnapshot,
   type Timestamp,
 } from "firebase/firestore";
@@ -56,6 +58,185 @@ export function normalizeShareEmail(raw: string): string | null {
   const s = raw.trim().toLowerCase();
   if (!s || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return null;
   return s;
+}
+
+function shareInviteEmailsFromDocData(data: Record<string, unknown>): string[] {
+  const em = data.shareInviteEmails;
+  if (!Array.isArray(em)) return [];
+  return [
+    ...new Set(
+      em
+        .filter((x): x is string => typeof x === "string")
+        .map((e) => normalizeShareEmail(e))
+        .filter((e): e is string => e != null)
+    ),
+  ];
+}
+
+/** ID estable en `sharedPresentationIndex/{email}/refs/{refId}`. */
+export function sharePresentationRefId(ownerUid: string, cloudId: string): string {
+  return `${ownerUid}__${cloudId}`;
+}
+
+/** Colección de invitaciones por presentación: `users/{ownerUid}/presentationShareGrants/{grantId}`. */
+function presentationShareGrantsCollection(db: Firestore, ownerUid: string) {
+  return collection(db, "users", ownerUid, "presentationShareGrants");
+}
+
+/** ID de doc de invitación por UID de Firebase. */
+export function shareGrantDocIdForUid(recipientUid: string): string {
+  return `u_${recipientUid}`;
+}
+
+/** ID de doc de invitación por correo ya normalizado (minúsculas). */
+export function shareGrantDocIdForEmailNorm(emailNorm: string): string {
+  try {
+    const b = btoa(unescape(encodeURIComponent(emailNorm)));
+    return `e_${b.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+  } catch {
+    return `e_${emailNorm.length}_${emailNorm.codePointAt(0) ?? 0}`;
+  }
+}
+
+export interface PresentationShareGrantRow {
+  grantId: string;
+  recipientUid: string | null;
+  recipientEmailNorm: string | null;
+}
+
+/**
+ * Sustituye los grants de una presentación (borra docs con ese cloudId y crea los nuevos).
+ * Si se pasa `presentationRef`, actualiza en el mismo batch `sharedWith` / `shareInviteEmails`.
+ */
+async function replacePresentationShareGrants(
+  db: Firestore,
+  ownerUid: string,
+  cloudId: string,
+  meta: { topic: string; savedAt: string; updatedAt: string | null },
+  recipientUids: string[],
+  recipientEmailNorms: string[],
+  presentationPatch?: {
+    ref: DocumentReference;
+    sharedWith: string[];
+    shareInviteEmails: string[];
+  }
+): Promise<void> {
+  const grantsCol = presentationShareGrantsCollection(db, ownerUid);
+  const existing = await getDocs(query(grantsCol, where("cloudId", "==", cloudId)));
+  const batch = writeBatch(db);
+  let ops = 0;
+  for (const d of existing.docs) {
+    batch.delete(d.ref);
+    ops += 1;
+  }
+  const uids = [...new Set(recipientUids.map((u) => u.trim()).filter(Boolean))];
+  const emails = [
+    ...new Set(
+      recipientEmailNorms
+        .map((e) => normalizeShareEmail(e))
+        .filter((e): e is string => e != null)
+    ),
+  ];
+  for (const uid of uids) {
+    batch.set(doc(grantsCol, shareGrantDocIdForUid(uid)), {
+      ownerUid,
+      cloudId,
+      recipientUid: uid,
+      recipientEmailNorm: null,
+      topic: meta.topic,
+      savedAt: meta.savedAt,
+      updatedAt: meta.updatedAt,
+    });
+    ops += 1;
+  }
+  for (const emailNorm of emails) {
+    batch.set(doc(grantsCol, shareGrantDocIdForEmailNorm(emailNorm)), {
+      ownerUid,
+      cloudId,
+      recipientUid: null,
+      recipientEmailNorm: emailNorm,
+      topic: meta.topic,
+      savedAt: meta.savedAt,
+      updatedAt: meta.updatedAt,
+    });
+    ops += 1;
+  }
+  if (presentationPatch) {
+    batch.update(presentationPatch.ref, {
+      sharedWith: presentationPatch.sharedWith,
+      shareInviteEmails: presentationPatch.shareInviteEmails,
+    });
+    ops += 1;
+  }
+  if (ops === 0) return;
+  await batch.commit();
+}
+
+/** Lista invitaciones de una presentación en la nube (solo el propietario). */
+export async function listPresentationShareGrantsForCloudPresentation(
+  ownerUid: string,
+  cloudId: string
+): Promise<PresentationShareGrantRow[]> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
+    throw new Error("Solo el propietario puede listar invitaciones.");
+  }
+  const grantsCol = presentationShareGrantsCollection(db, ownerUid);
+  const snap = await getDocs(query(grantsCol, where("cloudId", "==", cloudId)));
+  return snap.docs.map((d) => {
+    const g = d.data() as Record<string, unknown>;
+    return {
+      grantId: d.id,
+      recipientUid: typeof g.recipientUid === "string" ? g.recipientUid : null,
+      recipientEmailNorm: typeof g.recipientEmailNorm === "string" ? g.recipientEmailNorm : null,
+    };
+  });
+}
+
+/**
+ * Mantiene el índice por correo (listable con reglas que comparan emailKey al token).
+ * Elimina refs de correos que ya no están invitados y escribe/actualiza los activos.
+ */
+async function syncPresentationShareEmailIndex(
+  db: Firestore,
+  ownerUid: string,
+  cloudId: string,
+  meta: { topic: string; savedAt: string; updatedAt: string | null },
+  previousInviteEmails: string[],
+  nextInviteEmails: string[]
+): Promise<void> {
+  const prev = new Set(previousInviteEmails);
+  const next = new Set(nextInviteEmails);
+  const refId = sharePresentationRefId(ownerUid, cloudId);
+  const batch = writeBatch(db);
+  let ops = 0;
+
+  for (const email of prev) {
+    if (!next.has(email)) {
+      batch.delete(doc(db, "sharedPresentationIndex", email, "refs", refId));
+      ops += 1;
+    }
+  }
+
+  const payload = {
+    ownerUid,
+    cloudId,
+    topic: meta.topic,
+    savedAt: meta.savedAt,
+    updatedAt: meta.updatedAt,
+  };
+
+  for (const email of next) {
+    batch.set(doc(db, "sharedPresentationIndex", email, "refs", refId), payload, {
+      merge: true,
+    });
+    ops += 1;
+  }
+
+  if (ops === 0) return;
+  await batch.commit();
 }
 
 export interface PresentationShareAccess {
@@ -141,12 +322,43 @@ async function fetchUrlAsBytes(url: string): Promise<{ bytes: Uint8Array; conten
   }
 }
 
-function bytesToDataUrl(bytes: Uint8Array | ArrayBuffer, mime: string): string {
+/** Timeout por archivo de Storage al descargar presentaciones (evita spinner infinito). */
+const STORAGE_PULL_TIMEOUT_MS = 180_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = globalThis.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (v) => {
+        globalThis.clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        globalThis.clearTimeout(id);
+        reject(e);
+      }
+    );
+  });
+}
+
+/**
+ * Convierte bytes a data URL sin bloquear el hilo con imágenes grandes.
+ * La implementación anterior hacía `+=` byte a byte y `btoa` de un string enorme (coste muy alto y UI colgada).
+ */
+function bytesToDataUrlAsync(bytes: Uint8Array | ArrayBuffer, mime: string): Promise<string> {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let bin = "";
-  for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]!);
-  const b64 = btoa(bin);
-  return `data:${mime};base64,${b64}`;
+  return new Promise((resolve, reject) => {
+    try {
+      const blob = new Blob([u8], { type: mime });
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () =>
+        reject(reader.error ?? new Error("No se pudo leer la imagen descargada."));
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
+  });
 }
 
 function slideToPlain(s: Slide): Record<string, unknown> {
@@ -215,6 +427,31 @@ function timestampToIso(t: unknown): string | null {
     return (t as Timestamp).toDate().toISOString();
   }
   return null;
+}
+
+async function listSharedPresentationsFromEmailIndex(
+  db: Firestore,
+  emailNorm: string
+): Promise<CloudPresentationListItem[]> {
+  const snap = await getDocs(collection(db, "sharedPresentationIndex", emailNorm, "refs"));
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const updatedRaw = data.updatedAt;
+      const updatedAt =
+        typeof updatedRaw === "string"
+          ? updatedRaw
+          : timestampToIso(updatedRaw) ?? null;
+      return {
+        cloudId: String(data.cloudId ?? ""),
+        ownerUid: String(data.ownerUid ?? ""),
+        source: "shared" as const,
+        topic: String(data.topic ?? ""),
+        savedAt: String(data.savedAt ?? ""),
+        updatedAt,
+      };
+    })
+    .filter((row) => row.ownerUid.length > 0 && row.cloudId.length > 0);
 }
 
 /**
@@ -343,7 +580,11 @@ export async function pushPresentationToCloud(
     cloudSyncedAtClient: syncedAt,
   };
 
-  const newRevision = await runTransaction(db, async (transaction) => {
+  const {
+    newRevision,
+    preservedShareInviteEmails: inviteEmailsAfterPush,
+    preservedSharedWith: sharedWithAfterPush,
+  } = await runTransaction(db, async (transaction) => {
     const snap = await transaction.get(docRef);
     const remoteRev = snap.exists()
       ? Number((snap.data() as Record<string, unknown>).revision ?? 0)
@@ -357,13 +598,7 @@ export async function pushPresentationToCloud(
       if (Array.isArray(sw)) {
         preservedSharedWith = sw.filter((x): x is string => typeof x === "string");
       }
-      const em = d.shareInviteEmails;
-      if (Array.isArray(em)) {
-        preservedShareInviteEmails = em
-          .filter((x): x is string => typeof x === "string")
-          .map((e) => normalizeShareEmail(e))
-          .filter((e): e is string => e != null);
-      }
+      preservedShareInviteEmails = shareInviteEmailsFromDocData(d);
     }
 
     if (!force && snap.exists()) {
@@ -381,8 +616,40 @@ export async function pushPresentationToCloud(
       revision: nextRev,
       updatedAt: serverTimestamp(),
     });
-    return nextRev;
+    return {
+      newRevision: nextRev,
+      preservedShareInviteEmails,
+      preservedSharedWith,
+    };
   });
+
+  try {
+    const postSnap = await getDoc(docRef);
+    const pda = (postSnap.data() ?? {}) as Record<string, unknown>;
+    const meta = {
+      topic: String(pda.topic ?? saved.topic),
+      savedAt: String(pda.savedAt ?? saved.savedAt),
+      updatedAt: timestampToIso(pda.updatedAt) ?? syncedAt,
+    };
+    await replacePresentationShareGrants(
+      db,
+      uid,
+      cloudId,
+      meta,
+      sharedWithAfterPush,
+      inviteEmailsAfterPush
+    );
+    await syncPresentationShareEmailIndex(
+      db,
+      uid,
+      cloudId,
+      meta,
+      inviteEmailsAfterPush,
+      inviteEmailsAfterPush
+    );
+  } catch (indexErr) {
+    console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
+  }
 
   return { cloudId, syncedAt, newRevision };
 }
@@ -421,6 +688,7 @@ export async function listCloudPresentations(
   return out;
 }
 
+/** Compat: compartidos solo con array `sharedWith` en el doc (sin `presentationShareGrants`). */
 function mergeSharedPresentationDocs(
   docs: QueryDocumentSnapshot[],
   myUid: string
@@ -450,9 +718,42 @@ function mergeSharedPresentationDocs(
   return out;
 }
 
+function mergeSharedFromGrantDocs(
+  docs: QueryDocumentSnapshot[],
+  myUid: string
+): CloudPresentationListItem[] {
+  const byKey = new Map<string, CloudPresentationListItem>();
+  for (const d of docs) {
+    const ownerUid = d.ref.parent.parent?.id;
+    const data = d.data() as Record<string, unknown>;
+    const cloudId = String(data.cloudId ?? "");
+    if (!ownerUid || ownerUid === myUid || !cloudId) continue;
+    const key = `${ownerUid}::${cloudId}`;
+    if (byKey.has(key)) continue;
+    const updatedRaw = data.updatedAt;
+    const updatedAt =
+      typeof updatedRaw === "string" ? updatedRaw : timestampToIso(updatedRaw);
+    byKey.set(key, {
+      cloudId,
+      ownerUid,
+      source: "shared",
+      topic: String(data.topic ?? ""),
+      savedAt: String(data.savedAt ?? ""),
+      updatedAt,
+    });
+  }
+  const out = [...byKey.values()];
+  out.sort((a, b) => {
+    const ta = a.updatedAt || a.savedAt || "";
+    const tb = b.updatedAt || b.savedAt || "";
+    return tb.localeCompare(ta);
+  });
+  return out;
+}
+
 /**
- * Presentaciones compartidas contigo por UID (`sharedWith`) o por correo (`shareInviteEmails`).
- * Requiere índices de collection group (Firebase suele ofrecer el enlace al primer error).
+ * Presentaciones compartidas contigo por UID (`presentationShareGrants`, collection group) o por correo
+ * (`sharedPresentationIndex/{email}/refs/...`).
  */
 export async function listCloudPresentationsSharedWithMe(
   myUid: string
@@ -469,23 +770,74 @@ export async function listCloudPresentationsSharedWithMe(
     ? normalizeShareEmail(inst.auth.currentUser.email)
     : null;
 
-  const qUid = query(
-    collectionGroup(db, "presentations"),
-    where("sharedWith", "array-contains", myUid)
-  );
-  const snapUid = await getDocs(qUid);
-  const collected = [...snapUid.docs];
+  const queryErrors: unknown[] = [];
 
-  if (emailNorm) {
-    const qEmail = query(
-      collectionGroup(db, "presentations"),
-      where("shareInviteEmails", "array-contains", emailNorm)
+  let fromGrants: CloudPresentationListItem[] = [];
+  const grantDocs: QueryDocumentSnapshot[] = [];
+  try {
+    const qGrantsUid = query(
+      collectionGroup(db, "presentationShareGrants"),
+      where("recipientUid", "==", myUid)
     );
-    const snapEmail = await getDocs(qEmail);
-    collected.push(...snapEmail.docs);
+    grantDocs.push(...(await getDocs(qGrantsUid)).docs);
+  } catch (e) {
+    console.warn("[cloud] Listado compartidas (presentationShareGrants recipientUid):", e);
+    queryErrors.push(e);
+  }
+  if (emailNorm) {
+    try {
+      const qGrantsEmail = query(
+        collectionGroup(db, "presentationShareGrants"),
+        where("recipientEmailNorm", "==", emailNorm)
+      );
+      grantDocs.push(...(await getDocs(qGrantsEmail)).docs);
+    } catch (e) {
+      console.warn("[cloud] Listado compartidas (presentationShareGrants recipientEmailNorm):", e);
+      queryErrors.push(e);
+    }
+  }
+  fromGrants = mergeSharedFromGrantDocs(grantDocs, myUid);
+
+  let fromLegacyArrays: CloudPresentationListItem[] = [];
+  try {
+    const qLegacy = query(
+      collectionGroup(db, "presentations"),
+      where("sharedWith", "array-contains", myUid)
+    );
+    const snapLegacy = await getDocs(qLegacy);
+    fromLegacyArrays = mergeSharedPresentationDocs([...snapLegacy.docs], myUid);
+  } catch (e) {
+    console.warn("[cloud] Listado compartidas (presentations sharedWith):", e);
+    queryErrors.push(e);
   }
 
-  return mergeSharedPresentationDocs(collected, myUid);
+  let fromEmail: CloudPresentationListItem[] = [];
+  if (emailNorm) {
+    try {
+      fromEmail = await listSharedPresentationsFromEmailIndex(db, emailNorm);
+    } catch (e) {
+      console.warn("[cloud] Listado compartidas (sharedPresentationIndex):", e);
+      queryErrors.push(e);
+    }
+  }
+
+  const expectedQueries = emailNorm ? 4 : 2;
+  if (queryErrors.length >= expectedQueries) {
+    throw queryErrors[0];
+  }
+
+  const byKey = new Map<string, CloudPresentationListItem>();
+  for (const row of [...fromGrants, ...fromLegacyArrays, ...fromEmail]) {
+    const k = `${row.ownerUid}::${row.cloudId}`;
+    if (!byKey.has(k)) byKey.set(k, row);
+  }
+  const out = [...byKey.values()];
+  out.sort((a, b) => {
+    const ta = a.updatedAt || a.savedAt || "";
+    const tb = b.updatedAt || b.savedAt || "";
+    return tb.localeCompare(ta);
+  });
+  return out;
 }
 
 export async function getPresentationShareAccess(
@@ -503,15 +855,31 @@ export async function getPresentationShareAccess(
   if (!snap.exists()) {
     return { sharedWithUids: [], shareInviteEmails: [] };
   }
+  const grantsCol = presentationShareGrantsCollection(db, ownerUid);
+  const grantsSnap = await getDocs(query(grantsCol, where("cloudId", "==", cloudId)));
+  if (!grantsSnap.empty) {
+    const sharedWithUids: string[] = [];
+    const shareInviteEmails: string[] = [];
+    for (const g of grantsSnap.docs) {
+      const row = g.data() as Record<string, unknown>;
+      if (typeof row.recipientUid === "string" && row.recipientUid.trim()) {
+        sharedWithUids.push(row.recipientUid.trim());
+      }
+      if (typeof row.recipientEmailNorm === "string" && row.recipientEmailNorm.trim()) {
+        shareInviteEmails.push(row.recipientEmailNorm.trim());
+      }
+    }
+    return {
+      sharedWithUids: [...new Set(sharedWithUids)],
+      shareInviteEmails: [...new Set(shareInviteEmails)],
+    };
+  }
   const data = snap.data() as Record<string, unknown>;
   const sw = data.sharedWith;
-  const em = data.shareInviteEmails;
   const sharedWithUids = Array.isArray(sw)
     ? sw.filter((x): x is string => typeof x === "string")
     : [];
-  const shareInviteEmails = Array.isArray(em)
-    ? [...new Set(em.filter((x): x is string => typeof x === "string").map((e) => normalizeShareEmail(e)).filter((e): e is string => e != null))]
-    : [];
+  const shareInviteEmails = shareInviteEmailsFromDocData(data);
   return { sharedWithUids, shareInviteEmails };
 }
 
@@ -540,7 +908,38 @@ export async function setPresentationShareAccess(
   if (!snap.exists()) {
     throw new Error("La presentación no está en la nube. Sincronízala primero.");
   }
-  await updateDoc(dref, { sharedWith: uids, shareInviteEmails: emails });
+  const prevInviteEmails = shareInviteEmailsFromDocData(
+    snap.data() as Record<string, unknown>
+  );
+  const sd = snap.data() as Record<string, unknown>;
+  const meta = {
+    topic: String(sd.topic ?? ""),
+    savedAt: String(sd.savedAt ?? ""),
+    updatedAt: timestampToIso(sd.updatedAt),
+  };
+  try {
+    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, uids, emails, {
+      ref: dref,
+      sharedWith: uids,
+      shareInviteEmails: emails,
+    });
+    const afterSnap = await getDoc(dref);
+    const ad = (afterSnap.data() ?? {}) as Record<string, unknown>;
+    await syncPresentationShareEmailIndex(
+      db,
+      ownerUid,
+      cloudId,
+      {
+        topic: String(ad.topic ?? meta.topic),
+        savedAt: String(ad.savedAt ?? meta.savedAt),
+        updatedAt: timestampToIso(ad.updatedAt) ?? meta.updatedAt,
+      },
+      prevInviteEmails,
+      emails
+    );
+  } catch (indexErr) {
+    console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
+  }
 }
 
 /**
@@ -581,7 +980,11 @@ export async function pullPresentationFromCloud(
     if (imgName) {
       const path = `${prefix}/${imgName}`;
       try {
-        const bytes = await getBytes(ref(st, path));
+        const bytes = await withTimeout(
+          getBytes(ref(st, path)),
+          STORAGE_PULL_TIMEOUT_MS,
+          `La descarga de la imagen tardó demasiado (${imgName}). Revisa la red o vuelve a intentarlo.`
+        );
         const ext = imgName.split(".").pop()?.toLowerCase() ?? "png";
         const mime =
           ext === "jpg" || ext === "jpeg"
@@ -591,7 +994,7 @@ export async function pullPresentationFromCloud(
               : ext === "gif"
                 ? "image/gif"
                 : "image/png";
-        slide = { ...slide, imageUrl: bytesToDataUrl(bytes, mime) };
+        slide = { ...slide, imageUrl: await bytesToDataUrlAsync(bytes, mime) };
       } catch {
         /* deja sin imagen */
       }
@@ -601,7 +1004,11 @@ export async function pullPresentationFromCloud(
     if (excName) {
       const path = `${prefix}/${excName}`;
       try {
-        const bytes = await getBytes(ref(st, path));
+        const bytes = await withTimeout(
+          getBytes(ref(st, path)),
+          STORAGE_PULL_TIMEOUT_MS,
+          `La descarga del diagrama tardó demasiado (${excName}). Revisa la red o vuelve a intentarlo.`
+        );
         const text = new TextDecoder().decode(bytes);
         slide = { ...slide, excalidrawData: text };
       } catch {

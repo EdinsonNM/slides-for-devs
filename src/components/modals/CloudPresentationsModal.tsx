@@ -191,7 +191,8 @@ export function CloudPresentationsModal({
         <p className="px-4 pb-3 text-xs text-stone-400 dark:text-stone-500">
           Los personajes asociados no se sincronizan; puede que haya que volver a asignarlos tras
           descargar. Las copias desde “compartidas” no enlazan a la nube del autor para evitar
-          pisar su archivo.
+          pisar su archivo. Si te compartieron solo por correo y no ves la fila, pide al autor que
+          abra “Compartir” y pulse guardar o que vuelva a sincronizar la presentación en la nube.
         </p>
       </div>
     </div>
