@@ -69,7 +69,14 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
           </button>
         )}
       </div>
-      <div className="flex gap-3 overflow-x-auto px-3 py-3 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar min-h-0 flex-1">
+      <div
+        className={cn(
+          "gap-3 px-3 py-3 min-h-0 flex-1",
+          variant === "inspector"
+            ? "flex flex-wrap content-start items-start overflow-y-auto overflow-x-hidden"
+            : "flex overflow-x-auto scroll-smooth snap-x snap-mandatory carousel-no-scrollbar",
+        )}
+      >
             <button
               type="button"
               onClick={openCreator}
@@ -93,7 +100,7 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
                 <button
                   type="button"
                   onClick={() => setDetailCharacter(c)}
-                  className="flex-1 min-h-0 w-full flex flex-col items-stretch text-left"
+                  className="w-full flex flex-col items-stretch text-left"
                 >
                   {c.referenceImageDataUrl ? (
                     <img

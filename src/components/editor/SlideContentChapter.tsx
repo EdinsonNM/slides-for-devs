@@ -110,7 +110,7 @@ export function SlideContentChapter() {
 
   return (
     <div
-      className="text-center p-12 space-y-6 overflow-y-auto max-h-full w-full flex flex-col items-center"
+      className="text-center p-5 space-y-4 overflow-y-auto max-h-full w-full flex flex-col items-center md:p-8 md:space-y-5 lg:p-10 xl:p-12 lg:space-y-6"
       onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
     >
       <motion.div

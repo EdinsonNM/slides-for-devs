@@ -176,7 +176,7 @@ export function SlideContentDefault() {
           onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
         >
           <div
-            className="px-8 pt-6 pb-4 border-stone-100 dark:border-border flex items-start justify-between gap-4 overflow-visible"
+            className="px-4 pt-4 pb-3 border-stone-100 dark:border-border flex items-start justify-between gap-3 overflow-visible md:px-7 md:pt-5 md:pb-4 md:gap-4 lg:px-8 lg:pt-6"
             style={{
               flex: `0 0 ${titleHeightPercent}%`,
               minHeight: 0,
@@ -361,8 +361,8 @@ export function SlideContentDefault() {
       className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden"
       onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
     >
-      <div className="flex-1 p-12 flex flex-col overflow-x-visible overflow-y-hidden min-h-0">
-        <div className="mb-8 shrink-0 flex items-start justify-between gap-4 overflow-visible">
+      <div className="flex-1 p-5 flex flex-col overflow-x-visible overflow-y-hidden min-h-0 md:p-7 lg:p-9 xl:p-11 2xl:p-12">
+        <div className="mb-4 shrink-0 flex items-start justify-between gap-3 overflow-visible md:mb-6 lg:mb-8 md:gap-4">
           <div className="flex-1 mr-4 min-w-0 flex flex-col overflow-visible">
             <span
               className="uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 font-bold mb-2 block"

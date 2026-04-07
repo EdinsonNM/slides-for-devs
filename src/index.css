@@ -150,13 +150,27 @@
   background: rgba(120, 113, 108, 0.4);
 }
 
-/* Tipografía responsiva: escala con el viewport (contenedor fijo para no escalar la sección de imagen) */
+/* Tipografía responsiva: escala con el ancho del lienzo (cqw), no con el viewport —
+   evita títulos enormes cuando la ventana es ancha pero la diapositiva es estrecha (editor md–xl). */
 .slide-content {
-  --slide-title-chapter: clamp(2rem, 5vw, 4.5rem);
-  --slide-title: clamp(1.5rem, 3.5vw, 2.75rem);
-  --slide-subtitle: clamp(1rem, 2vw, 1.5rem);
-  --slide-label: clamp(0.65rem, 1vw, 0.8rem);
-  --slide-body: clamp(0.9375rem, 1.15vw, 1.25rem);
+  container-type: inline-size;
+  container-name: slide;
+  --slide-title-chapter: clamp(1.5rem, 5.25cqw, 2.85rem);
+  --slide-title: clamp(1.05rem, 3.5cqw, 1.9rem);
+  --slide-subtitle: clamp(0.8125rem, 2.1cqw, 1.2rem);
+  --slide-label: clamp(0.58rem, 1.15cqw, 0.76rem);
+  --slide-body: clamp(0.75rem, 1.55cqw, 1.05rem);
+}
+
+/* Navegadores sin container query units: fallback conservador con vw */
+@supports not (font-size: 1cqw) {
+  .slide-content {
+    --slide-title-chapter: clamp(1.5rem, 4.5vw, 2.85rem);
+    --slide-title: clamp(1.05rem, 2.8vw, 1.9rem);
+    --slide-subtitle: clamp(0.8125rem, 1.65vw, 1.2rem);
+    --slide-label: clamp(0.58rem, 0.95vw, 0.76rem);
+    --slide-body: clamp(0.75rem, 1.2vw, 1.05rem);
+  }
 }
 
 .slide-content .prose,
@@ -165,13 +179,34 @@
   font-size: var(--slide-body);
 }
 
-/* Modo presentación a pantalla completa: escalas más grandes */
+/* Preferir cortes entre palabras en títulos editables (evita troceos tipo "Introdu|cción") */
+.slide-content :is(h1, h2),
+.slide-content textarea[data-slide-edit-field="true"],
+.preview-slide :is(h1, h2),
+.preview-slide textarea[data-slide-edit-field="true"] {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* Vista previa / presentación: mismo criterio (ancho del contenedor de la slide) con techos algo mayores */
 .preview-slide {
-  --slide-title-chapter: clamp(3rem, 7vw, 7rem);
-  --slide-title: clamp(2rem, 4.5vw, 4rem);
-  --slide-subtitle: clamp(1.25rem, 2.5vw, 2.25rem);
-  --slide-label: clamp(0.75rem, 1.2vw, 0.9rem);
-  --slide-body: clamp(1.125rem, 1.5vw, 1.5rem);
+  container-type: inline-size;
+  container-name: slide-preview;
+  --slide-title-chapter: clamp(2rem, 5.5cqw, 4.75rem);
+  --slide-title: clamp(1.35rem, 3.8cqw, 2.75rem);
+  --slide-subtitle: clamp(1rem, 2.35cqw, 1.85rem);
+  --slide-label: clamp(0.65rem, 1.15cqw, 0.88rem);
+  --slide-body: clamp(1rem, 1.65cqw, 1.45rem);
+}
+
+@supports not (font-size: 1cqw) {
+  .preview-slide {
+    --slide-title-chapter: clamp(2rem, 6vw, 4.75rem);
+    --slide-title: clamp(1.35rem, 3.5vw, 2.75rem);
+    --slide-subtitle: clamp(1rem, 2vw, 1.85rem);
+    --slide-label: clamp(0.65rem, 1vw, 0.88rem);
+    --slide-body: clamp(1rem, 1.35vw, 1.45rem);
+  }
 }
 
 .preview-slide .prose,

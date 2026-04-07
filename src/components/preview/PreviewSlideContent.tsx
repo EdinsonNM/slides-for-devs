@@ -43,7 +43,7 @@ export function PreviewSlideContent({
       )}
     >
       {slide.type === "chapter" ? (
-        <div className="text-center space-y-8">
+        <div className="text-center space-y-5 px-4 md:space-y-6 lg:space-y-8 md:px-8">
           <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
           <h1
             className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word max-w-full"
@@ -72,7 +72,7 @@ export function PreviewSlideContent({
       ) : slide.contentLayout === "panel-full" ? (
         <>
           <div
-            className="shrink-0 px-10 pt-8 pb-5 border-b border-stone-100 overflow-hidden flex flex-col justify-center"
+            className="shrink-0 px-4 pt-5 pb-4 border-b border-stone-100 overflow-hidden flex flex-col justify-center md:px-8 md:pt-7 md:pb-5 lg:px-10 lg:pt-8"
             style={{ flex: `0 0 ${100 - panelHeightPercent}%` }}
           >
             <h2
@@ -92,7 +92,7 @@ export function PreviewSlideContent({
             <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
           </div>
           <div
-            className="min-h-0 min-w-0 p-8 flex items-center justify-center overflow-hidden"
+            className="min-h-0 min-w-0 p-5 flex items-center justify-center overflow-hidden md:p-7 lg:p-8"
             style={{ flex: `0 0 ${panelHeightPercent}%` }}
           >
             {slide.contentType === "code" ? (
@@ -147,10 +147,10 @@ export function PreviewSlideContent({
         </>
       ) : (
         <>
-          <div className="flex-1 p-12 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 p-5 flex flex-col min-h-0 overflow-hidden md:p-8 lg:p-10 xl:p-12">
             {/* Espaciadores + bloque central: centra en vertical sin colapsar flex-1/basis-0 del cuerpo */}
             <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
-            <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-4 flex flex-col gap-8 scrollbar-on-hover">
+            <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-3 flex flex-col gap-5 scrollbar-on-hover md:pr-4 md:gap-6 lg:gap-8">
               <div className="shrink-0">
                 <h2
                   className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
@@ -178,7 +178,7 @@ export function PreviewSlideContent({
             className="flex flex-col relative"
             style={{ width: `${imageWidthPercent}%` }}
           >
-            <div className="w-full h-full p-8 flex items-center justify-center">
+            <div className="w-full h-full p-5 flex items-center justify-center md:p-7 lg:p-8">
               {slide.contentType === "code" ? (
                 <CodeDisplay
                   code={slide.code ?? ""}

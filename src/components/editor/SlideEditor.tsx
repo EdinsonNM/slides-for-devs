@@ -11,7 +11,7 @@ export function SlideEditor() {
   if (!currentSlide) return null;
 
   return (
-    <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-stone-200/50 p-6 pb-24 dark:bg-stone-900/60">
+    <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-stone-200/50 p-3 pb-24 md:p-4 lg:p-6 dark:bg-stone-900/60">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentIndex}
