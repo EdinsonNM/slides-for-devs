@@ -26,7 +26,6 @@ export function EditorFloatingToolbar({
     nextSlide,
     handleSave,
     isSaving,
-    saveMessage,
     flushDiagramPending,
     setIsPreviewMode,
     openGenerateFullDeckModal,
@@ -94,14 +93,16 @@ export function EditorFloatingToolbar({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
+            aria-busy={isSaving}
+            title={isSaving ? "Guardando…" : "Guardar"}
             className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-medium text-white outline-none hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:focus-visible:ring-offset-surface-elevated"
           >
             {isSaving ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={16} className="shrink-0 animate-spin" aria-hidden />
             ) : (
-              <Save size={16} />
+              <Save size={16} className="shrink-0" aria-hidden />
             )}
-            Guardar
+            {isSaving ? "Guardando…" : "Guardar"}
           </button>
           <button
             type="button"
@@ -116,11 +117,6 @@ export function EditorFloatingToolbar({
             <Maximize2 size={16} />
             Presentar
           </button>
-          {saveMessage ? (
-            <span className="max-w-[120px] truncate px-1 text-[10px] text-muted-foreground">
-              {saveMessage}
-            </span>
-          ) : null}
         </div>
       </div>
     </div>
