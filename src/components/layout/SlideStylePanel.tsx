@@ -218,7 +218,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
                   "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all",
                   contentType === id
                     ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
-                    : "border-stone-200 dark:border-border bg-white dark:bg-surface text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-500"
+                    : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-500 dark:bg-stone-800/60 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:bg-stone-800",
                 )}
               >
                 <Icon size={14} />

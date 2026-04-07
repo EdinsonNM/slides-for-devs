@@ -44,7 +44,7 @@ export function ContentPanelProperties() {
     openCodeGenModal,
   } = usePresentation();
 
-  const { theme, toggleTheme, isLight } = useCodeEditorTheme();
+  const { theme, toggleTheme } = useCodeEditorTheme();
 
   const [imgMenuOpen, setImgMenuOpen] = useState(false);
   const imgMenuRef = useRef<HTMLDivElement>(null);
@@ -60,12 +60,11 @@ export function ContentPanelProperties() {
     return () => document.removeEventListener("click", close);
   }, [imgMenuOpen]);
 
-  const selectLight = isLight
-    ? "border-stone-300 bg-white text-emerald-800"
-    : "border-stone-600 bg-stone-900 text-emerald-400";
-  const controlBtn = isLight
-    ? "border-stone-300 text-stone-700 hover:bg-stone-100"
-    : "border-stone-600 text-stone-300 hover:bg-stone-800";
+  /** Controles del inspector: siempre alineados con el tema de la app (dark:), no con el tema del bloque de código. */
+  const controlBtn =
+    "border-stone-300 bg-white text-stone-800 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-800/80 dark:text-stone-100 dark:hover:border-stone-400 dark:hover:bg-stone-700";
+  const languageSelect =
+    "border-stone-300 bg-white text-stone-900 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100";
 
   if (!currentSlide) return null;
 
@@ -247,12 +246,7 @@ export function ContentPanelProperties() {
               >
                 −
               </button>
-              <span
-                className={cn(
-                  "min-w-10 text-center text-xs font-bold",
-                  isLight ? "text-emerald-800" : "text-emerald-400",
-                )}
-              >
+              <span className="min-w-10 text-center text-xs font-bold text-emerald-800 dark:text-emerald-400">
                 {editFontSize}px
               </span>
               <button
@@ -273,7 +267,7 @@ export function ContentPanelProperties() {
             <select
               value={editLanguage}
               onChange={(e) => setEditLanguage(e.target.value)}
-              className={cn("rounded-lg border px-2 py-1.5 text-xs", selectLight)}
+              className={cn("rounded-lg border px-2 py-1.5 text-xs", languageSelect)}
             >
               {LANGUAGES.map((lang) => (
                 <option key={lang.id} value={lang.id}>
@@ -298,7 +292,7 @@ export function ContentPanelProperties() {
             <button
               type="button"
               onClick={() => openCodeGenModal()}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/60 dark:bg-emerald-950/50 dark:text-emerald-200 dark:hover:bg-emerald-900/55"
             >
               <Sparkles size={14} />
               IA
