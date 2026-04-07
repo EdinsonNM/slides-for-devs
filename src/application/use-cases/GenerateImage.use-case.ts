@@ -13,6 +13,7 @@ export class GenerateImageUseCase {
     modelId: string;
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
+    characterPreviewOnly?: boolean;
   }): Promise<string | undefined> {
     const generator = this.resolveGenerator(params.providerId);
     const raw = await generator.generateImage({
@@ -23,6 +24,7 @@ export class GenerateImageUseCase {
       modelId: params.modelId,
       characterPrompt: params.characterPrompt,
       characterReferenceImageDataUrl: params.characterReferenceImageDataUrl,
+      characterPreviewOnly: params.characterPreviewOnly,
     });
     if (!raw?.trim()) return raw;
     if (typeof window === "undefined") return raw;

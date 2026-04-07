@@ -67,13 +67,22 @@ export interface ImageGenerationInput {
   includeBackground: boolean;
   characterPrompt?: string;
   hasReferenceImage: boolean;
+  /** Solo vista previa en modal de personaje: priorizar estilo/dimensionalidad del texto del usuario. */
+  characterPreviewOnly?: boolean;
 }
 
 export const imageGenerationPrompt: PromptDefinition<ImageGenerationInput> = {
   role: "Genera una imagen que ilustre el contenido de la diapositiva. Si hay un personaje indicado (imagen adjunta o descripción), la imagen DEBE mostrar ÚNICAMENTE ese personaje, con la misma apariencia, en la escena descrita. No inventes ni añadas otros personajes.",
   task: "Produce el prompt final para el modelo de generación de imágenes.",
   buildUserMessage(input) {
-    const { userPrompt, stylePrompt, includeBackground, characterPrompt, hasReferenceImage } = input;
+    const {
+      userPrompt,
+      stylePrompt,
+      includeBackground,
+      characterPrompt,
+      hasReferenceImage,
+      characterPreviewOnly = false,
+    } = input;
     const slideContext =
       input.slideContext.length > MAX_SLIDE_CONTEXT_LENGTH
         ? input.slideContext.slice(0, MAX_SLIDE_CONTEXT_LENGTH - 3) + "..."
@@ -82,6 +91,10 @@ export const imageGenerationPrompt: PromptDefinition<ImageGenerationInput> = {
       "La imagen NO debe contener texto, leyendas ni etiquetas (evitar que aparezcan caracteres o palabras; solo formas e iconos).";
     const background = includeBackground ? "" : " Fondo blanco puro; solo el sujeto principal, sin escenario.";
     const hasCharacter = hasReferenceImage || (characterPrompt?.trim()?.length ?? 0) > 0;
+
+    const userWants3D = /3D|tridimensional|isométric|isometric|isométrico|volumen|HD-2D|hd2d|hd\s*2d|octopath|voxel|pixel\s+art\s+3d|sprites?\s*3d|sprites?\s+tridimensional/i.test(
+      userPrompt,
+    );
 
     let characterBlock = "";
     if (hasCharacter) {
@@ -100,13 +113,17 @@ export const imageGenerationPrompt: PromptDefinition<ImageGenerationInput> = {
     const isDiagramStyle = /diagrama|sketch|hand-drawn|excalidraw|flechas|conectores/i.test(styleText);
     const is2DStyle =
       /cartoon|2D|no 3D|ilustración|ilustracion|plano|vectorial|minimalista|diagrama|sketch|hand-drawn/i.test(
-        styleText
+        styleText,
       );
     const diagramRule = isDiagramStyle
       ? " CRÍTICO para estilo diagrama: (1) NO saturar: máximo 4-5 elementos en total (cajas, iconos, formas). (2) UN solo flujo legible (ej. izquierda a derecha o arriba abajo), pocas flechas y que NO se crucen. (3) Cero texto, cero etiquetas ni palabras en la imagen. (4) Composición minimalista: una idea clara que aporte valor al slide, no una red densa ni una maraña de conexiones."
       : "";
+
+    const force2DFromEditorStyle = is2DStyle && !userWants3D && !characterPreviewOnly;
     const style = styleText
-      ? `ESTILO: ${styleText}.${is2DStyle ? " 2D/ilustración, no 3D." : ""}${diagramRule}\n\n`
+      ? characterPreviewOnly
+        ? `REFERENCIA DE ESTILO DEL EDITOR (suave; si contradice la descripción del personaje, prevalece la descripción): ${styleText}.${diagramRule}\n\n`
+        : `ESTILO: ${styleText}.${force2DFromEditorStyle ? " 2D/ilustración, no 3D." : ""}${diagramRule}\n\n`
       : "";
 
     const contextRule = hasCharacter
@@ -121,11 +138,27 @@ Ilustra los conceptos clave.${contextRule}
 
 Escena a ilustrar: ${userPrompt}.`;
 
-    const reminder = hasCharacter
-      ? "\n\nPersonaje: no sustituir. Contextualizar vestimenta/escena al contenido. Estilo 2D si aplica."
-      : styleText
+    const reminderCharacterPreview =
+      "\n\nAVATAR / PERSONAJE (vista previa): Un solo personaje centrado. Fondo neutro y limpio (gris suave o degradado muy sutil), sin iconos decorativos ni marcos salvo que el usuario lo pida. Sin texto.\n" +
+      "Si la descripción pide 3D, «pixel art 3D», HD-2D, isométrico o volumen: respétalo con perspectiva (tres cuartos o isométrica), sombras que den relieve y lectura espacial; NO sustituir por sprite 2D frontal plano. " +
+      "Si pide pixel art: mantén píxeles visibles y paleta acotada, pero con la dimensionalidad pedida.";
+
+    const reminderHasCharacter = userWants3D
+      ? "\n\nPersonaje: no sustituir. Contextualizar vestimenta/escena al contenido. Respetar 3D/isométrico/volumen si el prompt lo indica."
+      : "\n\nPersonaje: no sustituir. Contextualizar vestimenta/escena al contenido. Estilo 2D si aplica.";
+
+    const reminderNoCharacter =
+      styleText && !userWants3D
         ? "\n\nEstilo visual: 2D si aplica, no 3D."
-        : "";
+        : userWants3D
+          ? "\n\nRespetar volumen 3D, isométrico o pixel art con relieve si el prompt lo pide explícitamente."
+          : "";
+
+    const reminder = characterPreviewOnly
+      ? reminderCharacterPreview
+      : hasCharacter
+        ? reminderHasCharacter
+        : reminderNoCharacter;
 
     return `${characterBlock}${style}${sceneBlock}${background}
 ${noText}${reminder}`;
@@ -147,7 +180,7 @@ ${input.userDescription}
 ---
 
 La descripción debe:
-- Incluir forma del cuerpo y cabeza, colores, rasgos faciales, accesorios (mochila, ropa, etc.), estilo visual (cartoon, vectorial, 3D, etc.).
+- Incluir forma del cuerpo y cabeza, colores, rasgos faciales, accesorios (mochila, ropa, etc.), estilo visual (cartoon, vectorial, 3D, pixel art 2D vs 3D/HD-2D/isométrico, etc.). Si el usuario pide «3D» o «pixel art 3D», explicita perspectiva (tres cuartos o isométrica), sombras y volumen; no lo conviertas en sprite 2D plano.
 - Ser reutilizable: al usarla en distintos contextos el resultado debe ser el mismo personaje.
 - NO pedir texto ni palabras en la imagen.
 - Ser concisa pero completa (2-5 frases).

@@ -2498,7 +2498,7 @@ export function usePresentationState() {
     setIsGeneratingCharacterPreview(true);
     try {
       const context =
-        "Personaje aislado para usar en presentaciones. Debe ser el mismo personaje en todas las escenas. Fondo limpio.";
+        "Personaje aislado (avatar) para presentaciones: un solo diseño coherente en todas las escenas. Fondo neutro; sin texto ni elementos decorativos de interfaz alrededor.";
       const imageModelId =
         imageProvider === "gemini"
           ? geminiImageModelId
@@ -2510,6 +2510,7 @@ export function usePresentationState() {
         stylePrompt: selectedStyle.prompt,
         includeBackground: true,
         modelId: imageModelId,
+        characterPreviewOnly: true,
       });
     } finally {
       setIsGeneratingCharacterPreview(false);

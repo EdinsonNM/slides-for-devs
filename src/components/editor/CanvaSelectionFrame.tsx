@@ -15,6 +15,13 @@ type CanvaSelectionFrameProps = {
   onResizePointerDown?: () => void;
   /** Acciones flotantes (p. ej. IA) debajo del marco, alineadas a la izquierda. */
   floatingActions?: ReactNode;
+  /** `below`: bajo el marco. `bottom-left`: esquina inferior izquierda dentro del marco. */
+  floatingActionsPlacement?: "below" | "bottom-left";
+  /**
+   * Ancho máximo en % respecto al elemento de `measureElRef` (por defecto 100).
+   * Valores >100 permiten ensanchar hacia el panel derecho u espacio libre del slide.
+   */
+  resizeMaxWidthPercent?: number;
 };
 
 /** Altura máx. del marco al arrastrar (evita valores absurdos; antes 900px cortaba con espacio libre en la diapositiva). */
@@ -39,8 +46,11 @@ export function CanvaSelectionFrame({
   onResize,
   onResizePointerDown,
   floatingActions,
+  floatingActionsPlacement = "below",
+  resizeMaxWidthPercent = 100,
 }: CanvaSelectionFrameProps) {
-  const w = Math.min(100, Math.max(30, widthPercent));
+  const resizeCapPct = Math.max(30, resizeMaxWidthPercent);
+  const w = Math.min(resizeCapPct, Math.max(30, widthPercent));
   const style: CSSProperties = {
     width: `${w}%`,
     minWidth: 0,
@@ -62,10 +72,11 @@ export function CanvaSelectionFrame({
     const startX = e.clientX;
     const startY = e.clientY;
 
+    const maxWpx = parentW * (resizeCapPct / 100);
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      const newWpx = Math.max(parentW * 0.3, Math.min(parentW, startWpx + dx));
+      const newWpx = Math.max(parentW * 0.3, Math.min(maxWpx, startWpx + dx));
       const newPct =
         Math.round((newWpx / parentW) * 1000) / 10;
       const newH = Math.round(
@@ -107,6 +118,11 @@ export function CanvaSelectionFrame({
 
   const showDragHandle = Boolean(onResize && (showChrome || showResizeHandle));
 
+  const floatingWrapClass =
+    floatingActionsPlacement === "bottom-left"
+      ? "pointer-events-none absolute left-2 bottom-2 z-40 flex justify-start"
+      : "pointer-events-none absolute left-0 top-full z-40 mt-1.5 flex justify-start";
+
   const resizeHandleEl = showDragHandle ? (
     <button
       type="button"
@@ -147,7 +163,7 @@ export function CanvaSelectionFrame({
         <div className={cn("relative z-1 min-w-0", innerClassName)}>{children}</div>
         {resizeHandleEl}
         {floatingActions ? (
-          <div className="pointer-events-none absolute left-0 top-full z-40 mt-1.5 flex justify-start">
+          <div className={floatingWrapClass}>
             <div className="pointer-events-auto">{floatingActions}</div>
           </div>
         ) : null}
@@ -195,7 +211,7 @@ export function CanvaSelectionFrame({
         {children}
       </div>
       {floatingActions ? (
-        <div className="pointer-events-none absolute left-0 top-full z-40 mt-1.5 flex justify-start">
+        <div className={floatingWrapClass}>
           <div className="pointer-events-auto">{floatingActions}</div>
         </div>
       ) : null}

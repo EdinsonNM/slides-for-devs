@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Pencil, RefreshCw, Split, Sparkles, Wand2 } from "lucide-react";
+import { Pencil, RefreshCw, Split, Sparkles } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
@@ -167,6 +167,9 @@ export function SlideContentDefault() {
   const contentW = currentSlide.editorContentWidthPercent ?? 100;
   const contentH = currentSlide.editorContentMinHeightPx ?? 120;
 
+  const iaToolbarBtnClass =
+    "p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors";
+
   if (isPanelFull) {
     const titleHeightPercent = 100 - panelHeightPercent;
     return (
@@ -175,8 +178,29 @@ export function SlideContentDefault() {
           className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 h-full relative"
           onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
         >
+          <div className="flex shrink-0 items-center gap-1 self-start px-4 pt-4 md:px-7 md:pt-5 lg:px-8 lg:pt-6">
+            <button
+              type="button"
+              onClick={() => {
+                setGenerateSlideContentPrompt("");
+                setShowGenerateSlideContentModal(true);
+              }}
+              className={cn(iaToolbarBtnClass, "hover:text-emerald-600 dark:hover:text-emerald-400")}
+              title="Generar contenido de esta diapositiva con IA"
+            >
+              <Sparkles size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSplitModal(true)}
+              className={cn(iaToolbarBtnClass, "hover:text-amber-600 dark:hover:text-amber-400")}
+              title="Dividir"
+            >
+              <Split size={16} />
+            </button>
+          </div>
           <div
-            className="px-4 pt-4 pb-3 border-stone-100 dark:border-border flex items-start justify-between gap-3 overflow-visible md:px-7 md:pt-5 md:pb-4 md:gap-4 lg:px-8 lg:pt-6"
+            className="px-4 pt-2 pb-3 border-stone-100 dark:border-border flex items-start justify-between gap-3 overflow-visible md:px-7 md:pt-3 md:pb-4 md:gap-4 lg:px-8 lg:pt-4"
             style={{
               flex: `0 0 ${titleHeightPercent}%`,
               minHeight: 0,
@@ -193,6 +217,7 @@ export function SlideContentDefault() {
                         widthPercent={titleW}
                         minHeightPx={titleH}
                         measureElRef={titleMeasureRef}
+                        resizeMaxWidthPercent={280}
                         onResizePointerDown={onResizePointerDown}
                         onResize={({ widthPercent, minHeightPx }) =>
                           patchEditorFrame("title", widthPercent, minHeightPx)
@@ -362,8 +387,29 @@ export function SlideContentDefault() {
       onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
     >
       <div className="flex-1 p-5 flex flex-col overflow-x-visible overflow-y-hidden min-h-0 md:p-7 lg:p-9 xl:p-11 2xl:p-12">
+        <div className="mb-3 flex shrink-0 items-center gap-1 self-start md:mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setGenerateSlideContentPrompt("");
+              setShowGenerateSlideContentModal(true);
+            }}
+            className={cn(iaToolbarBtnClass, "hover:text-emerald-600 dark:hover:text-emerald-400")}
+            title="Generar contenido de esta diapositiva con IA"
+          >
+            <Sparkles size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSplitModal(true)}
+            className={cn(iaToolbarBtnClass, "hover:text-amber-600 dark:hover:text-amber-400")}
+            title="Dividir"
+          >
+            <Split size={16} />
+          </button>
+        </div>
         <div className="mb-4 shrink-0 flex items-start justify-between gap-3 overflow-visible md:mb-6 lg:mb-8 md:gap-4">
-          <div className="flex-1 mr-4 min-w-0 flex flex-col overflow-visible">
+          <div className="min-w-0 flex-1 flex flex-col overflow-visible">
             <span
               className="uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 font-bold mb-2 block"
               style={{ fontSize: "var(--slide-label)" }}
@@ -397,6 +443,7 @@ export function SlideContentDefault() {
                   widthPercent={titleW}
                   minHeightPx={titleH}
                   measureElRef={titleMeasureRef}
+                  resizeMaxWidthPercent={280}
                   onResizePointerDown={onResizePointerDown}
                   onResize={({ widthPercent, minHeightPx }) =>
                     patchEditorFrame("title", widthPercent, minHeightPx)
@@ -442,7 +489,7 @@ export function SlideContentDefault() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1 shrink-0 self-start">
+          <div className="flex shrink-0 items-center gap-1 self-start">
             {!isEditing && (
               <button
                 type="button"
@@ -453,33 +500,6 @@ export function SlideContentDefault() {
                 <Pencil size={16} />
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setGenerateSlideContentPrompt("");
-                setShowGenerateSlideContentModal(true);
-              }}
-              className="p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-              title="Generar contenido de esta diapositiva con IA"
-            >
-              <Sparkles size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowRewriteModal(true)}
-              className="p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-              title="Replantear"
-            >
-              <RefreshCw size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowSplitModal(true)}
-              className="p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-              title="Dividir"
-            >
-              <Split size={16} />
-            </button>
           </div>
         </div>
         <div
@@ -524,10 +544,12 @@ export function SlideContentDefault() {
               widthPercent={contentW}
               minHeightPx={contentH}
               measureElRef={contentMeasureRef}
+              resizeMaxWidthPercent={280}
               onResizePointerDown={onResizePointerDown}
               onResize={({ widthPercent, minHeightPx }) =>
                 patchEditorFrame("content", widthPercent, minHeightPx)
               }
+              floatingActionsPlacement="bottom-left"
               floatingActions={
                 <button
                   type="button"
@@ -545,7 +567,7 @@ export function SlideContentDefault() {
                   }}
                   onClick={() => setShowRewriteModal(true)}
                 >
-                  <Wand2 size={18} strokeWidth={2} />
+                  <RefreshCw size={18} strokeWidth={2} />
                 </button>
               }
             >

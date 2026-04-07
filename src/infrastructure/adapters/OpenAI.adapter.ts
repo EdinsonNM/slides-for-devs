@@ -195,6 +195,7 @@ export class OpenAIAdapter
     modelId: string;
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
+    characterPreviewOnly?: boolean;
   }): Promise<string | undefined> {
     const hasRef =
       !!params.characterReferenceImageDataUrl?.trim() &&
@@ -208,6 +209,7 @@ export class OpenAIAdapter
         includeBackground: params.includeBackground,
         characterPrompt: params.characterPrompt,
         hasReferenceImage: useReferenceImage,
+        characterPreviewOnly: params.characterPreviewOnly,
       });
       return user;
     };

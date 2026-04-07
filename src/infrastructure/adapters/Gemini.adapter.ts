@@ -211,6 +211,7 @@ export class GeminiAdapter
     modelId: string;
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
+    characterPreviewOnly?: boolean;
   }): Promise<string | undefined> {
     const ref = params.characterReferenceImageDataUrl?.trim()
       ? parseDataUrl(params.characterReferenceImageDataUrl)
@@ -223,6 +224,7 @@ export class GeminiAdapter
       includeBackground: params.includeBackground,
       characterPrompt: params.characterPrompt,
       hasReferenceImage: hasRef,
+      characterPreviewOnly: params.characterPreviewOnly,
     });
     const contents =
       hasRef && ref
