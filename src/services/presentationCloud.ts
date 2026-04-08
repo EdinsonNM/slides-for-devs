@@ -19,7 +19,14 @@ import {
   type QueryDocumentSnapshot,
   type Timestamp,
 } from "firebase/firestore";
-import { deleteObject, getBytes, ref, uploadBytes, type FirebaseStorage } from "firebase/storage";
+import {
+  deleteObject,
+  getBytes,
+  getDownloadURL,
+  ref,
+  uploadBytes,
+  type FirebaseStorage,
+} from "firebase/storage";
 import type { Slide } from "../types";
 import { parsePresenter3dViewState } from "../utils/presenter3dView";
 import type { SavedPresentation } from "../types";
@@ -339,26 +346,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
         reject(e);
       }
     );
-  });
-}
-
-/**
- * Convierte bytes a data URL sin bloquear el hilo con imágenes grandes.
- * La implementación anterior hacía `+=` byte a byte y `btoa` de un string enorme (coste muy alto y UI colgada).
- */
-function bytesToDataUrlAsync(bytes: Uint8Array | ArrayBuffer, mime: string): Promise<string> {
-  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  return new Promise((resolve, reject) => {
-    try {
-      const blob = new Blob([u8], { type: mime });
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () =>
-        reject(reader.error ?? new Error("No se pudo leer la imagen descargada."));
-      reader.readAsDataURL(blob);
-    } catch (e) {
-      reject(e instanceof Error ? e : new Error(String(e)));
-    }
   });
 }
 
@@ -1014,59 +1001,55 @@ export async function pullPresentationFromCloud(
   const excalidrawPaths = (data.excalidrawPaths as Record<string, string>) ?? {};
   const rawSlides = (data.slides as Record<string, unknown>[]) ?? [];
 
-  const slides: Slide[] = [];
-  for (let i = 0; i < rawSlides.length; i++) {
-    const row = rawSlides[i]!;
-    let slide = plainToSlide(row);
+  /** Imágenes: solo URL firmada de Storage (no se bajan bytes aquí; el navegador carga bajo demanda). */
+  const slides: Slide[] = await Promise.all(
+    rawSlides.map(async (_, i) => {
+      const row = rawSlides[i]!;
+      const base = plainToSlide(row);
 
-    const imgName = slideImagePaths[String(i)];
-    if (imgName) {
-      const path = `${prefix}/${imgName}`;
-      try {
-        const bytes = await withTimeout(
-          getBytes(ref(st, path)),
-          STORAGE_PULL_TIMEOUT_MS,
-          `La descarga de la imagen tardó demasiado (${imgName}). Revisa la red o vuelve a intentarlo.`
-        );
-        const ext = imgName.split(".").pop()?.toLowerCase() ?? "png";
-        const mime =
-          ext === "jpg" || ext === "jpeg"
-            ? "image/jpeg"
-            : ext === "webp"
-              ? "image/webp"
-              : ext === "gif"
-                ? "image/gif"
-                : ext === "svg"
-                  ? "image/svg+xml"
-                  : "image/png";
-        slide = { ...slide, imageUrl: await bytesToDataUrlAsync(bytes, mime) };
-      } catch (e) {
-        console.warn(
-          `[cloud] No se pudo descargar imagen del slide ${i} (${imgName}):`,
-          e
-        );
-        /* sin imagen desde Storage; puede quedar imageUrl del doc si era URL pública */
-      }
-    }
+      const [imageUrl, excalidrawData] = await Promise.all([
+        (async (): Promise<string | undefined> => {
+          const imgName = slideImagePaths[String(i)];
+          if (!imgName) return base.imageUrl;
+          const path = `${prefix}/${imgName}`;
+          try {
+            return await withTimeout(
+              getDownloadURL(ref(st, path)),
+              STORAGE_PULL_TIMEOUT_MS,
+              `Obtener la URL de la imagen tardó demasiado (${imgName}). Revisa la red o vuelve a intentarlo.`
+            );
+          } catch (e) {
+            console.warn(
+              `[cloud] No se pudo resolver URL de imagen del slide ${i} (${imgName}):`,
+              e
+            );
+            return base.imageUrl;
+          }
+        })(),
+        (async (): Promise<string | undefined> => {
+          const excName = excalidrawPaths[String(i)];
+          if (!excName) return base.excalidrawData;
+          const path = `${prefix}/${excName}`;
+          try {
+            const bytes = await withTimeout(
+              getBytes(ref(st, path)),
+              STORAGE_PULL_TIMEOUT_MS,
+              `La descarga del diagrama tardó demasiado (${excName}). Revisa la red o vuelve a intentarlo.`
+            );
+            return new TextDecoder().decode(bytes);
+          } catch {
+            return base.excalidrawData;
+          }
+        })(),
+      ]);
 
-    const excName = excalidrawPaths[String(i)];
-    if (excName) {
-      const path = `${prefix}/${excName}`;
-      try {
-        const bytes = await withTimeout(
-          getBytes(ref(st, path)),
-          STORAGE_PULL_TIMEOUT_MS,
-          `La descarga del diagrama tardó demasiado (${excName}). Revisa la red o vuelve a intentarlo.`
-        );
-        const text = new TextDecoder().decode(bytes);
-        slide = { ...slide, excalidrawData: text };
-      } catch {
-        /* sin diagrama */
-      }
-    }
-
-    slides.push(slide);
-  }
+      return {
+        ...base,
+        ...(imageUrl !== undefined ? { imageUrl } : {}),
+        ...(excalidrawData !== undefined ? { excalidrawData } : {}),
+      };
+    })
+  );
 
   return {
     presentation: {

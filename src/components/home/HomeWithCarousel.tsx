@@ -63,8 +63,8 @@ export function HomeWithCarousel({
   downloadingCloudKey,
 }: HomeWithCarouselProps) {
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-linear-to-br from-stone-50 via-white to-stone-100/70 dark:from-stone-900 dark:via-stone-900 dark:to-stone-800">
-      <header className="flex items-start justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-4 bg-transparent shrink-0">
+    <div className="flex flex-1 min-h-0 flex-col font-sans bg-linear-to-br from-stone-50 via-white to-stone-100/70 dark:from-stone-900 dark:via-stone-900 dark:to-stone-800">
+      <header className="flex items-start justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-4 shrink-0 z-20 bg-stone-50/90 dark:bg-stone-900/90 backdrop-blur-md border-b border-stone-200/70 dark:border-stone-700/60">
         <div className="flex items-center gap-3 min-w-0 shrink-0 pt-0.5">
           <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden bg-white/80 dark:bg-stone-800/80 flex items-center justify-center">
             <video
@@ -117,7 +117,7 @@ export function HomeWithCarousel({
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 overflow-auto">
+      <main className="flex-1 flex flex-col min-h-0 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 overflow-y-auto overflow-x-hidden overscroll-y-contain">
         <div className="flex flex-col w-full max-w-6xl mx-auto flex-1 min-h-0 overflow-visible">
           <motion.div
             initial={{ opacity: 0 }}
@@ -138,9 +138,10 @@ export function HomeWithCarousel({
                 Mis presentaciones
               </h2>
               <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                Verde: copia local y nube. Punteado claro: solo este equipo.
-                Punteado azul: tu nube sin copia local. Punteado violeta e icono
-                de personas: compartida contigo (toca para copiar aquí).
+                Borde continuo claro: copia local y nube. Punteado claro: solo
+                este equipo. Punteado azul: tu nube sin copia local. Punteado
+                violeta e icono de personas: compartida contigo (toca para copiar
+                aquí).
               </p>
             </div>
             <div className="isolate grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6 px-1 sm:px-2 py-3 pb-12 overflow-visible">

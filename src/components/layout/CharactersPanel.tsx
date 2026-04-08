@@ -73,7 +73,7 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
         className={cn(
           "gap-3 px-3 py-3 min-h-0 flex-1",
           variant === "inspector"
-            ? "flex flex-wrap content-start items-start overflow-y-auto overflow-x-hidden"
+            ? "grid grid-cols-2 content-start justify-items-stretch gap-3 overflow-y-auto overflow-x-hidden"
             : "flex overflow-x-auto scroll-smooth snap-x snap-mandatory carousel-no-scrollbar",
         )}
       >
@@ -81,40 +81,48 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
               type="button"
               onClick={openCreator}
               className={cn(
-                "shrink-0 w-24 h-28 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600",
+                "rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600",
                 "flex flex-col items-center justify-center gap-2 text-stone-500 dark:text-stone-400",
-                "hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50/50 dark:hover:bg-violet-900/40 hover:text-violet-600 dark:hover:text-violet-400 transition-colors snap-start"
+                "hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50/50 dark:hover:bg-violet-900/40 hover:text-violet-600 dark:hover:text-violet-400 transition-colors",
+                variant === "inspector"
+                  ? "min-h-30 w-full min-w-0 px-2 py-3"
+                  : "shrink-0 w-28 min-h-30 snap-start",
               )}
             >
               <UserPlus size={28} />
-              <span className="text-xs font-medium text-center px-1">Crear nuevo personaje</span>
+              <span className="text-xs font-medium text-center px-1 leading-snug">
+                Crear nuevo personaje
+              </span>
             </button>
             {savedCharacters.map((c) => (
               <div
                 key={c.id}
                 className={cn(
-                  "shrink-0 w-24 snap-start flex flex-col rounded-xl border-2 border-stone-200 dark:border-border overflow-hidden bg-stone-50/50 dark:bg-surface",
-                  "transition-all hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-sm"
+                  "flex min-w-0 flex-col rounded-xl border-2 border-stone-200 dark:border-border overflow-hidden bg-stone-50/50 dark:bg-surface",
+                  "transition-all hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-sm",
+                  variant === "inspector" ? "w-full" : "shrink-0 w-28 snap-start",
                 )}
               >
                 <button
                   type="button"
                   onClick={() => setDetailCharacter(c)}
-                  className="w-full flex flex-col items-stretch text-left"
+                  className="w-full flex flex-col items-stretch text-left min-w-0"
                 >
                   {c.referenceImageDataUrl ? (
-                    <img
-                      src={c.referenceImageDataUrl}
-                      alt={c.name}
-                      className="w-full h-16 object-cover"
-                    />
+                    <div className="relative w-full aspect-4/5 bg-stone-100 dark:bg-stone-800">
+                      <img
+                        src={c.referenceImageDataUrl}
+                        alt={c.name}
+                        className="h-full w-full object-contain object-center"
+                      />
+                    </div>
                   ) : (
-                    <div className="w-full h-16 bg-stone-100 dark:bg-stone-700 flex items-center justify-center">
-                      <User size={24} className="text-stone-400 dark:text-stone-500" />
+                    <div className="flex aspect-4/5 w-full items-center justify-center bg-stone-100 dark:bg-stone-700">
+                      <User size={28} className="text-stone-400 dark:text-stone-500" />
                     </div>
                   )}
                   <div className="p-1.5 flex items-center justify-between gap-1 min-w-0">
-                    <span className="text-xs font-medium text-stone-700 dark:text-foreground truncate flex-1">
+                    <span className="text-xs font-medium text-stone-700 dark:text-foreground truncate flex-1 text-left">
                       {c.name}
                     </span>
                     <span

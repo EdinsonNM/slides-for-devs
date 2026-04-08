@@ -80,32 +80,32 @@ export function HomeScreen(props: HomeScreenProps) {
   }
 
   return (
-    <>
+    <div className="h-dvh min-h-0 flex flex-col overflow-hidden">
       <SignInInviteBar onBackToWelcome={onBackToWelcome} />
       <HomeWithCarousel
-      onOpenConfig={onOpenConfig}
-      topic={topic}
-      setTopic={setTopic}
-      isLoading={isLoading}
-      onGenerate={generate}
-      onCreateBlank={createBlank}
-      presentationModelId={presentationModelId}
-      setPresentationModelId={setPresentationModelId}
-      presentationModels={presentationModels}
-      homePresentationCards={homePresentationCards}
-      onOpenSaved={openSaved}
-      onDeleteSaved={requestDeletePresentation}
-      onGenerateCover={handleGenerateCoverForPresentation}
-      generatingCoverId={generatingCoverId}
-      coverImageCache={coverImageCache}
-      cloudSyncAvailable={cloudSyncAvailable}
-      onSyncToCloud={handleSyncPresentationToCloud}
-      syncingToCloudId={syncingToCloudId}
-      homeCloudSharedListWarning={homeCloudSharedListWarning}
-      onSharePresentation={openSharePresentationModal}
-      onDownloadFromCloud={handleDownloadFromCloud}
-      downloadingCloudKey={downloadingCloudKey}
-    />
-    </>
+        onOpenConfig={onOpenConfig}
+        topic={topic}
+        setTopic={setTopic}
+        isLoading={isLoading}
+        onGenerate={generate}
+        onCreateBlank={createBlank}
+        presentationModelId={presentationModelId}
+        setPresentationModelId={setPresentationModelId}
+        presentationModels={presentationModels}
+        homePresentationCards={homePresentationCards}
+        onOpenSaved={openSaved}
+        onDeleteSaved={requestDeletePresentation}
+        onGenerateCover={handleGenerateCoverForPresentation}
+        generatingCoverId={generatingCoverId}
+        coverImageCache={coverImageCache}
+        cloudSyncAvailable={cloudSyncAvailable}
+        onSyncToCloud={handleSyncPresentationToCloud}
+        syncingToCloudId={syncingToCloudId}
+        homeCloudSharedListWarning={homeCloudSharedListWarning}
+        onSharePresentation={openSharePresentationModal}
+        onDownloadFromCloud={handleDownloadFromCloud}
+        downloadingCloudKey={downloadingCloudKey}
+      />
+    </div>
   );
 }
