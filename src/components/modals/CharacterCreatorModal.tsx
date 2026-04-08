@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { flushSync } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -9,10 +10,12 @@ import {
   Upload,
   Sparkles,
   ImageIcon,
+  Wand2,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { refineCharacterPrompt, describeCharacterFromImage } from "../../services/gemini";
 import { cn } from "../../utils/cn";
+import { CharacterPromptWizard } from "./CharacterPromptWizard";
 
 type SourceTab = "text" | "image";
 
@@ -37,6 +40,9 @@ export function CharacterCreatorModal() {
   const [isSaving, setIsSaving] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isDescribingImage, setIsDescribingImage] = useState(false);
+  const [showPromptWizard, setShowPromptWizard] = useState(false);
+  /** Estado local + flushSync: el flag del contexto puede no pintarse antes del await largo. */
+  const [isGeneratingCharacterImage, setIsGeneratingCharacterImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasDescription = description.trim().length > 0;
@@ -45,8 +51,10 @@ export function CharacterCreatorModal() {
   const canGenerateImage =
     (hasGemini || hasOpenAI) && hasDescription && sourceTab === "text";
   const canUploadImage = hasGemini;
+  const isGeneratingImageBusy =
+    isGeneratingCharacterPreview || isGeneratingCharacterImage;
   const isBusy =
-    isGeneratingCharacterPreview || isRefining || isDescribingImage;
+    isGeneratingImageBusy || isRefining || isDescribingImage;
 
   const handleRefineDescription = async () => {
     if (!canRefineWithGemini) return;
@@ -72,16 +80,23 @@ export function CharacterCreatorModal() {
   };
 
   const handleGenerateImagePreview = async () => {
-    if (!canGenerateImage) return;
-    const promptToUse = description.trim();
-    const url = await generateCharacterPreview(promptToUse);
-    if (url) {
-      setPreviewUrl((prev) => {
-        if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-        return url;
-      });
-    } else {
-      alert("No se pudo generar la vista previa. Comprueba tu descripción y API key.");
+    if (!canGenerateImage || isGeneratingImageBusy) return;
+    flushSync(() => {
+      setIsGeneratingCharacterImage(true);
+    });
+    try {
+      const promptToUse = description.trim();
+      const url = await generateCharacterPreview(promptToUse);
+      if (url) {
+        setPreviewUrl((prev) => {
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+          return url;
+        });
+      } else {
+        alert("No se pudo generar la vista previa. Comprueba tu descripción y API key.");
+      }
+    } finally {
+      setIsGeneratingCharacterImage(false);
     }
   };
 
@@ -188,6 +203,7 @@ export function CharacterCreatorModal() {
   };
 
   const handleClose = () => {
+    setShowPromptWizard(false);
     setShowCharacterCreatorModal(false);
     setPreviewUrl((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
@@ -201,6 +217,17 @@ export function CharacterCreatorModal() {
   if (!showCharacterCreatorModal) return null;
 
   return (
+    <>
+      <CharacterPromptWizard
+        open={showPromptWizard}
+        onClose={() => setShowPromptWizard(false)}
+        onApply={(text) => {
+          setDescription(text);
+          setSourceTab("text");
+        }}
+        editorStyleName={selectedStyle.name}
+        disabled={isBusy}
+      />
     <AnimatePresence>
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
         <motion.div
@@ -308,9 +335,22 @@ export function CharacterCreatorModal() {
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
-                    {sourceTab === "image" ? "Descripción generada (editable)" : "Descripción del personaje"}
-                  </label>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground">
+                      {sourceTab === "image" ? "Descripción generada (editable)" : "Descripción del personaje"}
+                    </label>
+                    {sourceTab === "text" && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPromptWizard(true)}
+                        disabled={isBusy}
+                        className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-medium px-2.5 py-1 rounded-lg border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 bg-violet-50/80 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 disabled:opacity-45 disabled:pointer-events-none transition-colors"
+                      >
+                        <Wand2 size={14} className="shrink-0" aria-hidden />
+                        Asistente paso a paso
+                      </button>
+                    )}
+                  </div>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -345,7 +385,7 @@ export function CharacterCreatorModal() {
                       <button
                         type="button"
                         onClick={handleRefineDescription}
-                        disabled={!canRefineWithGemini || isRefining}
+                        disabled={!canRefineWithGemini || isRefining || isGeneratingImageBusy}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border text-stone-800 dark:text-foreground hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {isRefining ? (
@@ -380,15 +420,15 @@ export function CharacterCreatorModal() {
                       <button
                         type="button"
                         onClick={handleGenerateImagePreview}
-                        disabled={!canGenerateImage || isGeneratingCharacterPreview}
-                        aria-busy={isGeneratingCharacterPreview}
+                        disabled={!canGenerateImage || isGeneratingImageBusy}
+                        aria-busy={isGeneratingImageBusy}
                         className={cn(
                           "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
                           "disabled:pointer-events-none",
-                          !canGenerateImage && !isGeneratingCharacterPreview && "opacity-50 cursor-not-allowed",
-                          isGeneratingCharacterPreview &&
+                          !canGenerateImage && !isGeneratingImageBusy && "opacity-50 cursor-not-allowed",
+                          isGeneratingImageBusy &&
                             cn(
-                              "cursor-wait !opacity-100 shadow-lg motion-safe:animate-pulse",
+                              "cursor-wait opacity-100 disabled:opacity-100 shadow-lg motion-safe:animate-pulse",
                               previewUrl
                                 ? "ring-2 ring-stone-400/90 dark:ring-stone-500 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-800"
                                 : "shadow-violet-900/25 ring-2 ring-white/80 ring-offset-2 ring-offset-violet-600",
@@ -398,7 +438,7 @@ export function CharacterCreatorModal() {
                             : "bg-violet-600 text-white hover:bg-violet-700 dark:hover:bg-violet-500",
                         )}
                       >
-                        {isGeneratingCharacterPreview ? (
+                        {isGeneratingImageBusy ? (
                           <>
                             {previewUrl ? (
                               <RefreshCw
@@ -465,7 +505,7 @@ export function CharacterCreatorModal() {
                           <p className="text-xs">Pulsa «Generar imagen» o sube una referencia</p>
                         </div>
                       )}
-                      {isGeneratingCharacterPreview && (
+                      {isGeneratingImageBusy && (
                         <div
                           className="absolute inset-0 bg-stone-900/45 dark:bg-black/55 flex items-center justify-center"
                           aria-busy
@@ -544,7 +584,7 @@ export function CharacterCreatorModal() {
                         </p>
                       </div>
                     )}
-                    {isGeneratingCharacterPreview && (
+                    {isGeneratingImageBusy && (
                       <div
                         className="absolute inset-0 bg-stone-900/45 dark:bg-black/55 flex items-center justify-center"
                         aria-busy
@@ -570,5 +610,6 @@ export function CharacterCreatorModal() {
         </motion.div>
       </div>
     </AnimatePresence>
+    </>
   );
 }

@@ -24,8 +24,11 @@ export function SlideContentChapter() {
   const [activeBlock, setActiveBlock] = useState<ChapterBlock | null>(null);
   const titleMeasureRef = useRef<HTMLDivElement>(null);
   const titleTaRef = useRef<HTMLTextAreaElement>(null);
+  const subtitleInputRef = useRef<HTMLInputElement>(null);
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deselectInsideSlideRef = useRef(false);
+  /** Enfoque inicial al entrar en edición (lápiz → título; clic en subtítulo → subtítulo). */
+  const pendingFocusRef = useRef<ChapterBlock>("title");
 
   const cancelScheduledCommit = useCallback(() => {
     if (blurCommitTimerRef.current != null) {
@@ -52,9 +55,37 @@ export function SlideContentChapter() {
     }, 160);
   }, [isEditing, cancelScheduledCommit, commitSlideEdits]);
 
-  const clearActiveBlockOnSurfacePointerDown = useCallback(
+  /**
+   * Si el puntero cae en la zona del subtítulo pero el target es el textarea del título (solapamiento),
+   * hay que actuar ANTES del check de data-slide-edit-field; si no, el handler sale siempre por el título.
+   */
+  const onSlideSurfacePointerDownCapture = useCallback(
     (e: React.PointerEvent) => {
       if (!isEditing) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+
+      const subEl = subtitleInputRef.current;
+      if (subEl && activeBlock !== "subtitle") {
+        const r = subEl.getBoundingClientRect();
+        const pad = 16;
+        const { clientX: x, clientY: y } = e;
+        if (
+          x >= r.left - pad &&
+          x <= r.right + pad &&
+          y >= r.top - pad &&
+          y <= r.bottom + pad
+        ) {
+          cancelScheduledCommit();
+          setActiveBlock("subtitle");
+          e.preventDefault();
+          e.stopPropagation();
+          queueMicrotask(() => {
+            subEl.focus({ preventScroll: true });
+          });
+          return;
+        }
+      }
+
       const el = e.target;
       if (!(el instanceof HTMLElement)) return;
       if (
@@ -69,7 +100,7 @@ export function SlideContentChapter() {
         return null;
       });
     },
-    [isEditing],
+    [isEditing, activeBlock, cancelScheduledCommit],
   );
 
   useEffect(() => {
@@ -78,6 +109,7 @@ export function SlideContentChapter() {
 
   useEffect(() => {
     setActiveBlock(null);
+    pendingFocusRef.current = "title";
   }, [currentSlide?.id]);
 
   useLayoutEffect(() => {
@@ -104,6 +136,19 @@ export function SlideContentChapter() {
     return () => window.removeEventListener("keydown", onKey);
   }, [isEditing, commitSlideEdits]);
 
+  useEffect(() => {
+    if (!isEditing) return;
+    const which = pendingFocusRef.current;
+    const id = requestAnimationFrame(() => {
+      if (which === "subtitle") {
+        subtitleInputRef.current?.focus({ preventScroll: true });
+      } else {
+        titleTaRef.current?.focus({ preventScroll: true });
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [isEditing, currentSlide?.id]);
+
   if (!currentSlide) return null;
 
   const titleW = currentSlide.editorTitleWidthPercent ?? 100;
@@ -111,7 +156,7 @@ export function SlideContentChapter() {
   return (
     <div
       className="text-center p-5 space-y-4 overflow-y-auto max-h-full w-full flex flex-col items-center md:p-8 md:space-y-5 lg:p-10 xl:p-12 lg:space-y-6"
-      onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
+      onPointerDownCapture={onSlideSurfacePointerDownCapture}
     >
       <motion.div
         initial={{ width: 0 }}
@@ -120,11 +165,12 @@ export function SlideContentChapter() {
       />
       <div
         ref={titleMeasureRef}
-        className="flex flex-col items-center gap-3 w-full max-w-3xl"
+        className="flex flex-col items-center w-full max-w-3xl gap-0"
       >
         {isEditing ? (
           <>
             <CanvaSelectionFrame
+              className="z-1 w-full shrink-0"
               showChrome={activeBlock === "title"}
               widthPercent={titleW}
               measureElRef={titleMeasureRef}
@@ -135,31 +181,44 @@ export function SlideContentChapter() {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 onBlur={scheduleCommitAfterBlur}
-                onFocus={() => setActiveBlock("title")}
+                onFocus={() => {
+                  cancelScheduledCommit();
+                  setActiveBlock("title");
+                }}
                 {...{ [EDIT_FIELD_ATTR]: "true" }}
+                aria-label="Título del capítulo"
                 placeholder="Título del capítulo"
                 rows={1}
                 className="font-serif italic text-stone-900 dark:text-foreground leading-tight text-center bg-transparent border-0 shadow-none focus:outline-none focus:ring-0 w-full py-2 rounded-md resize-none overflow-hidden whitespace-pre-wrap wrap-break-word"
                 style={{ fontSize: "var(--slide-title-chapter)" }}
-                autoFocus
               />
             </CanvaSelectionFrame>
-            <CanvaSelectionFrame
-              showChrome={activeBlock === "subtitle"}
-              widthPercent={titleW}
-              innerClassName="w-full"
-            >
-              <input
-                type="text"
-                value={editSubtitle}
-                onChange={(e) => setEditSubtitle(e.target.value)}
-                onBlur={scheduleCommitAfterBlur}
-                onFocus={() => setActiveBlock("subtitle")}
-                {...{ [EDIT_FIELD_ATTR]: "true" }}
-                placeholder="Subtítulo (opcional)"
-                className="text-stone-500 dark:text-stone-400 font-light tracking-wide uppercase text-center bg-transparent border-0 shadow-none focus:outline-none focus:ring-0 w-full py-2 text-sm rounded-md"
-              />
-            </CanvaSelectionFrame>
+
+            {/* Separación fija + input siempre montado: rect estable para hit-test por coordenadas */}
+            <div className="mt-10 w-full shrink-0 flex flex-col items-center md:mt-12">
+              <CanvaSelectionFrame
+                className="z-10 w-full"
+                showChrome={activeBlock === "subtitle"}
+                widthPercent={titleW}
+                innerClassName="w-full"
+              >
+                <input
+                  ref={subtitleInputRef}
+                  type="text"
+                  value={editSubtitle}
+                  onChange={(e) => setEditSubtitle(e.target.value)}
+                  onBlur={scheduleCommitAfterBlur}
+                  onFocus={() => {
+                    cancelScheduledCommit();
+                    setActiveBlock("subtitle");
+                  }}
+                  {...{ [EDIT_FIELD_ATTR]: "true" }}
+                  aria-label="Subtítulo (opcional)"
+                  placeholder="Subtítulo (opcional)"
+                  className="min-h-11 text-stone-500 dark:text-stone-400 font-light tracking-wide uppercase text-center bg-stone-100/90 dark:bg-stone-800/70 border-0 shadow-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 rounded-md w-full px-3 py-2.5 text-sm"
+                />
+              </CanvaSelectionFrame>
+            </div>
           </>
         ) : (
           <>
@@ -168,11 +227,13 @@ export function SlideContentChapter() {
                 className="font-serif italic text-stone-900 dark:text-stone-100 leading-tight cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-3 py-1 transition-colors whitespace-pre-wrap wrap-break-word max-w-full"
                 style={{ fontSize: "var(--slide-title-chapter)" }}
                 onClick={() => {
+                  pendingFocusRef.current = "title";
                   setActiveBlock("title");
                   setIsEditing(true);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    pendingFocusRef.current = "title";
                     setActiveBlock("title");
                     setIsEditing(true);
                   }
@@ -185,7 +246,11 @@ export function SlideContentChapter() {
               </h1>
               <button
                 type="button"
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  pendingFocusRef.current = "title";
+                  setActiveBlock("title");
+                  setIsEditing(true);
+                }}
                 className={cn(
                   "p-1.5 rounded-md transition-colors shrink-0",
                   "text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-emerald-600 dark:hover:text-emerald-400",
@@ -195,24 +260,48 @@ export function SlideContentChapter() {
                 <Pencil size={18} />
               </button>
             </div>
-            {currentSlide.subtitle && (
+            {currentSlide.subtitle ? (
               <p
-                className="text-stone-500 dark:text-stone-300 font-light tracking-wide uppercase cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-2 py-1 transition-colors"
+                className="mt-6 text-stone-500 dark:text-stone-300 font-light tracking-wide uppercase cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-2 py-1 transition-colors md:mt-8"
                 style={{ fontSize: "var(--slide-subtitle)" }}
                 role="button"
                 tabIndex={0}
+                title="Clic para editar subtítulo"
                 onClick={() => {
+                  pendingFocusRef.current = "subtitle";
                   setActiveBlock("subtitle");
                   setIsEditing(true);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    pendingFocusRef.current = "subtitle";
                     setActiveBlock("subtitle");
                     setIsEditing(true);
                   }
                 }}
               >
                 {currentSlide.subtitle}
+              </p>
+            ) : (
+              <p
+                className="mt-6 text-stone-400 dark:text-stone-500 font-light tracking-wide uppercase cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-2 py-1 transition-colors text-sm md:mt-8"
+                style={{ fontSize: "var(--slide-subtitle)" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  pendingFocusRef.current = "subtitle";
+                  setActiveBlock("subtitle");
+                  setIsEditing(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    pendingFocusRef.current = "subtitle";
+                    setActiveBlock("subtitle");
+                    setIsEditing(true);
+                  }
+                }}
+              >
+                Clic para añadir subtítulo (opcional)
               </p>
             )}
           </>
