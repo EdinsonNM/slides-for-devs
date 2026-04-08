@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { X, Plus } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -9,7 +10,53 @@ export function EditorTabBar({ className }: { className?: string }) {
     switchEditorTab,
     addEditorTab,
     closeEditorTab,
+    topic,
+    setTopic,
+    setPresentationTitleDraft,
   } = usePresentation();
+
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editTitleValue, setEditTitleValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTabId == null) {
+      setEditTitleValue(topic || "");
+    }
+  }, [topic, editingTabId]);
+
+  useEffect(() => {
+    if (editingTabId != null) {
+      setPresentationTitleDraft(editTitleValue);
+    } else {
+      setPresentationTitleDraft(null);
+    }
+  }, [editingTabId, editTitleValue, setPresentationTitleDraft]);
+
+  useEffect(() => {
+    if (editingTabId != null) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editingTabId]);
+
+  useEffect(() => {
+    if (editingTabId != null && editingTabId !== activeEditorTabId) {
+      setEditingTabId(null);
+    }
+  }, [activeEditorTabId, editingTabId]);
+
+  const saveTabTitle = () => {
+    const trimmed = editTitleValue.trim();
+    setTopic(trimmed || "");
+    setEditingTabId(null);
+  };
+
+  const cancelTabTitleEdit = () => {
+    setEditTitleValue(topic || "");
+    setEditingTabId(null);
+    inputRef.current?.blur();
+  };
 
   if (editorTabs.length === 0) return null;
 
@@ -23,6 +70,7 @@ export function EditorTabBar({ className }: { className?: string }) {
       <div className="flex items-stretch min-w-0 flex-1 overflow-x-auto carousel-no-scrollbar">
         {editorTabs.map((tab) => {
           const active = tab.id === activeEditorTabId;
+          const isEditing = active && editingTabId === tab.id;
           return (
             <div
               key={tab.id}
@@ -33,14 +81,54 @@ export function EditorTabBar({ className }: { className?: string }) {
                   : "bg-white text-muted-foreground hover:bg-stone-50/80 dark:bg-surface-elevated dark:hover:bg-white/6 hover:text-foreground",
               )}
             >
-              <button
-                type="button"
-                className="flex-1 min-w-0 px-3 py-2 text-left text-[13px] font-medium truncate outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-                onClick={() => switchEditorTab(tab.id)}
-                title={tab.title}
-              >
-                {tab.title}
-              </button>
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editTitleValue}
+                  onChange={(e) => setEditTitleValue(e.target.value)}
+                  onBlur={saveTabTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveTabTitle();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelTabTitleEdit();
+                    }
+                  }}
+                  maxLength={64}
+                  className={cn(
+                    "flex-1 min-w-0 px-3 py-2 text-left text-[13px] font-medium bg-white dark:bg-background border-0 shadow-none",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+                  )}
+                  aria-label="Título de la presentación"
+                  placeholder="Sin título"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="flex-1 min-w-0 px-3 py-2 text-left text-[13px] font-medium truncate outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                  onClick={() => {
+                    if (active) {
+                      setEditingTabId(tab.id);
+                      setEditTitleValue(topic || tab.title || "");
+                    } else {
+                      setEditingTabId(null);
+                      switchEditorTab(tab.id);
+                    }
+                  }}
+                  title={
+                    active
+                      ? "Clic para cambiar el título"
+                      : tab.title
+                  }
+                >
+                  {tab.title}
+                </button>
+              )}
               {editorTabs.length > 1 && (
                 <button
                   type="button"
