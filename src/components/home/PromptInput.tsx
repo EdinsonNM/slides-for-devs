@@ -1,6 +1,14 @@
+import { useRef } from "react";
 import { Loader2, Plus, Mic, ArrowUp } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { ModelSelect } from "../shared/ModelSelect";
+import { PromptAttachmentsRow } from "../shared/PromptAttachmentsRow";
+import {
+  LARGE_PASTE_CHAR_THRESHOLD,
+  createPromptAttachment,
+  nextPastedDocumentName,
+  type PromptAttachment,
+} from "../../utils/promptAttachments";
 
 export type PresentationModel = { id: string; label: string };
 
@@ -18,6 +26,9 @@ export interface PromptInputProps {
   setPresentationModelId?: (id: string) => void;
   presentationModels?: PresentationModel[];
   compact?: boolean;
+  attachments?: PromptAttachment[];
+  onAddAttachment?: (attachment: PromptAttachment) => void;
+  onRemoveAttachment?: (id: string) => void;
 }
 
 /**
@@ -37,16 +48,67 @@ export function PromptInput({
   setPresentationModelId,
   presentationModels,
   compact = false,
+  attachments = [],
+  onAddAttachment,
+  onRemoveAttachment,
 }: PromptInputProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const showModel =
     presentationModelId != null &&
     setPresentationModelId != null &&
     presentationModels != null &&
     presentationModels.length > 0;
 
+  const canSubmit =
+    Boolean(value.trim()) || (attachments.length > 0 && Boolean(onAddAttachment));
+
+  const handlePaste: React.ClipboardEventHandler<HTMLTextAreaElement> = (e) => {
+    if (!onAddAttachment) return;
+    const text = e.clipboardData.getData("text/plain");
+    if (text.length < LARGE_PASTE_CHAR_THRESHOLD) return;
+    e.preventDefault();
+    onAddAttachment(
+      createPromptAttachment(
+        nextPastedDocumentName(attachments.length),
+        text,
+      ),
+    );
+  };
+
+  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !onAddAttachment) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      if (!text.trim()) return;
+      onAddAttachment(createPromptAttachment(file.name, text));
+    };
+    reader.readAsText(file);
+  };
+
+  const attachmentRow =
+    onRemoveAttachment != null ? (
+      <PromptAttachmentsRow
+        items={attachments}
+        onRemove={onRemoveAttachment}
+        className={compact ? "px-4 pt-2" : "px-4 pt-2 pb-0"}
+      />
+    ) : null;
+
   if (compact) {
     return (
       <form onSubmit={onSubmit} className={cn("w-full", className)}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.md,.markdown,text/plain"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={handleFileChange}
+        />
         <div
           className={cn(
             "group w-full rounded-[28px] border border-stone-200 dark:border-border bg-white dark:bg-surface overflow-hidden transition-all duration-200 ease-out",
@@ -55,10 +117,12 @@ export function PromptInput({
           )}
           style={{ boxShadow: "0 2px 8px 0 rgba(0,0,0,0.06)" }}
         >
+          {attachmentRow}
           <div className="flex flex-row items-center gap-2 px-4 py-2.5 focus-within:flex-col focus-within:items-stretch focus-within:py-4 transition-all duration-200">
             <textarea
               value={value}
               onChange={(e) => onChange(e.target.value)}
+              onPaste={handlePaste}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -75,8 +139,18 @@ export function PromptInput({
                 <button
                   type="button"
                   className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
-                  title="Añadir"
-                  aria-label="Añadir"
+                  title={
+                    onAddAttachment
+                      ? "Adjuntar archivo de texto"
+                      : "Añadir"
+                  }
+                  aria-label={
+                    onAddAttachment
+                      ? "Adjuntar archivo de texto"
+                      : "Añadir"
+                  }
+                  disabled={disabled || !onAddAttachment}
+                  onClick={() => onAddAttachment && fileInputRef.current?.click()}
                 >
                   <Plus size={20} />
                 </button>
@@ -103,7 +177,7 @@ export function PromptInput({
               </div>
               <button
                 type="submit"
-                disabled={disabled || !value.trim()}
+                disabled={disabled || !canSubmit}
                 className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
                 aria-label="Enviar"
               >
@@ -122,6 +196,15 @@ export function PromptInput({
 
   return (
     <form onSubmit={onSubmit} className={cn("w-full", className)}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".txt,.md,.markdown,text/plain"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleFileChange}
+      />
       <div
         className="w-full rounded-[28px] border border-stone-200 dark:border-border bg-white dark:bg-surface shadow-md overflow-hidden flex flex-col min-h-[120px]"
         style={{
@@ -129,10 +212,12 @@ export function PromptInput({
             "0 2px 8px 0 rgba(0,0,0,0.06), inset 0 1px 0 0 rgba(255,255,255,0.8)",
         }}
       >
+        {attachmentRow}
         <div className="flex-1 flex flex-col px-4 pt-4 pb-1">
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onPaste={handlePaste}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -150,8 +235,14 @@ export function PromptInput({
             <button
               type="button"
               className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
-              title="Añadir"
-              aria-label="Añadir"
+              title={
+                onAddAttachment ? "Adjuntar archivo de texto" : "Añadir"
+              }
+              aria-label={
+                onAddAttachment ? "Adjuntar archivo de texto" : "Añadir"
+              }
+              disabled={disabled || !onAddAttachment}
+              onClick={() => onAddAttachment && fileInputRef.current?.click()}
             >
               <Plus size={20} />
             </button>
@@ -178,7 +269,7 @@ export function PromptInput({
           </div>
           <button
             type="submit"
-            disabled={disabled || !value.trim()}
+            disabled={disabled || !canSubmit}
             className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
             aria-label="Enviar"
           >

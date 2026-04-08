@@ -1,6 +1,13 @@
+import { useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, X, Loader2 } from "lucide-react";
+import { Sparkles, X, Loader2, Plus } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+import { PromptAttachmentsRow } from "../shared/PromptAttachmentsRow";
+import {
+  LARGE_PASTE_CHAR_THRESHOLD,
+  createPromptAttachment,
+  nextPastedDocumentName,
+} from "../../utils/promptAttachments";
 
 export function GenerateFullDeckModal() {
   const {
@@ -8,11 +15,49 @@ export function GenerateFullDeckModal() {
     setShowGenerateFullDeckModal,
     generateFullDeckTopic,
     setGenerateFullDeckTopic,
+    generateFullDeckAttachments,
+    addGenerateFullDeckAttachment,
+    removeGenerateFullDeckAttachment,
     handleConfirmGenerateFullDeck,
     pendingGeneration: pending,
   } = usePresentation();
 
   const busy = pending !== null;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canConfirm =
+    Boolean(generateFullDeckTopic.trim()) ||
+    generateFullDeckAttachments.length > 0;
+
+  const closeModal = () => {
+    if (busy) return;
+    setShowGenerateFullDeckModal(false);
+  };
+
+  const handlePaste: React.ClipboardEventHandler<HTMLTextAreaElement> = (e) => {
+    const text = e.clipboardData.getData("text/plain");
+    if (text.length < LARGE_PASTE_CHAR_THRESHOLD) return;
+    e.preventDefault();
+    addGenerateFullDeckAttachment(
+      createPromptAttachment(
+        nextPastedDocumentName(generateFullDeckAttachments.length),
+        text,
+      ),
+    );
+  };
+
+  const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      if (!text.trim()) return;
+      addGenerateFullDeckAttachment(createPromptAttachment(file.name, text));
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <AnimatePresence>
@@ -23,7 +68,7 @@ export function GenerateFullDeckModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
-            onClick={() => !busy && setShowGenerateFullDeckModal(false)}
+            onClick={closeModal}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -42,13 +87,14 @@ export function GenerateFullDeckModal() {
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-muted-foreground">
                     Se generará el conjunto de diapositivas a partir del tema (se
-                    reemplaza el contenido actual).
+                    reemplaza el contenido actual). Un pegado muy largo se añade
+                    como documento.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowGenerateFullDeckModal(false)}
+                onClick={closeModal}
                 className="p-2 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors text-stone-400 dark:text-stone-500"
                 disabled={busy}
               >
@@ -56,6 +102,15 @@ export function GenerateFullDeckModal() {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.markdown,text/plain"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+                onChange={handleFileChange}
+              />
               <div className="space-y-2">
                 <label
                   htmlFor="full-deck-topic"
@@ -63,19 +118,36 @@ export function GenerateFullDeckModal() {
                 >
                   Tema o instrucción
                 </label>
+                <PromptAttachmentsRow
+                  items={generateFullDeckAttachments}
+                  onRemove={removeGenerateFullDeckAttachment}
+                  className="-mx-1"
+                />
                 <textarea
                   id="full-deck-topic"
                   value={generateFullDeckTopic}
                   onChange={(e) => setGenerateFullDeckTopic(e.target.value)}
+                  onPaste={handlePaste}
                   placeholder="Ej: Introducción a Rust para equipo de backend, 8 diapositivas…"
                   className="w-full h-32 p-4 bg-white dark:bg-surface border border-stone-200 dark:border-border rounded-xl text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none text-sm"
                   disabled={busy}
                 />
               </div>
+              <div className="flex justify-start">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={busy}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-border hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50"
+                >
+                  <Plus size={18} />
+                  Adjuntar archivo de texto
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={handleConfirmGenerateFullDeck}
-                disabled={busy || !generateFullDeckTopic.trim()}
+                disabled={busy || !canConfirm}
                 className="w-full py-4 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
               >
                 {busy ? (

@@ -16,6 +16,10 @@ import type {
 
 const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
 import { formatMarkdown } from "../utils/markdown";
+import {
+  composeFullDeckModelInput,
+  type PromptAttachment,
+} from "../utils/promptAttachments";
 import { optimizeImageDataUrl } from "../utils/imageOptimize";
 import {
   generateCodeForSlide as generateCodeForSlideApi,
@@ -188,6 +192,11 @@ export function usePresentationState() {
   const [showGenerateFullDeckModal, setShowGenerateFullDeckModal] =
     useState(false);
   const [generateFullDeckTopic, setGenerateFullDeckTopic] = useState("");
+  const [homePromptAttachments, setHomePromptAttachments] = useState<
+    PromptAttachment[]
+  >([]);
+  const [generateFullDeckAttachments, setGenerateFullDeckAttachments] =
+    useState<PromptAttachment[]>([]);
   const [showGenerateSlideContentModal, setShowGenerateSlideContentModal] =
     useState(false);
   const [generateSlideContentPrompt, setGenerateSlideContentPrompt] =
@@ -260,6 +269,8 @@ export function usePresentationState() {
   const [coverImageCache, setCoverImageCache] = useState<
     Record<string, string>
   >({});
+  /** `savedAt` de la última portada precargada por id (invalidación al guardar de nuevo). */
+  const coverPrefetchSavedAtRef = useRef<Record<string, string>>({});
   const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
   const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
     useState(false);
@@ -312,6 +323,8 @@ export function usePresentationState() {
   /** Cuando está setado, la presentación se está generando en segundo plano; se muestra modal y al terminar se guarda. */
   const [pendingGeneration, setPendingGeneration] = useState<{
     topic: string;
+    /** Texto completo para el modelo; si falta, se usa `topic`. */
+    modelInput?: string;
     modelId: string;
     /** Si viene del editor con presentación ya guardada, actualizar este id en lugar de crear otra fila. */
     reuseSavedId?: string | null;
@@ -586,6 +599,7 @@ export function usePresentationState() {
     slidesRedoRef.current = [];
     setSlides([]);
     setTopic("");
+    setHomePromptAttachments([]);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setCurrentIndex(0);
@@ -626,8 +640,9 @@ export function usePresentationState() {
     let cancelled = false;
     const run = async () => {
       try {
+        const promptForApi = pending.modelInput ?? pending.topic;
         const generatedSlides = await generatePresentation.run(
-          pending.topic,
+          promptForApi,
           pending.modelId,
         );
         if (cancelled) return;
@@ -996,16 +1011,18 @@ export function usePresentationState() {
 
   const queueFullDeckGeneration = useCallback(
     (
-      trimmedTopic: string,
+      displayTopic: string,
       options?: {
+        modelInput?: string;
         errorRestore?: { slides: Slide[]; topic: string };
         reuseSavedId?: string | null;
       },
     ) => {
-      const t = trimmedTopic.trim();
-      if (!t) return;
+      const saved = displayTopic.trim();
+      const fullInput = (options?.modelInput ?? saved).trim();
+      if (!fullInput) return;
       generationErrorRestoreRef.current = options?.errorRestore ?? null;
-      setTopic(t);
+      setTopic(saved);
       const placeholderSlide: Slide = {
         id: crypto.randomUUID(),
         type: "content",
@@ -1015,7 +1032,8 @@ export function usePresentationState() {
       setSlides([placeholderSlide]);
       setCurrentIndex(0);
       setPendingGeneration({
-        topic: t,
+        topic: saved,
+        modelInput: fullInput !== saved ? fullInput : undefined,
         modelId: presentationModelId,
         reuseSavedId: options?.reuseSavedId ?? undefined,
       });
@@ -1025,19 +1043,29 @@ export function usePresentationState() {
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedTopic = topic.trim();
-    if (!trimmedTopic) return;
-    queueFullDeckGeneration(trimmedTopic);
+    const { modelInput, displayTopic } = composeFullDeckModelInput(
+      topic,
+      homePromptAttachments,
+    );
+    if (!modelInput) return;
+    queueFullDeckGeneration(displayTopic, {
+      modelInput: modelInput !== displayTopic ? modelInput : undefined,
+    });
+    setHomePromptAttachments([]);
   };
 
   const openGenerateFullDeckModal = useCallback(() => {
     setGenerateFullDeckTopic(topic.trim());
+    setGenerateFullDeckAttachments([]);
     setShowGenerateFullDeckModal(true);
   }, [topic]);
 
   const handleConfirmGenerateFullDeck = useCallback(() => {
-    const t = generateFullDeckTopic.trim();
-    if (!t) return;
+    const { modelInput, displayTopic } = composeFullDeckModelInput(
+      generateFullDeckTopic,
+      generateFullDeckAttachments,
+    );
+    if (!modelInput) return;
     const backupNeeded =
       slides.length > 1 ||
       slides.some((s) => {
@@ -1052,17 +1080,36 @@ export function usePresentationState() {
       : undefined;
     setShowGenerateFullDeckModal(false);
     setGenerateFullDeckTopic("");
-    queueFullDeckGeneration(t, {
+    setGenerateFullDeckAttachments([]);
+    queueFullDeckGeneration(displayTopic, {
+      modelInput: modelInput !== displayTopic ? modelInput : undefined,
       errorRestore,
       reuseSavedId: currentSavedId,
     });
   }, [
     generateFullDeckTopic,
+    generateFullDeckAttachments,
     slides,
     topic,
     currentSavedId,
     queueFullDeckGeneration,
   ]);
+
+  const addHomePromptAttachment = useCallback((a: PromptAttachment) => {
+    setHomePromptAttachments((prev) => [...prev, a]);
+  }, []);
+
+  const removeHomePromptAttachment = useCallback((id: string) => {
+    setHomePromptAttachments((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  const addGenerateFullDeckAttachment = useCallback((a: PromptAttachment) => {
+    setGenerateFullDeckAttachments((prev) => [...prev, a]);
+  }, []);
+
+  const removeGenerateFullDeckAttachment = useCallback((id: string) => {
+    setGenerateFullDeckAttachments((prev) => prev.filter((x) => x.id !== id));
+  }, []);
 
   const handleImageGenerate = async () => {
     if (!imagePrompt.trim() || !currentSlide) return;
@@ -1462,6 +1509,41 @@ export function usePresentationState() {
     return merged;
   }, [savedList, cloudMineSnapshot, cloudSharedSnapshot]);
 
+  /** Portadas del carrusel: sin esto solo se rellenaba la caché al abrir la presentación. */
+  useEffect(() => {
+    let cancelled = false;
+    const eligible = savedList.filter(
+      (m) =>
+        m.slideCount > 0 &&
+        !m.localBodyCleared &&
+        coverPrefetchSavedAtRef.current[m.id] !== m.savedAt,
+    );
+    if (eligible.length === 0) return;
+
+    void (async () => {
+      for (const meta of eligible) {
+        if (cancelled) return;
+        if (coverPrefetchSavedAtRef.current[meta.id] === meta.savedAt) continue;
+        try {
+          const saved = await loadPresentation(meta.id, localAccountScope);
+          if (cancelled) return;
+          if (saved.savedAt !== meta.savedAt) continue;
+          coverPrefetchSavedAtRef.current[meta.id] = saved.savedAt;
+          const firstImage = saved.slides[0]?.imageUrl;
+          if (firstImage) {
+            setCoverImageCache((prev) => ({ ...prev, [meta.id]: firstImage }));
+          }
+        } catch {
+          /* listado ya mostró la tarjeta; fallo al leer portada no bloquea */
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [savedList, localAccountScope]);
+
   useEffect(() => {
     if (slides.length !== 0) return;
     void refreshSavedList();
@@ -1816,6 +1898,7 @@ export function usePresentationState() {
       } catch {
         // ignore
       }
+      coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
       const firstImage = saved.slides[0]?.imageUrl;
       if (firstImage) {
         setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
@@ -1936,6 +2019,7 @@ export function usePresentationState() {
         setCurrentIndex(0);
         setCurrentSavedId(saved.id);
         setSelectedCharacterId(saved.characterId ?? null);
+        coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
         const firstImage = saved.slides[0]?.imageUrl;
         if (firstImage) {
           setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
@@ -1977,6 +2061,7 @@ export function usePresentationState() {
         setSlides([]);
       }
       setSavedList((prev) => prev.filter((p) => p.id !== id));
+      delete coverPrefetchSavedAtRef.current[id];
       setCoverImageCache((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -2003,6 +2088,7 @@ export function usePresentationState() {
         slidesRedoRef.current = [];
         setSlides([]);
       }
+      delete coverPrefetchSavedAtRef.current[id];
       setCoverImageCache((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -2043,6 +2129,7 @@ export function usePresentationState() {
         setSlides([]);
       }
       setSavedList((prev) => prev.filter((p) => p.id !== id));
+      delete coverPrefetchSavedAtRef.current[id];
       setCoverImageCache((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -2319,6 +2406,7 @@ export function usePresentationState() {
     slidesRedoRef.current = [];
     setSlides([]);
     setTopic("");
+    setHomePromptAttachments([]);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setEditorTabs([]);
@@ -2839,12 +2927,18 @@ export function usePresentationState() {
     setCurrentSlidePresenter3dScreenMedia,
     setCurrentSlidePresenter3dViewState,
     handleGenerate,
+    homePromptAttachments,
+    addHomePromptAttachment,
+    removeHomePromptAttachment,
     createBlankPresentation,
     openGenerateFullDeckModal,
     showGenerateFullDeckModal,
     setShowGenerateFullDeckModal,
     generateFullDeckTopic,
     setGenerateFullDeckTopic,
+    generateFullDeckAttachments,
+    addGenerateFullDeckAttachment,
+    removeGenerateFullDeckAttachment,
     handleConfirmGenerateFullDeck,
     showGenerateSlideContentModal,
     setShowGenerateSlideContentModal,

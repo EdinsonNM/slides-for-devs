@@ -30,6 +30,46 @@ const CLOUD_ONLY_GRADIENT =
 const SHARED_ONLY_GRADIENT =
   "from-violet-900/55 via-slate-800/80 to-slate-900/90";
 
+const CARD_EASE = [0.25, 0.46, 0.45, 0.94] as const;
+
+function cardEntranceTransition(index: number) {
+  return {
+    duration: 0.35,
+    delay: index * 0.04,
+    ease: CARD_EASE,
+  };
+}
+
+/** Capa de fondo (portada o gradiente) con zoom al hover; el card escala por motion. */
+function HeroCardMediaLayer({
+  coverUrl,
+  gradientClass,
+}: {
+  coverUrl?: string;
+  gradientClass?: string;
+}) {
+  const zoomClass =
+    "absolute inset-0 size-full origin-center transition-transform duration-[420ms] ease-out motion-safe:group-hover:scale-[1.07]";
+  if (coverUrl) {
+    return (
+      <div className="absolute inset-0 overflow-hidden" aria-hidden>
+        <div
+          className={cn(zoomClass, "bg-cover bg-center")}
+          style={{ backgroundImage: `url(${coverUrl})` }}
+        />
+      </div>
+    );
+  }
+  if (gradientClass) {
+    return (
+      <div className="absolute inset-0 overflow-hidden" aria-hidden>
+        <div className={cn(zoomClass, "bg-linear-to-br", gradientClass)} />
+      </div>
+    );
+  }
+  return null;
+}
+
 export interface HomePresentationCardTileProps {
   card: HomePresentationCard;
   index: number;
@@ -75,25 +115,20 @@ export function HomePresentationCardTile({
 
     return (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.3,
-          delay: index * 0.04,
-          ease: [0.25, 0.46, 0.45, 0.94],
-        }}
-        whileHover={{ scale: 1.02, y: -4, zIndex: 30 }}
-        whileTap={{ scale: 0.98 }}
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={cardEntranceTransition(index)}
+        whileHover={{ scale: 1.025, zIndex: 30 }}
+        whileTap={{ scale: 0.985 }}
         className={cn(
-          "rounded-2xl overflow-hidden text-left relative z-0",
+          "group rounded-2xl overflow-hidden text-left relative z-0",
           "border-2 border-dashed border-sky-400/65 dark:border-sky-500/55",
           "shadow-lg shadow-sky-950/20 ring-1 ring-sky-400/30",
-          "bg-linear-to-br",
-          CLOUD_ONLY_GRADIENT,
           frameClassName,
         )}
         style={{ minHeight: 280, ...style }}
       >
+        <HeroCardMediaLayer gradientClass={CLOUD_ONLY_GRADIENT} />
         <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
         <button
           type="button"
@@ -141,25 +176,20 @@ export function HomePresentationCardTile({
 
     return (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.3,
-          delay: index * 0.04,
-          ease: [0.25, 0.46, 0.45, 0.94],
-        }}
-        whileHover={{ scale: 1.02, y: -4, zIndex: 30 }}
-        whileTap={{ scale: 0.98 }}
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={cardEntranceTransition(index)}
+        whileHover={{ scale: 1.025, zIndex: 30 }}
+        whileTap={{ scale: 0.985 }}
         className={cn(
-          "rounded-2xl overflow-hidden text-left relative z-0",
+          "group rounded-2xl overflow-hidden text-left relative z-0",
           "border-2 border-dashed border-violet-400/70 dark:border-violet-500/55",
           "shadow-lg shadow-violet-950/25 ring-1 ring-violet-400/35",
-          "bg-linear-to-br",
-          SHARED_ONLY_GRADIENT,
           frameClassName,
         )}
         style={{ minHeight: 280, ...style }}
       >
+        <HeroCardMediaLayer gradientClass={SHARED_ONLY_GRADIENT} />
         <div className="absolute inset-0 bg-linear-to-t from-black/78 via-black/25 to-transparent pointer-events-none" />
         <button
           type="button"
@@ -206,31 +236,22 @@ export function HomePresentationCardTile({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.3,
-        delay: index * 0.04,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      }}
-      whileHover={{ scale: 1.02, y: -4, zIndex: 30 }}
-      whileTap={{ scale: 0.98 }}
+      initial={{ opacity: 0, scale: 0.94 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={cardEntranceTransition(index)}
+      whileHover={{ scale: 1.025, zIndex: 30 }}
+      whileTap={{ scale: 0.985 }}
       className={cn(
-        "rounded-2xl overflow-hidden text-left relative z-0",
+        "group rounded-2xl overflow-hidden text-left relative z-0",
         presentationHeroCardBorderClass(p),
-        !coverImageCache[p.id] && cn("bg-linear-to-br", gradient),
         frameClassName,
       )}
       style={{ minHeight: 280, ...style }}
     >
-      {coverImageCache[p.id] && (
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `url(${coverImageCache[p.id]})`,
-          }}
-        />
-      )}
+      <HeroCardMediaLayer
+        coverUrl={coverImageCache[p.id]}
+        gradientClass={!coverImageCache[p.id] ? gradient : undefined}
+      />
       <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
       <button
         type="button"

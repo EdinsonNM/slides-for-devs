@@ -3,6 +3,7 @@ import { FilePlus } from "lucide-react";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
+import type { PromptAttachment } from "../../utils/promptAttachments";
 
 export interface HomeEmptyStateProps {
   onOpenConfig?: () => void;
@@ -15,6 +16,9 @@ export interface HomeEmptyStateProps {
   presentationModelId?: string;
   setPresentationModelId?: (id: string) => void;
   presentationModels?: PresentationModel[];
+  promptAttachments?: PromptAttachment[];
+  onAddPromptAttachment?: (a: PromptAttachment) => void;
+  onRemovePromptAttachment?: (id: string) => void;
 }
 
 /**
@@ -32,6 +36,9 @@ export function HomeEmptyState({
   presentationModelId,
   setPresentationModelId,
   presentationModels,
+  promptAttachments,
+  onAddPromptAttachment,
+  onRemovePromptAttachment,
 }: HomeEmptyStateProps) {
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-gradient-to-br from-emerald-200/80 via-green-100 to-teal-200/80 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
@@ -70,13 +77,16 @@ export function HomeEmptyState({
             value={topic}
             onChange={setTopic}
             disabled={isLoading}
-            placeholder="¿Sobre qué quieres hablar hoy? Puedes escribir varias líneas."
+            placeholder="¿Sobre qué quieres hablar hoy? Si pegas un texto muy largo, se añade como documento."
             minRows={3}
             maxRows={6}
             showPlan={true}
             presentationModelId={presentationModelId}
             setPresentationModelId={setPresentationModelId}
             presentationModels={presentationModels}
+            attachments={promptAttachments}
+            onAddAttachment={onAddPromptAttachment}
+            onRemoveAttachment={onRemovePromptAttachment}
           />
           {onCreateBlank && (
             <button

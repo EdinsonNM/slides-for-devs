@@ -52,6 +52,9 @@ export function HomeScreen(props: HomeScreenProps) {
     handleDownloadFromCloud,
     downloadingCloudKey,
     homeCloudSharedListWarning,
+    homePromptAttachments,
+    addHomePromptAttachment,
+    removeHomePromptAttachment,
   } = usePresentation();
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
@@ -74,6 +77,9 @@ export function HomeScreen(props: HomeScreenProps) {
         presentationModelId={presentationModelId}
         setPresentationModelId={setPresentationModelId}
         presentationModels={presentationModels}
+        promptAttachments={homePromptAttachments}
+        onAddPromptAttachment={addHomePromptAttachment}
+        onRemovePromptAttachment={removeHomePromptAttachment}
       />
       </>
     );
@@ -105,6 +111,9 @@ export function HomeScreen(props: HomeScreenProps) {
         onSharePresentation={openSharePresentationModal}
         onDownloadFromCloud={handleDownloadFromCloud}
         downloadingCloudKey={downloadingCloudKey}
+        promptAttachments={homePromptAttachments}
+        onAddPromptAttachment={addHomePromptAttachment}
+        onRemovePromptAttachment={removeHomePromptAttachment}
       />
     </div>
   );

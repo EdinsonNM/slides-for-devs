@@ -6,6 +6,7 @@ import { HomePresentationCardTile } from "./HomePresentationCardTile";
 import type { PresentationModel } from "./PromptInput";
 import type { HomePresentationCard } from "../../types";
 import { homePresentationCardKey } from "../../types";
+import type { PromptAttachment } from "../../utils/promptAttachments";
 
 export interface HomeWithCarouselProps {
   onOpenConfig?: () => void;
@@ -17,6 +18,9 @@ export interface HomeWithCarouselProps {
   presentationModelId?: string;
   setPresentationModelId?: (id: string) => void;
   presentationModels?: PresentationModel[];
+  promptAttachments?: PromptAttachment[];
+  onAddPromptAttachment?: (a: PromptAttachment) => void;
+  onRemovePromptAttachment?: (id: string) => void;
   homePresentationCards: HomePresentationCard[];
   onOpenSaved: (id: string) => void;
   onDeleteSaved: (id: string) => void;
@@ -61,6 +65,9 @@ export function HomeWithCarousel({
   onSharePresentation,
   onDownloadFromCloud,
   downloadingCloudKey,
+  promptAttachments,
+  onAddPromptAttachment,
+  onRemovePromptAttachment,
 }: HomeWithCarouselProps) {
   return (
     <div className="flex flex-1 min-h-0 flex-col font-sans bg-linear-to-br from-stone-50 via-white to-stone-100/70 dark:from-stone-900 dark:via-stone-900 dark:to-stone-800">
@@ -88,7 +95,7 @@ export function HomeWithCarousel({
             value={topic}
             onChange={setTopic}
             disabled={isLoading}
-            placeholder="¿Sobre qué quieres hablar hoy? Puedes escribir varias líneas."
+            placeholder="¿Sobre qué quieres hablar hoy? Texto largo al pegar → documento."
             minRows={1}
             maxRows={4}
             showPlan={true}
@@ -97,6 +104,9 @@ export function HomeWithCarousel({
             presentationModelId={presentationModelId}
             setPresentationModelId={setPresentationModelId}
             presentationModels={presentationModels}
+            attachments={promptAttachments}
+            onAddAttachment={onAddPromptAttachment}
+            onRemoveAttachment={onRemovePromptAttachment}
           />
         </div>
 
