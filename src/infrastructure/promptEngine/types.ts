@@ -86,3 +86,12 @@ export interface GenerateSlideMatrixInput {
   matrixJson: string;
   userPrompt: string;
 }
+
+/** Input para generar diagrama Mermaid → Excalidraw en un slide tipo diagram. */
+export interface GenerateSlideDiagramInput {
+  presentationTopic: string;
+  slideTitle: string;
+  /** Texto libre / notas actuales del slide (contexto). */
+  slideContent: string;
+  userPrompt: string;
+}

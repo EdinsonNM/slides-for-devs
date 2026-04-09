@@ -19,6 +19,7 @@ import {
   rewriteSlidePrompt,
   generateSlideContentPrompt,
   generateSlideMatrixPrompt,
+  generateSlideDiagramPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
@@ -219,6 +220,53 @@ export class OpenAIAdapter
         content: String(parsed.content ?? "").trim(),
         columnHeaders: matrix.columnHeaders,
         rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string; mermaid: string }> {
+    const fallback = {
+      title: slide.title,
+      content: slide.content,
+      mermaid: "flowchart TD\nA[Define el diagrama en el prompt]",
+    };
+    const { system, user } = buildPrompt(generateSlideDiagramPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+    });
+    const res = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
+      body: JSON.stringify({
+        model: modelId || "gpt-4o-mini",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
+    const raw = (await res.json())?.choices?.[0]?.message?.content;
+    if (!raw || typeof raw !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(raw) as {
+        title?: string;
+        content?: string;
+        mermaid?: string;
+      };
+      const mermaid = String(parsed.mermaid ?? "").trim();
+      if (!mermaid) return fallback;
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        content: String(parsed.content ?? "").trim(),
+        mermaid,
       };
     } catch {
       return fallback;

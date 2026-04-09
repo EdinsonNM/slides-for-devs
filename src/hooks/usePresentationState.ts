@@ -34,6 +34,7 @@ import {
   rewriteSlide as rewriteSlideUseCase,
   generateSlideContent as generateSlideContentUseCase,
   generateSlideMatrix as generateSlideMatrixUseCase,
+  generateSlideDiagram as generateSlideDiagramUseCase,
   generateImagePromptAlternatives,
   generateImage as generateImageUseCase,
 } from "../composition/container";
@@ -305,6 +306,8 @@ export function usePresentationState() {
   } | null>(null);
   /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
   const diagramFlushRef = useRef<(() => string | null) | null>(null);
+  /** Incrementar para forzar remount de Excalidraw tras sustituir la escena (p. ej. IA). */
+  const [diagramRemountToken, setDiagramRemountToken] = useState(0);
   /**
    * Borrador del título de la presentación mientras el input del header está en edición.
    * Evita guardar un `topic` obsoleto si se pulsa Guardar antes de que React aplique el blur.
@@ -1359,6 +1362,50 @@ export function usePresentationState() {
       } catch (error) {
         console.error("Error generating matrix slide:", error);
         alert("No se pudo generar la tabla con IA.");
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    if (currentSlide.type === SLIDE_TYPE.DIAGRAM) {
+      setIsProcessing(true);
+      try {
+        const result = await generateSlideDiagramUseCase.run(
+          topic.trim(),
+          currentSlide,
+          instr,
+          modelId,
+        );
+        const notesText = result.content.trim();
+        const formattedNotes = notesText ? formatMarkdown(notesText) : "";
+        setSlides((prev) => {
+          const updated = [...prev];
+          const slide = updated[currentIndex];
+          if (!slide || slide.type !== SLIDE_TYPE.DIAGRAM) return prev;
+          updated[currentIndex] = {
+            ...slide,
+            title: result.title,
+            ...(formattedNotes ? { content: formattedNotes } : {}),
+            excalidrawData: result.excalidrawData,
+          };
+          return updated;
+        });
+        setEditTitle(result.title);
+        if (formattedNotes) setEditContent(formattedNotes);
+        setDiagramRemountToken((n) => n + 1);
+        setShowGenerateSlideContentModal(false);
+        setGenerateSlideContentPrompt("");
+        trackEvent(ANALYTICS_EVENTS.SLIDE_DIAGRAM_GENERATED);
+      } catch (error) {
+        console.error("Error generating diagram slide:", error);
+        const detail =
+          error instanceof Error && error.message
+            ? ` ${error.message}`
+            : "";
+        alert(
+          `No se pudo generar el diagrama con IA.${detail} Prueba un prompt más simple (flujo, arquitectura en cajas y flechas).`,
+        );
       } finally {
         setIsProcessing(false);
       }
@@ -2970,6 +3017,7 @@ export function usePresentationState() {
     isPreviewMode,
     setIsPreviewMode,
     diagramFlushRef,
+    diagramRemountToken,
     flushDiagramPending,
     isEditing,
     setIsEditing,

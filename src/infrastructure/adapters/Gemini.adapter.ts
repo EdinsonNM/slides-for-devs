@@ -21,6 +21,7 @@ import {
   rewriteSlidePrompt,
   generateSlideContentPrompt,
   generateSlideMatrixPrompt,
+  generateSlideDiagramPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
@@ -254,6 +255,58 @@ export class GeminiAdapter
         content: String(parsed.content ?? "").trim(),
         columnHeaders: matrix.columnHeaders,
         rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string; mermaid: string }> {
+    const fallback = {
+      title: slide.title,
+      content: slide.content,
+      mermaid: "flowchart TD\nA[Define el diagrama en el prompt]",
+    };
+    const { system, user } = buildPrompt(generateSlideDiagramPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+    });
+    const content = `${system}\n\n${user}`;
+    const res = await client().models.generateContent({
+      model: modelId || DEFAULT_TEXT,
+      contents: content,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            mermaid: { type: Type.STRING },
+          },
+          required: ["title", "content", "mermaid"],
+        },
+      },
+    });
+    try {
+      const parsed = JSON.parse(res.text || "{}") as {
+        title?: string;
+        content?: string;
+        mermaid?: string;
+      };
+      const mermaid = String(parsed.mermaid ?? "").trim();
+      if (!mermaid) return fallback;
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        content: String(parsed.content ?? "").trim(),
+        mermaid,
       };
     } catch {
       return fallback;

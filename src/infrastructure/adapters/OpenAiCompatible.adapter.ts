@@ -15,6 +15,7 @@ import {
   rewriteSlidePrompt,
   generateSlideContentPrompt,
   generateSlideMatrixPrompt,
+  generateSlideDiagramPrompt,
   imageAlternativesPrompt,
 } from "../prompts";
 import { parseSlidesFromResponse } from "../schemas";
@@ -308,6 +309,60 @@ export class OpenAiCompatibleAdapter
         content: String(parsed.content ?? "").trim(),
         columnHeaders: matrix.columnHeaders,
         rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string; mermaid: string }> {
+    const fallback = {
+      title: slide.title,
+      content: slide.content,
+      mermaid: "flowchart TD\nA[Define el diagrama en el prompt]",
+    };
+    const { system, user } = buildPrompt(generateSlideDiagramPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+    });
+    const body = {
+      model: this.model(modelId),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      max_tokens: 8192,
+    };
+    const content = this.isTauri()
+      ? await this.tauriChat(body)
+      : await (async () => {
+          const res = await fetch(this.config.chatUrl, {
+            method: "POST",
+            headers: this.headers(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await this.parseError(res));
+          const data = await res.json().catch(() => ({}));
+          return data?.choices?.[0]?.message?.content as string | undefined;
+        })();
+    if (!content || typeof content !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(content) as {
+        title?: string;
+        content?: string;
+        mermaid?: string;
+      };
+      const mermaid = String(parsed.mermaid ?? "").trim();
+      if (!mermaid) return fallback;
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        content: String(parsed.content ?? "").trim(),
+        mermaid,
       };
     } catch {
       return fallback;

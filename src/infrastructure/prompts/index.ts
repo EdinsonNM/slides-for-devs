@@ -4,6 +4,7 @@ export { splitSlidePrompt } from "./splitSlide.prompt";
 export { rewriteSlidePrompt } from "./rewriteSlide.prompt";
 export { generateSlideContentPrompt } from "./generateSlideContent.prompt";
 export { generateSlideMatrixPrompt } from "./generateSlideMatrix.prompt";
+export { generateSlideDiagramPrompt } from "./generateSlideDiagram.prompt";
 export {
   imageAlternativesPrompt,
   imageGenerationPrompt,

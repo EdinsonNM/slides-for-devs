@@ -58,6 +58,7 @@ export function EditorFloatingToolbar({
     currentSlide?.matrixData ?? createEmptySlideMatrixData(),
   );
   const showMatrixToolbar = currentSlide?.type === SLIDE_TYPE.MATRIX;
+  const showDiagramToolbar = currentSlide?.type === SLIDE_TYPE.DIAGRAM;
 
   const barClass =
     "pointer-events-auto flex items-center gap-0.5 rounded-xl border border-stone-200/90 bg-white px-1.5 py-1.5 shadow-md shadow-stone-900/8 dark:border-border dark:bg-surface-elevated dark:shadow-lg dark:shadow-black/40";
@@ -68,6 +69,22 @@ export function EditorFloatingToolbar({
       aria-label="Herramientas flotantes del editor"
     >
       <div className="flex flex-wrap items-center justify-center gap-3">
+        {showDiagramToolbar && (
+          <div className={cn(barClass, "gap-0.5")} role="toolbar" aria-label="Diagrama">
+            <button
+              type="button"
+              onClick={() => {
+                setGenerateSlideContentPrompt("");
+                setShowGenerateSlideContentModal(true);
+              }}
+              title="Generar diagrama con IA (Mermaid → Excalidraw)"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-emerald-600 outline-none hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+            >
+              <Sparkles size={18} aria-hidden />
+            </button>
+          </div>
+        )}
+
         {showMatrixToolbar && (
           <div className={cn(barClass, "gap-0.5")} role="toolbar" aria-label="Tabla / matriz">
             <button

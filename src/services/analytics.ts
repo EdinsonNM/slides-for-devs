@@ -31,6 +31,8 @@ export const ANALYTICS_EVENTS = {
   SLIDE_CONTENT_GENERATED: "slide_content_generated",
   /** Usuario generó o rehizo una tabla/matriz con IA. */
   SLIDE_MATRIX_GENERATED: "slide_matrix_generated",
+  /** Usuario generó un diagrama (Excalidraw vía Mermaid) con IA. */
+  SLIDE_DIAGRAM_GENERATED: "slide_diagram_generated",
   /** Usuario añadió un video a una diapositiva. */
   VIDEO_ADDED: "video_added",
   /** Usuario generó portada para una presentación guardada. */

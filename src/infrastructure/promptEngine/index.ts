@@ -7,4 +7,5 @@ export type {
   RewriteSlideInput,
   GenerateSlideContentInput,
   GenerateSlideMatrixInput,
+  GenerateSlideDiagramInput,
 } from "./types";

@@ -8,7 +8,7 @@ import { SlideContentMatrix } from "./SlideContentMatrix";
 import { SLIDE_TYPE } from "../../domain/entities";
 
 export function SlideEditor() {
-  const { currentSlide, currentIndex } = usePresentation();
+  const { currentSlide, currentIndex, diagramRemountToken } = usePresentation();
 
   if (!currentSlide) return null;
 
@@ -31,7 +31,9 @@ export function SlideEditor() {
           {currentSlide.type === SLIDE_TYPE.CHAPTER ? (
             <SlideContentChapter />
           ) : currentSlide.type === SLIDE_TYPE.DIAGRAM ? (
-            <SlideContentDiagram />
+            <SlideContentDiagram
+              key={`${currentSlide.id}-${diagramRemountToken}`}
+            />
           ) : currentSlide.type === SLIDE_TYPE.MATRIX ? (
             <SlideContentMatrix />
           ) : (

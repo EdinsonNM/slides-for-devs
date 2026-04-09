@@ -27,6 +27,13 @@ export interface SlideOperationsPort {
     columnHeaders: string[];
     rows: string[][];
   }>;
+  /** Genera título, notas opcionales y código Mermaid para un slide tipo diagram (Excalidraw). */
+  generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{ title: string; content: string; mermaid: string }>;
   generateImagePromptAlternatives(
     slideContext: string,
     currentPrompt: string,
