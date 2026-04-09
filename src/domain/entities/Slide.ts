@@ -7,6 +7,8 @@ export const SLIDE_TYPE = {
   CONTENT: "content",
   CHAPTER: "chapter",
   DIAGRAM: "diagram",
+  /** Diagrama isométrico tipo infra (bloques 3D y enlaces), editor propio. */
+  ISOMETRIC: "isometric",
   MATRIX: "matrix",
 } as const;
 
@@ -55,6 +57,8 @@ export interface Slide {
   presenterNotes?: string;
   speech?: string;
   excalidrawData?: string;
+  /** JSON `IsometricFlowDiagram` cuando `type === SLIDE_TYPE.ISOMETRIC`. */
+  isometricFlowData?: string;
   /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
   matrixData?: SlideMatrixData;
   /** Posicionamiento libre de bloques en el lienzo (% del área del slide). */

@@ -378,6 +378,7 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     speech: s.speech ?? null,
     editorHeight: s.editorHeight ?? null,
     matrixData: s.matrixData ?? null,
+    isometricFlowData: s.isometricFlowData ?? null,
   };
 }
 
@@ -417,6 +418,8 @@ function plainToSlide(p: Record<string, unknown>): Slide {
     speech: p.speech != null ? String(p.speech) : undefined,
     excalidrawData:
       p.excalidrawData != null ? String(p.excalidrawData) : undefined,
+    isometricFlowData:
+      p.isometricFlowData != null ? String(p.isometricFlowData) : undefined,
     editorHeight:
       typeof p.editorHeight === "number" ? p.editorHeight : undefined,
     matrixData:
@@ -569,6 +572,7 @@ export async function pushPresentationToCloud(
       ...plain,
       imageUrl: imageUrl ?? null,
       excalidrawData: excalidrawData ?? null,
+      isometricFlowData: slide.isometricFlowData ?? null,
     });
   }
 

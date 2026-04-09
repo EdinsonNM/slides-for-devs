@@ -232,6 +232,29 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
     return;
   }
 
+  if (slide.type === SLIDE_TYPE.ISOMETRIC) {
+    s.addText(slide.title || "Diagrama isométrico", {
+      x: 0.5,
+      y: 0.3,
+      w: "90%",
+      h: 0.6,
+      fontSize: 28,
+      bold: true,
+      fontFace: "Arial",
+    });
+    s.addText("(Diagrama isométrico – revisar en la app)", {
+      x: 0.5,
+      y: 2.5,
+      w: "90%",
+      h: 0.5,
+      fontSize: 14,
+      color: "7F7F7F",
+      align: "center",
+      fontFace: "Arial",
+    });
+    return;
+  }
+
   // type === "content"
   const bodyY = 0.9;
   const hasSplitPanel =

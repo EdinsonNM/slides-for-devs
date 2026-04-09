@@ -38,6 +38,19 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
         ],
       };
 
+    case SLIDE_TYPE.ISOMETRIC:
+      return {
+        version: SLIDE_CANVAS_SCENE_VERSION,
+        elements: [
+          el("canvas-isometric-flow", "isometricFlow", 1, {
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 100,
+          }),
+        ],
+      };
+
     case SLIDE_TYPE.CHAPTER:
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,

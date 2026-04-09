@@ -45,6 +45,7 @@ export function Header(props: HeaderProps) {
     currentSavedId,
     setIsPreviewMode,
     flushDiagramPending,
+    flushIsometricFlowPending,
     setShowSpeechModal,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
@@ -303,6 +304,7 @@ export function Header(props: HeaderProps) {
                 onClick={() => {
                   flushSync(() => {
                     flushDiagramPending();
+                    flushIsometricFlowPending();
                   });
                   setIsPreviewMode(true);
                 }}

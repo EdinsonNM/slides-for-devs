@@ -44,6 +44,7 @@ export function EditorFloatingToolbar({
     handleSave,
     isSaving,
     flushDiagramPending,
+    flushIsometricFlowPending,
     setIsPreviewMode,
     openGenerateFullDeckModal,
     setShowSpeechModal,
@@ -211,6 +212,7 @@ export function EditorFloatingToolbar({
             onClick={() => {
               flushSync(() => {
                 flushDiagramPending();
+                flushIsometricFlowPending();
               });
               setIsPreviewMode(true);
             }}

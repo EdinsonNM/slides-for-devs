@@ -12,7 +12,8 @@ export type SlideCanvasElementKind =
   | "mediaPanel"
   | "matrix"
   | "matrixNotes"
-  | "excalidraw";
+  | "excalidraw"
+  | "isometricFlow";
 
 export interface SlideCanvasRect {
   /** 0–100, borde izquierdo del elemento */

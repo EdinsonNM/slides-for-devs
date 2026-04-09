@@ -93,6 +93,7 @@ pub struct Slide {
     pub presenter_notes: Option<String>,
     pub speech: Option<String>,
     pub excalidraw_data: Option<String>,
+    pub isometric_flow_data: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "presenter3dDeviceId")]
     pub presenter_3d_device_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "presenter3dScreenMedia")]
@@ -209,6 +210,18 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
     )?;
     if has_excal == 0 {
         conn.execute("ALTER TABLE slides ADD COLUMN excalidraw_data TEXT", [])?;
+    }
+    // Migration: isometric flow diagram JSON (slide_type == "isometric").
+    let has_iso: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('slides') WHERE name='isometric_flow_data'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_iso == 0 {
+        conn.execute(
+            "ALTER TABLE slides ADD COLUMN isometric_flow_data TEXT",
+            [],
+        )?;
     }
     // Migration: add content_layout and panel_height_percent to slides if missing.
     let has_content_layout: i64 = conn.query_row(
@@ -499,10 +512,11 @@ pub fn save_presentation(
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
+                isometric_flow_data,
                 presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
                 editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
                 matrix_data, canvas_scene
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)
             "#,
             params![
                 id,
@@ -524,6 +538,7 @@ pub fn save_presentation(
                 slide.presenter_notes,
                 slide.speech,
                 slide.excalidraw_data,
+                slide.isometric_flow_data,
                 slide.presenter_3d_device_id,
                 slide.presenter_3d_screen_media,
                 None::<f64>,
@@ -598,10 +613,11 @@ pub fn import_presentation(
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
+                isometric_flow_data,
                 presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
                 editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
                 matrix_data, canvas_scene
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)
             "#,
             params![
                 saved.id,
@@ -623,6 +639,7 @@ pub fn import_presentation(
                 slide.presenter_notes,
                 slide.speech,
                 slide.excalidraw_data,
+                slide.isometric_flow_data,
                 slide.presenter_3d_device_id,
                 slide.presenter_3d_screen_media,
                 None::<f64>,
@@ -702,10 +719,11 @@ pub fn update_presentation(
                 presentation_id, ordinal, id, type, title, subtitle, content,
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
+                isometric_flow_data,
                 presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
                 editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
                 matrix_data, canvas_scene
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)
             "#,
             params![
                 id,
@@ -727,6 +745,7 @@ pub fn update_presentation(
                 slide.presenter_notes,
                 slide.speech,
                 slide.excalidraw_data,
+                slide.isometric_flow_data,
                 slide.presenter_3d_device_id,
                 slide.presenter_3d_screen_media,
                 None::<f64>,
@@ -777,7 +796,7 @@ pub fn load_presentation(
         r#"
         SELECT ordinal, id, type, title, subtitle, content, image_prompt, code, language,
                font_size, video_url, content_type, image_width_percent, content_layout, panel_height_percent,
-               presenter_notes, speech, excalidraw_data, presenter_3d_device_id, presenter_3d_screen_media,
+               presenter_notes, speech, excalidraw_data, isometric_flow_data, presenter_3d_device_id, presenter_3d_screen_media,
                presenter_3d_model_scale, presenter_3d_view_state,
                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
                matrix_data, canvas_scene
@@ -806,14 +825,15 @@ pub fn load_presentation(
             row.get::<_, Option<String>>(17)?,
             row.get::<_, Option<String>>(18)?,
             row.get::<_, Option<String>>(19)?,
-            row.get::<_, Option<f64>>(20)?,
-            row.get::<_, Option<String>>(21)?,
-            row.get::<_, Option<i32>>(22)?,
+            row.get::<_, Option<String>>(20)?,
+            row.get::<_, Option<f64>>(21)?,
+            row.get::<_, Option<String>>(22)?,
             row.get::<_, Option<i32>>(23)?,
             row.get::<_, Option<i32>>(24)?,
             row.get::<_, Option<i32>>(25)?,
-            row.get::<_, Option<String>>(26)?,
+            row.get::<_, Option<i32>>(26)?,
             row.get::<_, Option<String>>(27)?,
+            row.get::<_, Option<String>>(28)?,
         ))
     })?;
 
@@ -837,6 +857,7 @@ pub fn load_presentation(
             presenter_notes,
             speech,
             excalidraw_data,
+            isometric_flow_data,
             presenter_3d_device_id,
             presenter_3d_screen_media,
             _presenter_3d_model_scale_legacy,
@@ -890,6 +911,7 @@ pub fn load_presentation(
             presenter_notes,
             speech,
             excalidraw_data,
+            isometric_flow_data,
             presenter_3d_device_id,
             presenter_3d_screen_media,
             presenter_3d_view_state,

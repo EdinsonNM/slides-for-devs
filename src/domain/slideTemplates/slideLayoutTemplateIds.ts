@@ -7,6 +7,7 @@ export const SLIDE_LAYOUT_TEMPLATE_ID = {
   CONTENT_FULL: "content-full",
   CONTENT_PANEL_FULL: "content-panel-full",
   DIAGRAM: "diagram",
+  ISOMETRIC_FLOW: "isometric-flow",
   MATRIX: "matrix",
 } as const;
 

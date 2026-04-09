@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Image as ImageIcon, PencilRuler, Table2 } from "lucide-react";
+import { Boxes, Image as ImageIcon, PencilRuler, Table2 } from "lucide-react";
 import {
   SLIDE_LAYOUT_TEMPLATE_ID,
   type SlideLayoutTemplateId,
@@ -64,6 +64,28 @@ function PreviewDiagram() {
   );
 }
 
+function PreviewIsometricFlow() {
+  return (
+    <div className="w-full aspect-video bg-linear-to-br from-slate-50 to-sky-50/80 dark:from-stone-900 dark:to-sky-950/40 border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col items-center justify-center gap-1.5 p-2">
+      <div className="flex items-end justify-center -space-x-1">
+        <div
+          className="h-3 w-3.5 rounded-[2px] bg-sky-400/90 shadow-sm dark:bg-sky-600"
+          style={{ transform: "skewX(-18deg) translateY(2px)" }}
+        />
+        <div
+          className="h-3.5 w-4 rounded-[2px] bg-emerald-500/95 shadow dark:bg-emerald-600 z-[1]"
+          style={{ transform: "skewX(-18deg)" }}
+        />
+        <div
+          className="h-3 w-3.5 rounded-[2px] bg-amber-400/90 shadow-sm dark:bg-amber-600"
+          style={{ transform: "skewX(-18deg) translateY(2px)" }}
+        />
+      </div>
+      <Boxes className="w-5 h-5 text-stone-400 dark:text-stone-500" strokeWidth={1.5} />
+    </div>
+  );
+}
+
 function PreviewMatrix() {
   return (
     <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col p-1 gap-0.5">
@@ -109,4 +131,9 @@ export const SLIDE_LAYOUT_TEMPLATE_REGISTRY: readonly SlideLayoutTemplateDefinit
   },
   { id: SLIDE_LAYOUT_TEMPLATE_ID.MATRIX, label: "Tabla / matriz", Preview: PreviewMatrix },
   { id: SLIDE_LAYOUT_TEMPLATE_ID.DIAGRAM, label: "Diagrama", Preview: PreviewDiagram },
+  {
+    id: SLIDE_LAYOUT_TEMPLATE_ID.ISOMETRIC_FLOW,
+    label: "Isométrico (infra)",
+    Preview: PreviewIsometricFlow,
+  },
 ];

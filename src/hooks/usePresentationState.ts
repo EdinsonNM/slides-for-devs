@@ -45,6 +45,10 @@ import {
   type SlideCanvasScene,
   type SlideMatrixData,
 } from "../domain/entities";
+import {
+  createDefaultIsometricFlowDiagram,
+  serializeIsometricFlowDiagram,
+} from "../domain/entities/IsometricFlowDiagram";
 import { normalizeSlidesCanvasScenes } from "../domain/slideCanvas/ensureSlideCanvasScene";
 import {
   getGeminiApiKey,
@@ -308,6 +312,8 @@ export function usePresentationState() {
   } | null>(null);
   /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
   const diagramFlushRef = useRef<(() => string | null) | null>(null);
+  /** Ref que SlideContentIsometricFlow rellena para persistir JSON antes de guardar o capturar pestaña. */
+  const isometricFlowFlushRef = useRef<(() => string | null) | null>(null);
   /** Incrementar para forzar remount de Excalidraw tras sustituir la escena (p. ej. IA). */
   const [diagramRemountToken, setDiagramRemountToken] = useState(0);
   /**
@@ -959,9 +965,21 @@ export function usePresentationState() {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
         delete (next as Slide).matrixData;
+        delete (next as Slide).isometricFlowData;
         if (!next.excalidrawData) next.excalidrawData = "{}";
+      } else if (type === SLIDE_TYPE.ISOMETRIC) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        delete (next as Slide).matrixData;
+        delete (next as Slide).excalidrawData;
+        if (!next.isometricFlowData) {
+          next.isometricFlowData = serializeIsometricFlowDiagram(
+            createDefaultIsometricFlowDiagram(),
+          );
+        }
       } else {
         delete (next as Slide).excalidrawData;
+        delete (next as Slide).isometricFlowData;
       }
 
       if (type === SLIDE_TYPE.CHAPTER) {
@@ -1022,6 +1040,15 @@ export function usePresentationState() {
     setSlides((prev) => {
       const updated = [...prev];
       updated[currentIndex] = { ...currentSlide, excalidrawData: data };
+      return updated;
+    });
+  };
+
+  const setCurrentSlideIsometricFlowData = (data: string) => {
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.ISOMETRIC) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, isometricFlowData: data };
       return updated;
     });
   };
@@ -1513,6 +1540,10 @@ export function usePresentationState() {
     return diagramFlushRef.current?.() ?? null;
   }, []);
 
+  const flushIsometricFlowPending = useCallback((): string | null => {
+    return isometricFlowFlushRef.current?.() ?? null;
+  }, []);
+
   const cloneSlidesForTab = useCallback((list: Slide[]) => {
     try {
       return structuredClone(list) as Slide[];
@@ -1523,6 +1554,7 @@ export function usePresentationState() {
 
   const captureWorkspaceSnapshot = useCallback((): EditorWorkspaceSnapshot => {
     const pending = flushDiagramPending();
+    const pendingIso = flushIsometricFlowPending();
     const idx = currentIndex;
     const buffers = {
       title: editTitleRef.current,
@@ -1536,12 +1568,18 @@ export function usePresentationState() {
     const merged = slides.map((sl, i) =>
       i === idx ? slidePatchedFromEditBuffers(sl, buffers) : sl,
     );
-    const s =
+    let s =
       pending != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
         ? merged.map((sl, i) =>
             i === idx ? { ...sl, excalidrawData: pending } : sl,
           )
         : merged;
+    s =
+      pendingIso != null && s[idx]?.type === SLIDE_TYPE.ISOMETRIC
+        ? s.map((sl, i) =>
+            i === idx ? { ...sl, isometricFlowData: pendingIso } : sl,
+          )
+        : s;
     const snapTopic =
       presentationTitleDraftRef.current !== null
         ? presentationTitleDraftRef.current.trim() || ""
@@ -1555,6 +1593,7 @@ export function usePresentationState() {
     };
   }, [
     flushDiagramPending,
+    flushIsometricFlowPending,
     slides,
     currentIndex,
     topic,
@@ -1879,6 +1918,7 @@ export function usePresentationState() {
   const handleSave = async () => {
     if (slides.length === 0) return;
     const pendingDiagram = flushDiagramPending();
+    const pendingIsometric = flushIsometricFlowPending();
     const idx = currentIndexRef.current;
     const buffers = {
       title: editTitleRef.current,
@@ -1892,12 +1932,18 @@ export function usePresentationState() {
     const merged = slides.map((s, i) =>
       i === idx ? slidePatchedFromEditBuffers(s, buffers) : s,
     );
-    const slidesToSave =
+    let slidesToSave =
       pendingDiagram != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
         ? merged.map((s, i) =>
             i === idx ? { ...s, excalidrawData: pendingDiagram } : s,
           )
         : merged;
+    slidesToSave =
+      pendingIsometric != null && slidesToSave[idx]?.type === SLIDE_TYPE.ISOMETRIC
+        ? slidesToSave.map((s, i) =>
+            i === idx ? { ...s, isometricFlowData: pendingIsometric } : s,
+          )
+        : slidesToSave;
 
     const hadTitleDraft = presentationTitleDraftRef.current !== null;
     const topicSource =
@@ -3071,8 +3117,10 @@ export function usePresentationState() {
     isPreviewMode,
     setIsPreviewMode,
     diagramFlushRef,
+    isometricFlowFlushRef,
     diagramRemountToken,
     flushDiagramPending,
+    flushIsometricFlowPending,
     isEditing,
     setIsEditing,
     editTitle,
@@ -3107,6 +3155,7 @@ export function usePresentationState() {
     toggleContentType,
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,
+    setCurrentSlideIsometricFlowData,
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
     setCurrentSlideContentLayout,

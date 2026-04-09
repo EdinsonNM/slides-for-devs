@@ -23,6 +23,9 @@ export function applySlideLayoutTemplate(
     case SLIDE_LAYOUT_TEMPLATE_ID.DIAGRAM:
       api.setCurrentSlideType(SLIDE_TYPE.DIAGRAM);
       return;
+    case SLIDE_LAYOUT_TEMPLATE_ID.ISOMETRIC_FLOW:
+      api.setCurrentSlideType(SLIDE_TYPE.ISOMETRIC);
+      return;
     case SLIDE_LAYOUT_TEMPLATE_ID.MATRIX:
       api.setCurrentSlideType(SLIDE_TYPE.MATRIX);
       return;

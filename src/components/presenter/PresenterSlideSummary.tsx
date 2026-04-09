@@ -41,6 +41,8 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           )
         ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
           <p className="text-stone-400 text-xs">Diagrama editable</p>
+        ) : slide.type === SLIDE_TYPE.ISOMETRIC ? (
+          <p className="text-stone-400 text-xs">Diagrama isométrico</p>
         ) : slide.type === SLIDE_TYPE.MATRIX ? (
           <p className="text-stone-400 text-xs line-clamp-2">
             Tabla · {slide.matrixData?.columnHeaders?.length ?? 0}×
@@ -61,6 +63,11 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           {slide.type === SLIDE_TYPE.DIAGRAM && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Diagrama
+            </span>
+          )}
+          {slide.type === SLIDE_TYPE.ISOMETRIC && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              Isométrico
             </span>
           )}
           {slide.type === SLIDE_TYPE.MATRIX && (

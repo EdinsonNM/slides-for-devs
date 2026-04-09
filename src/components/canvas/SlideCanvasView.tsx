@@ -13,6 +13,8 @@ import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanv
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { CodeDisplay } from "../shared/CodeDisplay";
 import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
+import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas";
+import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 
@@ -243,6 +245,27 @@ function CanvasElementReadOnly({
               excalidrawData={slide.excalidrawData}
               className="absolute inset-0 h-full w-full"
               fitToViewOnLoad
+            />,
+          )}
+        </div>
+      );
+    case "isometricFlow":
+      if (slide.type !== SLIDE_TYPE.ISOMETRIC) return null;
+      return (
+        <div
+          style={box}
+          className={cn(
+            shell,
+            "bg-linear-to-br from-slate-50 to-sky-50/50 dark:from-stone-900 dark:to-sky-950/20",
+          )}
+        >
+          {rotated(
+            "absolute inset-0 min-h-0",
+            <IsometricFlowDiagramCanvas
+              key={`${slide.id}-${slide.isometricFlowData ? "d" : "empty"}`}
+              data={parseIsometricFlowDiagram(slide.isometricFlowData)}
+              readOnly
+              className="h-full w-full"
             />,
           )}
         </div>

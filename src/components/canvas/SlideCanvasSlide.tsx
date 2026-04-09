@@ -32,6 +32,7 @@ import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLega
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideRightPanel } from "../editor/SlideRightPanel";
 import { SlideContentDiagram } from "../editor/SlideContentDiagram";
+import { SlideContentIsometricFlow } from "../editor/SlideContentIsometricFlow";
 import type { SlideMatrixData } from "../../domain/entities";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import { SlideCanvasAlignmentGuides } from "./SlideCanvasAlignmentGuides";
@@ -656,7 +657,8 @@ export function SlideCanvasSlide() {
 
       {(slide.type === SLIDE_TYPE.CHAPTER ||
         slide.type === SLIDE_TYPE.MATRIX ||
-        slide.type === SLIDE_TYPE.DIAGRAM) &&
+        slide.type === SLIDE_TYPE.DIAGRAM ||
+        slide.type === SLIDE_TYPE.ISOMETRIC) &&
         !showIaToolbar &&
         !isEditing && (
           <div
@@ -938,7 +940,10 @@ function CanvasElementEditor({
   const textField = fieldForKind(kind);
 
   const showCanvaChrome =
-    isSelected && kind !== "excalidraw" && kind !== "sectionLabel";
+    isSelected &&
+    kind !== "excalidraw" &&
+    kind !== "isometricFlow" &&
+    kind !== "sectionLabel";
 
   const onShellPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -1548,6 +1553,23 @@ function CanvasElementEditor({
             className="absolute inset-0 min-h-0"
           >
             <SlideContentDiagram />
+          </div>
+          {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
+        </div>
+      );
+    case "isometricFlow":
+      return (
+        <div
+          style={box}
+          data-slide-canvas-el
+          className={cn(
+            outerShellClass,
+            "bg-linear-to-br from-slate-50 to-sky-50/50 dark:from-stone-900 dark:to-sky-950/20",
+          )}
+          {...shellHoverProps}
+        >
+          <div className="absolute inset-0 min-h-0">
+            <SlideContentIsometricFlow />
           </div>
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>

@@ -175,6 +175,29 @@ export function SlideSidebar() {
                   </div>
                   <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">Diagrama</span>
                 </div>
+              ) : slide.type === SLIDE_TYPE.ISOMETRIC ? (
+                <div className="flex-1 flex flex-col gap-1 min-h-0">
+                  <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
+                    {slide.title || "Isométrico"}
+                  </span>
+                  <div className="flex-1 min-h-0 flex items-center justify-center gap-0.5 p-1 bg-linear-to-br from-sky-50 to-stone-50 dark:from-sky-950/40 dark:to-stone-800 rounded border border-dashed border-stone-200 dark:border-stone-600">
+                    <div
+                      className="h-2 w-2.5 rounded-[1px] bg-sky-400/80 dark:bg-sky-600"
+                      style={{ transform: "skewX(-16deg)" }}
+                    />
+                    <div
+                      className="h-2.5 w-2.5 rounded-[1px] bg-emerald-500/90 dark:bg-emerald-600 z-[1]"
+                      style={{ transform: "skewX(-16deg)" }}
+                    />
+                    <div
+                      className="h-2 w-2.5 rounded-[1px] bg-amber-400/80 dark:bg-amber-600"
+                      style={{ transform: "skewX(-16deg)" }}
+                    />
+                  </div>
+                  <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
+                    Isométrico
+                  </span>
+                </div>
               ) : slide.type === SLIDE_TYPE.MATRIX ? (
                 <div className="flex-1 flex flex-col gap-1 min-h-0">
                   <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
