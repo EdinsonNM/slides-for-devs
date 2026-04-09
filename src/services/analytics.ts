@@ -29,6 +29,8 @@ export const ANALYTICS_EVENTS = {
   SLIDE_REWRITTEN: "slide_rewritten",
   /** Usuario generó título y contenido de una diapositiva con IA (desde borrador / instrucción). */
   SLIDE_CONTENT_GENERATED: "slide_content_generated",
+  /** Usuario generó o rehizo una tabla/matriz con IA. */
+  SLIDE_MATRIX_GENERATED: "slide_matrix_generated",
   /** Usuario añadió un video a una diapositiva. */
   VIDEO_ADDED: "video_added",
   /** Usuario generó portada para una presentación guardada. */

@@ -1,6 +1,23 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { SlideMatrixData } from "./SlideMatrix";
 
-export type SlideType = "content" | "chapter" | "diagram";
+/** Valores canónicos de `Slide.type` (evita comparar strings sueltos en la UI). */
+export const SLIDE_TYPE = {
+  CONTENT: "content",
+  CHAPTER: "chapter",
+  DIAGRAM: "diagram",
+  MATRIX: "matrix",
+} as const;
+
+export type SlideType = (typeof SLIDE_TYPE)[keyof typeof SLIDE_TYPE];
+
+/**
+ * Vista previa / presentador: el lienzo del slide llega al borde del contenedor blanco.
+ * Solo diagramas (Excalidraw); la matriz usa el mismo marco centrado y márgenes que el contenido.
+ */
+export function slideUsesFullBleedCanvas(type: SlideType): boolean {
+  return type === SLIDE_TYPE.DIAGRAM;
+}
 
 export type SlidePanelContentType = "image" | "code" | "video" | "presenter3d";
 
@@ -38,4 +55,6 @@ export interface Slide {
   presenterNotes?: string;
   speech?: string;
   excalidrawData?: string;
+  /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
+  matrixData?: SlideMatrixData;
 }

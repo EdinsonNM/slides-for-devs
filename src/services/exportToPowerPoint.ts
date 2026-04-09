@@ -1,6 +1,11 @@
 import PptxGenJS from "pptxgenjs";
 import type { Presentation } from "../types";
 import type { Slide } from "../domain/entities/Slide";
+import {
+  SLIDE_TYPE,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+} from "../domain/entities";
 import { isTauri } from "./updater";
 
 /**
@@ -120,7 +125,7 @@ export async function exportPresentationToPowerPoint(
 function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
   const s = pptx.addSlide();
 
-  if (slide.type === "chapter") {
+  if (slide.type === SLIDE_TYPE.CHAPTER) {
     s.addText(slide.title, {
       x: 0.5,
       y: 2,
@@ -154,7 +159,57 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
     return;
   }
 
-  if (slide.type === "diagram") {
+  if (slide.type === SLIDE_TYPE.MATRIX) {
+    const m = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    s.addText(slide.title || "Tabla", {
+      x: 0.5,
+      y: 0.25,
+      w: "90%",
+      h: 0.55,
+      fontSize: 26,
+      bold: true,
+      fontFace: "Arial",
+    });
+    if (slide.subtitle) {
+      s.addText(slide.subtitle, {
+        x: 0.5,
+        y: 0.78,
+        w: "90%",
+        h: 0.35,
+        fontSize: 14,
+        color: "7F7F7F",
+        fontFace: "Arial",
+      });
+    }
+    const headerLine = m.columnHeaders.join(" · ");
+    const rowLines = m.rows.map((r) => r.join(" · "));
+    const tableText = [headerLine, ...rowLines].join("\n");
+    s.addText(tableText, {
+      x: 0.5,
+      y: slide.subtitle ? 1.2 : 0.95,
+      w: "92%",
+      h: 3.6,
+      fontSize: 11,
+      fontFace: "Arial",
+      valign: "top",
+    });
+    const notes = markdownToPlainText(slide.content || "");
+    if (notes) {
+      s.addText(notes, {
+        x: 0.5,
+        y: 4.85,
+        w: "92%",
+        h: 1.2,
+        fontSize: 10,
+        color: "555555",
+        fontFace: "Arial",
+        valign: "top",
+      });
+    }
+    return;
+  }
+
+  if (slide.type === SLIDE_TYPE.DIAGRAM) {
     s.addText(slide.title || "Diagrama", {
       x: 0.5,
       y: 0.3,

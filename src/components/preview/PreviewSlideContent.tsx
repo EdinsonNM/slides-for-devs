@@ -7,6 +7,13 @@ import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
 import { getEmbedUrl } from "../../utils/video";
 import type { Slide } from "../../types";
 import { Device3DViewport } from "../shared/Device3DViewport";
+import { SlideMatrixTable } from "../shared/SlideMatrixTable";
+import {
+  SLIDE_TYPE,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  slideUsesFullBleedCanvas,
+} from "../../domain/entities";
 
 export interface PreviewSlideContentProps {
   slide: Slide;
@@ -21,6 +28,11 @@ export interface PreviewSlideContentProps {
  */
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
 
+/** Márgenes del cuerpo en vista previa (alineado con `textColumn` y con slides de contenido). */
+const PREVIEW_BODY_PADDING =
+  "p-5 md:p-8 lg:p-10 xl:p-12";
+const PREVIEW_SCROLL_END_PADDING = "pr-3 md:pr-4";
+
 export function PreviewSlideContent({
   slide,
   formatMarkdown,
@@ -28,9 +40,19 @@ export function PreviewSlideContent({
   panelHeightPercent = DEFAULT_PANEL_HEIGHT_PERCENT,
 }: PreviewSlideContentProps) {
   const textColumn = (
-    <div className="flex-1 min-w-0 p-5 flex flex-col min-h-0 overflow-hidden md:p-8 lg:p-10 xl:p-12">
+    <div
+      className={cn(
+        "flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden",
+        PREVIEW_BODY_PADDING,
+      )}
+    >
       <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
-      <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-3 flex flex-col gap-5 scrollbar-on-hover md:pr-4 md:gap-6 lg:gap-8">
+      <div
+        className={cn(
+          "min-h-0 max-h-full w-full shrink overflow-y-auto flex flex-col gap-5 scrollbar-on-hover md:gap-6 lg:gap-8",
+          PREVIEW_SCROLL_END_PADDING,
+        )}
+      >
         <div className="shrink-0">
           <h2
             className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
@@ -64,14 +86,14 @@ export function PreviewSlideContent({
       exit={{ opacity: 0, x: -20 }}
       className={cn(
         "preview-slide bg-white flex relative min-h-0",
-        slide.type === "diagram"
+        slideUsesFullBleedCanvas(slide.type)
           ? "w-full h-full max-w-none flex-col"
           : "w-full max-w-7xl 2xl:max-w-[1600px] aspect-video max-h-full",
-        slide.type === "chapter" ? "justify-center items-center" : "",
+        slide.type === SLIDE_TYPE.CHAPTER ? "justify-center items-center" : "",
         slide.contentLayout === "panel-full" ? "flex-col" : "",
       )}
     >
-      {slide.type === "chapter" ? (
+      {slide.type === SLIDE_TYPE.CHAPTER ? (
         <div className="text-center space-y-5 px-4 md:space-y-6 lg:space-y-8 md:px-8">
           <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
           <h1
@@ -89,7 +111,50 @@ export function PreviewSlideContent({
             </p>
           )}
         </div>
-      ) : slide.type === "diagram" ? (
+      ) : slide.type === SLIDE_TYPE.MATRIX ? (
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 w-full h-full flex-1 flex-col overflow-hidden",
+            PREVIEW_BODY_PADDING,
+          )}
+        >
+          <div className="shrink-0 pb-3 md:pb-4">
+            <h2
+              className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
+              style={{ fontSize: "var(--slide-title)" }}
+            >
+              {slide.title}
+            </h2>
+            {slide.subtitle && (
+              <p
+                className="text-stone-500 mt-2 whitespace-pre-wrap wrap-break-word"
+                style={{ fontSize: "var(--slide-subtitle)" }}
+              >
+                {slide.subtitle}
+              </p>
+            )}
+            <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
+          </div>
+          <div
+            className={cn(
+              "min-h-0 min-w-0 flex-1 overflow-auto scrollbar-on-hover pb-2",
+              PREVIEW_SCROLL_END_PADDING,
+            )}
+          >
+            <SlideMatrixTable
+              presentationDensity="preview"
+              data={normalizeSlideMatrixData(
+                slide.matrixData ?? createEmptySlideMatrixData(),
+              )}
+            />
+          </div>
+          {slide.content.trim() ? (
+            <div className="shrink-0 border-t border-stone-100 pt-3 dark:border-border">
+              <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
+            </div>
+          ) : null}
+        </div>
+      ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
         <div className="flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden relative">
           <ExcalidrawViewer
             key={`${slide.id}-${slide.excalidrawData ? "dirty" : "empty"}`}

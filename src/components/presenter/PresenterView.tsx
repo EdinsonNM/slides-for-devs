@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Monitor, StickyNote, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Slide } from "../../types";
+import { slideUsesFullBleedCanvas } from "../../domain/entities";
 import { usePresentation } from "../../context/PresentationContext";
 import { presenterChat } from "../../services/gemini";
 import { PreviewSlideContent } from "../preview/PreviewSlideContent";
@@ -177,7 +178,7 @@ export function PresenterView() {
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
         <section
           className={
-            currentSlide.type === "diagram"
+            slideUsesFullBleedCanvas(currentSlide.type)
               ? "relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col bg-stone-950 p-2 md:order-1 md:p-3"
               : "relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4"
           }

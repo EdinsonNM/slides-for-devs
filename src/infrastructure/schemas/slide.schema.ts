@@ -1,4 +1,4 @@
-import type { Slide } from "../../domain/entities";
+import { SLIDE_TYPE, type Slide } from "../../domain/entities";
 
 /**
  * Estructura mínima de una slide tal como la genera el LLM (presentación, split).
@@ -30,7 +30,7 @@ export const slidesArrayShapeDescription = `{ "slides": [ { "id": "...", "type":
 export function slideSchemaItemToSlide(item: SlideSchemaItem, index: number): Slide {
   return {
     id: item.id || `slide-${index + 1}`,
-    type: item.type === "chapter" ? "chapter" : "content",
+    type: item.type === SLIDE_TYPE.CHAPTER ? SLIDE_TYPE.CHAPTER : SLIDE_TYPE.CONTENT,
     title: item.title ?? "",
     subtitle: item.subtitle,
     content: item.content ?? "",

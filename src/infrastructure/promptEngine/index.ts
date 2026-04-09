@@ -6,4 +6,5 @@ export type {
   SplitSlideInput,
   RewriteSlideInput,
   GenerateSlideContentInput,
+  GenerateSlideMatrixInput,
 } from "./types";

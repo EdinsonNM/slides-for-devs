@@ -1,10 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Slide } from "../../domain/entities";
 import type {
   PresentationGeneratorPort,
   SlideOperationsPort,
   ImageGeneratorPort,
 } from "../../domain/ports";
+import {
+  type Slide,
+  SLIDE_TYPE,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  serializeSlideMatrixForPrompt,
+} from "../../domain/entities";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -14,6 +20,7 @@ import {
   splitSlidePrompt,
   rewriteSlidePrompt,
   generateSlideContentPrompt,
+  generateSlideMatrixPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
@@ -58,7 +65,7 @@ const presentationSchema = {
       type: Type.OBJECT,
       properties: {
         id: { type: Type.STRING },
-        type: { type: Type.STRING, enum: ["content", "chapter"] },
+        type: { type: Type.STRING, enum: [SLIDE_TYPE.CONTENT, SLIDE_TYPE.CHAPTER] },
         title: { type: Type.STRING },
         subtitle: { type: Type.STRING },
         content: { type: Type.STRING },
@@ -174,6 +181,82 @@ export class GeminiAdapter
       return { title: parsed.title ?? slide.title, content: parsed.content ?? slide.content };
     } catch {
       return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }> {
+    const baseMatrix = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    const fallback = {
+      title: slide.title,
+      subtitle: slide.subtitle ?? "",
+      content: slide.content,
+      columnHeaders: baseMatrix.columnHeaders,
+      rows: baseMatrix.rows,
+    };
+    const { system, user } = buildPrompt(generateSlideMatrixPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideSubtitle: slide.subtitle ?? "",
+      matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
+      userPrompt,
+    });
+    const content = `${system}\n\n${user}`;
+    const res = await client().models.generateContent({
+      model: modelId || DEFAULT_TEXT,
+      contents: content,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            subtitle: { type: Type.STRING },
+            content: { type: Type.STRING },
+            columnHeaders: { type: Type.ARRAY, items: { type: Type.STRING } },
+            rows: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+            },
+          },
+          required: ["title", "subtitle", "content", "columnHeaders", "rows"],
+        },
+      },
+    });
+    try {
+      const parsed = JSON.parse(res.text || "{}") as {
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        columnHeaders?: unknown;
+        rows?: unknown;
+      };
+      const matrix = normalizeSlideMatrixData({
+        columnHeaders: parsed.columnHeaders,
+        rows: parsed.rows,
+      });
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        subtitle: String(parsed.subtitle ?? "").trim(),
+        content: String(parsed.content ?? "").trim(),
+        columnHeaders: matrix.columnHeaders,
+        rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
     }
   }
 

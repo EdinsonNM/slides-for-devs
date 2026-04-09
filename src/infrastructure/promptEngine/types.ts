@@ -76,3 +76,13 @@ export interface GenerateSlideContentInput {
   slideContent: string;
   userPrompt: string;
 }
+
+/** Input para generar título, notas y tabla estructurada en un slide tipo matrix. */
+export interface GenerateSlideMatrixInput {
+  presentationTopic: string;
+  slideTitle: string;
+  slideSubtitle: string;
+  /** JSON serializado de la matriz actual (para refinar o sustituir). */
+  matrixJson: string;
+  userPrompt: string;
+}

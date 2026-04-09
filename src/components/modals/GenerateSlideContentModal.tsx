@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Loader2 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+import { SLIDE_TYPE } from "../../domain/entities";
 
 export function GenerateSlideContentModal() {
   const {
@@ -11,7 +12,10 @@ export function GenerateSlideContentModal() {
     isProcessing,
     handleGenerateSlideContentAi,
     topic,
+    currentSlide,
   } = usePresentation();
+
+  const isMatrixSlide = currentSlide?.type === SLIDE_TYPE.MATRIX;
 
   return (
     <AnimatePresence>
@@ -37,7 +41,7 @@ export function GenerateSlideContentModal() {
                 </div>
                 <div>
                   <h3 className="font-medium text-stone-900 dark:text-foreground">
-                    Generar esta diapositiva
+                    {isMatrixSlide ? "Generar tabla con IA" : "Generar esta diapositiva"}
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-muted-foreground">
                     {topic.trim()
@@ -61,13 +65,19 @@ export function GenerateSlideContentModal() {
                   htmlFor="slide-gen-prompt"
                   className="text-xs font-bold uppercase tracking-wider text-stone-400 dark:text-muted-foreground"
                 >
-                  Qué debe incluir esta diapositiva
+                  {isMatrixSlide
+                    ? "Describe la matriz o tabla que necesitas"
+                    : "Qué debe incluir esta diapositiva"}
                 </label>
                 <textarea
                   id="slide-gen-prompt"
                   value={generateSlideContentPrompt}
                   onChange={(e) => setGenerateSlideContentPrompt(e.target.value)}
-                  placeholder="Ej: Explicar ventajas de los tests de contrato vs tests e2e, con 3 viñetas y un ejemplo breve…"
+                  placeholder={
+                    isMatrixSlide
+                      ? "Ej: Matriz de decisión con columnas Criterio, Peso, Opción A, Opción B y 4 filas comparando dos arquitecturas…"
+                      : "Ej: Explicar ventajas de los tests de contrato vs tests e2e, con 3 viñetas y un ejemplo breve…"
+                  }
                   className="w-full h-32 p-4 bg-white dark:bg-surface border border-stone-200 dark:border-border rounded-xl text-stone-900 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none text-sm"
                   disabled={isProcessing}
                 />
@@ -86,7 +96,7 @@ export function GenerateSlideContentModal() {
                 ) : (
                   <>
                     <Sparkles size={20} />
-                    Generar contenido
+                    {isMatrixSlide ? "Generar tabla" : "Generar contenido"}
                   </>
                 )}
               </button>

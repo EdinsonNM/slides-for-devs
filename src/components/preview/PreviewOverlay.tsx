@@ -5,6 +5,7 @@ import { usePresentation } from "../../context/PresentationContext";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
+import { slideUsesFullBleedCanvas } from "../../domain/entities";
 
 function getOrigin() {
   return window.location.origin;
@@ -184,7 +185,7 @@ export function PreviewOverlay() {
 
         <div
           className={
-            currentSlide.type === "diagram"
+            slideUsesFullBleedCanvas(currentSlide.type)
               ? "relative z-20 flex-1 flex min-h-0 min-w-0 w-full"
               : "relative z-20 flex-1 flex items-center justify-center p-12 min-h-0"
           }

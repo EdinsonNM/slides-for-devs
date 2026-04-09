@@ -33,9 +33,16 @@ import {
   splitSlide as splitSlideUseCase,
   rewriteSlide as rewriteSlideUseCase,
   generateSlideContent as generateSlideContentUseCase,
+  generateSlideMatrix as generateSlideMatrixUseCase,
   generateImagePromptAlternatives,
   generateImage as generateImageUseCase,
 } from "../composition/container";
+import {
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  SLIDE_TYPE,
+  type SlideMatrixData,
+} from "../domain/entities";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -910,29 +917,62 @@ export function usePresentationState() {
     });
   };
 
-  /** Cambia el tipo de la diapositiva actual: capítulo, contenido o diagrama. */
+  /** Cambia el tipo de la diapositiva actual: capítulo, contenido, diagrama o matriz. */
   const setCurrentSlideType = (type: SlideType) => {
     if (!currentSlide || currentSlide.type === type) return;
     setSlides((prev) => {
       const updated = [...prev];
-      const next = { ...currentSlide, type };
-      if (type === "chapter" || type === "diagram") {
+      const next: Slide = { ...currentSlide, type };
+
+      if (type === SLIDE_TYPE.DIAGRAM) {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
-        if (type === "diagram" && !next.excalidrawData)
-          next.excalidrawData = "{}";
+        delete (next as Slide).matrixData;
+        if (!next.excalidrawData) next.excalidrawData = "{}";
       } else {
+        delete (next as Slide).excalidrawData;
+      }
+
+      if (type === SLIDE_TYPE.CHAPTER) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        delete (next as Slide).matrixData;
+      } else if (type === SLIDE_TYPE.MATRIX) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        next.matrixData = normalizeSlideMatrixData(
+          next.matrixData ?? createEmptySlideMatrixData(),
+        );
+      } else if (type === SLIDE_TYPE.CONTENT) {
+        delete (next as Slide).matrixData;
         if (!next.contentType) next.contentType = "image";
         if (!next.contentLayout) next.contentLayout = "split";
       }
+
       updated[currentIndex] = next;
       return updated;
     });
   };
 
+  const patchCurrentSlideMatrix = useCallback(
+    (updater: (prev: SlideMatrixData) => SlideMatrixData) => {
+      setSlides((prev) => {
+        const idx = currentIndexRef.current;
+        const cur = prev[idx];
+        if (!cur || cur.type !== SLIDE_TYPE.MATRIX) return prev;
+        const raw = cur.matrixData ?? createEmptySlideMatrixData();
+        const nextMatrix = normalizeSlideMatrixData(updater(raw));
+        const out = [...prev];
+        out[idx] = { ...cur, matrixData: nextMatrix };
+        return out;
+      });
+    },
+    [],
+  );
+
   /** Actualiza los datos del diagrama Excalidraw de la diapositiva actual. Solo para type "diagram". */
   const setCurrentSlideExcalidrawData = (data: string) => {
-    if (!currentSlide || currentSlide.type !== "diagram") return;
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.DIAGRAM) return;
     setSlides((prev) => {
       const updated = [...prev];
       updated[currentIndex] = { ...currentSlide, excalidrawData: data };
@@ -946,7 +986,7 @@ export function usePresentationState() {
   ) => {
     setSlides((prev) => {
       const slide = prev[currentIndex];
-      if (!slide || slide.type !== "content") return prev;
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return prev;
       if (slide.contentLayout === contentLayout) return prev;
       const updated = [...prev];
       updated[currentIndex] = { ...slide, contentLayout };
@@ -958,7 +998,7 @@ export function usePresentationState() {
   const setCurrentSlideContentType = (
     contentType: NonNullable<Slide["contentType"]>,
   ) => {
-    if (!currentSlide || currentSlide.type !== "content") return;
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
     if (currentSlide.contentType === contentType) return;
     setSlides((prev) => {
       const updated = [...prev];
@@ -976,7 +1016,7 @@ export function usePresentationState() {
   };
 
   const setCurrentSlidePresenter3dDeviceId = (presenter3dDeviceId: string) => {
-    if (!currentSlide || currentSlide.type !== "content") return;
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
       const updated = [...prev];
@@ -988,7 +1028,7 @@ export function usePresentationState() {
   const setCurrentSlidePresenter3dScreenMedia = (
     presenter3dScreenMedia: "image" | "video",
   ) => {
-    if (!currentSlide || currentSlide.type !== "content") return;
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
       const updated = [...prev];
@@ -1000,7 +1040,7 @@ export function usePresentationState() {
   const setCurrentSlidePresenter3dViewState = (
     presenter3dViewState: Presenter3dViewState,
   ) => {
-    if (!currentSlide || currentSlide.type !== "content") return;
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
       const updated = [...prev];
@@ -1274,15 +1314,59 @@ export function usePresentationState() {
   };
 
   const handleGenerateSlideContentAi = async () => {
-    if (!currentSlide || currentSlide.type !== "content") return;
+    if (!currentSlide) return;
     const instr = generateSlideContentPrompt.trim();
     if (!instr) return;
-    setIsProcessing(true);
     const modelId = usesChatCompletionSlideOps(
       presentationModelOption?.provider,
     )
       ? presentationModelId
       : effectiveGeminiModel;
+
+    if (currentSlide.type === SLIDE_TYPE.MATRIX) {
+      setIsProcessing(true);
+      try {
+        const result = await generateSlideMatrixUseCase.run(
+          topic.trim(),
+          currentSlide,
+          instr,
+          modelId,
+        );
+        const formattedContent = formatMarkdown(result.content);
+        const matrixData = normalizeSlideMatrixData({
+          columnHeaders: result.columnHeaders,
+          rows: result.rows,
+        });
+        setSlides((prev) => {
+          const updated = [...prev];
+          const slide = updated[currentIndex];
+          if (!slide || slide.type !== SLIDE_TYPE.MATRIX) return prev;
+          updated[currentIndex] = {
+            ...slide,
+            title: result.title,
+            subtitle: result.subtitle.trim() || undefined,
+            content: formattedContent,
+            matrixData,
+          };
+          return updated;
+        });
+        setEditTitle(result.title);
+        setEditSubtitle(result.subtitle);
+        setEditContent(formattedContent);
+        setShowGenerateSlideContentModal(false);
+        setGenerateSlideContentPrompt("");
+        trackEvent(ANALYTICS_EVENTS.SLIDE_MATRIX_GENERATED);
+      } catch (error) {
+        console.error("Error generating matrix slide:", error);
+        alert("No se pudo generar la tabla con IA.");
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    if (currentSlide.type !== SLIDE_TYPE.CONTENT) return;
+    setIsProcessing(true);
     try {
       const result = await generateSlideContentUseCase.run(
         topic.trim(),
@@ -1359,7 +1443,7 @@ export function usePresentationState() {
       i === idx ? slidePatchedFromEditBuffers(sl, buffers) : sl,
     );
     const s =
-      pending != null && merged[idx]?.type === "diagram"
+      pending != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
         ? merged.map((sl, i) =>
             i === idx ? { ...sl, excalidrawData: pending } : sl,
           )
@@ -1714,7 +1798,7 @@ export function usePresentationState() {
       i === idx ? slidePatchedFromEditBuffers(s, buffers) : s,
     );
     const slidesToSave =
-      pendingDiagram != null && merged[idx]?.type === "diagram"
+      pendingDiagram != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
         ? merged.map((s, i) =>
             i === idx ? { ...s, excalidrawData: pendingDiagram } : s,
           )
@@ -2921,6 +3005,7 @@ export function usePresentationState() {
     toggleContentType,
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,
+    patchCurrentSlideMatrix,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,

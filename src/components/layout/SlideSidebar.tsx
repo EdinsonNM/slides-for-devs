@@ -8,9 +8,10 @@ import {
   Code2,
   Video,
   Box,
+  Table2,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
-import type { Slide } from "../../domain/entities/Slide";
+import { SLIDE_TYPE, type Slide } from "../../domain/entities";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
 
@@ -148,7 +149,7 @@ export function SlideSidebar() {
               <span className="text-[8px] uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-0.5">
                 {index + 1}
               </span>
-              {slide.type === "chapter" ? (
+              {slide.type === SLIDE_TYPE.CHAPTER ? (
                 <>
                   <span className="text-[10px] font-medium text-stone-900 dark:text-foreground line-clamp-2 text-center leading-tight flex-1 flex items-center justify-center px-0.5">
                     {slide.title}
@@ -158,7 +159,7 @@ export function SlideSidebar() {
                     <div className="h-0.5 w-8 bg-stone-200 dark:bg-stone-600 rounded-full animate-pulse" />
                   </div>
                 </>
-              ) : slide.type === "diagram" ? (
+              ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
                 <div className="flex-1 flex flex-col gap-1 min-h-0">
                   <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
                     {slide.title || "Diagrama"}
@@ -173,6 +174,21 @@ export function SlideSidebar() {
                     </div>
                   </div>
                   <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">Diagrama</span>
+                </div>
+              ) : slide.type === SLIDE_TYPE.MATRIX ? (
+                <div className="flex-1 flex flex-col gap-1 min-h-0">
+                  <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
+                    {slide.title || "Tabla"}
+                  </span>
+                  <div className="flex-1 min-h-0 grid grid-cols-3 gap-px rounded border border-stone-200 dark:border-stone-600 overflow-hidden bg-stone-200 dark:bg-stone-600">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="bg-stone-50 dark:bg-stone-800 min-h-[6px]" />
+                    ))}
+                  </div>
+                  <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0 flex items-center gap-0.5">
+                    <Table2 className="w-2.5 h-2.5" strokeWidth={2} />
+                    Matriz
+                  </span>
                 </div>
               ) : slide.contentLayout === "panel-full" ? (
                 <div className="flex-1 flex flex-col gap-0.5 min-h-0">

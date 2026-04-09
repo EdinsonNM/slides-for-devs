@@ -1,9 +1,14 @@
-import type { Slide } from "../../domain/entities";
 import type {
   PresentationGeneratorPort,
   SlideOperationsPort,
   ImageGeneratorPort,
 } from "../../domain/ports";
+import {
+  type Slide,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  serializeSlideMatrixForPrompt,
+} from "../../domain/entities";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -13,6 +18,7 @@ import {
   splitSlidePrompt,
   rewriteSlidePrompt,
   generateSlideContentPrompt,
+  generateSlideMatrixPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
@@ -153,6 +159,69 @@ export class OpenAIAdapter
       return { title: p.title ?? slide.title, content: p.content ?? slide.content };
     } catch {
       return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }> {
+    const baseMatrix = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    const fallback = {
+      title: slide.title,
+      subtitle: slide.subtitle ?? "",
+      content: slide.content,
+      columnHeaders: baseMatrix.columnHeaders,
+      rows: baseMatrix.rows,
+    };
+    const { system, user } = buildPrompt(generateSlideMatrixPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideSubtitle: slide.subtitle ?? "",
+      matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
+      userPrompt,
+    });
+    const res = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
+      body: JSON.stringify({
+        model: modelId || "gpt-4o-mini",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
+    const raw = (await res.json())?.choices?.[0]?.message?.content;
+    if (!raw || typeof raw !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(raw) as {
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        columnHeaders?: unknown;
+        rows?: unknown;
+      };
+      const matrix = normalizeSlideMatrixData({
+        columnHeaders: parsed.columnHeaders,
+        rows: parsed.rows,
+      });
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        subtitle: String(parsed.subtitle ?? "").trim(),
+        content: String(parsed.content ?? "").trim(),
+        columnHeaders: matrix.columnHeaders,
+        rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
     }
   }
 

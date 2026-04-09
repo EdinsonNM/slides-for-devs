@@ -14,6 +14,19 @@ export interface SlideOperationsPort {
     userPrompt: string,
     modelId: string
   ): Promise<{ title: string; content: string }>;
+  /** Genera título, subtítulo opcional, notas y datos tabulares para un slide tipo matrix. */
+  generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }>;
   generateImagePromptAlternatives(
     slideContext: string,
     currentPrompt: string,

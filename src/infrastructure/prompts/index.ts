@@ -3,6 +3,7 @@ export { generatePresentationPrompt } from "./generatePresentation.prompt";
 export { splitSlidePrompt } from "./splitSlide.prompt";
 export { rewriteSlidePrompt } from "./rewriteSlide.prompt";
 export { generateSlideContentPrompt } from "./generateSlideContent.prompt";
+export { generateSlideMatrixPrompt } from "./generateSlideMatrix.prompt";
 export {
   imageAlternativesPrompt,
   imageGenerationPrompt,

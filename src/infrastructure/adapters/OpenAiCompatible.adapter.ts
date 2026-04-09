@@ -1,5 +1,10 @@
-import type { Slide } from "../../domain/entities";
 import type { PresentationGeneratorPort, SlideOperationsPort } from "../../domain/ports";
+import {
+  type Slide,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  serializeSlideMatrixForPrompt,
+} from "../../domain/entities";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -9,6 +14,7 @@ import {
   splitSlidePrompt,
   rewriteSlidePrompt,
   generateSlideContentPrompt,
+  generateSlideMatrixPrompt,
   imageAlternativesPrompt,
 } from "../prompts";
 import { parseSlidesFromResponse } from "../schemas";
@@ -235,6 +241,76 @@ export class OpenAiCompatibleAdapter
       return { title: p.title ?? slide.title, content: p.content ?? slide.content };
     } catch {
       return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }> {
+    const baseMatrix = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    const fallback = {
+      title: slide.title,
+      subtitle: slide.subtitle ?? "",
+      content: slide.content,
+      columnHeaders: baseMatrix.columnHeaders,
+      rows: baseMatrix.rows,
+    };
+    const { system, user } = buildPrompt(generateSlideMatrixPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideSubtitle: slide.subtitle ?? "",
+      matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
+      userPrompt,
+    });
+    const body = {
+      model: this.model(modelId),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      max_tokens: 8192,
+    };
+    const content = this.isTauri()
+      ? await this.tauriChat(body)
+      : await (async () => {
+          const res = await fetch(this.config.chatUrl, {
+            method: "POST",
+            headers: this.headers(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await this.parseError(res));
+          const data = await res.json().catch(() => ({}));
+          return data?.choices?.[0]?.message?.content as string | undefined;
+        })();
+    if (!content || typeof content !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(content) as {
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        columnHeaders?: unknown;
+        rows?: unknown;
+      };
+      const matrix = normalizeSlideMatrixData({
+        columnHeaders: parsed.columnHeaders,
+        rows: parsed.rows,
+      });
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        subtitle: String(parsed.subtitle ?? "").trim(),
+        content: String(parsed.content ?? "").trim(),
+        columnHeaders: matrix.columnHeaders,
+        rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
     }
   }
 

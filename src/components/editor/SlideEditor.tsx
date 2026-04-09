@@ -4,6 +4,8 @@ import { cn } from "../../utils/cn";
 import { SlideContentChapter } from "./SlideContentChapter";
 import { SlideContentDefault } from "./SlideContentDefault";
 import { SlideContentDiagram } from "./SlideContentDiagram";
+import { SlideContentMatrix } from "./SlideContentMatrix";
+import { SLIDE_TYPE } from "../../domain/entities";
 
 export function SlideEditor() {
   const { currentSlide, currentIndex } = usePresentation();
@@ -21,15 +23,17 @@ export function SlideEditor() {
           exit={{ opacity: 0, scale: 1.02 }}
           className={cn(
             "slide-content relative flex aspect-video w-full max-w-5xl overflow-hidden rounded-lg border border-stone-200/90 bg-white shadow-md shadow-stone-900/5 ring-1 ring-stone-900/[0.04] dark:border-border dark:bg-surface-elevated dark:shadow-xl dark:ring-white/10",
-            currentSlide.type === "chapter"
+            currentSlide.type === SLIDE_TYPE.CHAPTER
               ? "justify-center items-center"
               : "",
           )}
         >
-          {currentSlide.type === "chapter" ? (
+          {currentSlide.type === SLIDE_TYPE.CHAPTER ? (
             <SlideContentChapter />
-          ) : currentSlide.type === "diagram" ? (
+          ) : currentSlide.type === SLIDE_TYPE.DIAGRAM ? (
             <SlideContentDiagram />
+          ) : currentSlide.type === SLIDE_TYPE.MATRIX ? (
+            <SlideContentMatrix />
           ) : (
             <SlideContentDefault />
           )}

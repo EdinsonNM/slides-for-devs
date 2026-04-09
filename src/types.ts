@@ -1,4 +1,5 @@
-export type { Slide, SlideType, SlidePanelContentType } from "./domain/entities";
+export type { Slide, SlideType, SlidePanelContentType, SlideMatrixData } from "./domain/entities";
+export { SLIDE_TYPE, slideUsesFullBleedCanvas } from "./domain/entities";
 export type {
   ImageStyle,
   SavedCharacter,

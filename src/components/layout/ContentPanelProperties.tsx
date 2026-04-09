@@ -20,6 +20,7 @@ import {
 } from "../../constants/device3d";
 import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
+import { SLIDE_TYPE } from "../../domain/entities";
 
 /**
  * Controles del panel lateral (imagen / vídeo / código / 3D) en el inspector derecho.
@@ -69,9 +70,10 @@ export function ContentPanelProperties() {
   if (!currentSlide) return null;
 
   const isContentSplit =
-    currentSlide.type === "content" && (currentSlide.contentLayout ?? "split") === "split";
+    currentSlide.type === SLIDE_TYPE.CONTENT &&
+    (currentSlide.contentLayout ?? "split") === "split";
   const isContentPanelFull =
-    currentSlide.type === "content" && currentSlide.contentLayout === "panel-full";
+    currentSlide.type === SLIDE_TYPE.CONTENT && currentSlide.contentLayout === "panel-full";
   if (!isContentSplit && !isContentPanelFull) return null;
 
   const contentType = currentSlide.contentType ?? "image";

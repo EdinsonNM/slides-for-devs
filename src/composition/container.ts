@@ -8,6 +8,7 @@ import {
   SplitSlideUseCase,
   RewriteSlideUseCase,
   GenerateSlideContentUseCase,
+  GenerateSlideMatrixUseCase,
   GenerateImagePromptAlternativesUseCase,
   GenerateImageUseCase,
 } from "../application/use-cases";
@@ -75,6 +76,8 @@ export const splitSlide = new SplitSlideUseCase(getSlideOperations, gemini);
 export const rewriteSlide = new RewriteSlideUseCase(getSlideOperations, gemini);
 
 export const generateSlideContent = new GenerateSlideContentUseCase(getSlideOperations, gemini);
+
+export const generateSlideMatrix = new GenerateSlideMatrixUseCase(getSlideOperations, gemini);
 
 export const generateImagePromptAlternatives = new GenerateImagePromptAlternativesUseCase(
   getSlideOperations,

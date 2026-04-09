@@ -1,5 +1,6 @@
 import { Monitor } from "lucide-react";
 import type { Slide } from "../../types";
+import { SLIDE_TYPE } from "../../domain/entities";
 import { cn } from "../../utils/cn";
 
 export interface PresenterSlideSummaryProps {
@@ -32,14 +33,19 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
         <p className="font-serif italic text-stone-100 text-sm leading-tight line-clamp-2">
           {slide.title}
         </p>
-        {slide.type === "chapter" ? (
+        {slide.type === SLIDE_TYPE.CHAPTER ? (
           slide.subtitle && (
             <p className="text-stone-400 text-xs uppercase tracking-widest line-clamp-1">
               {slide.subtitle}
             </p>
           )
-        ) : slide.type === "diagram" ? (
+        ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
           <p className="text-stone-400 text-xs">Diagrama editable</p>
+        ) : slide.type === SLIDE_TYPE.MATRIX ? (
+          <p className="text-stone-400 text-xs line-clamp-2">
+            Tabla · {slide.matrixData?.columnHeaders?.length ?? 0}×
+            {slide.matrixData?.rows?.length ?? 0}
+          </p>
         ) : slide.contentLayout === "panel-full" && slide.subtitle ? (
           <p className="text-stone-400 text-xs line-clamp-2">{slide.subtitle}</p>
         ) : (
@@ -52,9 +58,14 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           </p>
         )}
         <div className="flex gap-1 flex-wrap">
-          {slide.type === "diagram" && (
+          {slide.type === SLIDE_TYPE.DIAGRAM && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Diagrama
+            </span>
+          )}
+          {slide.type === SLIDE_TYPE.MATRIX && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              Matriz
             </span>
           )}
           {slide.imageUrl && (

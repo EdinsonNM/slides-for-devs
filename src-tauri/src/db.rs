@@ -107,6 +107,9 @@ pub struct Slide {
     pub editor_content_width_percent: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "editorContentMinHeightPx")]
     pub editor_content_min_height_px: Option<f64>,
+    /// Tabla/matriz (JSON) cuando `slide_type == "matrix"`.
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "matrixData")]
+    pub matrix_data: Option<serde_json::Value>,
 }
 
 /// Frontend-compatible presentation.
@@ -379,6 +382,15 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
             [],
         )?;
     }
+    // Migration: matrix_data — tablas en slides tipo matrix.
+    let has_matrix: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('slides') WHERE name='matrix_data'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_matrix == 0 {
+        conn.execute("ALTER TABLE slides ADD COLUMN matrix_data TEXT", [])?;
+    }
     Ok(())
 }
 
@@ -462,6 +474,10 @@ pub fn save_presentation(
             .presenter_3d_view_state
             .as_ref()
             .and_then(|v| serde_json::to_string(v).ok());
+        let matrix_json: Option<String> = slide
+            .matrix_data
+            .as_ref()
+            .and_then(|v| serde_json::to_string(v).ok());
         conn.execute(
             r#"
             INSERT INTO slides (
@@ -469,8 +485,9 @@ pub fn save_presentation(
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
                 presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
-                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
+                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
+                matrix_data
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)
             "#,
             params![
                 id,
@@ -508,6 +525,7 @@ pub fn save_presentation(
                 slide
                     .editor_content_min_height_px
                     .map(|n| n.round().clamp(40., 2000.) as i32),
+                matrix_json,
             ],
         )?;
 
@@ -550,6 +568,10 @@ pub fn import_presentation(
             .presenter_3d_view_state
             .as_ref()
             .and_then(|v| serde_json::to_string(v).ok());
+        let matrix_json: Option<String> = slide
+            .matrix_data
+            .as_ref()
+            .and_then(|v| serde_json::to_string(v).ok());
         conn.execute(
             r#"
             INSERT INTO slides (
@@ -557,8 +579,9 @@ pub fn import_presentation(
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
                 presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
-                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
+                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
+                matrix_data
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)
             "#,
             params![
                 saved.id,
@@ -596,6 +619,7 @@ pub fn import_presentation(
                 slide
                     .editor_content_min_height_px
                     .map(|n| n.round().clamp(40., 2000.) as i32),
+                matrix_json,
             ],
         )?;
 
@@ -643,6 +667,10 @@ pub fn update_presentation(
             .presenter_3d_view_state
             .as_ref()
             .and_then(|v| serde_json::to_string(v).ok());
+        let matrix_json: Option<String> = slide
+            .matrix_data
+            .as_ref()
+            .and_then(|v| serde_json::to_string(v).ok());
         conn.execute(
             r#"
             INSERT INTO slides (
@@ -650,8 +678,9 @@ pub fn update_presentation(
                 image_prompt, code, language, font_size, video_url, content_type,
                 image_width_percent, content_layout, panel_height_percent, presenter_notes, speech, excalidraw_data,
                 presenter_3d_device_id, presenter_3d_screen_media, presenter_3d_model_scale, presenter_3d_view_state,
-                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
+                editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
+                matrix_data
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)
             "#,
             params![
                 id,
@@ -689,6 +718,7 @@ pub fn update_presentation(
                 slide
                     .editor_content_min_height_px
                     .map(|n| n.round().clamp(40., 2000.) as i32),
+                matrix_json,
             ],
         )?;
 
@@ -723,7 +753,8 @@ pub fn load_presentation(
                font_size, video_url, content_type, image_width_percent, content_layout, panel_height_percent,
                presenter_notes, speech, excalidraw_data, presenter_3d_device_id, presenter_3d_screen_media,
                presenter_3d_model_scale, presenter_3d_view_state,
-               editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px
+               editor_title_width_percent, editor_title_min_height_px, editor_content_width_percent, editor_content_min_height_px,
+               matrix_data
         FROM slides WHERE presentation_id = ?1 ORDER BY ordinal
         "#,
     )?;
@@ -755,6 +786,7 @@ pub fn load_presentation(
             row.get::<_, Option<i32>>(23)?,
             row.get::<_, Option<i32>>(24)?,
             row.get::<_, Option<i32>>(25)?,
+            row.get::<_, Option<String>>(26)?,
         ))
     })?;
 
@@ -786,10 +818,16 @@ pub fn load_presentation(
             editor_title_min_height_px,
             editor_content_width_percent,
             editor_content_min_height_px,
+            matrix_data_raw,
         ) = row?;
 
         let presenter_3d_view_state: Option<Presenter3dViewStateDto> = presenter_3d_view_json
             .and_then(|s| serde_json::from_str(&s).ok());
+
+        let matrix_data: Option<serde_json::Value> = matrix_data_raw
+            .as_ref()
+            .filter(|s| !s.is_empty())
+            .and_then(|s| serde_json::from_str(s).ok());
 
         let image_url = conn
             .query_row(
@@ -826,6 +864,7 @@ pub fn load_presentation(
             editor_title_min_height_px: editor_title_min_height_px.map(|n| n as f64),
             editor_content_width_percent: editor_content_width_percent.map(|n| n as f64),
             editor_content_min_height_px: editor_content_min_height_px.map(|n| n as f64),
+            matrix_data,
         });
     }
 

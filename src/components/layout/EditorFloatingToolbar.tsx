@@ -7,9 +7,25 @@ import {
   Loader2,
   Sparkles,
   Mic,
+  Columns3,
+  Rows3,
+  Minus,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import {
+  SLIDE_TYPE,
+  applyMatrixAddColumn,
+  applyMatrixRemoveColumn,
+  applyMatrixAddRow,
+  applyMatrixRemoveRow,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  SLIDE_MATRIX_MAX_COLUMNS,
+  SLIDE_MATRIX_MAX_DATA_ROWS,
+  SLIDE_MATRIX_MIN_COLUMNS,
+  SLIDE_MATRIX_MIN_DATA_ROWS,
+} from "../../domain/entities";
 
 interface EditorFloatingToolbarProps {
   onOpenConfig?: () => void;
@@ -22,6 +38,7 @@ export function EditorFloatingToolbar({
   const {
     currentIndex,
     slides,
+    currentSlide,
     prevSlide,
     nextSlide,
     handleSave,
@@ -30,9 +47,17 @@ export function EditorFloatingToolbar({
     setIsPreviewMode,
     openGenerateFullDeckModal,
     setShowSpeechModal,
+    patchCurrentSlideMatrix,
+    setShowGenerateSlideContentModal,
+    setGenerateSlideContentPrompt,
   } = usePresentation();
 
   if (slides.length === 0) return null;
+
+  const matrixData = normalizeSlideMatrixData(
+    currentSlide?.matrixData ?? createEmptySlideMatrixData(),
+  );
+  const showMatrixToolbar = currentSlide?.type === SLIDE_TYPE.MATRIX;
 
   const barClass =
     "pointer-events-auto flex items-center gap-0.5 rounded-xl border border-stone-200/90 bg-white px-1.5 py-1.5 shadow-md shadow-stone-900/8 dark:border-border dark:bg-surface-elevated dark:shadow-lg dark:shadow-black/40";
@@ -43,6 +68,66 @@ export function EditorFloatingToolbar({
       aria-label="Herramientas flotantes del editor"
     >
       <div className="flex flex-wrap items-center justify-center gap-3">
+        {showMatrixToolbar && (
+          <div className={cn(barClass, "gap-0.5")} role="toolbar" aria-label="Tabla / matriz">
+            <button
+              type="button"
+              onClick={() => patchCurrentSlideMatrix(applyMatrixAddColumn)}
+              disabled={matrixData.columnHeaders.length >= SLIDE_MATRIX_MAX_COLUMNS}
+              title="Añadir columna"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-35 dark:hover:bg-white/10"
+            >
+              <Columns3 size={18} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => patchCurrentSlideMatrix(applyMatrixRemoveColumn)}
+              disabled={matrixData.columnHeaders.length <= SLIDE_MATRIX_MIN_COLUMNS}
+              title="Quitar última columna"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-35 dark:hover:bg-white/10"
+            >
+              <Minus size={18} aria-hidden />
+            </button>
+            <div
+              className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
+              aria-hidden
+            />
+            <button
+              type="button"
+              onClick={() => patchCurrentSlideMatrix(applyMatrixAddRow)}
+              disabled={matrixData.rows.length >= SLIDE_MATRIX_MAX_DATA_ROWS}
+              title="Añadir fila"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-35 dark:hover:bg-white/10"
+            >
+              <Rows3 size={18} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => patchCurrentSlideMatrix(applyMatrixRemoveRow)}
+              disabled={matrixData.rows.length <= SLIDE_MATRIX_MIN_DATA_ROWS}
+              title="Quitar última fila"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-35 dark:hover:bg-white/10"
+            >
+              <Minus size={18} aria-hidden />
+            </button>
+            <div
+              className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
+              aria-hidden
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setGenerateSlideContentPrompt("");
+                setShowGenerateSlideContentModal(true);
+              }}
+              title="Generar tabla con IA"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-emerald-600 outline-none hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+            >
+              <Sparkles size={18} aria-hidden />
+            </button>
+          </div>
+        )}
+
         <div className={barClass}>
           <button
             type="button"
