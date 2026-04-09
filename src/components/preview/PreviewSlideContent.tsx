@@ -27,6 +27,35 @@ export function PreviewSlideContent({
   imageWidthPercent,
   panelHeightPercent = DEFAULT_PANEL_HEIGHT_PERCENT,
 }: PreviewSlideContentProps) {
+  const textColumn = (
+    <div className="flex-1 min-w-0 p-5 flex flex-col min-h-0 overflow-hidden md:p-8 lg:p-10 xl:p-12">
+      <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
+      <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-3 flex flex-col gap-5 scrollbar-on-hover md:pr-4 md:gap-6 lg:gap-8">
+        <div className="shrink-0">
+          <h2
+            className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
+            style={{ fontSize: "var(--slide-title)" }}
+          >
+            {slide.title}
+          </h2>
+          {slide.subtitle && (
+            <p
+              className="text-stone-500 mt-2"
+              style={{ fontSize: "var(--slide-subtitle)" }}
+            >
+              {slide.subtitle}
+            </p>
+          )}
+          <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
+        </div>
+        <div className="shrink-0">
+          <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
+    </div>
+  );
+
   return (
     <motion.div
       key={slide.id}
@@ -145,37 +174,13 @@ export function PreviewSlideContent({
             )}
           </div>
         </>
+      ) : slide.contentLayout === "full" ? (
+        textColumn
       ) : (
         <>
-          <div className="flex-1 p-5 flex flex-col min-h-0 overflow-hidden md:p-8 lg:p-10 xl:p-12">
-            {/* Espaciadores + bloque central: centra en vertical sin colapsar flex-1/basis-0 del cuerpo */}
-            <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
-            <div className="min-h-0 max-h-full w-full shrink overflow-y-auto pr-3 flex flex-col gap-5 scrollbar-on-hover md:pr-4 md:gap-6 lg:gap-8">
-              <div className="shrink-0">
-                <h2
-                  className="font-serif italic text-stone-900 leading-tight whitespace-pre-wrap wrap-break-word"
-                  style={{ fontSize: "var(--slide-title)" }}
-                >
-                  {slide.title}
-                </h2>
-                {slide.subtitle && (
-                  <p
-                    className="text-stone-500 mt-2"
-                    style={{ fontSize: "var(--slide-subtitle)" }}
-                  >
-                    {slide.subtitle}
-                  </p>
-                )}
-                <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
-              </div>
-              <div className="shrink-0">
-                <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 basis-0 shrink" aria-hidden />
-          </div>
+          {textColumn}
           <div
-            className="flex flex-col relative"
+            className="flex flex-col relative shrink-0"
             style={{ width: `${imageWidthPercent}%` }}
           >
             <div className="w-full h-full p-5 flex items-center justify-center md:p-7 lg:p-8">

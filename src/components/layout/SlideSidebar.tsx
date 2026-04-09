@@ -200,6 +200,18 @@ export function SlideSidebar() {
                     )}
                   </div>
                 </div>
+              ) : slide.contentLayout === "full" ? (
+                <div className="flex-1 flex flex-col gap-0.5 min-h-0">
+                  <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
+                    {slide.title || "Contenido"}
+                  </span>
+                  <div className="h-0.5 w-3/4 max-w-[85%] bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
+                  <div className="h-0.5 w-full max-w-[95%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                  <div className="h-0.5 w-full max-w-[88%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                  <div className="h-0.5 w-full max-w-[92%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                  <div className="h-0.5 w-full max-w-[70%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
+                  <div className="h-0.5 w-full max-w-[80%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse mt-auto" />
+                </div>
               ) : (
                 <div className="flex-1 flex gap-1 min-h-0">
                   <div className="flex-1 flex flex-col gap-0.5 min-w-0 min-h-0">
