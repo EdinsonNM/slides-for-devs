@@ -8,7 +8,15 @@ import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
 
-export function Presenter3DPanel() {
+const CANVAS_MEDIA_BOUNDS_MARGIN = 1.08;
+
+export interface Presenter3DPanelProps {
+  embeddedInCanvas?: boolean;
+}
+
+export function Presenter3DPanel({
+  embeddedInCanvas = false,
+}: Presenter3DPanelProps = {}) {
   const {
     currentSlide,
     openImageModal,
@@ -160,7 +168,14 @@ export function Presenter3DPanel() {
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
       {toolbar}
       {warnMobile}
-      <div className="flex-1 min-h-0 p-2">
+      <div
+        className={cn(
+          "relative flex min-h-0 flex-1 flex-col",
+          embeddedInCanvas
+            ? "bg-white p-0 dark:bg-surface-elevated"
+            : "p-2",
+        )}
+      >
         <Device3DViewport
           slideId={currentSlide.id}
           deviceId={deviceId}
@@ -169,7 +184,11 @@ export function Presenter3DPanel() {
           videoUrl={currentSlide.videoUrl}
           viewState={currentSlide.presenter3dViewState}
           onViewStateCommit={handleViewCommit}
-          className="rounded-xl"
+          boundsMargin={
+            embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined
+          }
+          showInteractionHint={!embeddedInCanvas}
+          className={cn("min-h-0 flex-1", embeddedInCanvas ? "" : "rounded-xl")}
         />
       </div>
     </div>

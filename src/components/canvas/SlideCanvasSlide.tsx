@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Pencil, RefreshCw, Sparkles, Split } from "lucide-react";
+import { GripVertical, Pencil, RefreshCw, Sparkles, Split } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
@@ -26,6 +26,7 @@ import { SlideRightPanel } from "../editor/SlideRightPanel";
 import { SlideContentDiagram } from "../editor/SlideContentDiagram";
 import type { SlideMatrixData } from "../../domain/entities";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
+import { SlideCanvasAlignmentGuides } from "./SlideCanvasAlignmentGuides";
 import { SlideCanvasCanvaChrome } from "./SlideCanvasCanvaChrome";
 import { SlideCanvasHoverOutline } from "./SlideCanvasHoverOutline";
 import {
@@ -33,8 +34,35 @@ import {
   rectResizeFromCorner,
   type ResizeCorner,
 } from "./slideCanvasResize";
+import { snapCanvasRectWhileDragging } from "../../utils/slideCanvasAlignmentSnap";
 
 const EDIT_FIELD_ATTR = "data-slide-edit-field";
+/** Solo esta franja inicia arrastre del panel con presentador 3D (el lienzo WebGL captura puntero y chocaba con el movimiento). */
+const CANVAS_DRAG_STRIP_ATTR = "data-slide-canvas-drag-strip";
+
+/**
+ * Orden de apilamiento en el lienzo: solo debe depender de `element.z` (adelante/atrás).
+ * Antes `10_000 + z` al seleccionar rompía “enviar atrás” (el seleccionado siempre encima).
+ * `stride` + subcapa (hover/selección) mantiene el orden de datos y un pequeño desempate visual.
+ */
+const CANVAS_Z_STRIDE = 10;
+const CANVAS_Z_SUB_SELECTED = 2;
+const CANVAS_Z_SUB_HOVER = 1;
+
+/** UI flotante del lienzo por encima de los bloques (máx. z de bloque ≈ (n-1)*stride+2; p. ej. ~9992 con n≈1000). */
+const SLIDE_CANVAS_UI_Z = 10_000;
+
+/** Reasigna z a 0..n-1 según el orden actual, para que adelante/atrás no acumulen valores raros. */
+function normalizeCanvasElementsZOrder(
+  elements: SlideCanvasElement[],
+): SlideCanvasElement[] {
+  const withIdx = elements.map((e, i) => ({ e, i }));
+  withIdx.sort((a, b) => {
+    if (a.e.z !== b.e.z) return a.e.z - b.e.z;
+    return a.i - b.i;
+  });
+  return withIdx.map(({ e }, rank) => ({ ...e, z: rank }));
+}
 
 /** Primer clic en un bloque: permite seleccionar sin mover. */
 const DRAG_THRESHOLD_FIRST_PX = 5;
@@ -122,6 +150,12 @@ export function SlideCanvasSlide() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<TextField | null>(null);
   const slideContainerRef = useRef<HTMLDivElement | null>(null);
+  /** Elementos de la escena (orden z) para snap y guías durante el arrastre. */
+  const sceneElementsRef = useRef<SlideCanvasElement[]>([]);
+  const [alignmentGuides, setAlignmentGuides] = useState<{
+    vertical: { posPct: number; stroke: "solid" | "dashed" }[];
+    horizontal: { posPct: number; stroke: "solid" | "dashed" }[];
+  } | null>(null);
   /** Tras arrastrar un bloque, evita que el `click` posterior abra edición por error. */
   const dragConsumedClickRef = useRef(false);
 
@@ -129,6 +163,7 @@ export function SlideCanvasSlide() {
     setSelectedId(null);
     setHoveredId(null);
     setActiveField(null);
+    setAlignmentGuides(null);
   }, [currentSlide?.id]);
 
   useEffect(() => {
@@ -198,7 +233,11 @@ export function SlideCanvasSlide() {
           }),
           z: maxZ + 1,
         };
-        return { ...scene, elements: [...scene.elements, copy] };
+        const elements = normalizeCanvasElementsZOrder([
+          ...scene.elements,
+          copy,
+        ]);
+        return { ...scene, elements };
       });
     },
     [patchCurrentSlideCanvasScene],
@@ -220,12 +259,12 @@ export function SlideCanvasSlide() {
     (elementId: string) => {
       patchCurrentSlideCanvasScene((scene) => {
         const maxZ = scene.elements.reduce((m, e) => Math.max(m, e.z), 0);
-        return {
-          ...scene,
-          elements: scene.elements.map((e) =>
+        const elements = normalizeCanvasElementsZOrder(
+          scene.elements.map((e) =>
             e.id === elementId ? { ...e, z: maxZ + 1 } : e,
           ),
-        };
+        );
+        return { ...scene, elements };
       });
     },
     [patchCurrentSlideCanvasScene],
@@ -235,12 +274,12 @@ export function SlideCanvasSlide() {
     (elementId: string) => {
       patchCurrentSlideCanvasScene((scene) => {
         const minZ = scene.elements.reduce((m, e) => Math.min(m, e.z), 0);
-        return {
-          ...scene,
-          elements: scene.elements.map((e) =>
+        const elements = normalizeCanvasElementsZOrder(
+          scene.elements.map((e) =>
             e.id === elementId ? { ...e, z: minZ - 1 } : e,
           ),
-        };
+        );
+        return { ...scene, elements };
       });
     },
     [patchCurrentSlideCanvasScene],
@@ -265,6 +304,8 @@ export function SlideCanvasSlide() {
       const startX = startClientX;
       const startY = startClientY;
       let dragStarted = false;
+      let dragPhaseActive = false;
+      let onLostPointerCapture: (() => void) | null = null;
 
       const cleanupWatch = () => {
         window.removeEventListener("pointermove", onMoveWatch);
@@ -273,9 +314,21 @@ export function SlideCanvasSlide() {
       };
 
       const cleanupDrag = () => {
-        window.removeEventListener("pointermove", onDrag);
+        if (!dragPhaseActive) return;
+        dragPhaseActive = false;
+        setAlignmentGuides(null);
+        window.removeEventListener("pointermove", onDrag, {
+          passive: false,
+        } as AddEventListenerOptions);
         window.removeEventListener("pointerup", onUpDrag);
         window.removeEventListener("pointercancel", onUpDrag);
+        if (captureTarget && onLostPointerCapture) {
+          captureTarget.removeEventListener(
+            "lostpointercapture",
+            onLostPointerCapture,
+          );
+          onLostPointerCapture = null;
+        }
         if (
           captureTarget &&
           typeof captureTarget.releasePointerCapture === "function"
@@ -295,12 +348,23 @@ export function SlideCanvasSlide() {
         e2.preventDefault();
         const dxPct = ((e2.clientX - startX) / b.width) * 100;
         const dyPct = ((e2.clientY - startY) / b.height) * 100;
-        onPatchRect(elementId, {
+        const proposed: SlideCanvasRect = {
           x: baseRect.x + dxPct,
           y: baseRect.y + dyPct,
           w: baseRect.w,
           h: baseRect.h,
-        });
+        };
+        const { rect, guides } = snapCanvasRectWhileDragging(
+          proposed,
+          elementId,
+          sceneElementsRef.current,
+          b.width,
+          b.height,
+        );
+        const hasGuides =
+          guides.vertical.length > 0 || guides.horizontal.length > 0;
+        setAlignmentGuides(hasGuides ? guides : null);
+        onPatchRect(elementId, rect);
       };
 
       const onUpDrag = (e2: PointerEvent) => {
@@ -316,6 +380,17 @@ export function SlideCanvasSlide() {
         dragStarted = true;
         dragConsumedClickRef.current = true;
         cleanupWatch();
+        dragPhaseActive = true;
+
+        onLostPointerCapture = () => {
+          cleanupDrag();
+        };
+        if (captureTarget) {
+          captureTarget.addEventListener(
+            "lostpointercapture",
+            onLostPointerCapture,
+          );
+        }
 
         if (captureTarget?.setPointerCapture) {
           try {
@@ -340,7 +415,7 @@ export function SlideCanvasSlide() {
       window.addEventListener("pointerup", onUpWatch);
       window.addEventListener("pointercancel", onUpWatch);
     },
-    [onPatchRect],
+    [onPatchRect, setAlignmentGuides],
   );
 
   const consumeClickIfDrag = useCallback(() => {
@@ -415,11 +490,15 @@ export function SlideCanvasSlide() {
     [patchElementRotation],
   );
 
-  if (!currentSlide) return null;
+  if (!currentSlide) {
+    sceneElementsRef.current = [];
+    return null;
+  }
 
   const slide = ensureSlideCanvasScene(currentSlide);
   const scene = slide.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
+  sceneElementsRef.current = sorted;
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     const t = e.target as HTMLElement;
@@ -433,11 +512,14 @@ export function SlideCanvasSlide() {
   return (
     <div
       ref={slideContainerRef}
-      className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-surface-elevated"
+      className="relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-surface-elevated"
       onPointerDown={onBackgroundPointerDown}
     >
       {showIaToolbar && (
-        <div className="absolute left-3 top-3 z-50 flex items-center gap-1 md:left-4 md:top-4">
+        <div
+          className="absolute left-3 top-3 flex items-center gap-1 md:left-4 md:top-4"
+          style={{ zIndex: SLIDE_CANVAS_UI_Z }}
+        >
           <button
             type="button"
             onClick={() => {
@@ -478,7 +560,10 @@ export function SlideCanvasSlide() {
         slide.type === SLIDE_TYPE.DIAGRAM) &&
         !showIaToolbar &&
         !isEditing && (
-          <div className="absolute right-3 top-3 z-50 md:right-4 md:top-4">
+          <div
+            className="absolute right-3 top-3 md:right-4 md:top-4"
+            style={{ zIndex: SLIDE_CANVAS_UI_Z }}
+          >
             <button
               type="button"
               onClick={() => setIsEditing(true)}
@@ -493,12 +578,13 @@ export function SlideCanvasSlide() {
           </div>
         )}
 
-      {sorted.map((el) => (
+      {sorted
+        .filter((el) => el.kind !== "sectionLabel")
+        .map((el) => (
         <CanvasElementEditor
           key={el.id}
           element={el}
           slide={slide}
-          slideIndex={currentIndex}
           isSelected={selectedId === el.id}
           isHovered={hoveredId === el.id}
           onHoverEnter={() => setHoveredId(el.id)}
@@ -550,7 +636,6 @@ export function SlideCanvasSlide() {
 function CanvasElementEditor({
   element,
   slide,
-  slideIndex,
   isSelected,
   isHovered,
   onHoverEnter,
@@ -587,7 +672,6 @@ function CanvasElementEditor({
 }: {
   element: SlideCanvasElement;
   slide: Slide;
-  slideIndex: number;
   isSelected: boolean;
   isHovered: boolean;
   onHoverEnter: () => void;
@@ -700,13 +784,16 @@ function CanvasElementEditor({
     ],
   );
 
+  const zRank = Math.round(Number.isFinite(z) ? z : 0);
+  const sub =
+    (isSelected ? CANVAS_Z_SUB_SELECTED : 0) +
+    (!isSelected && isHovered ? CANVAS_Z_SUB_HOVER : 0);
   const box: React.CSSProperties = {
     left: `${rect.x}%`,
     top: `${rect.y}%`,
     width: `${rect.w}%`,
     height: `${rect.h}%`,
-    /** Seleccionado arriba del todo; hover sin seleccionar, un poco por encima de vecinos (contorno visible). */
-    zIndex: isSelected ? 10_000 + z : isHovered ? 1000 + z : z,
+    zIndex: zRank * CANVAS_Z_STRIDE + sub,
   };
 
   const shellHoverProps = {
@@ -821,24 +908,7 @@ function CanvasElementEditor({
 
   switch (kind) {
     case "sectionLabel":
-      return (
-        <div
-          style={box}
-          data-slide-canvas-el
-          className={outerShellClass}
-          {...shellHoverProps}
-        >
-          <div className="pointer-events-none flex h-full items-start px-1 pt-0.5">
-            <span
-              className="font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400"
-              style={{ fontSize: "var(--slide-label)" }}
-            >
-              Sección {slideIndex + 1}
-            </span>
-          </div>
-          {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
-        </div>
-      );
+      return null;
     case "title":
     case "chapterTitle": {
       const chapter = kind === "chapterTitle";
@@ -1085,43 +1155,103 @@ function CanvasElementEditor({
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
-    case "mediaPanel":
+    case "mediaPanel": {
+      const isPresenter3d = slide.contentType === "presenter3d";
+      const onMediaPanelDragPointerDown = (
+        e: React.PointerEvent<HTMLElement>,
+        captureEl: HTMLElement | null,
+      ) => {
+        if (e.button !== 0) return;
+        const t = e.target as HTMLElement;
+        if (t.closest("[data-slide-canvas-chrome]")) return;
+        onSelect();
+        e.stopPropagation();
+        attachDragThreshold(
+          id,
+          rect,
+          e.clientX,
+          e.clientY,
+          e.pointerId,
+          captureEl,
+          dragThresholdPx,
+        );
+      };
       return (
         <div
           style={box}
           data-slide-canvas-el
-          className={outerShellClass}
+          className={cn(
+            outerShellClass,
+            "bg-white dark:bg-surface-elevated",
+          )}
           {...shellHoverProps}
-          onPointerDown={(e) => {
-            if (e.button !== 0) return;
-            if (
-              (e.target as HTMLElement).closest("[data-slide-canvas-chrome]")
-            ) {
-              return;
-            }
-            onSelect();
-            e.stopPropagation();
-            const cap =
-              e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
-            attachDragThreshold(
-              id,
-              rect,
-              e.clientX,
-              e.clientY,
-              e.pointerId,
-              cap,
-              dragThresholdPx,
-            );
-          }}
+          onPointerDown={
+            isPresenter3d
+              ? undefined
+              : (e) => {
+                  const cap =
+                    e.currentTarget instanceof HTMLElement
+                      ? e.currentTarget
+                      : null;
+                  onMediaPanelDragPointerDown(e, cap);
+                }
+          }
         >
           {canvaChromeEl}
           {rotatedInner(
-            "h-full min-h-0 w-full overflow-hidden",
-            <SlideRightPanel fullWidth />,
+            "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden",
+            isPresenter3d ? (
+              <>
+                <div
+                  {...{ [CANVAS_DRAG_STRIP_ATTR]: "true" }}
+                  role="group"
+                  aria-label="Arrastrar para mover el panel en el lienzo"
+                  title="Arrastra esta franja para mover el bloque; en el área inferior giras el modelo 3D"
+                  className={cn(
+                    "z-[25] flex h-9 shrink-0 cursor-grab touch-none items-center gap-2 border-b border-stone-200 bg-stone-100/95 px-2 text-[11px] font-medium text-stone-600 select-none active:cursor-grabbing dark:border-border dark:bg-stone-900/95 dark:text-stone-300",
+                  )}
+                  onPointerDown={(e) => {
+                    const cap =
+                      e.currentTarget instanceof HTMLElement
+                        ? e.currentTarget
+                        : null;
+                    onMediaPanelDragPointerDown(e, cap);
+                  }}
+                >
+                  <GripVertical
+                    size={14}
+                    className="shrink-0 text-stone-400 dark:text-stone-500"
+                    aria-hidden
+                  />
+                  <span className="truncate">
+                    Arrastra aquí para mover · abajo, girar el modelo 3D
+                  </span>
+                </div>
+                <div
+                  className="flex min-h-0 flex-1 flex-col"
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    if (
+                      (e.target as HTMLElement).closest(
+                        "[data-slide-canvas-chrome]",
+                      )
+                    ) {
+                      return;
+                    }
+                    onSelect();
+                  }}
+                >
+                  <SlideRightPanel fullWidth embeddedInCanvas />
+                </div>
+              </>
+            ) : (
+              <SlideRightPanel fullWidth embeddedInCanvas />
+            ),
           )}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
+    }
     case "matrix": {
       const data = normalizeSlideMatrixData(
         slide.matrixData ?? createEmptySlideMatrixData(),

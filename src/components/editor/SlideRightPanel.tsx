@@ -9,9 +9,14 @@ import { Presenter3DPanel } from "./Presenter3DPanel";
 export interface SlideRightPanelProps {
   /** Si true, el panel ocupa todo el espacio (layout panel-full), sin borde ni resize. */
   fullWidth?: boolean;
+  /** Lienzo del slide: el contenedor no es flex; hace falta llenar el rect del selector y encuadre 3D más ajustado. */
+  embeddedInCanvas?: boolean;
 }
 
-export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
+export function SlideRightPanel({
+  fullWidth,
+  embeddedInCanvas = false,
+}: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
     usePresentation();
   const isLgUp = useMinWidthLg();
@@ -22,7 +27,9 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
     <div
       className={cn(
         "bg-white dark:bg-surface flex flex-col relative group min-h-0",
-        fullWidth ? "flex-1 border-0" : "border-l border-stone-200 dark:border-border"
+        fullWidth
+          ? "h-full min-h-0 w-full flex-1 border-0"
+          : "border-l border-stone-200 dark:border-border",
       )}
       style={fullWidth ? undefined : { width: `${imageWidthPercent}%` }}
     >
@@ -43,7 +50,7 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
       ) : currentSlide.contentType === "video" ? (
         <VideoPanel />
       ) : currentSlide.contentType === "presenter3d" ? (
-        <Presenter3DPanel />
+        <Presenter3DPanel embeddedInCanvas={embeddedInCanvas} />
       ) : (
         <ImagePanel />
       )}

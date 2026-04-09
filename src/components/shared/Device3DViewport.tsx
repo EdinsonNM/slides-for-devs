@@ -228,6 +228,8 @@ export interface Device3DViewportProps {
   /** Texto de ayuda bajo el canvas (p. ej. desactivar en vista previa). */
   showInteractionHint?: boolean;
   className?: string;
+  /** Margen de `@react-three/drei` Bounds al autoencuadrar (menor = modelo más grande en el viewport). */
+  boundsMargin?: number;
 }
 
 export function Device3DViewport({
@@ -241,6 +243,7 @@ export function Device3DViewport({
   disableControls,
   showInteractionHint = true,
   className,
+  boundsMargin = 1.42,
 }: Device3DViewportProps) {
   const glbUrl = resolveDevice3dGlbUrl(deviceId);
 
@@ -276,7 +279,7 @@ export function Device3DViewport({
   const boundsRefreshKey = `${slideId}|${glbUrl}|${imageUrl ?? ""}|${videoUrl ?? ""}|${screenMedia}`;
   const sceneBody =
     resolvedViewState == null ? (
-      <Bounds margin={1.42} clip>
+      <Bounds margin={boundsMargin} clip>
         {body}
         <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
       </Bounds>
