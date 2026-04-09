@@ -233,7 +233,7 @@ export function usePresentationState() {
   const [editContent, setEditContent] = useState("");
   const [editCode, setEditCode] = useState("");
   const [editLanguage, setEditLanguage] = useState("javascript");
-  const [editFontSize, setEditFontSize] = useState(14);
+  const [editFontSize, setEditFontSizeState] = useState(14);
   const [editEditorHeight, setEditEditorHeight] = useState(280);
   const slidesUndoRef = useRef<Slide[][]>([]);
   const slidesRedoRef = useRef<Slide[][]>([]);
@@ -460,6 +460,29 @@ export function usePresentationState() {
     editEditorHeight,
   ]);
 
+  /** Sincroniza el slide actual; usar `setEditFontSizeState` al hidratar desde el slide para no reescribir el deck. */
+  const setEditFontSize = useCallback(
+    (value: number | ((prev: number) => number)) => {
+      setEditFontSizeState((prev) => {
+        const raw = typeof value === "function" ? value(prev) : value;
+        const next = Math.min(64, Math.max(8, raw));
+        queueMicrotask(() => {
+          setSlides((prevSlides) => {
+            const i = currentIndexRef.current;
+            if (i < 0 || i >= prevSlides.length) return prevSlides;
+            const cur = prevSlides[i];
+            if (!cur || (cur.fontSize ?? 14) === next) return prevSlides;
+            const updated = [...prevSlides];
+            updated[i] = { ...cur, fontSize: next };
+            return updated;
+          });
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
   const pushSlidesUndo = useCallback((snapshot: Slide[]) => {
     slidesUndoRef.current = [
       ...slidesUndoRef.current.slice(-(MAX_SLIDES_UNDO - 1)),
@@ -535,7 +558,7 @@ export function usePresentationState() {
     setEditContent(formatMarkdown(s.content));
     setEditCode(s.code || "");
     setEditLanguage(s.language || "javascript");
-    setEditFontSize(s.fontSize || 14);
+    setEditFontSizeState(s.fontSize || 14);
     setEditEditorHeight(s.editorHeight ?? 280);
   }, []);
 
@@ -814,7 +837,7 @@ export function usePresentationState() {
       setEditContent(formatMarkdown(currentSlide.content));
       setEditCode(currentSlide.code || "");
       setEditLanguage(currentSlide.language || "javascript");
-      setEditFontSize(currentSlide.fontSize || 14);
+      setEditFontSizeState(currentSlide.fontSize || 14);
       setEditEditorHeight(currentSlide.editorHeight ?? 280);
       setIsEditing(false);
     }

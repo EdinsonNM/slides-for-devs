@@ -1,10 +1,16 @@
 import {
   Copy,
+  Minus,
+  Moon,
   MoreHorizontal,
   Pencil,
+  Plus,
   RotateCw,
   Sparkles,
+  Sun,
   Trash2,
+  Upload,
+  Video,
 } from "lucide-react";
 import {
   useCallback,
@@ -13,8 +19,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { LANGUAGES } from "../../constants/languages";
 import { cn } from "../../utils/cn";
-import type { ResizeCorner } from "./slideCanvasResize";
+import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
 
 /** Marca el cromo flotante para ignorar clics en el lienzo del bloque. */
 export const CANVAS_CHROME_DATA_ATTR = "data-slide-canvas-chrome";
@@ -26,6 +33,13 @@ const cornerCursor: Record<ResizeCorner, string> = {
   se: "cursor-nwse-resize",
 };
 
+const edgeCursor: Record<ResizeEdge, string> = {
+  n: "cursor-ns-resize",
+  s: "cursor-ns-resize",
+  e: "cursor-ew-resize",
+  w: "cursor-ew-resize",
+};
+
 const toolbarIconBtn =
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-stone-300 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300";
 
@@ -35,6 +49,8 @@ const transformCircle =
 export interface SlideCanvasCanvaChromeProps {
   /** Redimensionar desde una esquina (algoritmo esquina opuesta fija). */
   onResizeCorner: (corner: ResizeCorner, e: React.PointerEvent) => void;
+  /** Redimensionar desde un lado (borde opuesto fijo). */
+  onResizeEdge: (edge: ResizeEdge, e: React.PointerEvent) => void;
   onRotatePointerDown: (e: React.PointerEvent) => void;
   showResize?: boolean;
   /** Cambia al mover/redimensionar el bloque para recolocar el toolbar (evita corte con `overflow-hidden` del slide). */
@@ -42,24 +58,40 @@ export interface SlideCanvasCanvaChromeProps {
   toolbar?: {
     showAi?: boolean;
     onAi?: () => void;
+    onGenerateImage?: () => void;
+    onUseImage?: () => void;
+    /** Panel multimedia en modo vídeo: abre el modal de URL (YouTube, Vimeo, directa). */
+    onOpenVideoModal?: () => void;
     onEdit?: () => void;
     onDuplicate?: () => void;
     onDelete?: () => void;
     onBringForward?: () => void;
     onSendBackward?: () => void;
+    /** Controles del panel de código en el lienzo (bloque mediaPanel + contentType code). */
+    codeActions?: {
+      fontSize: number;
+      onFontDec: () => void;
+      onFontInc: () => void;
+      language: string;
+      onLanguageChange: (id: string) => void;
+      onThemeToggle: () => void;
+      codeTheme: "dark" | "light";
+      onOpenCodeGen: () => void;
+    };
   };
 }
 
 /**
  * Marco de selección y acciones flotantes inspiradas en Canva (borde verde esmeralda, handles, barra tipo píldora).
  */
-const APPROX_TOOLBAR_HEIGHT_PX = 46;
+const APPROX_TOOLBAR_HEIGHT_PX = 52;
 const TOOLBAR_EDGE_GAP_PX = 10;
 
 type ToolbarPlacement = "above" | "below" | "inside";
 
 export function SlideCanvasCanvaChrome({
   onResizeCorner,
+  onResizeEdge,
   onRotatePointerDown,
   showResize = true,
   layoutDigest,
@@ -131,6 +163,7 @@ export function SlideCanvasCanvaChrome({
   }, []);
 
   const corners: ResizeCorner[] = ["nw", "ne", "sw", "se"];
+  const edges: ResizeEdge[] = ["n", "s", "e", "w"];
 
   return (
     <div
@@ -161,19 +194,132 @@ export function SlideCanvasCanvaChrome({
               "dark:border-stone-600 dark:bg-stone-900/95",
             )}
           >
+            {toolbar.onGenerateImage ? (
+              <button
+                type="button"
+                className={toolbarIconBtn}
+                title="Generar imagen"
+                aria-label="Generar imagen"
+                onPointerDown={stop}
+                onClick={() => toolbar.onGenerateImage?.()}
+              >
+                <Sparkles size={16} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            {toolbar.onUseImage ? (
+              <button
+                type="button"
+                className={toolbarIconBtn}
+                title="Usar imagen"
+                aria-label="Usar imagen"
+                onPointerDown={stop}
+                onClick={() => toolbar.onUseImage?.()}
+              >
+                <Upload size={16} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            {toolbar.onOpenVideoModal ? (
+              <button
+                type="button"
+                className={toolbarIconBtn}
+                title="Añadir o cambiar vídeo"
+                aria-label="Añadir o cambiar vídeo"
+                onPointerDown={stop}
+                onClick={() => toolbar.onOpenVideoModal?.()}
+              >
+                <Video size={16} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            {toolbar.codeActions ? (
+              <>
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title="Disminuir fuente"
+                  aria-label="Disminuir fuente"
+                  onPointerDown={stop}
+                  onClick={() => toolbar.codeActions?.onFontDec()}
+                >
+                  <Minus size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <span
+                  className="min-w-[1.75rem] shrink-0 text-center text-[10px] font-semibold tabular-nums text-stone-500 dark:text-stone-400"
+                  aria-hidden
+                >
+                  {toolbar.codeActions.fontSize}
+                </span>
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title="Aumentar fuente"
+                  aria-label="Aumentar fuente"
+                  onPointerDown={stop}
+                  onClick={() => toolbar.codeActions?.onFontInc()}
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <select
+                  value={toolbar.codeActions.language}
+                  onChange={(e) => toolbar.codeActions?.onLanguageChange(e.target.value)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  title="Lenguaje"
+                  aria-label="Lenguaje del código"
+                  className="h-8 max-w-[5.75rem] shrink-0 cursor-pointer rounded-lg border border-stone-200/90 bg-white px-1 text-[10px] font-medium text-stone-700 outline-none dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title={
+                    toolbar.codeActions.codeTheme === "dark"
+                      ? "Tema claro del editor de código"
+                      : "Tema oscuro del editor de código"
+                  }
+                  aria-label={
+                    toolbar.codeActions.codeTheme === "dark"
+                      ? "Tema claro del editor de código"
+                      : "Tema oscuro del editor de código"
+                  }
+                  onPointerDown={stop}
+                  onClick={() => toolbar.codeActions?.onThemeToggle()}
+                >
+                  {toolbar.codeActions.codeTheme === "dark" ? (
+                    <Sun size={16} strokeWidth={2} aria-hidden />
+                  ) : (
+                    <Moon size={16} strokeWidth={2} aria-hidden />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title="Generar código con IA"
+                  aria-label="Generar código con IA"
+                  onPointerDown={stop}
+                  onClick={() => toolbar.codeActions?.onOpenCodeGen()}
+                >
+                  <Sparkles size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <div
+                  className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
+                  aria-hidden
+                />
+              </>
+            ) : null}
             {toolbar.showAi && toolbar.onAi ? (
               <button
                 type="button"
-                className={cn(
-                  toolbarIconBtn,
-                  "gap-1 px-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-300",
-                )}
+                className={toolbarIconBtn}
                 title="Pedir a la IA"
+                aria-label="Pedir a la IA"
                 onPointerDown={stop}
                 onClick={() => toolbar.onAi?.()}
               >
-                <Sparkles size={15} className="text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden sm:inline">IA</span>
+                <Sparkles size={16} strokeWidth={2} aria-hidden />
               </button>
             ) : null}
             {toolbar.onEdit ? (
@@ -277,6 +423,41 @@ export function SlideCanvasCanvaChrome({
               onPointerDown={(e) => {
                 stop(e);
                 onResizeCorner(c, e);
+              }}
+            />
+          ))
+        : null}
+
+      {/* Handles en el centro de cada lado */}
+      {showResize
+        ? edges.map((edge) => (
+            <button
+              key={edge}
+              type="button"
+              data-canvas-resize
+              aria-label={
+                edge === "n"
+                  ? "Redimensionar borde superior"
+                  : edge === "s"
+                    ? "Redimensionar borde inferior"
+                    : edge === "e"
+                      ? "Redimensionar borde derecho"
+                      : "Redimensionar borde izquierdo"
+              }
+              className={cn(
+                "pointer-events-auto absolute z-50 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-600 bg-white shadow-md dark:border-emerald-400 dark:bg-stone-100",
+                edgeCursor[edge],
+                (edge === "n" || edge === "s") && "h-2 w-6",
+                (edge === "e" || edge === "w") && "h-6 w-2",
+                edge === "n" && "left-1/2 top-0",
+                edge === "s" && "left-1/2 top-full",
+                edge === "e" && "left-full top-1/2",
+                edge === "w" && "left-0 top-1/2",
+              )}
+              data-slide-canvas-chrome=""
+              onPointerDown={(e) => {
+                stop(e);
+                onResizeEdge(edge, e);
               }}
             />
           ))

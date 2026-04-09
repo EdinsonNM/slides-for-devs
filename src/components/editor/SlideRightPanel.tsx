@@ -29,7 +29,7 @@ export function SlideRightPanel({
         "bg-white dark:bg-surface flex flex-col relative group min-h-0",
         fullWidth
           ? "h-full min-h-0 w-full flex-1 border-0"
-          : "border-l border-stone-200 dark:border-border",
+          : "h-full min-h-0 border-l border-stone-200 dark:border-border",
       )}
       style={fullWidth ? undefined : { width: `${imageWidthPercent}%` }}
     >
@@ -46,7 +46,10 @@ export function SlideRightPanel({
       )}
 
       {currentSlide.contentType === "code" ? (
-        <CodeBlock titleBarMode={isLgUp ? "minimal" : "full"} />
+        <CodeBlock
+          titleBarMode={embeddedInCanvas ? "minimal" : isLgUp ? "minimal" : "full"}
+          embeddedInCanvas={embeddedInCanvas}
+        />
       ) : currentSlide.contentType === "video" ? (
         <VideoPanel />
       ) : currentSlide.contentType === "presenter3d" ? (

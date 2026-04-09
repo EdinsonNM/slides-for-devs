@@ -2,6 +2,7 @@ import { Video, Pencil } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { getEmbedUrl } from "../../utils/video";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import { cn } from "../../utils/cn";
 
 export function VideoPanel() {
   const { currentSlide, setVideoUrlInput, setShowVideoModal } =
@@ -10,22 +11,40 @@ export function VideoPanel() {
 
   if (!currentSlide) return null;
 
+  const openVideoModal = () => {
+    setVideoUrlInput(currentSlide.videoUrl || "");
+    setShowVideoModal(true);
+  };
+
+  /** Misma idea que `ImagePanel`: el panel llena el alto del `SlideRightPanel` / bloque. */
+  const outerFill =
+    "flex min-h-0 w-full flex-1 flex-col overflow-hidden";
+
   if (currentSlide.videoUrl) {
     return (
-      <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="w-full aspect-video bg-stone-900 rounded-2xl overflow-hidden border border-white/10 relative group/video">
+      <div
+        className={cn(
+          outerFill,
+          "h-full",
+          isLgUp ? "p-0" : "p-3",
+        )}
+      >
+        <div
+          className={cn(
+            "group/video relative min-h-0 w-full flex-1 overflow-hidden rounded-2xl border border-white/10 bg-stone-900",
+          )}
+        >
           <iframe
             src={getEmbedUrl(currentSlide.videoUrl)}
-            className="w-full h-full"
+            className="absolute inset-0 h-full w-full border-0"
             allowFullScreen
+            title="Vídeo incrustado"
           />
           {!isLgUp && (
             <button
-              onClick={() => {
-                setVideoUrlInput(currentSlide.videoUrl || "");
-                setShowVideoModal(true);
-              }}
-              className="absolute bottom-4 right-4 p-2 bg-white/80 backdrop-blur-sm border border-stone-200 rounded-lg text-stone-600 hover:text-emerald-600 transition-all shadow-lg opacity-0 group-hover/video:opacity-100"
+              type="button"
+              onClick={openVideoModal}
+              className="absolute bottom-4 right-4 rounded-lg border border-stone-200 bg-white/80 p-2 text-stone-600 shadow-lg backdrop-blur-sm transition-all hover:text-emerald-600 opacity-0 group-hover/video:opacity-100"
               title="Cambiar vídeo"
             >
               <Pencil size={16} />
@@ -37,16 +56,22 @@ export function VideoPanel() {
   }
 
   return (
-    <div className="flex-1 p-8 flex items-center justify-center">
+    <div
+      className={cn(
+        outerFill,
+        "h-full items-stretch justify-stretch p-4 md:p-6",
+      )}
+    >
       <button
+        type="button"
         onClick={() => setShowVideoModal(true)}
-        className="w-full max-w-md aspect-video border-2 border-dashed border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-4 text-stone-400 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50/50 transition-all group"
+        className="group flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-stone-200 text-stone-400 transition-all hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-500 dark:border-stone-600 dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
       >
-        <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-stone-100 transition-colors group-hover:bg-emerald-100 dark:bg-stone-800 dark:group-hover:bg-emerald-900/40">
           <Video size={32} />
         </div>
         <div className="text-center">
-          <p className="font-medium">Agregar Video</p>
+          <p className="font-medium">Agregar video</p>
           <p className="text-xs">YouTube, Vimeo o URL directa</p>
         </div>
       </button>

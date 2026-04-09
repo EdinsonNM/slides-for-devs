@@ -210,3 +210,17 @@ export function snapCanvasRectWhileDragging(
     },
   };
 }
+
+/** Guías visuales para un rect concreto (p. ej. durante resize) sin alterar posición/tamaño. */
+export function getCanvasAlignmentGuidesForRect(
+  r: SlideCanvasRect,
+  draggedElementId: string,
+  elements: SlideCanvasElement[],
+): CanvasDragSnapResult["guides"] {
+  const targetsX = collectXTargets(elements, draggedElementId);
+  const targetsY = collectYTargets(elements, draggedElementId);
+  return {
+    vertical: verticalGuidesForRect(r, targetsX),
+    horizontal: horizontalGuidesForRect(r, targetsY),
+  };
+}

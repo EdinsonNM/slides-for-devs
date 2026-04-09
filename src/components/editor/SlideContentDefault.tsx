@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Pencil, RefreshCw, Split, Sparkles } from "lucide-react";
+import { Pencil, RefreshCw, Split, Sparkles, Video } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
@@ -32,6 +32,8 @@ export function SlideContentDefault() {
     panelHeightPercent,
     isResizingPanelHeight,
     setIsResizingPanelHeight,
+    setVideoUrlInput,
+    setShowVideoModal,
   } = usePresentation();
 
   const [activeBlock, setActiveBlock] = useState<EditBlock | null>(null);
@@ -157,6 +159,9 @@ export function SlideContentDefault() {
 
   if (!currentSlide) return null;
 
+  const panelContentType = currentSlide.contentType ?? "image";
+  const showPanelVideoToolbarBtn = panelContentType === "video";
+
   const isPanelFull = currentSlide.contentLayout === "panel-full";
 
   const titleW = currentSlide.editorTitleWidthPercent ?? 100;
@@ -198,6 +203,28 @@ export function SlideContentDefault() {
             >
               <Split size={16} />
             </button>
+            {showPanelVideoToolbarBtn ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoUrlInput(currentSlide.videoUrl || "");
+                  setShowVideoModal(true);
+                }}
+                className={cn(iaToolbarBtnClass, "hover:text-sky-600 dark:hover:text-sky-400")}
+                title={
+                  currentSlide.videoUrl?.trim()
+                    ? "Cambiar vídeo"
+                    : "Añadir vídeo (YouTube, Vimeo o URL directa)"
+                }
+                aria-label={
+                  currentSlide.videoUrl?.trim()
+                    ? "Cambiar vídeo del panel"
+                    : "Añadir vídeo al panel"
+                }
+              >
+                <Video size={16} />
+              </button>
+            ) : null}
           </div>
           <div
             className="px-4 pt-2 pb-3 border-stone-100 dark:border-border flex items-start justify-between gap-3 overflow-visible md:px-7 md:pt-3 md:pb-4 md:gap-4 lg:px-8 lg:pt-4"
@@ -407,6 +434,28 @@ export function SlideContentDefault() {
           >
             <Split size={16} />
           </button>
+          {showPanelVideoToolbarBtn ? (
+            <button
+              type="button"
+              onClick={() => {
+                setVideoUrlInput(currentSlide.videoUrl || "");
+                setShowVideoModal(true);
+              }}
+              className={cn(iaToolbarBtnClass, "hover:text-sky-600 dark:hover:text-sky-400")}
+              title={
+                currentSlide.videoUrl?.trim()
+                  ? "Cambiar vídeo"
+                  : "Añadir vídeo (YouTube, Vimeo o URL directa)"
+              }
+              aria-label={
+                currentSlide.videoUrl?.trim()
+                  ? "Cambiar vídeo del panel"
+                  : "Añadir vídeo al panel"
+              }
+            >
+              <Video size={16} />
+            </button>
+          ) : null}
         </div>
         <div className="mb-4 shrink-0 flex items-start justify-between gap-3 overflow-visible md:mb-6 lg:mb-8 md:gap-4">
           <div className="min-w-0 flex-1 flex flex-col overflow-visible">

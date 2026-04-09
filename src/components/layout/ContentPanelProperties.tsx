@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Check,
   ChevronDown,
   Image as ImageIcon,
   Moon,
@@ -8,7 +7,6 @@ import {
   Sun,
   Upload,
   Video,
-  X,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -35,13 +33,10 @@ export function ContentPanelProperties() {
     setShowVideoModal,
     setCurrentSlidePresenter3dDeviceId,
     setCurrentSlidePresenter3dScreenMedia,
-    isEditing,
-    setIsEditing,
     editLanguage,
     setEditLanguage,
     editFontSize,
     setEditFontSize,
-    handleSaveManualEdit,
     openCodeGenModal,
   } = usePresentation();
 
@@ -299,45 +294,11 @@ export function ContentPanelProperties() {
               <Sparkles size={14} />
               IA
             </button>
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => handleSaveManualEdit()}
-                  className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
-                  title="Guardar (Ctrl+Enter)"
-                >
-                  <Check size={14} />
-                  Guardar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className={cn(
-                    "flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
-                    controlBtn,
-                  )}
-                  title="Cancelar"
-                >
-                  <X size={14} />
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className={cn(
-                  "flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
-                  controlBtn,
-                )}
-              >
-                Editar
-              </button>
-            )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Escribe y edita el código en el panel central. Usa Guardar o Esc en el editor para salir del modo
-            edición.
+            Con el bloque del panel seleccionado en el lienzo, tema e IA también están en la barra flotante.
+            Doble clic en el código para editar; al salir del campo los cambios se guardan solos (ya no hay botón
+            Guardar).
           </p>
         </div>
       )}

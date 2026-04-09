@@ -7,7 +7,15 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { GripVertical, Pencil, RefreshCw, Sparkles, Split } from "lucide-react";
+import {
+  GripVertical,
+  Pencil,
+  RefreshCw,
+  Sparkles,
+  Split,
+  Video,
+} from "lucide-react";
+import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
@@ -32,9 +40,14 @@ import { SlideCanvasHoverOutline } from "./SlideCanvasHoverOutline";
 import {
   oppositeCornerPercent,
   rectResizeFromCorner,
+  rectResizeFromEdge,
   type ResizeCorner,
+  type ResizeEdge,
 } from "./slideCanvasResize";
-import { snapCanvasRectWhileDragging } from "../../utils/slideCanvasAlignmentSnap";
+import {
+  getCanvasAlignmentGuidesForRect,
+  snapCanvasRectWhileDragging,
+} from "../../utils/slideCanvasAlignmentSnap";
 
 const EDIT_FIELD_ATTR = "data-slide-edit-field";
 /** Solo esta franja inicia arrastre del panel con presentador 3D (el lienzo WebGL captura puntero y chocaba con el movimiento). */
@@ -64,10 +77,14 @@ function normalizeCanvasElementsZOrder(
   return withIdx.map(({ e }, rank) => ({ ...e, z: rank }));
 }
 
-/** Primer clic en un bloque: permite seleccionar sin mover. */
-const DRAG_THRESHOLD_FIRST_PX = 5;
-/** Bloque ya seleccionado: cualquier movimiento inicia arrastre (estilo Canva). */
-const DRAG_THRESHOLD_SELECTED_PX = 0;
+/**
+ * Píxeles mínimos de movimiento antes de iniciar arrastre.
+ * Un umbral > 0 evita que micro-movimientos al hacer clic activen el drag
+ * y compitan con la selección de texto en el editor.
+ * Mismo valor con bloque ya seleccionado: si fuera 0, casi cualquier gesto de
+ * selección en la vista previa disparaba el arrastre.
+ */
+const DRAG_THRESHOLD_PX = 6;
 
 const IA_BTN =
   "p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors";
@@ -144,6 +161,15 @@ export function SlideCanvasSlide() {
     patchCurrentSlideCanvasScene,
     patchCurrentSlideMatrix,
     diagramRemountToken,
+    openImageModal,
+    openImageUploadModal,
+    editLanguage,
+    setEditLanguage,
+    editFontSize,
+    setEditFontSize,
+    openCodeGenModal,
+    setVideoUrlInput,
+    setShowVideoModal,
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -445,16 +471,72 @@ export function SlideCanvasSlide() {
       });
       const onMove = (ev: PointerEvent) => {
         const cur = toPct(ev.clientX, ev.clientY);
-        onPatchRect(elementId, rectResizeFromCorner(opp.x, opp.y, cur.px, cur.py));
+        const next = rectResizeFromCorner(opp.x, opp.y, cur.px, cur.py);
+        const guides = getCanvasAlignmentGuidesForRect(
+          next,
+          elementId,
+          sceneElementsRef.current,
+        );
+        const hasGuides =
+          guides.vertical.length > 0 || guides.horizontal.length > 0;
+        setAlignmentGuides(hasGuides ? guides : null);
+        onPatchRect(elementId, next);
       };
       const onUp = () => {
+        setAlignmentGuides(null);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
     },
-    [onPatchRect],
+    [onPatchRect, setAlignmentGuides],
+  );
+
+  const startResizeEdge = useCallback(
+    (
+      elementId: string,
+      edge: ResizeEdge,
+      e: React.PointerEvent,
+      rect: SlideCanvasRect,
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const root =
+        slideContainerRef.current ??
+        (document.getElementById("slide-container") as HTMLElement | null);
+      if (!root) return;
+      const b = root.getBoundingClientRect();
+      const toPct = (clientX: number, clientY: number) => ({
+        px: ((clientX - b.left) / b.width) * 100,
+        py: ((clientY - b.top) / b.height) * 100,
+      });
+      const onMove = (ev: PointerEvent) => {
+        const cur = toPct(ev.clientX, ev.clientY);
+        const next = rectResizeFromEdge(edge, rect, cur.px, cur.py);
+        const guides = getCanvasAlignmentGuidesForRect(
+          next,
+          elementId,
+          sceneElementsRef.current,
+        );
+        const hasGuides =
+          guides.vertical.length > 0 || guides.horizontal.length > 0;
+        setAlignmentGuides(hasGuides ? guides : null);
+        onPatchRect(elementId, next);
+      };
+      const onUp = () => {
+        setAlignmentGuides(null);
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    },
+    [onPatchRect, setAlignmentGuides],
   );
 
   const startRotate = useCallback(
@@ -508,6 +590,8 @@ export function SlideCanvasSlide() {
   };
 
   const showIaToolbar = slide.type === SLIDE_TYPE.CONTENT;
+  const showPanelVideoToolbarBtn =
+    showIaToolbar && (slide.contentType ?? "image") === "video";
 
   return (
     <div
@@ -515,6 +599,12 @@ export function SlideCanvasSlide() {
       className="relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-surface-elevated"
       onPointerDown={onBackgroundPointerDown}
     >
+      {alignmentGuides ? (
+        <SlideCanvasAlignmentGuides
+          vertical={alignmentGuides.vertical}
+          horizontal={alignmentGuides.horizontal}
+        />
+      ) : null}
       {showIaToolbar && (
         <div
           className="absolute left-3 top-3 flex items-center gap-1 md:left-4 md:top-4"
@@ -539,19 +629,28 @@ export function SlideCanvasSlide() {
           >
             <Split size={16} />
           </button>
-          {!isEditing && (
+          {showPanelVideoToolbarBtn ? (
             <button
               type="button"
-              onClick={() => setIsEditing(true)}
-              className={cn(
-                IA_BTN,
-                "hover:text-emerald-600 dark:hover:text-emerald-400",
-              )}
-              title="Editar texto"
+              onClick={() => {
+                setVideoUrlInput(slide.videoUrl || "");
+                setShowVideoModal(true);
+              }}
+              className={cn(IA_BTN, "hover:text-sky-600 dark:hover:text-sky-400")}
+              title={
+                slide.videoUrl?.trim()
+                  ? "Cambiar vídeo"
+                  : "Añadir vídeo (YouTube, Vimeo o URL directa)"
+              }
+              aria-label={
+                slide.videoUrl?.trim()
+                  ? "Cambiar vídeo del panel"
+                  : "Añadir vídeo al panel"
+              }
             >
-              <Pencil size={16} />
+              <Video size={16} />
             </button>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -612,13 +711,10 @@ export function SlideCanvasSlide() {
           setGenerateSlideContentPrompt={setGenerateSlideContentPrompt}
           setShowGenerateSlideContentModal={setShowGenerateSlideContentModal}
           attachDragThreshold={attachDragThreshold}
-          dragThresholdPx={
-            selectedId === el.id
-              ? DRAG_THRESHOLD_SELECTED_PX
-              : DRAG_THRESHOLD_FIRST_PX
-          }
+          dragThresholdPx={DRAG_THRESHOLD_PX}
           consumeClickIfDrag={consumeClickIfDrag}
           startResizeCorner={startResizeCorner}
+          startResizeEdge={startResizeEdge}
           startRotate={startRotate}
           duplicateCanvasElement={duplicateCanvasElement}
           deleteCanvasElement={deleteCanvasElement}
@@ -627,6 +723,17 @@ export function SlideCanvasSlide() {
           diagramRemountToken={diagramRemountToken}
           onPatchRect={onPatchRect}
           slideContainerRef={slideContainerRef}
+          openImageModal={openImageModal}
+          openImageUploadModal={openImageUploadModal}
+          openVideoModal={() => {
+            setVideoUrlInput(slide.videoUrl || "");
+            setShowVideoModal(true);
+          }}
+          editLanguage={editLanguage}
+          setEditLanguage={setEditLanguage}
+          editFontSize={editFontSize}
+          setEditFontSize={setEditFontSize}
+          openCodeGenModal={openCodeGenModal}
         />
       ))}
     </div>
@@ -661,6 +768,7 @@ function CanvasElementEditor({
   dragThresholdPx,
   consumeClickIfDrag,
   startResizeCorner,
+  startResizeEdge,
   startRotate,
   duplicateCanvasElement,
   deleteCanvasElement,
@@ -669,6 +777,14 @@ function CanvasElementEditor({
   diagramRemountToken,
   onPatchRect,
   slideContainerRef,
+  openImageModal,
+  openImageUploadModal,
+  openVideoModal,
+  editLanguage,
+  setEditLanguage,
+  editFontSize,
+  setEditFontSize,
+  openCodeGenModal,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -710,6 +826,12 @@ function CanvasElementEditor({
     e: React.PointerEvent,
     r: SlideCanvasRect,
   ) => void;
+  startResizeEdge: (
+    id: string,
+    edge: ResizeEdge,
+    e: React.PointerEvent,
+    r: SlideCanvasRect,
+  ) => void;
   startRotate: (
     id: string,
     e: React.PointerEvent,
@@ -723,7 +845,17 @@ function CanvasElementEditor({
   diagramRemountToken: number;
   onPatchRect: (id: string, r: SlideCanvasRect) => void;
   slideContainerRef: RefObject<HTMLDivElement | null>;
+  openImageModal: () => void;
+  openImageUploadModal: () => void;
+  openVideoModal: () => void;
+  editLanguage: string;
+  setEditLanguage: (v: string) => void;
+  editFontSize: number;
+  setEditFontSize: (v: number | ((p: number) => number)) => void;
+  openCodeGenModal: () => void;
 }) {
+  const { theme: codeEditorTheme, toggleTheme: toggleCodeEditorTheme } =
+    useCodeEditorTheme();
   const { rect, kind, id, z } = element;
   const rotation = element.rotation ?? 0;
 
@@ -818,6 +950,13 @@ function CanvasElementEditor({
     const editingThisBlock =
       Boolean(isEditing && textField && activeField === textField);
     if (editingThisBlock) return;
+    if (
+      t.closest(
+        "input, textarea, select, button, [contenteditable='true']",
+      )
+    ) {
+      return;
+    }
     const captureEl =
       e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
     attachDragThreshold(
@@ -843,14 +982,45 @@ function CanvasElementEditor({
     toolbarAiKinds.includes(kind) &&
     (slide.type === SLIDE_TYPE.CONTENT || slide.type === SLIDE_TYPE.MATRIX);
 
+  const showMediaPanelImageActions =
+    kind === "mediaPanel" && (slide.contentType ?? "image") === "image";
+  const showMediaPanelCodeActions =
+    kind === "mediaPanel" && slide.contentType === "code";
+  const showMediaPanelVideoActions =
+    kind === "mediaPanel" && slide.contentType === "video";
+
   const canvaChromeEl =
     showCanvaChrome ? (
       <SlideCanvasCanvaChrome
         showResize
         layoutDigest={`${rect.x},${rect.y},${rect.w},${rect.h}`}
         onResizeCorner={(corner, e) => startResizeCorner(id, corner, e, rect)}
+        onResizeEdge={(edge, e) => startResizeEdge(id, edge, e, rect)}
         onRotatePointerDown={(e) => startRotate(id, e, rect, rotation)}
         toolbar={{
+          onGenerateImage: showMediaPanelImageActions
+            ? () => openImageModal()
+            : undefined,
+          onUseImage: showMediaPanelImageActions
+            ? () => openImageUploadModal()
+            : undefined,
+          onOpenVideoModal: showMediaPanelVideoActions
+            ? () => openVideoModal()
+            : undefined,
+          codeActions: showMediaPanelCodeActions
+            ? {
+                fontSize: editFontSize,
+                onFontDec: () =>
+                  setEditFontSize((p) => Math.max(8, p - 2)),
+                onFontInc: () =>
+                  setEditFontSize((p) => Math.min(64, p + 2)),
+                language: editLanguage,
+                onLanguageChange: setEditLanguage,
+                onThemeToggle: toggleCodeEditorTheme,
+                codeTheme: codeEditorTheme,
+                onOpenCodeGen: () => openCodeGenModal(),
+              }
+            : undefined,
           showAi: showToolbarAi,
           onAi: showToolbarAi
             ? () => {
@@ -858,24 +1028,29 @@ function CanvasElementEditor({
                 setShowGenerateSlideContentModal(true);
               }
             : undefined,
-          onEdit: () => {
-            setIsEditing(true);
-            if (kind === "markdown" || kind === "matrixNotes") {
-              setActiveField("content");
-            } else if (
-              kind === "title" ||
-              kind === "chapterTitle"
-            ) {
-              setActiveField("title");
-            } else if (
-              kind === "subtitle" ||
-              kind === "chapterSubtitle"
-            ) {
-              setActiveField("subtitle");
-            } else {
-              setIsEditing(true);
-            }
-          },
+          onEdit:
+            showMediaPanelImageActions ||
+            showMediaPanelCodeActions ||
+            showMediaPanelVideoActions
+            ? undefined
+            : () => {
+                setIsEditing(true);
+                if (kind === "markdown" || kind === "matrixNotes") {
+                  setActiveField("content");
+                } else if (
+                  kind === "title" ||
+                  kind === "chapterTitle"
+                ) {
+                  setActiveField("title");
+                } else if (
+                  kind === "subtitle" ||
+                  kind === "chapterSubtitle"
+                ) {
+                  setActiveField("subtitle");
+                } else {
+                  setIsEditing(true);
+                }
+              },
           onDuplicate: () => duplicateCanvasElement(id),
           onDelete: () => deleteCanvasElement(id),
           onBringForward: () => bringCanvasElementForward(id),
@@ -930,7 +1105,7 @@ function CanvasElementEditor({
               {!isEditing || !showTitleEdit ? (
                 <div
                   className={cn(
-                    "flex w-full min-w-0 shrink-0 flex-col overflow-visible rounded-md",
+                    "flex w-full min-w-0 shrink-0 select-none flex-col overflow-visible rounded-md",
                     chapter ? "items-center text-center" : "",
                   )}
                   onDoubleClick={(e) => {
@@ -1021,7 +1196,7 @@ function CanvasElementEditor({
               {!isEditing || !showSubtitleEdit ? (
                 <div
                   className={cn(
-                    "flex w-full min-w-0 shrink-0 flex-col overflow-visible rounded-md text-sm",
+                    "flex w-full min-w-0 shrink-0 select-none flex-col overflow-visible rounded-md text-sm",
                     chapter &&
                       "items-center text-center font-light uppercase tracking-wide text-stone-400",
                   )}
@@ -1097,7 +1272,7 @@ function CanvasElementEditor({
             "relative flex h-full min-h-0 w-full flex-col overflow-hidden",
             !isEditing || !isSelected || activeField !== "content" ? (
               <div
-                className="min-h-0 flex-1 overflow-y-auto px-2 py-1"
+                className="min-h-0 flex-1 select-none overflow-y-auto px-2 py-1"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   if (consumeClickIfDrag()) return;
@@ -1166,6 +1341,13 @@ function CanvasElementEditor({
         const t = e.target as HTMLElement;
         if (t.closest("[data-slide-canvas-chrome]")) return;
         onSelect();
+        if (
+          t.closest(
+            "input, textarea, select, button, [contenteditable='true']",
+          )
+        ) {
+          return;
+        }
         e.stopPropagation();
         attachDragThreshold(
           id,
@@ -1307,7 +1489,7 @@ function CanvasElementEditor({
             "h-full overflow-y-auto px-2 py-1",
             !isEditing || !isSelected || activeField !== "content" ? (
               <div
-                className="rounded-md"
+                className="select-none rounded-md"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   if (consumeClickIfDrag()) return;
