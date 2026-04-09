@@ -73,7 +73,9 @@ function mediaBlock(slide: Slide) {
       <img
         src={slide.imageUrl}
         alt={slide.title}
-        className="h-full w-full object-contain"
+        className="h-full w-full object-contain select-none"
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
         referrerPolicy="no-referrer"
       />
     );

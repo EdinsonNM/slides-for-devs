@@ -40,7 +40,9 @@ export function ImagePanel() {
           <img
             src={currentSlide.imageUrl}
             alt={currentSlide.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover select-none"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
             referrerPolicy="no-referrer"
           />
         ) : (
@@ -68,7 +70,9 @@ export function ImagePanel() {
         <img
           src={currentSlide.imageUrl}
           alt={currentSlide.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover select-none"
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
           referrerPolicy="no-referrer"
         />
       ) : (

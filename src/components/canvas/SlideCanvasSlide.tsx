@@ -847,6 +847,7 @@ function CanvasElementEditor({
     showCanvaChrome ? (
       <SlideCanvasCanvaChrome
         showResize
+        layoutDigest={`${rect.x},${rect.y},${rect.w},${rect.h}`}
         onResizeCorner={(corner, e) => startResizeCorner(id, corner, e, rect)}
         onRotatePointerDown={(e) => startRotate(id, e, rect, rotation)}
         toolbar={{
@@ -892,7 +893,7 @@ function CanvasElementEditor({
 
   const rotatedInner = (className: string, children: ReactNode) => (
     <div
-      className={cn("min-h-0 min-w-0", className)}
+      className={cn("relative z-0 min-h-0 min-w-0", className)}
       style={
         rotation
           ? {
@@ -920,7 +921,6 @@ function CanvasElementEditor({
           onPointerDown={onShellPointerDown}
           {...shellHoverProps}
         >
-          {canvaChromeEl}
           {rotatedInner(
             "flex w-full min-w-0 flex-col overflow-visible",
             <div
@@ -996,6 +996,7 @@ function CanvasElementEditor({
               )}
             </div>,
           )}
+          {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
@@ -1011,7 +1012,6 @@ function CanvasElementEditor({
           onPointerDown={onShellPointerDown}
           {...shellHoverProps}
         >
-          {canvaChromeEl}
           {rotatedInner(
             "flex w-full min-w-0 flex-col overflow-visible",
             <div
@@ -1079,6 +1079,7 @@ function CanvasElementEditor({
               )}
             </div>,
           )}
+          {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
@@ -1092,7 +1093,6 @@ function CanvasElementEditor({
           onPointerDown={onShellPointerDown}
           {...shellHoverProps}
         >
-          {canvaChromeEl}
           {rotatedInner(
             "relative flex h-full min-h-0 w-full flex-col overflow-hidden",
             !isEditing || !isSelected || activeField !== "content" ? (
@@ -1152,6 +1152,7 @@ function CanvasElementEditor({
               </div>
             ),
           )}
+          {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
@@ -1197,7 +1198,6 @@ function CanvasElementEditor({
                 }
           }
         >
-          {canvaChromeEl}
           {rotatedInner(
             "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden",
             isPresenter3d ? (
@@ -1248,6 +1248,7 @@ function CanvasElementEditor({
               <SlideRightPanel fullWidth embeddedInCanvas />
             ),
           )}
+          {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
@@ -1264,7 +1265,6 @@ function CanvasElementEditor({
           onPointerDown={onShellPointerDown}
           {...shellHoverProps}
         >
-          {canvaChromeEl}
           {rotatedInner(
             "h-full min-h-0 overflow-y-auto px-1 py-1",
             <SlideMatrixTable
@@ -1289,6 +1289,7 @@ function CanvasElementEditor({
               className="max-h-full shadow-inner"
             />,
           )}
+          {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
@@ -1302,7 +1303,6 @@ function CanvasElementEditor({
           onPointerDown={onShellPointerDown}
           {...shellHoverProps}
         >
-          {canvaChromeEl}
           {rotatedInner(
             "h-full overflow-y-auto px-2 py-1",
             !isEditing || !isSelected || activeField !== "content" ? (
@@ -1349,6 +1349,7 @@ function CanvasElementEditor({
               />
             ),
           )}
+          {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );

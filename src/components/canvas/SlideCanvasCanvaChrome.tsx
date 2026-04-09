@@ -6,7 +6,13 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "../../utils/cn";
 import type { ResizeCorner } from "./slideCanvasResize";
 
@@ -31,6 +37,8 @@ export interface SlideCanvasCanvaChromeProps {
   onResizeCorner: (corner: ResizeCorner, e: React.PointerEvent) => void;
   onRotatePointerDown: (e: React.PointerEvent) => void;
   showResize?: boolean;
+  /** Cambia al mover/redimensionar el bloque para recolocar el toolbar (evita corte con `overflow-hidden` del slide). */
+  layoutDigest?: string;
   toolbar?: {
     showAi?: boolean;
     onAi?: () => void;
@@ -45,14 +53,23 @@ export interface SlideCanvasCanvaChromeProps {
 /**
  * Marco de selección y acciones flotantes inspiradas en Canva (borde verde esmeralda, handles, barra tipo píldora).
  */
+const APPROX_TOOLBAR_HEIGHT_PX = 46;
+const TOOLBAR_EDGE_GAP_PX = 10;
+
+type ToolbarPlacement = "above" | "below" | "inside";
+
 export function SlideCanvasCanvaChrome({
   onResizeCorner,
   onRotatePointerDown,
   showResize = true,
+  layoutDigest,
   toolbar,
 }: SlideCanvasCanvaChromeProps) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [toolbarPlacement, setToolbarPlacement] =
+    useState<ToolbarPlacement>("above");
   const moreRef = useRef<HTMLDivElement>(null);
+  const chromeRootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -64,6 +81,50 @@ export function SlideCanvasCanvaChrome({
     return () => document.removeEventListener("mousedown", close);
   }, [moreOpen]);
 
+  useLayoutEffect(() => {
+    if (!toolbar) return;
+    const root = chromeRootRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      const r = chromeRootRef.current;
+      if (!r) return;
+      const block = r.closest("[data-slide-canvas-el]") as HTMLElement | null;
+      const slide = r.closest("#slide-container") as HTMLElement | null;
+      if (!block || !slide) {
+        setToolbarPlacement("inside");
+        return;
+      }
+      const b = block.getBoundingClientRect();
+      const s = slide.getBoundingClientRect();
+      const h = APPROX_TOOLBAR_HEIGHT_PX + TOOLBAR_EDGE_GAP_PX;
+      const spaceAbove = b.top - s.top;
+      const spaceBelow = s.bottom - b.bottom;
+
+      let next: ToolbarPlacement;
+      if (spaceAbove >= h) {
+        next = "above";
+      } else if (spaceBelow >= h) {
+        next = "below";
+      } else {
+        next = "inside";
+      }
+      setToolbarPlacement(next);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    const block = root.closest("[data-slide-canvas-el]") as HTMLElement | null;
+    const slide = root.closest("#slide-container") as HTMLElement | null;
+    if (block) ro.observe(block);
+    if (slide) ro.observe(slide);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [toolbar, layoutDigest]);
+
   const stop = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -73,7 +134,8 @@ export function SlideCanvasCanvaChrome({
 
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-[40]"
+      ref={chromeRootRef}
+      className="pointer-events-none absolute inset-0 z-50"
       data-slide-canvas-chrome=""
     >
       {/* Borde de selección: más grueso que el hover (`SlideCanvasHoverOutline`). */}
@@ -85,7 +147,12 @@ export function SlideCanvasCanvaChrome({
       {/* Barra flotante superior */}
       {toolbar && (
         <div
-          className="pointer-events-auto absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2"
+          className={cn(
+            "pointer-events-auto absolute left-1/2 z-[55] -translate-x-1/2",
+            toolbarPlacement === "above" && "bottom-full mb-2",
+            toolbarPlacement === "below" && "top-full mt-2",
+            toolbarPlacement === "inside" && "top-2",
+          )}
           data-slide-canvas-chrome=""
         >
           <div
@@ -217,7 +284,10 @@ export function SlideCanvasCanvaChrome({
 
       {/* Rotar debajo del bloque (mover = arrastrar el propio elemento) */}
       <div
-        className="pointer-events-auto absolute left-1/2 top-full z-[60] mt-2 flex -translate-x-1/2 justify-center"
+        className={cn(
+          "pointer-events-auto absolute left-1/2 top-full z-[60] flex -translate-x-1/2 justify-center",
+          toolbar && toolbarPlacement === "below" ? "mt-[52px]" : "mt-2",
+        )}
         data-slide-canvas-chrome=""
       >
         <button
