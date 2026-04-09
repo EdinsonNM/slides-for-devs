@@ -28,7 +28,11 @@ import {
   type FirebaseStorage,
 } from "firebase/storage";
 import type { Slide } from "../types";
-import { normalizeSlideMatrixData } from "../domain/entities";
+import {
+  isSlideCanvasScene,
+  normalizeSlideMatrixData,
+  type SlideCanvasScene,
+} from "../domain/entities";
 import { parsePresenter3dViewState } from "../utils/presenter3dView";
 import type { SavedPresentation } from "../types";
 import { initFirebase } from "./firebase";
@@ -357,6 +361,7 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     title: s.title,
     subtitle: s.subtitle ?? null,
     content: s.content,
+    canvasScene: s.canvasScene ?? null,
     imagePrompt: s.imagePrompt ?? null,
     code: s.code ?? null,
     language: s.language ?? null,
@@ -374,6 +379,11 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     editorHeight: s.editorHeight ?? null,
     matrixData: s.matrixData ?? null,
   };
+}
+
+function parseCanvasSceneFromPlain(v: unknown): SlideCanvasScene | undefined {
+  if (isSlideCanvasScene(v)) return v;
+  return undefined;
 }
 
 function plainToSlide(p: Record<string, unknown>): Slide {
@@ -413,6 +423,7 @@ function plainToSlide(p: Record<string, unknown>): Slide {
       p.matrixData != null && typeof p.matrixData === "object"
         ? normalizeSlideMatrixData(p.matrixData)
         : undefined,
+    canvasScene: parseCanvasSceneFromPlain(p.canvasScene),
   };
 }
 

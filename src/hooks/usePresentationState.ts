@@ -42,8 +42,10 @@ import {
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
   SLIDE_TYPE,
+  type SlideCanvasScene,
   type SlideMatrixData,
 } from "../domain/entities";
+import { normalizeSlidesCanvasScenes } from "../domain/slideCanvas/ensureSlideCanvasScene";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -656,11 +658,13 @@ export function usePresentationState() {
           pending.modelId,
         );
         if (cancelled) return;
-        const cleanedSlides = generatedSlides.map((slide) => ({
-          ...slide,
-          id: crypto.randomUUID(),
-          content: formatMarkdown(slide.content),
-        }));
+        const cleanedSlides = normalizeSlidesCanvasScenes(
+          generatedSlides.map((slide) => ({
+            ...slide,
+            id: crypto.randomUUID(),
+            content: formatMarkdown(slide.content),
+          })),
+        );
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
         setSlides(cleanedSlides);
@@ -926,6 +930,7 @@ export function usePresentationState() {
     setSlides((prev) => {
       const updated = [...prev];
       const next: Slide = { ...currentSlide, type };
+      delete (next as Slide).canvasScene;
 
       if (type === SLIDE_TYPE.DIAGRAM) {
         delete (next as Slide).contentType;
@@ -973,6 +978,21 @@ export function usePresentationState() {
     [],
   );
 
+  const patchCurrentSlideCanvasScene = useCallback(
+    (updater: (scene: SlideCanvasScene) => SlideCanvasScene) => {
+      setSlides((prev) => {
+        const idx = currentIndexRef.current;
+        const cur = prev[idx];
+        if (!cur?.canvasScene) return prev;
+        const nextScene = updater(cur.canvasScene);
+        const out = [...prev];
+        out[idx] = { ...cur, canvasScene: nextScene };
+        return out;
+      });
+    },
+    [],
+  );
+
   /** Actualiza los datos del diagrama Excalidraw de la diapositiva actual. Solo para type "diagram". */
   const setCurrentSlideExcalidrawData = (data: string) => {
     if (!currentSlide || currentSlide.type !== SLIDE_TYPE.DIAGRAM) return;
@@ -992,7 +1012,9 @@ export function usePresentationState() {
       if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return prev;
       if (slide.contentLayout === contentLayout) return prev;
       const updated = [...prev];
-      updated[currentIndex] = { ...slide, contentLayout };
+      const next: Slide = { ...slide, contentLayout };
+      delete (next as Slide).canvasScene;
+      updated[currentIndex] = next;
       return updated;
     });
   };
@@ -1253,11 +1275,13 @@ export function usePresentationState() {
         modelId,
       );
       if (newSlides.length > 0) {
-        const cleanedNewSlides = newSlides.map((slide) => ({
-          ...slide,
-          id: crypto.randomUUID(),
-          content: formatMarkdown(slide.content),
-        }));
+        const cleanedNewSlides = normalizeSlidesCanvasScenes(
+          newSlides.map((slide) => ({
+            ...slide,
+            id: crypto.randomUUID(),
+            content: formatMarkdown(slide.content),
+          })),
+        );
         setSlides((prev) => {
           const updated = [...prev];
           updated.splice(currentIndex, 1, ...cleanedNewSlides);
@@ -1815,14 +1839,15 @@ export function usePresentationState() {
       title: "Nueva diapositiva",
       content: "",
     };
+    const deck = normalizeSlidesCanvasScenes([blankSlide]);
     setTopic("");
-    setSlides([blankSlide]);
+    setSlides(deck);
     setCurrentIndex(0);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     await savePresentationNow({
       topic: "",
-      slides: [blankSlide],
+      slides: deck,
       characterId: undefined,
     });
     await refreshSavedList();
@@ -2014,11 +2039,13 @@ export function usePresentationState() {
       slidesRedoRef.current = [];
       setTopic(saved.topic);
       setSlides(
-        saved.slides.map((s) => ({
-          ...s,
-          id: crypto.randomUUID(),
-          content: formatMarkdown(s.content ?? ""),
-        })),
+        normalizeSlidesCanvasScenes(
+          saved.slides.map((s) => ({
+            ...s,
+            id: crypto.randomUUID(),
+            content: formatMarkdown(s.content ?? ""),
+          })),
+        ),
       );
       setCurrentIndex(0);
       setCurrentSavedId(saved.id);
@@ -2141,11 +2168,13 @@ export function usePresentationState() {
         slidesRedoRef.current = [];
         setTopic(saved.topic);
         setSlides(
-          saved.slides.map((s) => ({
-            ...s,
-            id: crypto.randomUUID(),
-            content: formatMarkdown(s.content ?? ""),
-          })),
+          normalizeSlidesCanvasScenes(
+            saved.slides.map((s) => ({
+              ...s,
+              id: crypto.randomUUID(),
+              content: formatMarkdown(s.content ?? ""),
+            })),
+          ),
         );
         setCurrentIndex(0);
         setCurrentSavedId(saved.id);
@@ -2406,11 +2435,13 @@ export function usePresentationState() {
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
         setSlides(
-          presentation.slides.map((s) => ({
-            ...s,
-            id: crypto.randomUUID(),
-            content: formatMarkdown(s.content ?? ""),
-          })),
+          normalizeSlidesCanvasScenes(
+            presentation.slides.map((s) => ({
+              ...s,
+              id: crypto.randomUUID(),
+              content: formatMarkdown(s.content ?? ""),
+            })),
+          ),
         );
         setSelectedCharacterId(presentation.characterId ?? null);
       }
@@ -2503,7 +2534,7 @@ export function usePresentationState() {
     setTopic("");
     slidesUndoRef.current = [];
     slidesRedoRef.current = [];
-    setSlides([blankSlide]);
+    setSlides(normalizeSlidesCanvasScenes([blankSlide]));
     setCurrentIndex(0);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
@@ -2753,11 +2784,11 @@ export function usePresentationState() {
       title: "Nueva diapositiva",
       content: "",
     };
-    const next = [
+    const next = normalizeSlidesCanvasScenes([
       ...slides.slice(0, index + 1),
       newSlide,
       ...slides.slice(index + 1),
-    ];
+    ]);
     setSlides(next);
     setCurrentIndex(index + 1);
     savePresentationNow({
@@ -3054,6 +3085,7 @@ export function usePresentationState() {
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,
     patchCurrentSlideMatrix,
+    patchCurrentSlideCanvasScene,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,

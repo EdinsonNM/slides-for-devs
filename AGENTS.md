@@ -129,3 +129,4 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 - No dupliques lógica si ya existe un servicio, modal o panel que resuelva parte del problema.
 - Mantén nombres claros en inglés dentro del código, aunque la documentación del repo esté en español.
 - No hagas cambios destructivos sobre datos de usuario o migraciones sin pedir confirmación explícita.
+- Evita el uso de texto o números mágicos prioriza siempre el uso de enums, constantes, y patrones de diseño si es necesario

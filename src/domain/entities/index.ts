@@ -1,5 +1,16 @@
 export type { Slide, SlideType, SlidePanelContentType } from "./Slide";
 export { SLIDE_TYPE, slideUsesFullBleedCanvas } from "./Slide";
+export type {
+  SlideCanvasElement,
+  SlideCanvasElementKind,
+  SlideCanvasRect,
+  SlideCanvasScene,
+} from "./SlideCanvas";
+export {
+  SLIDE_CANVAS_SCENE_VERSION,
+  clampCanvasRect,
+  isSlideCanvasScene,
+} from "./SlideCanvas";
 export type { SlideMatrixData } from "./SlideMatrix";
 export {
   createEmptySlideMatrixData,

@@ -162,6 +162,13 @@
   --slide-body: clamp(0.75rem, 1.55cqw, 1.05rem);
 }
 
+/* Etiqueta «Sección N» fuera del borde del lienzo (editor): mismo criterio de escala que .slide-content */
+.slide-editor-canvas-wrap {
+  container-type: inline-size;
+  container-name: slide-editor-outer;
+  --slide-section-out-label: clamp(0.58rem, 1.15cqw, 0.76rem);
+}
+
 /* Navegadores sin container query units: fallback conservador con vw */
 @supports not (font-size: 1cqw) {
   .slide-content {
@@ -170,6 +177,9 @@
     --slide-subtitle: clamp(0.8125rem, 1.65vw, 1.2rem);
     --slide-label: clamp(0.58rem, 0.95vw, 0.76rem);
     --slide-body: clamp(0.75rem, 1.2vw, 1.05rem);
+  }
+  .slide-editor-canvas-wrap {
+    --slide-section-out-label: clamp(0.58rem, 0.95vw, 0.76rem);
   }
 }
 
@@ -199,6 +209,13 @@
   --slide-body: clamp(1rem, 1.65cqw, 1.45rem);
 }
 
+/* Columna vista previa: etiqueta «Sección N» encima del marco 16:9 */
+.preview-slide-outer {
+  container-type: inline-size;
+  container-name: slide-preview-outer;
+  --slide-section-out-label: clamp(0.65rem, 1.15cqw, 0.88rem);
+}
+
 @supports not (font-size: 1cqw) {
   .preview-slide {
     --slide-title-chapter: clamp(2rem, 6vw, 4.75rem);
@@ -206,6 +223,9 @@
     --slide-subtitle: clamp(1rem, 2vw, 1.85rem);
     --slide-label: clamp(0.65rem, 1vw, 0.88rem);
     --slide-body: clamp(1rem, 1.35vw, 1.45rem);
+  }
+  .preview-slide-outer {
+    --slide-section-out-label: clamp(0.65rem, 1vw, 0.88rem);
   }
 }
 

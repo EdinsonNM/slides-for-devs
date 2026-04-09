@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Monitor, StickyNote, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Slide } from "../../types";
-import { slideUsesFullBleedCanvas } from "../../domain/entities";
 import { usePresentation } from "../../context/PresentationContext";
 import { presenterChat } from "../../services/gemini";
 import { PreviewSlideContent } from "../preview/PreviewSlideContent";
@@ -176,19 +175,14 @@ export function PresenterView() {
       />
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
-        <section
-          className={
-            slideUsesFullBleedCanvas(currentSlide.type)
-              ? "relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col bg-stone-950 p-2 md:order-1 md:p-3"
-              : "relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4"
-          }
-        >
+        <section className="relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4">
           <div className="flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-white text-stone-900 shadow-2xl">
             <PreviewSlideContent
               slide={currentSlide}
               formatMarkdown={formatMarkdown}
               imageWidthPercent={imageWidthPercent}
               panelHeightPercent={panelHeightPercent}
+              slideIndex={currentIndex}
             />
           </div>
         </section>

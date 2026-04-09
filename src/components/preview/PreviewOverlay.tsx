@@ -5,7 +5,6 @@ import { usePresentation } from "../../context/PresentationContext";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
-import { slideUsesFullBleedCanvas } from "../../domain/entities";
 
 function getOrigin() {
   return window.location.origin;
@@ -183,18 +182,13 @@ export function PreviewOverlay() {
           onClose={() => setIsPreviewMode(false)}
         />
 
-        <div
-          className={
-            slideUsesFullBleedCanvas(currentSlide.type)
-              ? "relative z-20 flex-1 flex min-h-0 min-w-0 w-full"
-              : "relative z-20 flex-1 flex items-center justify-center p-12 min-h-0"
-          }
-        >
+        <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 items-center justify-center p-8 md:p-12">
           <PreviewSlideContent
             slide={currentSlide}
             formatMarkdown={formatMarkdown}
             imageWidthPercent={imageWidthPercent}
             panelHeightPercent={panelHeightPercent}
+            slideIndex={currentIndex}
           />
         </div>
 
