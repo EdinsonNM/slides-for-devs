@@ -296,8 +296,7 @@ export function SlideContentDefault() {
                       widthPercent={titleW}
                       innerClassName="space-y-2"
                     >
-                      <input
-                        type="text"
+                      <textarea
                         value={editSubtitle}
                         onChange={(e) => setEditSubtitle(e.target.value)}
                         onBlur={scheduleCommitAfterBlur}
@@ -306,8 +305,9 @@ export function SlideContentDefault() {
                           setActiveBlock("subtitle");
                         }}
                         {...{ [EDIT_FIELD_ATTR]: "true" }}
-                        placeholder="Subtítulo o descripción (opcional)"
-                        className="text-stone-500 dark:text-stone-400 bg-transparent border-0 shadow-none focus:outline-none focus:ring-0 w-full text-sm rounded-md px-2 py-1"
+                        placeholder="Subtítulo o descripción (markdown, opcional)"
+                        rows={3}
+                        className="box-border min-h-[4.5rem] w-full resize-y rounded-md border-0 bg-transparent px-2 py-1 text-sm text-stone-500 shadow-none focus:outline-none focus:ring-0 dark:text-stone-400 whitespace-pre-wrap wrap-break-word"
                       />
                     </CanvaSelectionFrame>
                   ) : (
@@ -318,8 +318,13 @@ export function SlideContentDefault() {
                       role="button"
                       tabIndex={0}
                     >
-                      {editSubtitle.trim() ||
-                        "Clic para subtítulo (opcional)"}
+                      {editSubtitle.trim() ? (
+                        <SlideMarkdown className="prose-sm max-w-none dark:prose-invert">
+                          {formatMarkdown(editSubtitle)}
+                        </SlideMarkdown>
+                      ) : (
+                        "Clic para subtítulo (opcional)"
+                      )}
                     </div>
                   )}
                 </>
@@ -345,8 +350,8 @@ export function SlideContentDefault() {
                     {currentSlide.title || "Sin título"}
                   </h2>
                   {currentSlide.subtitle ? (
-                    <p
-                      className="text-stone-500 dark:text-stone-300 text-sm cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-1 -mx-1 py-0.5 transition-colors"
+                    <div
+                      className="cursor-text text-sm text-stone-500 transition-colors hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800 rounded px-1 -mx-1 py-0.5"
                       onClick={() => {
                         setActiveBlock("subtitle");
                         setIsEditing(true);
@@ -355,8 +360,10 @@ export function SlideContentDefault() {
                       tabIndex={0}
                       title="Clic para editar subtítulo"
                     >
-                      {currentSlide.subtitle}
-                    </p>
+                      <SlideMarkdown className="prose-sm max-w-none dark:prose-invert">
+                        {formatMarkdown(currentSlide.subtitle)}
+                      </SlideMarkdown>
+                    </div>
                   ) : (
                     <p
                       className="text-stone-400 dark:text-stone-500 text-sm italic cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-1 -mx-1 py-0.5"

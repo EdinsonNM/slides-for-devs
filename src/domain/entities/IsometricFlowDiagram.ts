@@ -2,6 +2,9 @@
 
 export const ISOMETRIC_FLOW_VERSION = 1 as const;
 
+/** Color de trazo por defecto de los conectores (diagrama isométrico). */
+export const DEFAULT_ISOMETRIC_LINK_STROKE = "rgb(37 99 235)";
+
 export interface IsometricFlowNode {
   id: string;
   /** Celda en rejilla isométrica (enteros recomendados). */
@@ -16,6 +19,22 @@ export interface IsometricFlowLink {
   id: string;
   from: string;
   to: string;
+  /** Color del trazo (CSS: `rgb()`, `#hex`, etc.). */
+  stroke?: string;
+  /** Si es true, la flecha apunta al nodo `from` en lugar de a `to`. */
+  reversed?: boolean;
+}
+
+const LINK_STROKE_MAX = 80;
+
+function sanitizeLinkStroke(raw: unknown): string | undefined {
+  if (raw == null || typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (s.length === 0 || s.length > LINK_STROKE_MAX) return undefined;
+  if (/^#[0-9A-Fa-f]{3,8}$/.test(s)) return s;
+  if (/^rgba?\(\s*[\d.\s%,]+\)$/i.test(s)) return s;
+  if (/^hsla?\(\s*[\d.\s%,]+\)$/i.test(s)) return s;
+  return undefined;
 }
 
 export interface IsometricFlowDiagram {
@@ -28,9 +47,9 @@ export function createDefaultIsometricFlowDiagram(): IsometricFlowDiagram {
   return {
     version: ISOMETRIC_FLOW_VERSION,
     nodes: [
-      { id: "n1", gx: -1, gy: 0, label: "Cliente", hue: 210 },
-      { id: "n2", gx: 0, gy: 0, label: "Servicio", hue: 155 },
-      { id: "n3", gx: 1, gy: 0, label: "Datos", hue: 32 },
+      { id: "n1", gx: -1, gy: 0, label: "Sin título", hue: 205 },
+      { id: "n2", gx: 0, gy: 0, label: "Sin título", hue: 208 },
+      { id: "n3", gx: 1, gy: 0, label: "Sin título", hue: 212 },
     ],
     links: [
       { id: "l1", from: "n1", to: "n2" },
@@ -76,7 +95,16 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
       if (typeof l.id !== "string" || !l.id) continue;
       if (typeof l.from !== "string" || typeof l.to !== "string") continue;
       if (l.from === l.to) continue;
-      links.push({ id: l.id, from: l.from, to: l.to });
+      const stroke = sanitizeLinkStroke(l.stroke);
+      const reversed =
+        l.reversed === true || l.reversed === "true" || l.reversed === 1;
+      links.push({
+        id: l.id,
+        from: l.from,
+        to: l.to,
+        ...(stroke ? { stroke } : {}),
+        ...(reversed ? { reversed: true } : {}),
+      });
     }
     if (nodes.length === 0) return fallback;
     const ids = new Set(nodes.map((n) => n.id));
