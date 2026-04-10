@@ -2,6 +2,7 @@ import { Monitor } from "lucide-react";
 import type { Slide } from "../../types";
 import { SLIDE_TYPE } from "../../domain/entities";
 import { cn } from "../../utils/cn";
+import { SlideMarkdown } from "../shared/SlideMarkdown";
 
 export interface PresenterSlideSummaryProps {
   slide: Slide;
@@ -35,9 +36,11 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
         </p>
         {slide.type === SLIDE_TYPE.CHAPTER ? (
           slide.subtitle && (
-            <p className="text-stone-400 text-xs uppercase tracking-widest line-clamp-1">
-              {slide.subtitle}
-            </p>
+            <div className="line-clamp-2 min-h-0 overflow-hidden text-xs">
+              <SlideMarkdown className="prose-sm max-w-none normal-case dark:prose-invert">
+                {slide.subtitle}
+              </SlideMarkdown>
+            </div>
           )
         ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
           <p className="text-stone-400 text-xs">Diagrama editable</p>
@@ -49,7 +52,11 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
             {slide.matrixData?.rows?.length ?? 0}
           </p>
         ) : slide.contentLayout === "panel-full" && slide.subtitle ? (
-          <p className="text-stone-400 text-xs line-clamp-2">{slide.subtitle}</p>
+          <div className="line-clamp-2 min-h-0 overflow-hidden text-xs">
+            <SlideMarkdown className="prose-sm max-w-none dark:prose-invert">
+              {slide.subtitle}
+            </SlideMarkdown>
+          </div>
         ) : (
           <p className="text-stone-400 text-xs line-clamp-2 overflow-hidden">
             {slide.content

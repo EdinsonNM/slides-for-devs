@@ -153,7 +153,6 @@ export function SlideCanvasSlide() {
     editContent,
     setEditContent,
     commitSlideEdits,
-    formatMarkdown,
     setSlides,
     setShowRewriteModal,
     setShowGenerateSlideContentModal,
@@ -707,7 +706,6 @@ export function SlideCanvasSlide() {
           editContent={editContent}
           setEditContent={setEditContent}
           commitSlideEdits={commitSlideEdits}
-          formatMarkdown={formatMarkdown}
           patchCurrentSlideMatrix={patchCurrentSlideMatrix}
           setShowRewriteModal={setShowRewriteModal}
           setGenerateSlideContentPrompt={setGenerateSlideContentPrompt}
@@ -761,7 +759,6 @@ function CanvasElementEditor({
   editContent,
   setEditContent,
   commitSlideEdits,
-  formatMarkdown,
   patchCurrentSlideMatrix,
   setShowRewriteModal,
   setGenerateSlideContentPrompt,
@@ -806,7 +803,6 @@ function CanvasElementEditor({
   editContent: string;
   setEditContent: (v: string) => void;
   commitSlideEdits: (o?: { keepEditing?: boolean }) => void;
-  formatMarkdown: (s: string) => string;
   patchCurrentSlideMatrix: (u: (p: SlideMatrixData) => SlideMatrixData) => void;
   setShowRewriteModal: (v: boolean) => void;
   setGenerateSlideContentPrompt: (v: string) => void;
@@ -1225,12 +1221,15 @@ function CanvasElementEditor({
                   }}
                 >
                   {(isEditing ? editSubtitle : slide.subtitle ?? "").trim() ? (
-                    <span
-                      className="block max-w-full min-w-0 whitespace-pre-wrap wrap-break-word"
+                    <SlideMarkdown
+                      className={cn(
+                        "prose-sm max-w-none min-w-0",
+                        chapter && "text-center normal-case",
+                      )}
                       style={{ fontSize: "var(--slide-subtitle)" }}
                     >
-                      {isEditing ? editSubtitle : slide.subtitle}
-                    </span>
+                      {isEditing ? editSubtitle : slide.subtitle ?? ""}
+                    </SlideMarkdown>
                   ) : (
                     <span className="text-stone-400 italic">
                       Subtítulo (opcional)
@@ -1238,9 +1237,8 @@ function CanvasElementEditor({
                   )}
                 </div>
               ) : (
-                <input
+                <textarea
                   {...{ [EDIT_FIELD_ATTR]: "true" }}
-                  type="text"
                   value={editSubtitle}
                   onChange={(e) => setEditSubtitle(e.target.value)}
                   onBlur={() =>
@@ -1249,10 +1247,10 @@ function CanvasElementEditor({
                       120,
                     )
                   }
+                  rows={3}
                   className={cn(
-                    "field-sizing-content box-border min-h-7 w-full min-w-0 rounded-md border-0 bg-transparent text-sm shadow-none focus:outline-none focus:ring-0 dark:text-stone-200",
-                    chapter &&
-                      "text-center font-light uppercase tracking-wide",
+                    "box-border min-h-18 w-full min-w-0 resize-y rounded-md border-0 bg-transparent text-sm shadow-none focus:outline-none focus:ring-0 dark:text-stone-200 whitespace-pre-wrap wrap-break-word",
+                    chapter && "text-center font-light tracking-wide",
                   )}
                   style={{ fontSize: "var(--slide-subtitle)" }}
                 />
@@ -1298,7 +1296,7 @@ function CanvasElementEditor({
                 }}
               >
                 {editContent.trim() ? (
-                  <SlideMarkdown>{formatMarkdown(editContent)}</SlideMarkdown>
+                  <SlideMarkdown>{editContent}</SlideMarkdown>
                 ) : (
                   <p className="text-stone-400 italic">
                     Doble clic para editar…
@@ -1515,7 +1513,7 @@ function CanvasElementEditor({
                 }}
               >
                 {editContent.trim() ? (
-                  <SlideMarkdown>{formatMarkdown(editContent)}</SlideMarkdown>
+                  <SlideMarkdown>{editContent}</SlideMarkdown>
                 ) : (
                   <p className="text-xs text-stone-400">Notas bajo la tabla…</p>
                 )}

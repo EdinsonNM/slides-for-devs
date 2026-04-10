@@ -20,7 +20,6 @@ import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 
 export interface SlideCanvasViewProps {
   slide: Slide;
-  formatMarkdown: (md: string) => string;
   /** Contenedor ya en 16:9; el lienzo llena el área útil. */
   className?: string;
 }
@@ -92,11 +91,9 @@ function mediaBlock(slide: Slide) {
 function CanvasElementReadOnly({
   element,
   slide,
-  formatMarkdown,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
-  formatMarkdown: (md: string) => string;
 }) {
   const { rect, kind, z } = element;
   const rotation = element.rotation ?? 0;
@@ -151,12 +148,12 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-0.5",
-            <p
-              className="min-w-0 w-full max-w-full text-stone-500 dark:text-stone-300 whitespace-pre-wrap wrap-break-word"
+            <SlideMarkdown
+              className="prose-sm max-w-none min-w-0 w-full dark:prose-invert"
               style={{ fontSize: "var(--slide-subtitle)" }}
             >
               {slide.subtitle}
-            </p>,
+            </SlideMarkdown>,
           )}
         </div>
       );
@@ -183,12 +180,12 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center text-stone-400 dark:text-stone-400",
-            <p
-              className="min-w-0 w-full max-w-full font-light uppercase tracking-widest whitespace-pre-wrap wrap-break-word"
+            <SlideMarkdown
+              className="prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide dark:prose-invert"
               style={{ fontSize: "var(--slide-subtitle)" }}
             >
               {slide.subtitle}
-            </p>,
+            </SlideMarkdown>,
           )}
         </div>
       );
@@ -198,7 +195,7 @@ function CanvasElementReadOnly({
           {rotated(
             "h-full overflow-y-auto px-2 py-1 scrollbar-on-hover",
             slide.content?.trim() ? (
-              <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
+              <SlideMarkdown>{slide.content}</SlideMarkdown>
             ) : null,
           )}
         </div>
@@ -231,7 +228,7 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "h-full overflow-y-auto border-t border-stone-100 px-2 py-1 dark:border-border",
-            <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>,
+            <SlideMarkdown>{slide.content}</SlideMarkdown>,
           )}
         </div>
       );
@@ -276,11 +273,7 @@ function CanvasElementReadOnly({
 }
 
 /** Vista previa / presentador: lienzo a partir de `canvasScene` (migra si hace falta). */
-export function SlideCanvasView({
-  slide,
-  formatMarkdown,
-  className,
-}: SlideCanvasViewProps) {
+export function SlideCanvasView({ slide, className }: SlideCanvasViewProps) {
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
@@ -288,12 +281,7 @@ export function SlideCanvasView({
   return (
     <div className={cn("relative h-full min-h-0 w-full min-w-0", className)}>
       {sorted.map((el) => (
-        <CanvasElementReadOnly
-          key={el.id}
-          element={el}
-          slide={ensured}
-          formatMarkdown={formatMarkdown}
-        />
+        <CanvasElementReadOnly key={el.id} element={el} slide={ensured} />
       ))}
     </div>
   );

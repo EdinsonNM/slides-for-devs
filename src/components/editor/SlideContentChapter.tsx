@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Pencil } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { CanvaSelectionFrame } from "./CanvaSelectionFrame";
 
 const EDIT_FIELD_ATTR = "data-slide-edit-field";
@@ -24,7 +25,7 @@ export function SlideContentChapter() {
   const [activeBlock, setActiveBlock] = useState<ChapterBlock | null>(null);
   const titleMeasureRef = useRef<HTMLDivElement>(null);
   const titleTaRef = useRef<HTMLTextAreaElement>(null);
-  const subtitleInputRef = useRef<HTMLInputElement>(null);
+  const subtitleTaRef = useRef<HTMLTextAreaElement>(null);
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deselectInsideSlideRef = useRef(false);
   /** Enfoque inicial al entrar en edición (lápiz → título; clic en subtítulo → subtítulo). */
@@ -64,7 +65,7 @@ export function SlideContentChapter() {
       if (!isEditing) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
 
-      const subEl = subtitleInputRef.current;
+      const subEl = subtitleTaRef.current;
       if (subEl && activeBlock !== "subtitle") {
         const r = subEl.getBoundingClientRect();
         const pad = 16;
@@ -141,7 +142,7 @@ export function SlideContentChapter() {
     const which = pendingFocusRef.current;
     const id = requestAnimationFrame(() => {
       if (which === "subtitle") {
-        subtitleInputRef.current?.focus({ preventScroll: true });
+        subtitleTaRef.current?.focus({ preventScroll: true });
       } else {
         titleTaRef.current?.focus({ preventScroll: true });
       }
@@ -202,9 +203,8 @@ export function SlideContentChapter() {
                 widthPercent={titleW}
                 innerClassName="w-full"
               >
-                <input
-                  ref={subtitleInputRef}
-                  type="text"
+                <textarea
+                  ref={subtitleTaRef}
                   value={editSubtitle}
                   onChange={(e) => setEditSubtitle(e.target.value)}
                   onBlur={scheduleCommitAfterBlur}
@@ -213,9 +213,10 @@ export function SlideContentChapter() {
                     setActiveBlock("subtitle");
                   }}
                   {...{ [EDIT_FIELD_ATTR]: "true" }}
-                  aria-label="Subtítulo (opcional)"
-                  placeholder="Subtítulo (opcional)"
-                  className="min-h-11 text-stone-500 dark:text-stone-400 font-light tracking-wide uppercase text-center bg-stone-100/90 dark:bg-stone-800/70 border-0 shadow-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 rounded-md w-full px-3 py-2.5 text-sm"
+                  aria-label="Subtítulo (opcional, markdown)"
+                  placeholder="Subtítulo (opcional, markdown)"
+                  rows={3}
+                  className="min-h-24 w-full resize-y rounded-md border-0 bg-stone-100/90 px-3 py-2.5 text-center text-sm font-light tracking-wide text-stone-500 shadow-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:bg-stone-800/70 dark:text-stone-400 whitespace-pre-wrap wrap-break-word"
                 />
               </CanvaSelectionFrame>
             </div>
@@ -261,8 +262,8 @@ export function SlideContentChapter() {
               </button>
             </div>
             {currentSlide.subtitle ? (
-              <p
-                className="mt-6 text-stone-500 dark:text-stone-300 font-light tracking-wide uppercase cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-2 py-1 transition-colors md:mt-8"
+              <div
+                className="mt-6 cursor-text rounded px-2 py-1 font-light tracking-wide transition-colors hover:bg-stone-50 dark:hover:bg-stone-800 md:mt-8"
                 style={{ fontSize: "var(--slide-subtitle)" }}
                 role="button"
                 tabIndex={0}
@@ -280,8 +281,10 @@ export function SlideContentChapter() {
                   }
                 }}
               >
-                {currentSlide.subtitle}
-              </p>
+                <SlideMarkdown className="prose-sm mx-auto max-w-none text-center normal-case dark:prose-invert">
+                  {currentSlide.subtitle}
+                </SlideMarkdown>
+              </div>
             ) : (
               <p
                 className="mt-6 text-stone-400 dark:text-stone-500 font-light tracking-wide uppercase cursor-text hover:bg-stone-50 dark:hover:bg-stone-800 rounded px-2 py-1 transition-colors text-sm md:mt-8"

@@ -20,7 +20,7 @@ function getOrigin(): string {
 }
 
 export function PresenterView() {
-  const { formatMarkdown, imageWidthPercent, panelHeightPercent } = usePresentation();
+  const { imageWidthPercent, panelHeightPercent } = usePresentation();
   const [state, setState] = useState<PresenterState | null>(null);
   const [activeTab, setActiveTab] = useState<"notas" | "chat">("notas");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -179,7 +179,6 @@ export function PresenterView() {
           <div className="flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-white text-stone-900 shadow-2xl">
             <PreviewSlideContent
               slide={currentSlide}
-              formatMarkdown={formatMarkdown}
               imageWidthPercent={imageWidthPercent}
               panelHeightPercent={panelHeightPercent}
               slideIndex={currentIndex}

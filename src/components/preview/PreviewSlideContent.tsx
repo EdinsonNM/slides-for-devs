@@ -6,7 +6,6 @@ import { SlideCanvasView } from "../canvas/SlideCanvasView";
 
 export interface PreviewSlideContentProps {
   slide: Slide;
-  formatMarkdown: (content: string) => string;
   /** Conservado por compatibilidad; el lienzo usa `canvasScene` + campos del slide. */
   imageWidthPercent: number;
   panelHeightPercent?: number;
@@ -19,7 +18,6 @@ export interface PreviewSlideContentProps {
  */
 export function PreviewSlideContent({
   slide,
-  formatMarkdown,
   slideIndex = 0,
 }: PreviewSlideContentProps) {
   return (
@@ -47,11 +45,7 @@ export function PreviewSlideContent({
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
         )}
       >
-        <SlideCanvasView
-          slide={slide}
-          formatMarkdown={formatMarkdown}
-          className="min-h-0 flex-1"
-        />
+        <SlideCanvasView slide={slide} className="min-h-0 flex-1" />
       </div>
     </motion.div>
   );

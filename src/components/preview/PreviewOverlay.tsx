@@ -20,7 +20,6 @@ export function PreviewOverlay() {
     topic,
     imageWidthPercent,
     panelHeightPercent,
-    formatMarkdown,
     prevSlide,
     nextSlide,
     effectiveGeminiModel,
@@ -185,7 +184,6 @@ export function PreviewOverlay() {
         <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 items-center justify-center p-8 md:p-12">
           <PreviewSlideContent
             slide={currentSlide}
-            formatMarkdown={formatMarkdown}
             imageWidthPercent={imageWidthPercent}
             panelHeightPercent={panelHeightPercent}
             slideIndex={currentIndex}

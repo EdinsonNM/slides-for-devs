@@ -14,7 +14,6 @@ export function SlideContentDefault() {
   const {
     currentSlide,
     currentIndex,
-    formatMarkdown,
     isEditing,
     setIsEditing,
     editTitle,
@@ -307,7 +306,7 @@ export function SlideContentDefault() {
                         {...{ [EDIT_FIELD_ATTR]: "true" }}
                         placeholder="Subtítulo o descripción (markdown, opcional)"
                         rows={3}
-                        className="box-border min-h-[4.5rem] w-full resize-y rounded-md border-0 bg-transparent px-2 py-1 text-sm text-stone-500 shadow-none focus:outline-none focus:ring-0 dark:text-stone-400 whitespace-pre-wrap wrap-break-word"
+                        className="box-border min-h-18 w-full resize-y rounded-md border-0 bg-transparent px-2 py-1 text-sm text-stone-500 shadow-none focus:outline-none focus:ring-0 dark:text-stone-400 whitespace-pre-wrap wrap-break-word"
                       />
                     </CanvaSelectionFrame>
                   ) : (
@@ -320,7 +319,7 @@ export function SlideContentDefault() {
                     >
                       {editSubtitle.trim() ? (
                         <SlideMarkdown className="prose-sm max-w-none dark:prose-invert">
-                          {formatMarkdown(editSubtitle)}
+                          {editSubtitle}
                         </SlideMarkdown>
                       ) : (
                         "Clic para subtítulo (opcional)"
@@ -361,7 +360,7 @@ export function SlideContentDefault() {
                       title="Clic para editar subtítulo"
                     >
                       <SlideMarkdown className="prose-sm max-w-none dark:prose-invert">
-                        {formatMarkdown(currentSlide.subtitle)}
+                        {currentSlide.subtitle}
                       </SlideMarkdown>
                     </div>
                   ) : (
@@ -585,7 +584,7 @@ export function SlideContentDefault() {
               title="Clic para editar el contenido"
             >
               {currentSlide.content?.trim() ? (
-                <SlideMarkdown>{formatMarkdown(currentSlide.content)}</SlideMarkdown>
+                <SlideMarkdown>{currentSlide.content}</SlideMarkdown>
               ) : (
                 <p className="text-stone-400 dark:text-stone-500 italic p-2">
                   Clic para escribir el contenido…
@@ -655,7 +654,7 @@ export function SlideContentDefault() {
               title="Clic para editar el contenido"
             >
               {editContent.trim() ? (
-                <SlideMarkdown>{formatMarkdown(editContent)}</SlideMarkdown>
+                <SlideMarkdown>{editContent}</SlideMarkdown>
               ) : (
                 <p className="text-stone-400 dark:text-stone-500 italic p-2">
                   Clic para escribir el contenido…
