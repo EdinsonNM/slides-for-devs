@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import {
   ChevronLeft,
   PanelLeftOpen,
@@ -9,6 +9,7 @@ import {
   Video,
   Box,
   Table2,
+  GripVertical,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE, type Slide } from "../../domain/entities";
@@ -16,6 +17,26 @@ import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
 
 const SIDEBAR_WIDTH = 256;
+
+/** Índice de fila bajo clientY; compatible con huecos entre miniaturas (lista con gap). */
+function slideRowIndexAtY(
+  clientY: number,
+  rowElements: (HTMLDivElement | null)[],
+): number {
+  const rects: { index: number; top: number; bottom: number }[] = [];
+  for (let i = 0; i < rowElements.length; i++) {
+    const el = rowElements[i];
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    rects.push({ index: i, top: r.top, bottom: r.bottom });
+  }
+  if (rects.length === 0) return 0;
+  for (const row of rects) {
+    if (clientY >= row.top && clientY < row.bottom) return row.index;
+  }
+  if (clientY < rects[0].top) return rects[0].index;
+  return rects[rects.length - 1].index;
+}
 
 function sidebarPanelKind(contentType: Slide["contentType"]): NonNullable<Slide["contentType"]> {
   return contentType ?? "image";
@@ -45,6 +66,7 @@ function SidebarPanelMediaPreview({ slide }: { slide: Slide }) {
       <img
         src={slide.imageUrl}
         alt=""
+        draggable={false}
         className="w-full h-full object-cover"
         referrerPolicy="no-referrer"
       />
@@ -71,7 +93,12 @@ export function SlideSidebar() {
     setIsSidebarOpen,
     deleteSlideAt,
     insertSlideAfter,
+    moveSlide,
   } = usePresentation();
+
+  const [dragSourceIndex, setDragSourceIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -79,6 +106,10 @@ export function SlideSidebar() {
     index: number;
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    rowRefs.current = rowRefs.current.slice(0, slides.length);
+  }, [slides.length]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -128,8 +159,83 @@ export function SlideSidebar() {
         {slides.map((slide, index) => {
           const panelKind = sidebarPanelKind(slide.contentType);
           return (
-          <button
+          <div
             key={slide.id}
+            ref={(el) => {
+              rowRefs.current[index] = el;
+            }}
+            className={cn(
+              "flex gap-0.5 items-stretch shrink-0 rounded-md transition-shadow",
+              dragOverIndex === index &&
+                dragSourceIndex !== null &&
+                dragSourceIndex !== index &&
+                "ring-2 ring-primary/40 ring-offset-1 ring-offset-white dark:ring-offset-surface-elevated",
+              dragSourceIndex === index && "opacity-75",
+            )}
+          >
+            <div
+              className={cn(
+                "flex w-5 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-l-md border border-r-0 border-border bg-stone-50 text-stone-400 hover:bg-stone-100 hover:text-stone-600 active:cursor-grabbing dark:bg-stone-800/80 dark:text-stone-500 dark:hover:bg-stone-800 dark:hover:text-stone-300",
+              )}
+              aria-label="Arrastrar para reordenar"
+              title="Arrastrar para reordenar"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const fromIndex = index;
+                const gripEl = e.currentTarget;
+                const pointerId = e.pointerId;
+                setDragSourceIndex(fromIndex);
+                setDragOverIndex(fromIndex);
+                try {
+                  gripEl.setPointerCapture(pointerId);
+                } catch {
+                  /* ignore */
+                }
+                const prevCursor = document.body.style.cursor;
+                document.body.style.cursor = "grabbing";
+
+                const onMove = (ev: PointerEvent) => {
+                  ev.preventDefault();
+                  const over = slideRowIndexAtY(ev.clientY, rowRefs.current);
+                  setDragOverIndex((prev) => (prev === over ? prev : over));
+                };
+                const end = (ev: PointerEvent) => {
+                  window.removeEventListener("pointermove", onMove);
+                  window.removeEventListener("pointerup", end);
+                  window.removeEventListener("pointercancel", end);
+                  document.body.style.cursor = prevCursor;
+                  try {
+                    if (
+                      ev.pointerId === pointerId &&
+                      gripEl.hasPointerCapture(pointerId)
+                    ) {
+                      gripEl.releasePointerCapture(pointerId);
+                    }
+                  } catch {
+                    /* ignore */
+                  }
+                  const toIndex = slideRowIndexAtY(ev.clientY, rowRefs.current);
+                  setDragSourceIndex(null);
+                  setDragOverIndex(null);
+                  if (fromIndex !== toIndex) {
+                    moveSlide(fromIndex, toIndex);
+                  }
+                };
+
+                window.addEventListener("pointermove", onMove, {
+                  passive: false,
+                });
+                window.addEventListener("pointerup", end);
+                window.addEventListener("pointercancel", end);
+              }}
+            >
+              <GripVertical className="h-4 w-4" strokeWidth={2} aria-hidden />
+            </div>
+          <button
+            type="button"
             onClick={() => {
               setContextMenu(null);
               setCurrentIndex(index);
@@ -139,9 +245,9 @@ export function SlideSidebar() {
               setContextMenu({ x: e.clientX, y: e.clientY, index });
             }}
             className={cn(
-              "w-full aspect-video rounded-md border transition-all overflow-hidden relative group shrink-0",
+              "min-w-0 flex-1 aspect-video rounded-r-md border border-l-0 transition-all overflow-hidden relative group",
               currentIndex === index
-                ? "border-primary ring-2 ring-primary/30"
+                ? "border-primary ring-2 ring-primary/30 ring-inset"
                 : "border-border hover:border-stone-400 dark:hover:border-stone-500"
             )}
           >
@@ -225,6 +331,7 @@ export function SlideSidebar() {
                         <img
                           src={slide.imageUrl}
                           alt=""
+                          draggable={false}
                           className="w-full h-full object-cover rounded"
                           referrerPolicy="no-referrer"
                         />
@@ -277,6 +384,7 @@ export function SlideSidebar() {
               )}
             </div>
           </button>
+          </div>
           );
         })}
       </div>

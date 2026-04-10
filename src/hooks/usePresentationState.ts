@@ -2867,6 +2867,41 @@ export function usePresentationState() {
     });
   };
 
+  const moveSlide = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    let nextDeck: Slide[] | null = null;
+    setSlides((prev) => {
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= prev.length ||
+        toIndex >= prev.length
+      ) {
+        return prev;
+      }
+      const copy = [...prev];
+      const [item] = copy.splice(fromIndex, 1);
+      copy.splice(toIndex, 0, item);
+      nextDeck = normalizeSlidesCanvasScenes(copy);
+      return nextDeck;
+    });
+    if (!nextDeck) return;
+    setCurrentIndex((prev) => {
+      if (prev === fromIndex) return toIndex;
+      if (fromIndex < toIndex) {
+        if (prev > fromIndex && prev <= toIndex) return prev - 1;
+      } else if (fromIndex > toIndex) {
+        if (prev >= toIndex && prev < fromIndex) return prev + 1;
+      }
+      return prev;
+    });
+    void savePresentationNow({
+      topic: topic || "Sin título",
+      slides: nextDeck,
+      characterId: selectedCharacterId ?? undefined,
+    });
+  };
+
   const nextSlide = () => {
     if (currentIndex < slides.length - 1) setCurrentIndex(currentIndex + 1);
   };
@@ -3222,6 +3257,7 @@ export function usePresentationState() {
     goHome,
     deleteSlideAt,
     insertSlideAfter,
+    moveSlide,
     nextSlide,
     prevSlide,
     openImageModal,
