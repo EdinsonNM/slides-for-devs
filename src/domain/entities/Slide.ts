@@ -35,6 +35,7 @@ export interface Slide {
   language?: string;
   fontSize?: number;
   editorHeight?: number;
+  /** URL de vídeo incrustado (YouTube, Vimeo o directa) cuando `contentType === "video"`. */
   videoUrl?: string;
   contentType?: SlidePanelContentType;
   /** Modelo GLB del catálogo `DEVICE_3D_CATALOG` cuando `contentType === "presenter3d"`. */

@@ -14,6 +14,7 @@ import {
   FileDown,
   Sparkles,
   MoreHorizontal,
+  Clapperboard,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -54,6 +55,7 @@ export function Header(props: HeaderProps) {
     showSlideStylePanel,
     setShowSlideStylePanel,
     openGenerateFullDeckModal,
+    openExportDeckVideoModal,
   } = usePresentation();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -211,6 +213,17 @@ export function Header(props: HeaderProps) {
     />
   );
 
+  const exportVideoButton = slides.length > 0 && (
+    <IconButton
+      variant="default"
+      icon={<Clapperboard size={18} />}
+      aria-label="Exportar presentación a vídeo (Remotion)"
+      title="Exportar presentación a vídeo (MP4, Remotion)"
+      onClick={() => openExportDeckVideoModal()}
+      className="hidden xl:inline-flex"
+    />
+  );
+
   return (
     <header className="h-14 bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border px-4 flex items-center justify-between z-10 shrink-0 gap-3">
       <div className="flex items-center gap-2 min-w-0">
@@ -278,6 +291,7 @@ export function Header(props: HeaderProps) {
             {fileCloudInline}
           </HeaderToolbarGroup>
           <HeaderToolbarGroup className="items-center">
+            {exportVideoButton}
             {exportButton}
             {slides.length > 0 && (
               <IconButton
@@ -379,6 +393,20 @@ export function Header(props: HeaderProps) {
                   >
                     <LayoutTemplate size={16} className="shrink-0 opacity-70" />
                     Plantilla de diapositiva
+                  </button>
+                )}
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface"
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      openExportDeckVideoModal();
+                    }}
+                  >
+                    <Clapperboard size={16} className="shrink-0 opacity-70" />
+                    Exportar vídeo (Remotion)
                   </button>
                 )}
                 {slides.length > 0 && (

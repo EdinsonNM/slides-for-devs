@@ -216,6 +216,8 @@ export function usePresentationState() {
   const [generateSlideContentPrompt, setGenerateSlideContentPrompt] =
     useState("");
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showExportDeckVideoModal, setShowExportDeckVideoModal] =
+    useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [splitPrompt, setSplitPrompt] = useState("");
   const [rewritePrompt, setRewritePrompt] = useState("");
@@ -939,7 +941,7 @@ export function usePresentationState() {
 
     setSlides((prev) => {
       const updated = [...prev];
-      const base = { ...currentSlide, contentType: newType };
+      const base: Slide = { ...currentSlide, contentType: newType };
       updated[currentIndex] =
         newType === "presenter3d"
           ? {
@@ -1069,7 +1071,6 @@ export function usePresentationState() {
     });
   };
 
-  /** Cambia el tipo de contenido del panel derecho (solo para diapositivas de contenido con layout split). */
   const setCurrentSlideContentType = (
     contentType: NonNullable<Slide["contentType"]>,
   ) => {
@@ -1535,6 +1536,10 @@ export function usePresentationState() {
     setVideoUrlInput("");
     trackEvent(ANALYTICS_EVENTS.VIDEO_ADDED);
   };
+
+  const openExportDeckVideoModal = useCallback(() => {
+    setShowExportDeckVideoModal(true);
+  }, []);
 
   const flushDiagramPending = useCallback((): string | null => {
     return diagramFlushRef.current?.() ?? null;
@@ -3116,6 +3121,9 @@ export function usePresentationState() {
     setShowRewriteModal,
     showVideoModal,
     setShowVideoModal,
+    showExportDeckVideoModal,
+    setShowExportDeckVideoModal,
+    openExportDeckVideoModal,
     imagePrompt,
     setImagePrompt,
     splitPrompt,

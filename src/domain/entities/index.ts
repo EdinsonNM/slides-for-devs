@@ -1,4 +1,8 @@
-export type { Slide, SlideType, SlidePanelContentType } from "./Slide";
+export type {
+  Slide,
+  SlideType,
+  SlidePanelContentType,
+} from "./Slide";
 export { SLIDE_TYPE, slideUsesFullBleedCanvas } from "./Slide";
 export type {
   SlideCanvasElement,

@@ -6,24 +6,8 @@ import {
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
 } from "../domain/entities";
+import { markdownToPlainText } from "../utils/markdownPlainText";
 import { isTauri } from "./updater";
-
-/**
- * Convierte markdown básico a texto plano para PowerPoint
- * (elimina sintaxis markdown para que se vea legible).
- */
-function markdownToPlainText(md: string): string {
-  if (!md || typeof md !== "string") return "";
-  let out = md
-    .replace(/^#+\s+/gm, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/_(.+?)_/g, "$1")
-    .replace(/`(.+?)`/g, "$1")
-    .replace(/\[(.+?)\]\(.+?\)/g, "$1")
-    .trim();
-  return out;
-}
 
 /**
  * Extrae base64 y tipo de un data URL (data:image/png;base64,...).

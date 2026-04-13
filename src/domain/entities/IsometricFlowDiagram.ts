@@ -2,6 +2,28 @@
 
 export const ISOMETRIC_FLOW_VERSION = 1 as const;
 
+/** Formas visuales del bloque (persistido en JSON). */
+export const ISOMETRIC_FLOW_NODE_SHAPES = [
+  "slab",
+  "cylinder",
+  "cone",
+  "orb",
+  "mobile",
+  "desktop",
+  "cloud",
+] as const;
+
+export type IsometricFlowNodeShape = (typeof ISOMETRIC_FLOW_NODE_SHAPES)[number];
+
+const ISOMETRIC_FLOW_NODE_SHAPE_SET = new Set<string>(ISOMETRIC_FLOW_NODE_SHAPES);
+
+function sanitizeNodeShape(raw: unknown): IsometricFlowNodeShape | undefined {
+  if (typeof raw !== "string") return undefined;
+  return ISOMETRIC_FLOW_NODE_SHAPE_SET.has(raw)
+    ? (raw as IsometricFlowNodeShape)
+    : undefined;
+}
+
 /** Color de trazo por defecto de los conectores (diagrama isométrico). */
 export const DEFAULT_ISOMETRIC_LINK_STROKE = "rgb(37 99 235)";
 
@@ -13,6 +35,8 @@ export interface IsometricFlowNode {
   label: string;
   /** Matiz HSL del bloque (0–360). */
   hue: number;
+  /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC o nube). */
+  shape: IsometricFlowNodeShape;
 }
 
 export interface IsometricFlowLink {
@@ -47,9 +71,9 @@ export function createDefaultIsometricFlowDiagram(): IsometricFlowDiagram {
   return {
     version: ISOMETRIC_FLOW_VERSION,
     nodes: [
-      { id: "n1", gx: -1, gy: 0, label: "Sin título", hue: 205 },
-      { id: "n2", gx: 0, gy: 0, label: "Sin título", hue: 208 },
-      { id: "n3", gx: 1, gy: 0, label: "Sin título", hue: 212 },
+      { id: "n1", gx: -1, gy: 0, label: "Sin título", hue: 205, shape: "slab" },
+      { id: "n2", gx: 0, gy: 0, label: "Sin título", hue: 208, shape: "slab" },
+      { id: "n3", gx: 1, gy: 0, label: "Sin título", hue: 212, shape: "slab" },
     ],
     links: [
       { id: "l1", from: "n1", to: "n2" },
@@ -86,6 +110,7 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
         gy: Math.round(n.gy),
         label,
         hue,
+        shape: sanitizeNodeShape(n.shape) ?? "slab",
       });
     }
     const links: IsometricFlowLink[] = [];

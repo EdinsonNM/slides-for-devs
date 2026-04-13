@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Home,
   ChevronDown,
+  Clapperboard,
   FileDown,
   Loader2,
   UserPlus,
@@ -24,6 +25,7 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     slides,
     topic,
     openGenerateFullDeckModal,
+    openExportDeckVideoModal,
     setShowCharactersPanel,
     setShowSlideStylePanel,
     setInspectorSection,
@@ -151,6 +153,19 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
                 </button>
               </>
             )}
+            <button
+              type="button"
+              role="menuitem"
+              disabled={slides.length === 0}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8 disabled:opacity-40"
+              onClick={() => {
+                setMenuOpen(false);
+                openExportDeckVideoModal();
+              }}
+            >
+              <Clapperboard size={16} className="shrink-0 opacity-80" />
+              Exportar vídeo (Remotion)
+            </button>
             <button
               type="button"
               role="menuitem"

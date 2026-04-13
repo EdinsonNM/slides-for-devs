@@ -27,6 +27,7 @@ import { ImageGenerationModal } from "./components/modals/ImageGenerationModal";
 import { ImageUploadModal } from "./components/modals/ImageUploadModal";
 import { CodeGenerationModal } from "./components/modals/CodeGenerationModal";
 import { VideoUrlModal } from "./components/modals/VideoUrlModal";
+import { ExportDeckVideoModal } from "./components/modals/ExportDeckVideoModal";
 import { SplitSlideModal } from "./components/modals/SplitSlideModal";
 import { RewriteSlideModal } from "./components/modals/RewriteSlideModal";
 import { SpeechModal } from "./components/modals/SpeechModal";
@@ -138,6 +139,7 @@ function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
       <ImageUploadModal />
       <CodeGenerationModal />
       <VideoUrlModal />
+      <ExportDeckVideoModal />
       <SplitSlideModal />
       <RewriteSlideModal />
       <SpeechModal />

@@ -630,26 +630,28 @@ export function SlideCanvasSlide() {
             <Split size={16} />
           </button>
           {showPanelVideoToolbarBtn ? (
-            <button
-              type="button"
-              onClick={() => {
-                setVideoUrlInput(slide.videoUrl || "");
-                setShowVideoModal(true);
-              }}
-              className={cn(IA_BTN, "hover:text-sky-600 dark:hover:text-sky-400")}
-              title={
-                slide.videoUrl?.trim()
-                  ? "Cambiar vídeo"
-                  : "Añadir vídeo (YouTube, Vimeo o URL directa)"
-              }
-              aria-label={
-                slide.videoUrl?.trim()
-                  ? "Cambiar vídeo del panel"
-                  : "Añadir vídeo al panel"
-              }
-            >
-              <Video size={16} />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoUrlInput(slide.videoUrl || "");
+                  setShowVideoModal(true);
+                }}
+                className={cn(IA_BTN, "hover:text-sky-600 dark:hover:text-sky-400")}
+                title={
+                  slide.videoUrl?.trim()
+                    ? "Cambiar vídeo"
+                    : "Añadir vídeo (YouTube, Vimeo o URL directa)"
+                }
+                aria-label={
+                  slide.videoUrl?.trim()
+                    ? "Cambiar vídeo del panel"
+                    : "Añadir vídeo al panel"
+                }
+              >
+                <Video size={16} />
+              </button>
+            </>
           ) : null}
         </div>
       )}

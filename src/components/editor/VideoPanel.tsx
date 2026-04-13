@@ -1,26 +1,21 @@
-import { Video, Pencil } from "lucide-react";
+import { Video } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { getEmbedUrl } from "../../utils/video";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
 import { cn } from "../../utils/cn";
 
 export function VideoPanel() {
-  const { currentSlide, setVideoUrlInput, setShowVideoModal } =
-    usePresentation();
+  const { currentSlide } = usePresentation();
   const isLgUp = useMinWidthLg();
 
   if (!currentSlide) return null;
 
-  const openVideoModal = () => {
-    setVideoUrlInput(currentSlide.videoUrl || "");
-    setShowVideoModal(true);
-  };
+  const hasEmbed = Boolean(currentSlide.videoUrl?.trim());
 
-  /** Misma idea que `ImagePanel`: el panel llena el alto del `SlideRightPanel` / bloque. */
   const outerFill =
-    "flex min-h-0 w-full flex-1 flex-col overflow-hidden";
+    "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden";
 
-  if (currentSlide.videoUrl) {
+  if (hasEmbed) {
     return (
       <div
         className={cn(
@@ -31,25 +26,15 @@ export function VideoPanel() {
       >
         <div
           className={cn(
-            "group/video relative min-h-0 w-full flex-1 overflow-hidden rounded-2xl border border-white/10 bg-stone-900",
+            "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-stone-900",
           )}
         >
           <iframe
-            src={getEmbedUrl(currentSlide.videoUrl)}
+            src={getEmbedUrl(currentSlide.videoUrl!)}
             className="absolute inset-0 h-full w-full border-0"
             allowFullScreen
             title="Vídeo incrustado"
           />
-          {!isLgUp && (
-            <button
-              type="button"
-              onClick={openVideoModal}
-              className="absolute bottom-4 right-4 rounded-lg border border-stone-200 bg-white/80 p-2 text-stone-600 shadow-lg backdrop-blur-sm transition-all hover:text-emerald-600 opacity-0 group-hover/video:opacity-100"
-              title="Cambiar vídeo"
-            >
-              <Pencil size={16} />
-            </button>
-          )}
         </div>
       </div>
     );
@@ -59,22 +44,27 @@ export function VideoPanel() {
     <div
       className={cn(
         outerFill,
-        "h-full items-stretch justify-stretch p-4 md:p-6",
+        "h-full items-center justify-center",
+        isLgUp ? "p-0" : "p-4",
       )}
     >
-      <button
-        type="button"
-        onClick={() => setShowVideoModal(true)}
-        className="group flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-stone-200 text-stone-400 transition-all hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-500 dark:border-stone-600 dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
-      >
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-stone-100 transition-colors group-hover:bg-emerald-100 dark:bg-stone-800 dark:group-hover:bg-emerald-900/40">
-          <Video size={32} />
+      <div className="flex max-w-sm flex-col items-center gap-4 px-6 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-stone-100 text-stone-300 dark:bg-stone-800 dark:text-stone-600">
+          <Video size={40} strokeWidth={1.25} aria-hidden />
         </div>
-        <div className="text-center">
-          <p className="font-medium">Agregar video</p>
-          <p className="text-xs">YouTube, Vimeo o URL directa</p>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-stone-600 dark:text-stone-300">
+            Panel de vídeo
+          </p>
+          <p className="text-xs leading-relaxed text-stone-400 dark:text-stone-500">
+            Selecciona el bloque del panel en el lienzo y usa la{" "}
+            <span className="font-medium text-stone-500 dark:text-stone-400">
+              barra superior
+            </span>
+            : icono de vídeo (URL de YouTube, Vimeo o directa).
+          </p>
         </div>
-      </button>
+      </div>
     </div>
   );
 }

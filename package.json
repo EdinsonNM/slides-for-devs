@@ -19,6 +19,8 @@
     "@google/genai": "^1.29.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@remotion/player": "4.0.448",
+    "@remotion/web-renderer": "4.0.448",
     "@tailwindcss/vite": "^4.1.14",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "2.7.0",
@@ -43,6 +45,7 @@
     "react-syntax-highlighter": "^16.1.1",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
+    "remotion": "4.0.448",
     "tailwind-merge": "^3.5.0",
     "three": "^0.183.2",
     "vite": "^6.2.0"
