@@ -6,6 +6,7 @@ import { usePresentation } from "../../context/PresentationContext";
 import { DeckVideoComposition } from "../../remotion/DeckVideoComposition";
 import {
   DECK_VIDEO_FPS,
+  DECK_VIDEO_FRAMES_PER_SLIDE,
   DECK_VIDEO_HEIGHT,
   DECK_VIDEO_WIDTH,
   getDeckVideoDurationInFrames,
@@ -29,6 +30,7 @@ export function ExportDeckVideoModal() {
 
   const deckSlides = useMemo(() => mapSlidesForDeckVideoExport(slides), [slides]);
   const durationInFrames = getDeckVideoDurationInFrames(slides.length);
+  const secondsPerSlide = DECK_VIDEO_FRAMES_PER_SLIDE / DECK_VIDEO_FPS;
 
   const handleClose = () => {
     abortRef.current?.abort();
@@ -90,8 +92,9 @@ export function ExportDeckVideoModal() {
                     Exportar presentación a vídeo
                   </h3>
                   <p className="truncate text-xs text-stone-500 dark:text-muted-foreground">
-                    Remotion en el navegador · {slides.length} diapositivas · 3 s
-                    por slide
+                    Remotion en el navegador · {slides.length} diapositivas · ~
+                    {secondsPerSlide.toFixed(0)} s por slide (título → texto →
+                    imágenes)
                   </p>
                 </div>
               </div>
