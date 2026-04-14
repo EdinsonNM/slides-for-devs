@@ -1,4 +1,4 @@
-import type { Slide } from "./domain/entities";
+import type { DeckVisualTheme, Slide } from "./domain/entities";
 
 export interface ImageStyle {
   id: string;
@@ -20,6 +20,8 @@ export interface Presentation {
   topic: string;
   slides: Slide[];
   characterId?: string;
+  /** Tema visual del lienzo 16:9 (independiente del tema claro/oscuro de la app). */
+  deckVisualTheme?: DeckVisualTheme;
 }
 
 export interface SavedPresentation extends Presentation {

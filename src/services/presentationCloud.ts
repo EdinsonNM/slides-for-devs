@@ -28,6 +28,7 @@ import {
   type FirebaseStorage,
 } from "firebase/storage";
 import type { Slide } from "../types";
+import { normalizeDeckVisualTheme } from "../domain/entities";
 import {
   isSlideCanvasScene,
   normalizeSlideMatrixData,
@@ -583,6 +584,7 @@ export async function pushPresentationToCloud(
     topic: saved.topic,
     savedAt: saved.savedAt,
     characterId: saved.characterId ?? null,
+    deckVisualTheme: saved.deckVisualTheme ?? null,
     slideImagePaths,
     excalidrawPaths,
     slides: cloudSlides,
@@ -1072,6 +1074,12 @@ export async function pullPresentationFromCloud(
     })
   );
 
+  const deckRaw = data.deckVisualTheme;
+  const deckVisualTheme =
+    deckRaw != null && typeof deckRaw === "object"
+      ? normalizeDeckVisualTheme(deckRaw)
+      : undefined;
+
   return {
     presentation: {
       topic: String(data.topic ?? ""),
@@ -1080,6 +1088,7 @@ export async function pullPresentationFromCloud(
         data.characterId != null && data.characterId !== ""
           ? String(data.characterId)
           : undefined,
+      ...(deckVisualTheme ? { deckVisualTheme } : {}),
       slides,
     },
     cloudRevision: Number.isFinite(cloudRevision) ? cloudRevision : 0,

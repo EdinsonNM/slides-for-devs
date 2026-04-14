@@ -37,12 +37,14 @@ export async function renderDeckVideoToBlob(
   opts?: {
     onProgress?: (progress01: number) => void;
     signal?: AbortSignal;
+    exportBackdropCss?: string;
   },
 ): Promise<Blob> {
   if (slidesPayload.length === 0) {
     throw new Error("No hay diapositivas para exportar.");
   }
   const durationInFrames = getDeckVideoDurationInFrames(slidesPayload.length);
+  const exportBackdropCss = opts?.exportBackdropCss;
   const { getBlob } = await renderMediaOnWeb({
     composition: {
       id: "SlaimDeckExport",
@@ -51,9 +53,9 @@ export async function renderDeckVideoToBlob(
       fps: DECK_VIDEO_FPS,
       width: DECK_VIDEO_WIDTH,
       height: DECK_VIDEO_HEIGHT,
-      defaultProps: { slides: slidesPayload },
+      defaultProps: { slides: slidesPayload, exportBackdropCss },
     },
-    inputProps: { slides: slidesPayload },
+    inputProps: { slides: slidesPayload, exportBackdropCss },
     muted: true,
     signal: opts?.signal,
     isProduction: false,
@@ -69,10 +71,12 @@ export async function downloadDeckPresentationMp4(params: {
   slidesPayload: DeckRemotionSlide[];
   onProgress?: (progress01: number) => void;
   signal?: AbortSignal;
+  exportBackdropCss?: string;
 }): Promise<void> {
   const blob = await renderDeckVideoToBlob(params.slidesPayload, {
     onProgress: params.onProgress,
     signal: params.signal,
+    exportBackdropCss: params.exportBackdropCss,
   });
   const fileName = `${safeFileBasename(params.topic)}.mp4`;
 

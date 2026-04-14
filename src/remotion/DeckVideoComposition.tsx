@@ -22,6 +22,8 @@ import {
 
 export type DeckVideoCompositionProps = {
   slides: DeckRemotionSlide[];
+  /** Si se define, sustituye el fondo animado por un degradado/color estático (export MP4). */
+  exportBackdropCss?: string;
 };
 
 const EASING_ENTER = Easing.bezier(0.16, 1, 0.3, 1);
@@ -49,6 +51,12 @@ function accentFromSlideId(id: string): { primary: string; glow: string } {
     glow: `hsla(${hue} 90% 55% / 0.35)`,
   };
 }
+
+const StaticExportBackdrop: FC<{ cssBackground: string }> = ({
+  cssBackground,
+}) => (
+  <AbsoluteFill style={{ background: cssBackground }} />
+);
 
 const AnimatedBackdrop: FC<{
   frame: number;
@@ -218,7 +226,10 @@ const DeckImageStrip: FC<{
   );
 };
 
-const SlideFrame: FC<{ slide: DeckRemotionSlide }> = ({ slide }) => {
+const SlideFrame: FC<{
+  slide: DeckRemotionSlide;
+  exportBackdropCss?: string;
+}> = ({ slide, exportBackdropCss }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const isChapter = slide.type === SLIDE_TYPE.CHAPTER;
@@ -535,12 +546,16 @@ const SlideFrame: FC<{ slide: DeckRemotionSlide }> = ({ slide }) => {
         padding: "5% 6.5%",
       }}
     >
-      <AnimatedBackdrop
-        frame={frame}
-        fps={fps}
-        isChapter={isChapter}
-        accentGlow={accentGlow}
-      />
+      {exportBackdropCss ? (
+        <StaticExportBackdrop cssBackground={exportBackdropCss} />
+      ) : (
+        <AnimatedBackdrop
+          frame={frame}
+          fps={fps}
+          isChapter={isChapter}
+          accentGlow={accentGlow}
+        />
+      )}
 
       <div
         style={{
@@ -643,6 +658,7 @@ const SlideFrame: FC<{ slide: DeckRemotionSlide }> = ({ slide }) => {
 
 export const DeckVideoComposition: FC<DeckVideoCompositionProps> = ({
   slides,
+  exportBackdropCss,
 }) => {
   const list = slides.length > 0 ? slides : [PLACEHOLDER_SLIDE];
 
@@ -654,7 +670,7 @@ export const DeckVideoComposition: FC<DeckVideoCompositionProps> = ({
           from={i * DECK_VIDEO_FRAMES_PER_SLIDE}
           durationInFrames={DECK_VIDEO_FRAMES_PER_SLIDE}
         >
-          <SlideFrame slide={slide} />
+          <SlideFrame slide={slide} exportBackdropCss={exportBackdropCss} />
         </Sequence>
       ))}
     </AbsoluteFill>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Player } from "@remotion/player";
 import { Clapperboard, Loader2, X } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+import { deckThemeToExportBackgroundCss } from "../../domain/entities";
 import { DeckVideoComposition } from "../../remotion/DeckVideoComposition";
 import {
   DECK_VIDEO_FPS,
@@ -22,6 +23,7 @@ export function ExportDeckVideoModal() {
     setShowExportDeckVideoModal,
     slides,
     topic,
+    deckVisualTheme,
   } = usePresentation();
 
   const [progress01, setProgress01] = useState(0);
@@ -29,6 +31,10 @@ export function ExportDeckVideoModal() {
   const abortRef = useRef<AbortController | null>(null);
 
   const deckSlides = useMemo(() => mapSlidesForDeckVideoExport(slides), [slides]);
+  const exportBackdropCss = useMemo(
+    () => deckThemeToExportBackgroundCss(deckVisualTheme),
+    [deckVisualTheme],
+  );
   const durationInFrames = getDeckVideoDurationInFrames(slides.length);
   const secondsPerSlide = DECK_VIDEO_FRAMES_PER_SLIDE / DECK_VIDEO_FPS;
 
@@ -52,6 +58,7 @@ export function ExportDeckVideoModal() {
         slidesPayload: deckSlides,
         signal: abortRef.current.signal,
         onProgress: (p) => setProgress01(p),
+        exportBackdropCss,
       });
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return;
@@ -115,9 +122,12 @@ export function ExportDeckVideoModal() {
               >
                 {slides.length > 0 ? (
                   <Player
-                    key={slides.map((s) => s.id).join("\0")}
+                    key={`${slides.map((s) => s.id).join("\0")}\0${exportBackdropCss}`}
                     component={DeckVideoComposition}
-                    inputProps={{ slides: deckSlides }}
+                    inputProps={{
+                      slides: deckSlides,
+                      exportBackdropCss,
+                    }}
                     durationInFrames={durationInFrames}
                     compositionWidth={DECK_VIDEO_WIDTH}
                     compositionHeight={DECK_VIDEO_HEIGHT}
@@ -150,8 +160,9 @@ export function ExportDeckVideoModal() {
               ) : null}
 
               <p className="text-[11px] leading-relaxed text-stone-500 dark:text-stone-500">
-                La exportación usa el renderizado experimental de Remotion en el
-                cliente (WebCodecs). Funciona mejor en{" "}
+                El fondo del vídeo es una versión estática de tu tema (sin
+                animación WebGL). La exportación usa el renderizado experimental de
+                Remotion en el cliente (WebCodecs). Funciona mejor en{" "}
                 <span className="font-medium">Chrome u Edge</span>. Presentaciones
                 largas pueden tardar varios minutos.{" "}
                 <a

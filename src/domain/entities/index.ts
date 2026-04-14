@@ -1,4 +1,16 @@
 export type {
+  DeckBackgroundKind,
+  DeckContentTone,
+  DeckVisualTheme,
+} from "./DeckVisualTheme";
+export {
+  DECK_VISUAL_THEME_VERSION,
+  DEFAULT_DECK_VISUAL_THEME,
+  deckThemeToExportBackgroundCss,
+  mergeDeckVisualTheme,
+  normalizeDeckVisualTheme,
+} from "./DeckVisualTheme";
+export type {
   Slide,
   SlideType,
   SlidePanelContentType,

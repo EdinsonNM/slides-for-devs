@@ -65,7 +65,6 @@ export function ExcalidrawViewer({
             saveToActiveFile: false,
             export: { saveFileToDisk: false },
             toggleTheme: false,
-            changeViewMode: false,
           },
         }}
       />

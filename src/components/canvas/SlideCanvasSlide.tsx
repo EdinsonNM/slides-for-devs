@@ -24,6 +24,7 @@ import {
   clampCanvasRect,
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
+  type DeckContentTone,
   type SlideCanvasElement,
   type SlideCanvasRect,
 } from "../../domain/entities";
@@ -38,6 +39,22 @@ import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import { SlideCanvasAlignmentGuides } from "./SlideCanvasAlignmentGuides";
 import { SlideCanvasCanvaChrome } from "./SlideCanvasCanvaChrome";
 import { SlideCanvasHoverOutline } from "./SlideCanvasHoverOutline";
+import { DeckBackdrop } from "../shared/DeckBackdrop";
+import {
+  deckChapterSubtitleHintClass,
+  deckIaToolbarBtnClass,
+  deckIaToolbarHoverClass,
+  deckMarkdownBodyTextareaClass,
+  deckMatrixNotesTextareaClass,
+  deckMediaPanelDragStripClass,
+  deckMediaPanelShellClass,
+  deckMutedTextClass,
+  deckPrimaryTextClass,
+  deckRewriteActionBtnClass,
+  deckSlideContentWrapperClass,
+  deckSubtitleTextareaClass,
+  deckTitleTextareaClass,
+} from "../../utils/deckSlideChrome";
 import {
   oppositeCornerPercent,
   rectResizeFromCorner,
@@ -86,9 +103,6 @@ function normalizeCanvasElementsZOrder(
  * selección en la vista previa disparaba el arrastre.
  */
 const DRAG_THRESHOLD_PX = 6;
-
-const IA_BTN =
-  "p-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors";
 
 type TextField = "title" | "subtitle" | "content";
 
@@ -170,6 +184,7 @@ export function SlideCanvasSlide() {
     openCodeGenModal,
     setVideoUrlInput,
     setShowVideoModal,
+    deckVisualTheme,
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -592,13 +607,19 @@ export function SlideCanvasSlide() {
   const showIaToolbar = slide.type === SLIDE_TYPE.CONTENT;
   const showPanelVideoToolbarBtn =
     showIaToolbar && (slide.contentType ?? "image") === "video";
+  const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
 
   return (
     <div
       ref={slideContainerRef}
-      className="relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-surface-elevated"
+      className={cn(
+        "relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent",
+        deckSlideContentWrapperClass(deckVisualTheme.contentTone),
+        isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+      )}
       onPointerDown={onBackgroundPointerDown}
     >
+      {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
       {alignmentGuides ? (
         <SlideCanvasAlignmentGuides
           vertical={alignmentGuides.vertical}
@@ -616,7 +637,10 @@ export function SlideCanvasSlide() {
               setGenerateSlideContentPrompt("");
               setShowGenerateSlideContentModal(true);
             }}
-            className={cn(IA_BTN, "hover:text-emerald-600 dark:hover:text-emerald-400")}
+            className={cn(
+              deckIaToolbarBtnClass(deckVisualTheme.contentTone),
+              deckIaToolbarHoverClass(deckVisualTheme.contentTone, "emerald"),
+            )}
             title="Generar contenido de esta diapositiva con IA"
           >
             <Sparkles size={16} />
@@ -624,7 +648,10 @@ export function SlideCanvasSlide() {
           <button
             type="button"
             onClick={() => setShowSplitModal(true)}
-            className={cn(IA_BTN, "hover:text-amber-600 dark:hover:text-amber-400")}
+            className={cn(
+              deckIaToolbarBtnClass(deckVisualTheme.contentTone),
+              deckIaToolbarHoverClass(deckVisualTheme.contentTone, "amber"),
+            )}
             title="Dividir"
           >
             <Split size={16} />
@@ -637,7 +664,10 @@ export function SlideCanvasSlide() {
                   setVideoUrlInput(slide.videoUrl || "");
                   setShowVideoModal(true);
                 }}
-                className={cn(IA_BTN, "hover:text-sky-600 dark:hover:text-sky-400")}
+                className={cn(
+                  deckIaToolbarBtnClass(deckVisualTheme.contentTone),
+                  deckIaToolbarHoverClass(deckVisualTheme.contentTone, "sky"),
+                )}
                 title={
                   slide.videoUrl?.trim()
                     ? "Cambiar vídeo"
@@ -670,8 +700,8 @@ export function SlideCanvasSlide() {
               type="button"
               onClick={() => setIsEditing(true)}
               className={cn(
-                IA_BTN,
-                "hover:text-emerald-600 dark:hover:text-emerald-400",
+                deckIaToolbarBtnClass(deckVisualTheme.contentTone),
+                deckIaToolbarHoverClass(deckVisualTheme.contentTone, "emerald"),
               )}
               title="Editar"
             >
@@ -736,6 +766,7 @@ export function SlideCanvasSlide() {
           editFontSize={editFontSize}
           setEditFontSize={setEditFontSize}
           openCodeGenModal={openCodeGenModal}
+          deckContentTone={deckVisualTheme.contentTone}
         />
       ))}
     </div>
@@ -786,6 +817,7 @@ function CanvasElementEditor({
   editFontSize,
   setEditFontSize,
   openCodeGenModal,
+  deckContentTone,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -853,7 +885,9 @@ function CanvasElementEditor({
   editFontSize: number;
   setEditFontSize: (v: number | ((p: number) => number)) => void;
   openCodeGenModal: () => void;
+  deckContentTone: DeckContentTone;
 }) {
+  const tone = deckContentTone;
   const { theme: codeEditorTheme, toggleTheme: toggleCodeEditorTheme } =
     useCodeEditorTheme();
   const { rect, kind, id, z } = element;
@@ -1132,7 +1166,8 @@ function CanvasElementEditor({
                 >
                   <span
                     className={cn(
-                      "block max-w-full min-w-0 font-serif italic leading-tight text-stone-900 dark:text-stone-100 whitespace-pre-wrap wrap-break-word",
+                      "block max-w-full min-w-0 font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
+                      deckPrimaryTextClass(tone),
                     )}
                     style={
                       chapter
@@ -1161,10 +1196,9 @@ function CanvasElementEditor({
                     )
                   }
                   rows={1}
-                  className={cn(
-                    "field-sizing-content box-border min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-md border-0 bg-transparent font-serif italic leading-tight text-stone-900 shadow-none focus:outline-none focus:ring-0 dark:text-foreground whitespace-pre-wrap wrap-break-word [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-                    chapter && "text-center",
-                  )}
+                  className={deckTitleTextareaClass(tone, {
+                    center: chapter,
+                  })}
                   style={
                     chapter
                       ? { fontSize: "var(--slide-title-chapter)" }
@@ -1201,7 +1235,10 @@ function CanvasElementEditor({
                   className={cn(
                     "flex w-full min-w-0 shrink-0 select-none flex-col overflow-visible rounded-md text-sm",
                     chapter &&
-                      "items-center text-center font-light uppercase tracking-wide text-stone-400",
+                      cn(
+                        "items-center text-center font-light uppercase tracking-wide",
+                        deckChapterSubtitleHintClass(tone),
+                      ),
                   )}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
@@ -1224,6 +1261,7 @@ function CanvasElementEditor({
                 >
                   {(isEditing ? editSubtitle : slide.subtitle ?? "").trim() ? (
                     <SlideMarkdown
+                      contentTone={tone}
                       className={cn(
                         "prose-sm max-w-none min-w-0",
                         chapter && "text-center normal-case",
@@ -1233,7 +1271,7 @@ function CanvasElementEditor({
                       {isEditing ? editSubtitle : slide.subtitle ?? ""}
                     </SlideMarkdown>
                   ) : (
-                    <span className="text-stone-400 italic">
+                    <span className={cn("italic", deckMutedTextClass(tone))}>
                       Subtítulo (opcional)
                     </span>
                   )}
@@ -1250,10 +1288,9 @@ function CanvasElementEditor({
                     )
                   }
                   rows={3}
-                  className={cn(
-                    "box-border min-h-18 w-full min-w-0 resize-y rounded-md border-0 bg-transparent text-sm shadow-none focus:outline-none focus:ring-0 dark:text-stone-200 whitespace-pre-wrap wrap-break-word",
-                    chapter && "text-center font-light tracking-wide",
-                  )}
+                  className={deckSubtitleTextareaClass(tone, {
+                    center: chapter,
+                  })}
                   style={{ fontSize: "var(--slide-subtitle)" }}
                 />
               )}
@@ -1298,9 +1335,9 @@ function CanvasElementEditor({
                 }}
               >
                 {editContent.trim() ? (
-                  <SlideMarkdown>{editContent}</SlideMarkdown>
+                  <SlideMarkdown contentTone={tone}>{editContent}</SlideMarkdown>
                 ) : (
-                  <p className="text-stone-400 italic">
+                  <p className={cn("italic", deckMutedTextClass(tone))}>
                     Doble clic para editar…
                   </p>
                 )}
@@ -1317,12 +1354,12 @@ function CanvasElementEditor({
                       120,
                     )
                   }
-                  className="min-h-0 flex-1 resize-none rounded-lg border-0 bg-transparent font-sans text-base leading-relaxed text-stone-900 focus:outline-none focus:ring-0 dark:text-foreground md:text-lg"
+                  className={deckMarkdownBodyTextareaClass(tone)}
                   placeholder="Markdown…"
                 />
                 <button
                   type="button"
-                  className="absolute bottom-2 left-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg border border-stone-700/30 bg-stone-900 text-white shadow-lg hover:bg-stone-800 dark:border-stone-300/40 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white"
+                  className={deckRewriteActionBtnClass(tone)}
                   title="Replantear con IA"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowRewriteModal(true)}
@@ -1368,10 +1405,7 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
-          className={cn(
-            outerShellClass,
-            "bg-white dark:bg-surface-elevated",
-          )}
+          className={cn(outerShellClass, deckMediaPanelShellClass(tone))}
           {...shellHoverProps}
           onPointerDown={
             isPresenter3d
@@ -1394,9 +1428,7 @@ function CanvasElementEditor({
                   role="group"
                   aria-label="Arrastrar para mover el panel en el lienzo"
                   title="Arrastra esta franja para mover el bloque; en el área inferior giras el modelo 3D"
-                  className={cn(
-                    "z-[25] flex h-9 shrink-0 cursor-grab touch-none items-center gap-2 border-b border-stone-200 bg-stone-100/95 px-2 text-[11px] font-medium text-stone-600 select-none active:cursor-grabbing dark:border-border dark:bg-stone-900/95 dark:text-stone-300",
-                  )}
+                  className={deckMediaPanelDragStripClass(tone)}
                   onPointerDown={(e) => {
                     const cap =
                       e.currentTarget instanceof HTMLElement
@@ -1407,7 +1439,7 @@ function CanvasElementEditor({
                 >
                   <GripVertical
                     size={14}
-                    className="shrink-0 text-stone-400 dark:text-stone-500"
+                    className={cn("shrink-0", deckMutedTextClass(tone))}
                     aria-hidden
                   />
                   <span className="truncate">
@@ -1455,6 +1487,7 @@ function CanvasElementEditor({
           {rotatedInner(
             "h-full min-h-0 overflow-y-auto px-1 py-1",
             <SlideMatrixTable
+              deckContentTone={tone}
               data={data}
               editable
               onHeaderChange={(col, value) => {
@@ -1491,7 +1524,12 @@ function CanvasElementEditor({
           {...shellHoverProps}
         >
           {rotatedInner(
-            "h-full overflow-y-auto px-2 py-1",
+            cn(
+              "h-full overflow-y-auto px-2 py-1",
+              tone === "light"
+                ? "border-t border-slate-600/60"
+                : "border-t border-stone-100 dark:border-border",
+            ),
             !isEditing || !isSelected || activeField !== "content" ? (
               <div
                 className="select-none rounded-md"
@@ -1515,9 +1553,11 @@ function CanvasElementEditor({
                 }}
               >
                 {editContent.trim() ? (
-                  <SlideMarkdown>{editContent}</SlideMarkdown>
+                  <SlideMarkdown contentTone={tone}>{editContent}</SlideMarkdown>
                 ) : (
-                  <p className="text-xs text-stone-400">Notas bajo la tabla…</p>
+                  <p className={cn("text-xs", deckMutedTextClass(tone))}>
+                    Notas bajo la tabla…
+                  </p>
                 )}
               </div>
             ) : (
@@ -1531,7 +1571,7 @@ function CanvasElementEditor({
                     120,
                   )
                 }
-                className="min-h-[80px] w-full resize-y rounded-md border border-stone-200 bg-white/80 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-border dark:bg-stone-900/60 dark:text-stone-100"
+                className={deckMatrixNotesTextareaClass(tone)}
                 placeholder="Notas (opcional)"
               />
             ),
@@ -1564,7 +1604,7 @@ function CanvasElementEditor({
           data-slide-canvas-el
           className={cn(
             outerShellClass,
-            "bg-linear-to-br from-slate-50 to-sky-50/50 dark:from-stone-900 dark:to-sky-950/20",
+            "bg-transparent",
           )}
           {...shellHoverProps}
         >

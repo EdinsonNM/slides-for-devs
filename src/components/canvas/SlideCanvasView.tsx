@@ -7,7 +7,13 @@ import {
   SLIDE_TYPE,
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
+  type DeckContentTone,
 } from "../../domain/entities";
+import {
+  deckChapterSubtitleHintClass,
+  deckMutedTextClass,
+  deckPrimaryTextClass,
+} from "../../utils/deckSlideChrome";
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
@@ -22,9 +28,11 @@ export interface SlideCanvasViewProps {
   slide: Slide;
   /** Contenedor ya en 16:9; el lienzo llena el área útil. */
   className?: string;
+  /** Contraste de tipografía con el fondo del deck (por defecto texto oscuro). */
+  deckContentTone?: DeckContentTone;
 }
 
-function mediaBlock(slide: Slide) {
+function mediaBlock(slide: Slide, tone: DeckContentTone) {
   if (slide.contentType === "code") {
     return (
       <CodeDisplay
@@ -48,7 +56,9 @@ function mediaBlock(slide: Slide) {
             title="Video"
           />
         ) : (
-          <span className="text-stone-500 italic">Sin video</span>
+          <span className={cn("italic", deckMutedTextClass(tone))}>
+            Sin video
+          </span>
         )}
       </div>
     );
@@ -82,7 +92,12 @@ function mediaBlock(slide: Slide) {
     );
   }
   return (
-    <div className="flex h-full w-full items-center justify-center text-stone-300">
+    <div
+      className={cn(
+        "flex h-full w-full items-center justify-center",
+        deckMutedTextClass(tone),
+      )}
+    >
       <ImageIcon size={64} strokeWidth={1} />
     </div>
   );
@@ -91,10 +106,13 @@ function mediaBlock(slide: Slide) {
 function CanvasElementReadOnly({
   element,
   slide,
+  deckContentTone,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
+  deckContentTone: DeckContentTone;
 }) {
+  const tone = deckContentTone;
   const { rect, kind, z } = element;
   const rotation = element.rotation ?? 0;
   const box: CSSProperties = {
@@ -132,7 +150,10 @@ function CanvasElementReadOnly({
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-1",
             <>
               <h2
-                className="min-w-0 w-full max-w-full font-serif italic leading-tight text-stone-900 dark:text-stone-100 whitespace-pre-wrap wrap-break-word"
+                className={cn(
+                  "min-w-0 w-full max-w-full font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
+                  deckPrimaryTextClass(tone),
+                )}
                 style={{ fontSize: "var(--slide-title)" }}
               >
                 {slide.title}
@@ -149,7 +170,8 @@ function CanvasElementReadOnly({
           {rotated(
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-0.5",
             <SlideMarkdown
-              className="prose-sm max-w-none min-w-0 w-full dark:prose-invert"
+              contentTone={tone}
+              className="prose-sm max-w-none min-w-0 w-full"
               style={{ fontSize: "var(--slide-subtitle)" }}
             >
               {slide.subtitle}
@@ -165,7 +187,10 @@ function CanvasElementReadOnly({
             <>
               <div className="mb-3 h-1 w-14 shrink-0 rounded-full bg-emerald-600 md:mb-4" />
               <h1
-                className="min-w-0 w-full max-w-full font-serif italic leading-tight text-stone-900 dark:text-stone-100 whitespace-pre-wrap wrap-break-word"
+                className={cn(
+                  "min-w-0 w-full max-w-full font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
+                  deckPrimaryTextClass(tone),
+                )}
                 style={{ fontSize: "var(--slide-title-chapter)" }}
               >
                 {slide.title}
@@ -179,9 +204,13 @@ function CanvasElementReadOnly({
       return (
         <div style={box} className={shell}>
           {rotated(
-            "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center text-stone-400 dark:text-stone-400",
+            cn(
+              "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center",
+              deckChapterSubtitleHintClass(tone),
+            ),
             <SlideMarkdown
-              className="prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide dark:prose-invert"
+              contentTone={tone}
+              className="prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide"
               style={{ fontSize: "var(--slide-subtitle)" }}
             >
               {slide.subtitle}
@@ -195,7 +224,7 @@ function CanvasElementReadOnly({
           {rotated(
             "h-full overflow-y-auto px-2 py-1 scrollbar-on-hover",
             slide.content?.trim() ? (
-              <SlideMarkdown>{slide.content}</SlideMarkdown>
+              <SlideMarkdown contentTone={tone}>{slide.content}</SlideMarkdown>
             ) : null,
           )}
         </div>
@@ -204,7 +233,7 @@ function CanvasElementReadOnly({
       if (slide.type !== SLIDE_TYPE.CONTENT) return null;
       return (
         <div style={box} className={shell}>
-          {rotated("h-full p-1 md:p-2", mediaBlock(slide))}
+          {rotated("h-full p-1 md:p-2", mediaBlock(slide, tone))}
         </div>
       );
     case "matrix":
@@ -215,6 +244,7 @@ function CanvasElementReadOnly({
             "h-full overflow-y-auto px-1 py-1 scrollbar-on-hover",
             <SlideMatrixTable
               presentationDensity="preview"
+              deckContentTone={tone}
               data={normalizeSlideMatrixData(
                 slide.matrixData ?? createEmptySlideMatrixData(),
               )}
@@ -227,8 +257,13 @@ function CanvasElementReadOnly({
       return (
         <div style={box} className={shell}>
           {rotated(
-            "h-full overflow-y-auto border-t border-stone-100 px-2 py-1 dark:border-border",
-            <SlideMarkdown>{slide.content}</SlideMarkdown>,
+            cn(
+              "h-full overflow-y-auto border-t px-2 py-1",
+              tone === "light"
+                ? "border-slate-600/60"
+                : "border-stone-100 dark:border-border",
+            ),
+            <SlideMarkdown contentTone={tone}>{slide.content}</SlideMarkdown>,
           )}
         </div>
       );
@@ -253,7 +288,8 @@ function CanvasElementReadOnly({
           style={box}
           className={cn(
             shell,
-            "bg-linear-to-br from-slate-50 to-sky-50/50 dark:from-stone-900 dark:to-sky-950/20",
+            /* El SVG pinta el fondo de la rejilla; sin capa extra para no mostrar el tema del deck alrededor. */
+            "bg-transparent",
           )}
         >
           {rotated(
@@ -273,7 +309,11 @@ function CanvasElementReadOnly({
 }
 
 /** Vista previa / presentador: lienzo a partir de `canvasScene` (migra si hace falta). */
-export function SlideCanvasView({ slide, className }: SlideCanvasViewProps) {
+export function SlideCanvasView({
+  slide,
+  className,
+  deckContentTone = "dark",
+}: SlideCanvasViewProps) {
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
@@ -281,7 +321,12 @@ export function SlideCanvasView({ slide, className }: SlideCanvasViewProps) {
   return (
     <div className={cn("relative h-full min-h-0 w-full min-w-0", className)}>
       {sorted.map((el) => (
-        <CanvasElementReadOnly key={el.id} element={el} slide={ensured} />
+        <CanvasElementReadOnly
+          key={el.id}
+          element={el}
+          slide={ensured}
+          deckContentTone={deckContentTone}
+        />
       ))}
     </div>
   );

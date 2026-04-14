@@ -222,7 +222,9 @@ export async function pullAllCharactersFromCloud(uid: string): Promise<SavedChar
     if (ext) {
       const path = `${storageCharacterPrefix(uid, d.id)}/ref.${ext}`;
       try {
-        const bytes = await getBytes(ref(st, path));
+        const raw = await getBytes(ref(st, path));
+        const bytes =
+          raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBuffer);
         const mime =
           ext === "jpg" || ext === "jpeg"
             ? "image/jpeg"

@@ -12,7 +12,13 @@ import type {
   SavedCharacter,
   SavedPresentationMeta,
   HomePresentationCard,
+  Presentation,
 } from "../types";
+import {
+  DEFAULT_DECK_VISUAL_THEME,
+  normalizeDeckVisualTheme,
+  type DeckVisualTheme,
+} from "../domain/entities";
 
 const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
 import { formatMarkdown } from "../utils/markdown";
@@ -170,6 +176,7 @@ export type EditorWorkspaceSnapshot = {
   currentIndex: number;
   currentSavedId: string | null;
   selectedCharacterId: string | null;
+  deckVisualTheme: DeckVisualTheme;
 };
 
 export type EditorTab = {
@@ -193,6 +200,9 @@ export function usePresentationState() {
 
   const [topic, setTopic] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
+  const [deckVisualTheme, setDeckVisualThemeState] = useState<DeckVisualTheme>(
+    DEFAULT_DECK_VISUAL_THEME,
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -700,10 +710,11 @@ export function usePresentationState() {
         slidesRedoRef.current = [];
         setSlides(cleanedSlides);
         setCurrentIndex(0);
-        const presentation = {
+        const presentation: Presentation = {
           topic: pending.topic,
           slides: cleanedSlides,
           characterId: selectedCharacterId ?? undefined,
+          deckVisualTheme,
         };
         let id: string;
         if (pending.reuseSavedId) {
@@ -762,7 +773,13 @@ export function usePresentationState() {
     return () => {
       cancelled = true;
     };
-  }, [pendingGeneration, autoCloudSyncOnSave, user, localAccountScope]);
+  }, [
+    pendingGeneration,
+    autoCloudSyncOnSave,
+    user,
+    localAccountScope,
+    deckVisualTheme,
+  ]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -1595,6 +1612,7 @@ export function usePresentationState() {
       currentIndex,
       currentSavedId,
       selectedCharacterId,
+      deckVisualTheme,
     };
   }, [
     flushDiagramPending,
@@ -1604,6 +1622,7 @@ export function usePresentationState() {
     topic,
     currentSavedId,
     selectedCharacterId,
+    deckVisualTheme,
     cloneSlidesForTab,
   ]);
 
@@ -1625,6 +1644,7 @@ export function usePresentationState() {
       setCurrentIndex(idx);
       setCurrentSavedId(snap.currentSavedId);
       setSelectedCharacterId(snap.selectedCharacterId);
+      setDeckVisualThemeState(snap.deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME);
     },
     [cloneSlidesForTab],
   );
@@ -1839,14 +1859,22 @@ export function usePresentationState() {
       topic: string;
       slides: Slide[];
       characterId?: string;
+      deckVisualTheme?: DeckVisualTheme;
     }): Promise<string | null> => {
       if (presentation.slides.length === 0) return null;
+      const full: Presentation = {
+        topic: presentation.topic,
+        slides: presentation.slides,
+        characterId: presentation.characterId,
+        deckVisualTheme:
+          presentation.deckVisualTheme ?? deckVisualTheme,
+      };
       let savedId: string | null = null;
       try {
         if (currentSavedId) {
           await updatePresentation(
             currentSavedId,
-            presentation,
+            full,
             localAccountScope,
           );
           savedId = currentSavedId;
@@ -1857,7 +1885,7 @@ export function usePresentationState() {
             // ignore
           }
         } else {
-          const id = await savePresentation(presentation, localAccountScope);
+          const id = await savePresentation(full, localAccountScope);
           setCurrentSavedId(id);
           savedId = id;
           setSaveMessage("Guardado");
@@ -1892,6 +1920,27 @@ export function usePresentationState() {
       maybeAutoSyncAfterLocalSave,
       localAccountScope,
       lastOpenedSessionKey,
+      deckVisualTheme,
+    ],
+  );
+
+  const applyDeckVisualTheme = useCallback(
+    async (theme: DeckVisualTheme) => {
+      const t = normalizeDeckVisualTheme(theme);
+      setDeckVisualThemeState(t);
+      if (slides.length === 0) return;
+      await savePresentationNow({
+        topic: topic || "Sin título",
+        slides,
+        characterId: selectedCharacterId ?? undefined,
+        deckVisualTheme: t,
+      });
+    },
+    [
+      slides,
+      topic,
+      selectedCharacterId,
+      savePresentationNow,
     ],
   );
 
@@ -1912,10 +1961,12 @@ export function usePresentationState() {
     setCurrentIndex(0);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
+    setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     await savePresentationNow({
       topic: "",
       slides: deck,
       characterId: undefined,
+      deckVisualTheme: DEFAULT_DECK_VISUAL_THEME,
     });
     await refreshSavedList();
   }, [savePresentationNow, refreshSavedList]);
@@ -2124,6 +2175,9 @@ export function usePresentationState() {
       setCurrentIndex(0);
       setCurrentSavedId(saved.id);
       setSelectedCharacterId(saved.characterId ?? null);
+      setDeckVisualThemeState(
+        normalizeDeckVisualTheme(saved.deckVisualTheme),
+      );
       setShowSavedListModal(false);
       try {
         sessionStorage.setItem(lastOpenedSessionKey, id);
@@ -2253,6 +2307,9 @@ export function usePresentationState() {
         setCurrentIndex(0);
         setCurrentSavedId(saved.id);
         setSelectedCharacterId(saved.characterId ?? null);
+        setDeckVisualThemeState(
+          normalizeDeckVisualTheme(saved.deckVisualTheme),
+        );
         coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
         const firstImage = saved.slides[0]?.imageUrl;
         if (firstImage) {
@@ -2293,6 +2350,7 @@ export function usePresentationState() {
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
         setSlides([]);
+        setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
       }
       setSavedList((prev) => prev.filter((p) => p.id !== id));
       delete coverPrefetchSavedAtRef.current[id];
@@ -2321,6 +2379,7 @@ export function usePresentationState() {
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
         setSlides([]);
+        setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
       }
       delete coverPrefetchSavedAtRef.current[id];
       setCoverImageCache((prev) => {
@@ -2361,6 +2420,7 @@ export function usePresentationState() {
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
         setSlides([]);
+        setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
       }
       setSavedList((prev) => prev.filter((p) => p.id !== id));
       delete coverPrefetchSavedAtRef.current[id];
@@ -2441,6 +2501,7 @@ export function usePresentationState() {
             topic: saved.topic,
             slides: updatedSlides,
             characterId: saved.characterId,
+            deckVisualTheme: normalizeDeckVisualTheme(saved.deckVisualTheme),
           },
           localAccountScope,
         );
@@ -2494,6 +2555,9 @@ export function usePresentationState() {
           topic: presentation.topic,
           slides: presentation.slides,
           characterId: presentation.characterId,
+          deckVisualTheme: normalizeDeckVisualTheme(
+            presentation.deckVisualTheme,
+          ),
         },
         localAccountScope,
       );
@@ -2518,6 +2582,9 @@ export function usePresentationState() {
           ),
         );
         setSelectedCharacterId(presentation.characterId ?? null);
+        setDeckVisualThemeState(
+          normalizeDeckVisualTheme(presentation.deckVisualTheme),
+        );
       }
       await refreshSavedList();
     } catch (e) {
@@ -2612,6 +2679,7 @@ export function usePresentationState() {
     setCurrentIndex(0);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
+    setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setEditorTabs((tabs) => [...tabs, { id: newId, title: "Sin título" }]);
     setActiveEditorTabId(newId);
   }, [activeEditorTabId, captureWorkspaceSnapshot]);
@@ -2645,6 +2713,7 @@ export function usePresentationState() {
     setHomePromptAttachments([]);
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
+    setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setEditorTabs([]);
     setActiveEditorTabId(null);
     tabSnapshotsRef.current = {};
@@ -3091,6 +3160,8 @@ export function usePresentationState() {
   return {
     topic,
     setTopic,
+    deckVisualTheme,
+    applyDeckVisualTheme,
     setPresentationTitleDraft,
     presentationModelId,
     setPresentationModelId,

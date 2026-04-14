@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Monitor, StickyNote, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Slide } from "../../types";
+import type { DeckVisualTheme } from "../../domain/entities";
+import { DEFAULT_DECK_VISUAL_THEME, normalizeDeckVisualTheme } from "../../domain/entities";
 import { usePresentation } from "../../context/PresentationContext";
 import { presenterChat } from "../../services/gemini";
 import { PreviewSlideContent } from "../preview/PreviewSlideContent";
@@ -13,6 +15,7 @@ export type PresenterState = {
   currentIndex: number;
   topic: string;
   effectiveGeminiModel?: string;
+  deckVisualTheme?: DeckVisualTheme;
 };
 
 function getOrigin(): string {
@@ -127,8 +130,12 @@ export function PresenterView() {
     );
   }
 
-  const { slides, currentIndex, topic, effectiveGeminiModel } = state;
+  const { slides, currentIndex, topic, effectiveGeminiModel, deckVisualTheme } =
+    state;
   const currentSlide = slides[currentIndex];
+  const deckTheme = normalizeDeckVisualTheme(
+    deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME,
+  );
   const nextSlide = slides[currentIndex + 1];
   const chatModel = effectiveGeminiModel || "gemini-2.5-flash";
 
@@ -176,12 +183,13 @@ export function PresenterView() {
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
         <section className="relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4">
-          <div className="flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-white text-stone-900 shadow-2xl">
+          <div className="flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-stone-950 shadow-2xl">
             <PreviewSlideContent
               slide={currentSlide}
               imageWidthPercent={imageWidthPercent}
               panelHeightPercent={panelHeightPercent}
               slideIndex={currentIndex}
+              deckVisualTheme={deckTheme}
             />
           </div>
         </section>

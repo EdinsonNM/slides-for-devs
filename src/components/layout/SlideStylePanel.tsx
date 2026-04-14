@@ -7,6 +7,7 @@ import { SLIDE_LAYOUT_TEMPLATE_REGISTRY } from "../../domain/slideTemplates/slid
 import { inferSlideLayoutTemplateId } from "../../domain/slideTemplates/inferSlideLayoutTemplateId";
 import { applySlideLayoutTemplate } from "../../domain/slideTemplates/slideLayoutTemplateApply";
 import { SLIDE_TYPE } from "../../domain/entities";
+import { DECK_THEME_PRESETS } from "../../constants/deckVisualThemes";
 
 interface SlideStylePanelProps {
   variant?: "toolbar" | "inspector";
@@ -16,6 +17,8 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
   const {
     currentSlide,
     slides,
+    deckVisualTheme,
+    applyDeckVisualTheme,
     showSlideStylePanel,
     setShowSlideStylePanel,
     setCurrentSlideType,
@@ -73,6 +76,91 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
     setCurrentSlideType,
     setCurrentSlideContentLayout,
   };
+
+  const deckPresetSwatch = (tid: string) => {
+    const p = DECK_THEME_PRESETS.find((x) => x.id === tid)?.theme;
+    if (!p) return <div className="h-7 w-10 rounded-md bg-stone-200 dark:bg-stone-600" />;
+    if (p.backgroundKind === "solid") {
+      return (
+        <div
+          className="h-7 w-10 rounded-md border border-stone-200 dark:border-stone-600"
+          style={{ backgroundColor: p.solidColor ?? "#fff" }}
+        />
+      );
+    }
+    if (p.backgroundKind === "gradient") {
+      return (
+        <div
+          className="h-7 w-10 rounded-md border border-stone-200/80 dark:border-stone-600"
+          style={{
+            backgroundImage: `linear-gradient(135deg, ${p.gradientFrom}, ${p.gradientTo})`,
+          }}
+        />
+      );
+    }
+    return (
+      <div
+        className="h-7 w-10 rounded-md border border-stone-300 dark:border-stone-600"
+        style={{
+          backgroundImage: `linear-gradient(135deg, #020617, #0e7490, #312e81)`,
+        }}
+      />
+    );
+  };
+
+  const deckThemesRow = (
+    <div
+      className={cn(
+        "flex flex-col gap-2 border-b px-3 py-3",
+        variant === "inspector"
+          ? "border-stone-100 dark:border-border"
+          : "border-stone-100 dark:border-border",
+      )}
+    >
+      <span
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-wider",
+          variant === "inspector"
+            ? "text-muted-foreground"
+            : "text-stone-500 dark:text-muted-foreground",
+        )}
+      >
+        Fondo del deck
+      </span>
+      <div className="flex flex-wrap gap-2">
+        {DECK_THEME_PRESETS.map((p) => {
+          const active = deckVisualTheme.presetId === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => void applyDeckVisualTheme(p.theme)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs font-medium transition-all",
+                active
+                  ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/25 dark:bg-emerald-950/40 dark:ring-emerald-400/20"
+                  : "border-stone-200 bg-stone-50/80 hover:border-stone-300 dark:border-border dark:bg-stone-800/50 dark:hover:border-stone-500",
+              )}
+            >
+              {deckPresetSwatch(p.id)}
+              <span
+                className={cn(
+                  active
+                    ? "text-emerald-800 dark:text-emerald-200"
+                    : "text-stone-700 dark:text-stone-200",
+                )}
+              >
+                {p.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] leading-snug text-stone-500 dark:text-muted-foreground">
+        El vídeo exportado usa un fondo estático equivalente (sin animación WebGL).
+      </p>
+    </div>
+  );
 
   const templatesRow = (
     <div
@@ -145,6 +233,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-surface-elevated">
         {header}
+        {deckThemesRow}
         {templatesRow}
         {panelTypes}
         {(isContentSplit || isContentPanelFull) && <ContentPanelProperties />}
@@ -162,6 +251,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         className="bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border shrink-0 overflow-hidden"
       >
         {header}
+        {deckThemesRow}
         {templatesRow}
         {panelTypes}
         {(isContentSplit || isContentPanelFull) && <ContentPanelProperties />}

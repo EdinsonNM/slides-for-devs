@@ -1,8 +1,18 @@
 import { motion } from "motion/react";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
-import { SLIDE_TYPE } from "../../domain/entities";
+import {
+  DEFAULT_DECK_VISUAL_THEME,
+  type DeckVisualTheme,
+  SLIDE_TYPE,
+} from "../../domain/entities";
 import { SlideCanvasView } from "../canvas/SlideCanvasView";
+import { DeckBackdrop } from "../shared/DeckBackdrop";
+import {
+  deckSectionLabelClass,
+  deckSlideContentWrapperClass,
+} from "../../utils/deckSlideChrome";
+import { usePresentationOptional } from "../../context/PresentationContext";
 
 export interface PreviewSlideContentProps {
   slide: Slide;
@@ -11,6 +21,13 @@ export interface PreviewSlideContentProps {
   panelHeightPercent?: number;
   /** Índice 0-based para la etiqueta «Sección N». */
   slideIndex?: number;
+  /** Si se omite, se usa el contexto del editor (si existe). */
+  deckVisualTheme?: DeckVisualTheme;
+  /**
+   * `fullscreen`: sin ancho máximo ni hueco exterior; escala al viewport (overlay de vista previa).
+   * `default`: marco acotado para incrustar en presentador u otros contenedores.
+   */
+  layout?: "default" | "fullscreen";
 }
 
 /**
@@ -19,7 +36,19 @@ export interface PreviewSlideContentProps {
 export function PreviewSlideContent({
   slide,
   slideIndex = 0,
+  deckVisualTheme: deckProp,
+  imageWidthPercent: _imageWidthPercent,
+  panelHeightPercent: _panelHeightPercent,
+  layout = "default",
 }: PreviewSlideContentProps) {
+  const ctx = usePresentationOptional();
+  const deckVisualTheme =
+    deckProp ?? ctx?.deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME;
+  const toneClass = deckSlideContentWrapperClass(deckVisualTheme.contentTone);
+  const sectionLabelClass = deckSectionLabelClass(deckVisualTheme.contentTone);
+  const isFullscreen = layout === "fullscreen";
+  const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
+
   return (
     <motion.div
       key={slide.id}
@@ -27,25 +56,49 @@ export function PreviewSlideContent({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       className={cn(
-        "preview-slide-outer flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-1 overflow-hidden 2xl:max-w-[1600px]",
+        "preview-slide-outer flex min-h-0 w-full flex-1 flex-col overflow-hidden",
+        isFullscreen
+          ? "max-w-none min-h-0 items-center justify-center gap-0 overflow-hidden"
+          : "max-w-7xl gap-1 2xl:max-w-[1600px]",
+        toneClass,
       )}
     >
-      <div className="shrink-0 self-start px-0.5 text-stone-900 dark:text-foreground">
-        <span
-          className="font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400"
-          style={{ fontSize: "var(--slide-section-out-label)" }}
-        >
-          Sección {slideIndex + 1}
-        </span>
-      </div>
+      {!isFullscreen && (
+        <div className="shrink-0 self-start px-0.5">
+          <span
+            className={cn("font-bold uppercase tracking-[0.2em]", sectionLabelClass)}
+            style={{ fontSize: "var(--slide-section-out-label)" }}
+          >
+            Sección {slideIndex + 1}
+          </span>
+        </div>
+      )}
       <div
         className={cn(
-          "preview-slide relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white text-stone-900 dark:bg-surface-elevated dark:text-foreground",
-          "aspect-video max-h-full",
+          "preview-slide relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent",
+          isFullscreen
+            ? "aspect-video h-auto w-[max(100dvw,calc(100lvh*16/9))] max-h-none max-w-none shrink-0"
+            : "aspect-video max-h-full flex-1",
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
+          isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
         )}
       >
-        <SlideCanvasView slide={slide} className="min-h-0 flex-1" />
+        {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
+        {isFullscreen && !isIsometricSlide ? (
+          <div className="relative z-[1] box-border flex min-h-0 flex-1 flex-col px-6 py-5 sm:px-10 sm:py-7 md:px-14 md:py-9">
+            <SlideCanvasView
+              slide={slide}
+              className="min-h-0 flex-1"
+              deckContentTone={deckVisualTheme.contentTone}
+            />
+          </div>
+        ) : (
+          <SlideCanvasView
+            slide={slide}
+            className="relative z-[1] min-h-0 flex-1"
+            deckContentTone={deckVisualTheme.contentTone}
+          />
+        )}
       </div>
     </motion.div>
   );

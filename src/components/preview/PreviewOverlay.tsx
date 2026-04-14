@@ -2,13 +2,40 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, useEffect } from "react";
 import { usePresentation } from "../../context/PresentationContext";
+import type { DeckContentTone } from "../../domain/entities";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
+import { cn } from "../../utils/cn";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
 function getOrigin() {
   return window.location.origin;
 }
+
+/** Flecha + halo acorde al tono del deck (sin disco negro). */
+function previewNavBtnClass(tone: DeckContentTone): string {
+  if (tone === "light") {
+    return cn(
+      "flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/45 bg-white/12 text-slate-50 shadow-[0_2px_14px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[color,background-color,border-color,transform]",
+      "hover:border-white/65 hover:bg-white/22 hover:text-white",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/55",
+      "[&_svg]:drop-shadow-[0_0_2px_rgba(0,0,0,0.35)]",
+    );
+  }
+  return cn(
+    "flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-stone-800/20 bg-white/50 text-stone-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] backdrop-blur-md transition-[color,background-color,border-color,transform]",
+    "hover:border-stone-800/35 hover:bg-white/75 hover:text-stone-950",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/50",
+    "[&_svg]:drop-shadow-[0_1px_0_rgba(255,255,255,0.85)]",
+  );
+}
+
+const previewNavEdgeStrip =
+  "pointer-events-auto absolute inset-y-0 z-[106] flex w-14 items-center justify-center md:w-[4.5rem] group/pnav-edge";
+
+/** Solo al pasar el puntero por la franja del borde (el botón no intercepta hasta entonces). */
+const previewNavBtnReveal =
+  "pointer-events-none scale-95 opacity-0 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none group-hover/pnav-edge:pointer-events-auto group-hover/pnav-edge:scale-100 group-hover/pnav-edge:opacity-100";
 
 export function PreviewOverlay() {
   const {
@@ -18,6 +45,7 @@ export function PreviewOverlay() {
     currentIndex,
     slides,
     topic,
+    deckVisualTheme,
     imageWidthPercent,
     panelHeightPercent,
     prevSlide,
@@ -31,11 +59,18 @@ export function PreviewOverlay() {
     currentIndex,
     topic,
     effectiveGeminiModel,
+    deckVisualTheme,
   });
   const presenterWindowRef = useRef<Window | null>(null);
   nextSlideRef.current = nextSlide;
   prevSlideRef.current = prevSlide;
-  stateRef.current = { slides, currentIndex, topic, effectiveGeminiModel };
+  stateRef.current = {
+    slides,
+    currentIndex,
+    topic,
+    effectiveGeminiModel,
+    deckVisualTheme,
+  };
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -47,6 +82,7 @@ export function PreviewOverlay() {
           currentIndex: i,
           topic: t,
           effectiveGeminiModel: m,
+          deckVisualTheme: dvt,
         } = stateRef.current;
         (e.source as Window).postMessage(
           {
@@ -56,6 +92,7 @@ export function PreviewOverlay() {
               currentIndex: i,
               topic: t || "Presentación",
               effectiveGeminiModel: m,
+              deckVisualTheme: dvt,
             },
           },
           getOrigin()
@@ -75,7 +112,7 @@ export function PreviewOverlay() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [slides, currentIndex, topic, effectiveGeminiModel]);
+  }, [slides, currentIndex, topic, effectiveGeminiModel, deckVisualTheme]);
 
   const tauriEventRef = useRef<{
     emitTo: (target: string, event: string, payload?: unknown) => Promise<void>;
@@ -94,6 +131,7 @@ export function PreviewOverlay() {
               currentIndex: i,
               topic: t,
               effectiveGeminiModel: m,
+              deckVisualTheme: dvt,
             } = stateRef.current;
             eventApi.emitTo("presenter", "presentation-state", {
               payload: {
@@ -101,6 +139,7 @@ export function PreviewOverlay() {
                 currentIndex: i,
                 topic: t || "Presentación",
                 effectiveGeminiModel: m,
+                deckVisualTheme: dvt,
               },
             });
           })
@@ -141,6 +180,8 @@ export function PreviewOverlay() {
 
   if (!isPreviewMode || !currentSlide) return null;
 
+  const navTone = deckVisualTheme.contentTone;
+
   const openPresenterWindow = async () => {
     trackEvent(ANALYTICS_EVENTS.PRESENTER_MODE_OPENED);
     const path = window.location.pathname || "/";
@@ -172,17 +213,16 @@ export function PreviewOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="group/preview fixed inset-0 z-[100] flex flex-col bg-white"
+        className="fixed inset-0 z-[100] flex flex-col bg-black"
       >
         <PreviewToolbar
-          currentIndex={currentIndex}
-          totalSlides={slides.length}
           onOpenPresenter={openPresenterWindow}
           onClose={() => setIsPreviewMode(false)}
         />
 
-        <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 items-center justify-center p-8 md:p-12">
+        <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden p-0">
           <PreviewSlideContent
+            layout="fullscreen"
             slide={currentSlide}
             imageWidthPercent={imageWidthPercent}
             panelHeightPercent={panelHeightPercent}
@@ -190,24 +230,31 @@ export function PreviewOverlay() {
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-30 flex w-16 items-center justify-center md:w-20">
+        <p
+          className="pointer-events-none fixed bottom-3 left-3 z-[105] select-none text-xs font-medium tabular-nums text-white/40 md:bottom-4 md:left-4"
+          aria-live="polite"
+        >
+          {currentIndex + 1}/{slides.length}
+        </p>
+
+        <div className={cn(previewNavEdgeStrip, "left-0")}>
           <button
             type="button"
             aria-label="Diapositiva anterior"
-            className="pointer-events-auto flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-white/15 text-stone-900 opacity-70 shadow-xl backdrop-blur-md transition-opacity hover:opacity-100 md:opacity-0 md:group-hover/preview:opacity-100"
+            className={cn(previewNavBtnReveal, previewNavBtnClass(navTone))}
             onClick={prevSlide}
           >
-            <ChevronLeft size={28} />
+            <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
           </button>
         </div>
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-30 flex w-16 items-center justify-center md:w-20">
+        <div className={cn(previewNavEdgeStrip, "right-0")}>
           <button
             type="button"
             aria-label="Diapositiva siguiente"
-            className="pointer-events-auto flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-white/15 text-stone-900 opacity-70 shadow-xl backdrop-blur-md transition-opacity hover:opacity-100 md:opacity-0 md:group-hover/preview:opacity-100"
+            className={cn(previewNavBtnReveal, previewNavBtnClass(navTone))}
             onClick={nextSlide}
           >
-            <ChevronRight size={28} />
+            <ChevronRight size={28} strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       </motion.div>
