@@ -48,6 +48,7 @@ import {
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
   SLIDE_TYPE,
+  type SlideCanvasElementKind,
   type SlideCanvasScene,
   type SlideMatrixData,
 } from "../domain/entities";
@@ -55,7 +56,20 @@ import {
   createDefaultIsometricFlowDiagram,
   serializeIsometricFlowDiagram,
 } from "../domain/entities/IsometricFlowDiagram";
-import { normalizeSlidesCanvasScenes } from "../domain/slideCanvas/ensureSlideCanvasScene";
+import {
+  normalizeSlidesCanvasScenes,
+  ensureSlideCanvasScene,
+} from "../domain/slideCanvas/ensureSlideCanvasScene";
+import {
+  applyEditBuffersToSlide,
+  defaultCanvasTextEditTargets,
+  isSlidePatchedDifferentFromBuffers,
+  patchSlideMediaPanelByElementId,
+  type CanvasTextEditTargets,
+} from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
+import { readTextMarkdownFromElement } from "../domain/slideCanvas/slideCanvasPayload";
+import { syncSlideRootFromCanvas } from "../domain/slideCanvas/syncSlideRootFromCanvas";
+import { appendCanvasElementToScene } from "../domain/slideCanvas/insertCanvasElement";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -126,42 +140,6 @@ function cloneSlideDeck(slides: Slide[]): Slide[] {
     return structuredClone(slides) as Slide[];
   }
   return JSON.parse(JSON.stringify(slides)) as Slide[];
-}
-
-function slidePatchedFromEditBuffers(
-  base: Slide,
-  buffers: {
-    title: string;
-    subtitle: string;
-    content: string;
-    code: string;
-    language: string;
-    fontSize: number;
-    editorHeight: number;
-  },
-): Slide {
-  return {
-    ...base,
-    title: buffers.title,
-    subtitle: buffers.subtitle.trim() || undefined,
-    content: buffers.content,
-    code: buffers.code,
-    language: buffers.language,
-    fontSize: buffers.fontSize,
-    editorHeight: buffers.editorHeight,
-  };
-}
-
-function isSlidePatchedDifferent(a: Slide, b: Slide): boolean {
-  return (
-    a.title !== b.title ||
-    (a.subtitle ?? "") !== (b.subtitle ?? "") ||
-    a.content !== b.content ||
-    (a.code ?? "") !== (b.code ?? "") ||
-    (a.language || "javascript") !== (b.language || "javascript") ||
-    (a.fontSize ?? 14) !== (b.fontSize ?? 14) ||
-    (a.editorHeight ?? 280) !== (b.editorHeight ?? 280)
-  );
 }
 
 /** Clave para persistir el id de la última presentación abierta (restaurar al refrescar en /editor). */
@@ -263,6 +241,16 @@ export function usePresentationState() {
   const editLanguageRef = useRef("javascript");
   const editFontSizeRef = useRef(14);
   const editEditorHeightRef = useRef(280);
+  /** Destinos de edición por bloque en el lienzo (título/subtítulo/cuerpo/panel). */
+  const canvasTextTargetsRef = useRef<CanvasTextEditTargets>({
+    titleElementId: null,
+    subtitleElementId: null,
+    contentElementId: null,
+    mediaPanelElementId: null,
+  });
+  const [canvasMediaPanelElementId, setCanvasMediaPanelElementId] = useState<
+    string | null
+  >(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
@@ -491,7 +479,11 @@ export function usePresentationState() {
             const cur = prevSlides[i];
             if (!cur || (cur.fontSize ?? 14) === next) return prevSlides;
             const updated = [...prevSlides];
-            updated[i] = { ...cur, fontSize: next };
+            updated[i] = patchSlideMediaPanelByElementId(
+              cur,
+              canvasTextTargetsRef.current.mediaPanelElementId,
+              (m) => ({ ...m, fontSize: next }),
+            );
             return updated;
           });
         });
@@ -507,6 +499,30 @@ export function usePresentationState() {
       cloneSlideDeck(snapshot),
     ];
     slidesRedoRef.current = [];
+  }, []);
+
+  const setCanvasTextEditTarget = useCallback(
+    (field: "title" | "subtitle" | "content", elementId: string) => {
+      const key =
+        field === "title"
+          ? "titleElementId"
+          : field === "subtitle"
+            ? "subtitleElementId"
+            : "contentElementId";
+      canvasTextTargetsRef.current = {
+        ...canvasTextTargetsRef.current,
+        [key]: elementId,
+      };
+    },
+    [],
+  );
+
+  const setCanvasMediaPanelEditTarget = useCallback((elementId: string) => {
+    canvasTextTargetsRef.current = {
+      ...canvasTextTargetsRef.current,
+      mediaPanelElementId: elementId,
+    };
+    setCanvasMediaPanelElementId(elementId);
   }, []);
 
   const flushEditsToSlideIndex = useCallback(
@@ -526,8 +542,13 @@ export function usePresentationState() {
           fontSize: editFontSizeRef.current,
           editorHeight: editEditorHeightRef.current,
         };
-        const next = slidePatchedFromEditBuffers(cur, buffers);
-        if (!isSlidePatchedDifferent(cur, next)) return prevSlides;
+        const ensured = ensureSlideCanvasScene(cur);
+        const next = applyEditBuffersToSlide(
+          ensured,
+          buffers,
+          canvasTextTargetsRef.current,
+        );
+        if (!isSlidePatchedDifferentFromBuffers(cur, next)) return prevSlides;
         pushSlidesUndo(prevSlides);
         const updated = [...prevSlides];
         updated[slideIndex] = next;
@@ -556,8 +577,13 @@ export function usePresentationState() {
           fontSize: editFontSizeRef.current,
           editorHeight: editEditorHeightRef.current,
         };
-        const next = slidePatchedFromEditBuffers(cur, buffers);
-        if (!isSlidePatchedDifferent(cur, next)) return prevSlides;
+        const ensured = ensureSlideCanvasScene(cur);
+        const next = applyEditBuffersToSlide(
+          ensured,
+          buffers,
+          canvasTextTargetsRef.current,
+        );
+        if (!isSlidePatchedDifferentFromBuffers(cur, next)) return prevSlides;
         pushSlidesUndo(prevSlides);
         const updated = [...prevSlides];
         updated[slideIndex] = next;
@@ -571,13 +597,37 @@ export function usePresentationState() {
   );
 
   const syncEditFieldsFromSlide = useCallback((s: Slide) => {
-    setEditTitle(s.title);
-    setEditSubtitle(s.subtitle ?? "");
-    setEditContent(formatMarkdown(s.content));
-    setEditCode(s.code || "");
-    setEditLanguage(s.language || "javascript");
-    setEditFontSizeState(s.fontSize || 14);
-    setEditEditorHeight(s.editorHeight ?? 280);
+    const s2 = ensureSlideCanvasScene(s);
+    const tr = defaultCanvasTextEditTargets(s2);
+    canvasTextTargetsRef.current = tr;
+    setCanvasMediaPanelElementId(tr.mediaPanelElementId);
+    const scene = s2.canvasScene!;
+    const titleEl = tr.titleElementId
+      ? scene.elements.find((e) => e.id === tr.titleElementId)
+      : undefined;
+    const subtitleEl = tr.subtitleElementId
+      ? scene.elements.find((e) => e.id === tr.subtitleElementId)
+      : undefined;
+    const contentEl = tr.contentElementId
+      ? scene.elements.find((e) => e.id === tr.contentElementId)
+      : undefined;
+    setEditTitle(
+      titleEl ? readTextMarkdownFromElement(s2, titleEl) : s2.title,
+    );
+    setEditSubtitle(
+      subtitleEl
+        ? readTextMarkdownFromElement(s2, subtitleEl)
+        : (s2.subtitle ?? ""),
+    );
+    setEditContent(
+      formatMarkdown(
+        contentEl ? readTextMarkdownFromElement(s2, contentEl) : s2.content,
+      ),
+    );
+    setEditCode(s2.code || "");
+    setEditLanguage(s2.language || "javascript");
+    setEditFontSizeState(s2.fontSize || 14);
+    setEditEditorHeight(s2.editorHeight ?? 280);
   }, []);
 
   const applySlidesUndo = useCallback(() => {
@@ -857,16 +907,10 @@ export function usePresentationState() {
 
   useEffect(() => {
     if (currentSlide) {
-      setEditTitle(currentSlide.title);
-      setEditSubtitle(currentSlide.subtitle ?? "");
-      setEditContent(formatMarkdown(currentSlide.content));
-      setEditCode(currentSlide.code || "");
-      setEditLanguage(currentSlide.language || "javascript");
-      setEditFontSizeState(currentSlide.fontSize || 14);
-      setEditEditorHeight(currentSlide.editorHeight ?? 280);
+      syncEditFieldsFromSlide(currentSlide);
       setIsEditing(false);
     }
-  }, [currentIndex, currentSlide?.id]);
+  }, [currentIndex, currentSlide?.id, syncEditFieldsFromSlide]);
 
   // Al cambiar de diapositiva con el modal de imagen abierto, resetear el prompt al del slide actual
   useEffect(() => {
@@ -939,10 +983,13 @@ export function usePresentationState() {
     setSlides((prev) => {
       const updated = [...prev];
       if (currentIndex >= 0 && currentIndex < updated.length) {
-        updated[currentIndex] = {
-          ...updated[currentIndex],
-          editorHeight: clamped,
-        };
+        const cur = updated[currentIndex];
+        if (!cur) return prev;
+        updated[currentIndex] = patchSlideMediaPanelByElementId(
+          cur,
+          canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({ ...m, editorHeight: clamped }),
+        );
       }
       return updated;
     });
@@ -958,16 +1005,25 @@ export function usePresentationState() {
 
     setSlides((prev) => {
       const updated = [...prev];
-      const base: Slide = { ...currentSlide, contentType: newType };
-      updated[currentIndex] =
-        newType === "presenter3d"
-          ? {
-              ...base,
-              presenter3dDeviceId:
-                base.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
-              presenter3dScreenMedia: base.presenter3dScreenMedia ?? "image",
-            }
-          : base;
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      let next = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, contentType: newType }),
+      );
+      if (newType === "presenter3d") {
+        next = patchSlideMediaPanelByElementId(
+          next,
+          canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            presenter3dDeviceId: m.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
+            presenter3dScreenMedia: m.presenter3dScreenMedia ?? "image",
+          }),
+        );
+      }
+      updated[currentIndex] = next;
       return updated;
     });
   };
@@ -1046,7 +1102,33 @@ export function usePresentationState() {
         if (!cur?.canvasScene) return prev;
         const nextScene = updater(cur.canvasScene);
         const out = [...prev];
-        out[idx] = { ...cur, canvasScene: nextScene };
+        out[idx] = syncSlideRootFromCanvas({
+          ...cur,
+          canvasScene: nextScene,
+        });
+        return out;
+      });
+    },
+    [],
+  );
+
+  const addCanvasElementToCurrentSlide = useCallback(
+    (kind: SlideCanvasElementKind) => {
+      setSlides((prev) => {
+        const idx = currentIndexRef.current;
+        const raw = prev[idx];
+        if (!raw) return prev;
+        const cur = ensureSlideCanvasScene(raw);
+        const scene = cur.canvasScene;
+        if (!scene) return prev;
+        const nextElements = appendCanvasElementToScene(cur, scene.elements, kind);
+        if (!nextElements) return prev;
+        const nextSlide = syncSlideRootFromCanvas({
+          ...cur,
+          canvasScene: { ...scene, elements: nextElements },
+        });
+        const out = [...prev];
+        out[idx] = nextSlide;
         return out;
       });
     },
@@ -1095,13 +1177,23 @@ export function usePresentationState() {
     if (currentSlide.contentType === contentType) return;
     setSlides((prev) => {
       const updated = [...prev];
-      let next: Slide = { ...currentSlide, contentType };
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      let next = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, contentType }),
+      );
       if (contentType === "presenter3d") {
-        next = {
-          ...next,
-          presenter3dDeviceId: next.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
-          presenter3dScreenMedia: next.presenter3dScreenMedia ?? "image",
-        };
+        next = patchSlideMediaPanelByElementId(
+          next,
+          canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            presenter3dDeviceId: m.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
+            presenter3dScreenMedia: m.presenter3dScreenMedia ?? "image",
+          }),
+        );
       }
       updated[currentIndex] = next;
       return updated;
@@ -1113,7 +1205,13 @@ export function usePresentationState() {
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
       const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, presenter3dDeviceId };
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, presenter3dDeviceId }),
+      );
       return updated;
     });
   };
@@ -1125,7 +1223,13 @@ export function usePresentationState() {
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
       const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, presenter3dScreenMedia };
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, presenter3dScreenMedia }),
+      );
       return updated;
     });
   };
@@ -1137,7 +1241,13 @@ export function usePresentationState() {
     if (currentSlide.contentType !== "presenter3d") return;
     setSlides((prev) => {
       const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, presenter3dViewState };
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, presenter3dViewState }),
+      );
       return updated;
     });
   };
@@ -1278,11 +1388,18 @@ export function usePresentationState() {
         const promptUsed = imagePrompt.trim();
         setSlides((prev) => {
           const updated = [...prev];
-          updated[currentIndex] = {
-            ...currentSlide,
-            imageUrl,
-            imagePrompt: promptUsed,
-          };
+          const cur = updated[currentIndex];
+          if (!cur) return prev;
+          updated[currentIndex] = patchSlideMediaPanelByElementId(
+            cur,
+            canvasTextTargetsRef.current.mediaPanelElementId,
+            (m) => ({
+              ...m,
+              imageUrl,
+              imagePrompt: promptUsed,
+              contentType: "image",
+            }),
+          );
           return updated;
         });
         setShowImageModal(false);
@@ -1542,11 +1659,17 @@ export function usePresentationState() {
     if (!videoUrlInput.trim() || !currentSlide) return;
     setSlides((prev) => {
       const updated = [...prev];
-      updated[currentIndex] = {
-        ...currentSlide,
-        videoUrl: videoUrlInput.trim(),
-        contentType: "video",
-      };
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({
+          ...m,
+          videoUrl: videoUrlInput.trim(),
+          contentType: "video",
+        }),
+      );
       return updated;
     });
     setShowVideoModal(false);
@@ -1588,7 +1711,13 @@ export function usePresentationState() {
       editorHeight: editEditorHeightRef.current,
     };
     const merged = slides.map((sl, i) =>
-      i === idx ? slidePatchedFromEditBuffers(sl, buffers) : sl,
+      i === idx
+        ? applyEditBuffersToSlide(
+            ensureSlideCanvasScene(sl),
+            buffers,
+            canvasTextTargetsRef.current,
+          )
+        : sl,
     );
     let s =
       pending != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
@@ -1986,7 +2115,13 @@ export function usePresentationState() {
       editorHeight: editEditorHeightRef.current,
     };
     const merged = slides.map((s, i) =>
-      i === idx ? slidePatchedFromEditBuffers(s, buffers) : s,
+      i === idx
+        ? applyEditBuffersToSlide(
+            ensureSlideCanvasScene(s),
+            buffers,
+            canvasTextTargetsRef.current,
+          )
+        : s,
     );
     let slidesToSave =
       pendingDiagram != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
@@ -3009,7 +3144,11 @@ export function usePresentationState() {
           const updated = [...prev];
           const cur = updated[index];
           if (!cur) return prev;
-          updated[index] = { ...cur, imageUrl: dataUrl };
+          updated[index] = patchSlideMediaPanelByElementId(
+            cur,
+            canvasTextTargetsRef.current.mediaPanelElementId,
+            (m) => ({ ...m, imageUrl: dataUrl, contentType: "image" }),
+          );
           return updated;
         });
         setShowImageUploadModal(false);
@@ -3036,12 +3175,18 @@ export function usePresentationState() {
       );
       setSlides((prev) => {
         const updated = [...prev];
-        updated[currentIndex] = {
-          ...currentSlide,
-          code,
-          language: codeGenLanguage,
-          contentType: "code",
-        };
+        const cur = updated[currentIndex];
+        if (!cur) return prev;
+        updated[currentIndex] = patchSlideMediaPanelByElementId(
+          cur,
+          canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            code,
+            language: codeGenLanguage,
+            contentType: "code",
+          }),
+        );
         return updated;
       });
       setEditCode(code);
@@ -3266,12 +3411,16 @@ export function usePresentationState() {
     formatMarkdown,
     handleSaveManualEdit,
     commitSlideEdits,
+    setCanvasTextEditTarget,
+    setCanvasMediaPanelEditTarget,
+    canvasMediaPanelElementId,
     toggleContentType,
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,
     setCurrentSlideIsometricFlowData,
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
+    addCanvasElementToCurrentSlide,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,

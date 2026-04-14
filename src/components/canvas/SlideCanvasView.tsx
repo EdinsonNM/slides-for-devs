@@ -16,6 +16,10 @@ import {
 } from "../../utils/deckSlideChrome";
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
+import {
+  readTextMarkdownFromElement,
+  slideAppearanceForMediaElement,
+} from "../../domain/slideCanvas/slideCanvasPayload";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { CodeDisplay } from "../shared/CodeDisplay";
 import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
@@ -84,7 +88,7 @@ function mediaBlock(slide: Slide, tone: DeckContentTone) {
       <img
         src={slide.imageUrl}
         alt={slide.title}
-        className="h-full w-full object-contain select-none"
+        className="h-full w-full object-cover select-none"
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
         referrerPolicy="no-referrer"
@@ -113,6 +117,10 @@ function CanvasElementReadOnly({
   deckContentTone: DeckContentTone;
 }) {
   const tone = deckContentTone;
+  const panelSlide =
+    element.kind === "mediaPanel"
+      ? slideAppearanceForMediaElement(slide, element)
+      : slide;
   const { rect, kind, z } = element;
   const rotation = element.rotation ?? 0;
   const box: CSSProperties = {
@@ -156,7 +164,7 @@ function CanvasElementReadOnly({
                 )}
                 style={{ fontSize: "var(--slide-title)" }}
               >
-                {slide.title}
+                {readTextMarkdownFromElement(slide, element)}
               </h2>
               <div className="mt-2 h-1.5 w-20 shrink-0 rounded-full bg-emerald-600" />
             </>,
@@ -164,7 +172,7 @@ function CanvasElementReadOnly({
         </div>
       );
     case "subtitle":
-      if (!slide.subtitle) return null;
+      if (!readTextMarkdownFromElement(slide, element).trim()) return null;
       return (
         <div style={box} className={shell}>
           {rotated(
@@ -174,7 +182,7 @@ function CanvasElementReadOnly({
               className="prose-sm max-w-none min-w-0 w-full"
               style={{ fontSize: "var(--slide-subtitle)" }}
             >
-              {slide.subtitle}
+              {readTextMarkdownFromElement(slide, element)}
             </SlideMarkdown>,
           )}
         </div>
@@ -193,14 +201,14 @@ function CanvasElementReadOnly({
                 )}
                 style={{ fontSize: "var(--slide-title-chapter)" }}
               >
-                {slide.title}
+                {readTextMarkdownFromElement(slide, element)}
               </h1>
             </>,
           )}
         </div>
       );
     case "chapterSubtitle":
-      if (!slide.subtitle) return null;
+      if (!readTextMarkdownFromElement(slide, element).trim()) return null;
       return (
         <div style={box} className={shell}>
           {rotated(
@@ -213,7 +221,7 @@ function CanvasElementReadOnly({
               className="prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide"
               style={{ fontSize: "var(--slide-subtitle)" }}
             >
-              {slide.subtitle}
+              {readTextMarkdownFromElement(slide, element)}
             </SlideMarkdown>,
           )}
         </div>
@@ -223,8 +231,10 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "h-full overflow-y-auto px-2 py-1 scrollbar-on-hover",
-            slide.content?.trim() ? (
-              <SlideMarkdown contentTone={tone}>{slide.content}</SlideMarkdown>
+            readTextMarkdownFromElement(slide, element).trim() ? (
+              <SlideMarkdown contentTone={tone}>
+                {readTextMarkdownFromElement(slide, element)}
+              </SlideMarkdown>
             ) : null,
           )}
         </div>
@@ -233,7 +243,7 @@ function CanvasElementReadOnly({
       if (slide.type !== SLIDE_TYPE.CONTENT) return null;
       return (
         <div style={box} className={shell}>
-          {rotated("h-full p-1 md:p-2", mediaBlock(slide, tone))}
+          {rotated("h-full p-1 md:p-2", mediaBlock(panelSlide, tone))}
         </div>
       );
     case "matrix":
@@ -253,7 +263,11 @@ function CanvasElementReadOnly({
         </div>
       );
     case "matrixNotes":
-      if (slide.type !== SLIDE_TYPE.MATRIX || !slide.content?.trim()) return null;
+      if (
+        slide.type !== SLIDE_TYPE.MATRIX ||
+        !readTextMarkdownFromElement(slide, element).trim()
+      )
+        return null;
       return (
         <div style={box} className={shell}>
           {rotated(
@@ -263,7 +277,9 @@ function CanvasElementReadOnly({
                 ? "border-slate-600/60"
                 : "border-stone-100 dark:border-border",
             ),
-            <SlideMarkdown contentTone={tone}>{slide.content}</SlideMarkdown>,
+            <SlideMarkdown contentTone={tone}>
+              {readTextMarkdownFromElement(slide, element)}
+            </SlideMarkdown>,
           )}
         </div>
       );

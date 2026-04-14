@@ -29,13 +29,6 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
   const visible = variant === "inspector" || showSlideStylePanel;
   if (!visible || !currentSlide || slides.length === 0) return null;
 
-  const isContentSplit =
-    currentSlide.type === SLIDE_TYPE.CONTENT &&
-    (currentSlide.contentLayout ?? "split") === "split";
-  const isContentFull =
-    currentSlide.type === SLIDE_TYPE.CONTENT && currentSlide.contentLayout === "full";
-  const isContentPanelFull =
-    currentSlide.type === SLIDE_TYPE.CONTENT && currentSlide.contentLayout === "panel-full";
   const contentType = currentSlide.contentType ?? "image";
 
   const selectedId = inferSlideLayoutTemplateId(currentSlide);
@@ -201,8 +194,10 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
     </div>
   );
 
+  const isContentSlide = currentSlide.type === SLIDE_TYPE.CONTENT;
+
   const panelTypes =
-    (isContentSplit || isContentPanelFull) && (
+    isContentSlide && (
       <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 px-3 pb-3 pt-2 dark:border-border">
         <span className="text-xs font-medium text-stone-500 dark:text-muted-foreground">Panel:</span>
         {[
@@ -236,7 +231,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {deckThemesRow}
         {templatesRow}
         {panelTypes}
-        {(isContentSplit || isContentPanelFull) && <ContentPanelProperties />}
+        {isContentSlide && <ContentPanelProperties />}
       </div>
     );
   }
@@ -254,7 +249,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {deckThemesRow}
         {templatesRow}
         {panelTypes}
-        {(isContentSplit || isContentPanelFull) && <ContentPanelProperties />}
+        {isContentSlide && <ContentPanelProperties />}
       </motion.div>
     </AnimatePresence>
   );

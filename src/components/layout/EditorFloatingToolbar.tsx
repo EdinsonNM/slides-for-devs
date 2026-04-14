@@ -10,6 +10,12 @@ import {
   Columns3,
   Rows3,
   Minus,
+  Heading,
+  Heading2,
+  FileText,
+  ImagePlus,
+  StickyNote,
+  type LucideIcon,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -25,11 +31,54 @@ import {
   SLIDE_MATRIX_MAX_DATA_ROWS,
   SLIDE_MATRIX_MIN_COLUMNS,
   SLIDE_MATRIX_MIN_DATA_ROWS,
+  type SlideCanvasElementKind,
 } from "../../domain/entities";
+import { insertableCanvasElementKindsForSlide } from "../../domain/slideCanvas/insertCanvasElement";
 
 interface EditorFloatingToolbarProps {
   onOpenConfig?: () => void;
 }
+
+const INSERT_BLOCK_UI: Record<
+  SlideCanvasElementKind,
+  { label: string; title: string; Icon: LucideIcon } | undefined
+> = {
+  title: { label: "Título", title: "Añadir bloque de título", Icon: Heading },
+  subtitle: {
+    label: "Subtítulo",
+    title: "Añadir bloque de subtítulo",
+    Icon: Heading2,
+  },
+  markdown: {
+    label: "Texto",
+    title: "Añadir bloque de texto (markdown)",
+    Icon: FileText,
+  },
+  mediaPanel: {
+    label: "Panel",
+    title: "Añadir panel de imagen, código, vídeo o 3D",
+    Icon: ImagePlus,
+  },
+  chapterTitle: {
+    label: "Título",
+    title: "Añadir título de capítulo",
+    Icon: Heading,
+  },
+  chapterSubtitle: {
+    label: "Subtítulo",
+    title: "Añadir subtítulo de capítulo",
+    Icon: Heading2,
+  },
+  matrixNotes: {
+    label: "Notas",
+    title: "Añadir bloque de notas",
+    Icon: StickyNote,
+  },
+  sectionLabel: undefined,
+  matrix: undefined,
+  excalidraw: undefined,
+  isometricFlow: undefined,
+};
 
 export function EditorFloatingToolbar({
   onOpenConfig: _onOpenConfig,
@@ -51,6 +100,7 @@ export function EditorFloatingToolbar({
     patchCurrentSlideMatrix,
     setShowGenerateSlideContentModal,
     setGenerateSlideContentPrompt,
+    addCanvasElementToCurrentSlide,
   } = usePresentation();
 
   if (slides.length === 0) return null;
@@ -60,6 +110,10 @@ export function EditorFloatingToolbar({
   );
   const showMatrixToolbar = currentSlide?.type === SLIDE_TYPE.MATRIX;
   const showDiagramToolbar = currentSlide?.type === SLIDE_TYPE.DIAGRAM;
+  const insertableCanvasKinds = currentSlide
+    ? insertableCanvasElementKindsForSlide(currentSlide)
+    : [];
+  const showCanvasInsertToolbar = insertableCanvasKinds.length > 0;
 
   const barClass =
     "pointer-events-auto flex items-center gap-0.5 rounded-xl border border-stone-200/90 bg-white px-1.5 py-1.5 shadow-md shadow-stone-900/8 dark:border-border dark:bg-surface-elevated dark:shadow-lg dark:shadow-black/40";
@@ -83,6 +137,33 @@ export function EditorFloatingToolbar({
             >
               <Sparkles size={18} aria-hidden />
             </button>
+          </div>
+        )}
+
+        {showCanvasInsertToolbar && (
+          <div
+            className={cn(barClass, "max-w-[min(100vw-2rem,36rem)] flex-wrap justify-center gap-0.5")}
+            role="toolbar"
+            aria-label="Añadir bloques al lienzo"
+          >
+            {insertableCanvasKinds.map((kind) => {
+              const meta = INSERT_BLOCK_UI[kind];
+              if (!meta) return null;
+              const { Icon, label, title } = meta;
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => addCanvasElementToCurrentSlide(kind)}
+                  title={title}
+                  aria-label={title}
+                  className="flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-[12px] font-medium text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/10"
+                >
+                  <Icon size={16} className="shrink-0 opacity-90" aria-hidden />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 

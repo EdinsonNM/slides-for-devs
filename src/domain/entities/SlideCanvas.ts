@@ -1,6 +1,22 @@
 /** Escena 2D de una diapositiva: rectángulos en % del contenedor 16:9 (origen arriba-izquierda). */
 
-export const SLIDE_CANVAS_SCENE_VERSION = 1 as const;
+import type { Presenter3dViewState } from "../../utils/presenter3dView";
+
+/** Alineado con `SlidePanelContentType` en Slide.ts (evita import circular). */
+export type SlideCanvasPanelContentType =
+  | "image"
+  | "code"
+  | "video"
+  | "presenter3d";
+
+/** Escenas guardadas antes del modelo por-bloque (solo geometría + datos en raíz del slide). */
+export const SLIDE_CANVAS_SCENE_LEGACY_VERSION = 1 as const;
+/** Escena con `payload` por elemento de texto / panel de media. */
+export const SLIDE_CANVAS_SCENE_VERSION = 2 as const;
+
+export type SlideCanvasSceneVersion =
+  | typeof SLIDE_CANVAS_SCENE_LEGACY_VERSION
+  | typeof SLIDE_CANVAS_SCENE_VERSION;
 
 export type SlideCanvasElementKind =
   | "sectionLabel"
@@ -14,6 +30,33 @@ export type SlideCanvasElementKind =
   | "matrixNotes"
   | "excalidraw"
   | "isometricFlow";
+
+export type SlideCanvasTextRole = "title" | "subtitle" | "body";
+
+export type SlideCanvasTextPayload = {
+  type: "text";
+  role: SlideCanvasTextRole;
+  markdown: string;
+};
+
+export type SlideCanvasMediaPayload = {
+  type: "media";
+  contentType: SlideCanvasPanelContentType;
+  imageUrl?: string;
+  imagePrompt?: string;
+  code?: string;
+  language?: string;
+  fontSize?: number;
+  editorHeight?: number;
+  videoUrl?: string;
+  presenter3dDeviceId?: string;
+  presenter3dScreenMedia?: "image" | "video";
+  presenter3dViewState?: Presenter3dViewState;
+};
+
+export type SlideCanvasElementPayload =
+  | SlideCanvasTextPayload
+  | SlideCanvasMediaPayload;
 
 export interface SlideCanvasRect {
   /** 0–100, borde izquierdo del elemento */
@@ -34,10 +77,12 @@ export interface SlideCanvasElement {
   rect: SlideCanvasRect;
   /** Grados; origen en el centro del bloque (sentido horario positivo). */
   rotation?: number;
+  /** Contenido por bloque (v2). Ausente en escenas legacy v1. */
+  payload?: SlideCanvasElementPayload;
 }
 
 export interface SlideCanvasScene {
-  version: typeof SLIDE_CANVAS_SCENE_VERSION;
+  version: SlideCanvasSceneVersion;
   elements: SlideCanvasElement[];
 }
 
@@ -60,22 +105,57 @@ function isCanvasRect(v: unknown): v is SlideCanvasRect {
   );
 }
 
-export function isSlideCanvasScene(v: unknown): v is SlideCanvasScene {
+export function isSlideCanvasTextPayload(v: unknown): v is SlideCanvasTextPayload {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
   return (
-    o.version === SLIDE_CANVAS_SCENE_VERSION &&
-    Array.isArray(o.elements) &&
-    o.elements.every(
-      (e) =>
-        e &&
-        typeof e === "object" &&
-        typeof (e as SlideCanvasElement).id === "string" &&
-        typeof (e as SlideCanvasElement).kind === "string" &&
-        typeof (e as SlideCanvasElement).z === "number" &&
-        isCanvasRect((e as SlideCanvasElement).rect) &&
-        ((e as SlideCanvasElement).rotation === undefined ||
-          typeof (e as SlideCanvasElement).rotation === "number"),
-    )
+    o.type === "text" &&
+    (o.role === "title" || o.role === "subtitle" || o.role === "body") &&
+    typeof o.markdown === "string"
+  );
+}
+
+export function isSlideCanvasMediaPayload(v: unknown): v is SlideCanvasMediaPayload {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    o.type === "media" &&
+    (o.contentType === "image" ||
+      o.contentType === "code" ||
+      o.contentType === "video" ||
+      o.contentType === "presenter3d")
+  );
+}
+
+export function isSlideCanvasElementPayload(
+  v: unknown,
+): v is SlideCanvasElementPayload {
+  return isSlideCanvasTextPayload(v) || isSlideCanvasMediaPayload(v);
+}
+
+function isOptionalElementPayload(v: unknown): boolean {
+  if (v === undefined) return true;
+  return isSlideCanvasElementPayload(v);
+}
+
+export function isSlideCanvasScene(v: unknown): v is SlideCanvasScene {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  const ver = o.version;
+  if (ver !== SLIDE_CANVAS_SCENE_LEGACY_VERSION && ver !== SLIDE_CANVAS_SCENE_VERSION) {
+    return false;
+  }
+  if (!Array.isArray(o.elements)) return false;
+  return o.elements.every(
+    (e) =>
+      e &&
+      typeof e === "object" &&
+      typeof (e as SlideCanvasElement).id === "string" &&
+      typeof (e as SlideCanvasElement).kind === "string" &&
+      typeof (e as SlideCanvasElement).z === "number" &&
+      isCanvasRect((e as SlideCanvasElement).rect) &&
+      ((e as SlideCanvasElement).rotation === undefined ||
+        typeof (e as SlideCanvasElement).rotation === "number") &&
+      isOptionalElementPayload((e as SlideCanvasElement).payload),
   );
 }

@@ -220,7 +220,7 @@ export function PreviewOverlay() {
           onClose={() => setIsPreviewMode(false)}
         />
 
-        <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden p-0">
+        <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-black p-0">
           <PreviewSlideContent
             layout="fullscreen"
             slide={currentSlide}

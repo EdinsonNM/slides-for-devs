@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   GripVertical,
   Pencil,
@@ -30,6 +31,11 @@ import {
 } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
+import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
+import {
+  readTextMarkdownFromElement,
+  slideAppearanceForMediaElement,
+} from "../../domain/slideCanvas/slideCanvasPayload";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideRightPanel } from "../editor/SlideRightPanel";
 import { SlideContentDiagram } from "../editor/SlideContentDiagram";
@@ -82,18 +88,6 @@ const CANVAS_Z_SUB_HOVER = 1;
 
 /** UI flotante del lienzo por encima de los bloques (máx. z de bloque ≈ (n-1)*stride+2; p. ej. ~9992 con n≈1000). */
 const SLIDE_CANVAS_UI_Z = 10_000;
-
-/** Reasigna z a 0..n-1 según el orden actual, para que adelante/atrás no acumulen valores raros. */
-function normalizeCanvasElementsZOrder(
-  elements: SlideCanvasElement[],
-): SlideCanvasElement[] {
-  const withIdx = elements.map((e, i) => ({ e, i }));
-  withIdx.sort((a, b) => {
-    if (a.e.z !== b.e.z) return a.e.z - b.e.z;
-    return a.i - b.i;
-  });
-  return withIdx.map(({ e }, rank) => ({ ...e, z: rank }));
-}
 
 /**
  * Píxeles mínimos de movimiento antes de iniciar arrastre.
@@ -185,6 +179,8 @@ export function SlideCanvasSlide() {
     setVideoUrlInput,
     setShowVideoModal,
     deckVisualTheme,
+    setCanvasTextEditTarget,
+    setCanvasMediaPanelEditTarget,
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -264,6 +260,12 @@ export function SlideCanvasSlide() {
         const el = scene.elements.find((x) => x.id === elementId);
         if (!el) return scene;
         const maxZ = scene.elements.reduce((m, x) => Math.max(m, x.z), 0);
+        const copyPayload =
+          el.payload != null
+            ? typeof structuredClone === "function"
+              ? structuredClone(el.payload)
+              : ({ ...el.payload } as typeof el.payload)
+            : undefined;
         const copy: SlideCanvasElement = {
           ...el,
           id: crypto.randomUUID(),
@@ -273,6 +275,7 @@ export function SlideCanvasSlide() {
             y: el.rect.y + 2,
           }),
           z: maxZ + 1,
+          payload: copyPayload,
         };
         const elements = normalizeCanvasElementsZOrder([
           ...scene.elements,
@@ -286,6 +289,11 @@ export function SlideCanvasSlide() {
 
   const deleteCanvasElement = useCallback(
     (elementId: string) => {
+      if (isEditing) {
+        flushSync(() => {
+          commitSlideEdits({ keepEditing: true });
+        });
+      }
       setSelectedId((sid) => (sid === elementId ? null : sid));
       setHoveredId((hid) => (hid === elementId ? null : hid));
       patchCurrentSlideCanvasScene((scene) => ({
@@ -293,7 +301,7 @@ export function SlideCanvasSlide() {
         elements: scene.elements.filter((e) => e.id !== elementId),
       }));
     },
-    [patchCurrentSlideCanvasScene],
+    [patchCurrentSlideCanvasScene, isEditing, commitSlideEdits],
   );
 
   const bringCanvasElementForward = useCallback(
@@ -587,6 +595,13 @@ export function SlideCanvasSlide() {
     [patchElementRotation],
   );
 
+  const flushCanvasTextCommitIfEditing = useCallback(() => {
+    if (!isEditing) return;
+    flushSync(() => {
+      commitSlideEdits({ keepEditing: true });
+    });
+  }, [isEditing, commitSlideEdits]);
+
   if (!currentSlide) {
     sceneElementsRef.current = [];
     return null;
@@ -600,6 +615,7 @@ export function SlideCanvasSlide() {
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     const t = e.target as HTMLElement;
     if (t.closest("[data-slide-canvas-el]")) return;
+    flushCanvasTextCommitIfEditing();
     setSelectedId(null);
     setHoveredId(null);
   };
@@ -724,8 +740,12 @@ export function SlideCanvasSlide() {
             setHoveredId((h) => (h === el.id ? null : h))
           }
           onSelect={() => {
+            flushCanvasTextCommitIfEditing();
             setSelectedId(el.id);
             setHoveredId(null);
+            if (el.kind === "mediaPanel") {
+              setCanvasMediaPanelEditTarget(el.id);
+            }
           }}
           isEditing={isEditing}
           setIsEditing={setIsEditing}
@@ -758,9 +778,11 @@ export function SlideCanvasSlide() {
           openImageModal={openImageModal}
           openImageUploadModal={openImageUploadModal}
           openVideoModal={() => {
-            setVideoUrlInput(slide.videoUrl || "");
+            const panelSlide = slideAppearanceForMediaElement(slide, el);
+            setVideoUrlInput(panelSlide.videoUrl || "");
             setShowVideoModal(true);
           }}
+          setCanvasTextEditTarget={setCanvasTextEditTarget}
           editLanguage={editLanguage}
           setEditLanguage={setEditLanguage}
           editFontSize={editFontSize}
@@ -818,6 +840,7 @@ function CanvasElementEditor({
   setEditFontSize,
   openCodeGenModal,
   deckContentTone,
+  setCanvasTextEditTarget,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -886,11 +909,19 @@ function CanvasElementEditor({
   setEditFontSize: (v: number | ((p: number) => number)) => void;
   openCodeGenModal: () => void;
   deckContentTone: DeckContentTone;
+  setCanvasTextEditTarget: (
+    field: "title" | "subtitle" | "content",
+    elementId: string,
+  ) => void;
 }) {
   const tone = deckContentTone;
   const { theme: codeEditorTheme, toggleTheme: toggleCodeEditorTheme } =
     useCodeEditorTheme();
   const { rect, kind, id, z } = element;
+  const panelSlide =
+    kind === "mediaPanel"
+      ? slideAppearanceForMediaElement(slide, element)
+      : slide;
   const rotation = element.rotation ?? 0;
 
   const titleAutoMeasureRef = useRef<HTMLDivElement>(null);
@@ -916,7 +947,7 @@ function CanvasElementEditor({
       rect.x,
       rect.y,
       rect.w,
-      slide.title,
+      readTextMarkdownFromElement(slide, element),
       editTitle,
       kind,
       rotation,
@@ -940,7 +971,7 @@ function CanvasElementEditor({
       rect.x,
       rect.y,
       rect.w,
-      slide.subtitle,
+      readTextMarkdownFromElement(slide, element),
       editSubtitle,
       kind,
       rotation,
@@ -1020,11 +1051,11 @@ function CanvasElementEditor({
     (slide.type === SLIDE_TYPE.CONTENT || slide.type === SLIDE_TYPE.MATRIX);
 
   const showMediaPanelImageActions =
-    kind === "mediaPanel" && (slide.contentType ?? "image") === "image";
+    kind === "mediaPanel" && (panelSlide.contentType ?? "image") === "image";
   const showMediaPanelCodeActions =
-    kind === "mediaPanel" && slide.contentType === "code";
+    kind === "mediaPanel" && panelSlide.contentType === "code";
   const showMediaPanelVideoActions =
-    kind === "mediaPanel" && slide.contentType === "video";
+    kind === "mediaPanel" && panelSlide.contentType === "video";
 
   const canvaChromeEl =
     showCanvaChrome ? (
@@ -1073,16 +1104,22 @@ function CanvasElementEditor({
             : () => {
                 setIsEditing(true);
                 if (kind === "markdown" || kind === "matrixNotes") {
+                  setCanvasTextEditTarget("content", id);
+                  setEditContent(readTextMarkdownFromElement(slide, element));
                   setActiveField("content");
                 } else if (
                   kind === "title" ||
                   kind === "chapterTitle"
                 ) {
+                  setCanvasTextEditTarget("title", id);
+                  setEditTitle(readTextMarkdownFromElement(slide, element));
                   setActiveField("title");
                 } else if (
                   kind === "subtitle" ||
                   kind === "chapterSubtitle"
                 ) {
+                  setCanvasTextEditTarget("subtitle", id);
+                  setEditSubtitle(readTextMarkdownFromElement(slide, element));
                   setActiveField("subtitle");
                 } else {
                   setIsEditing(true);
@@ -1149,6 +1186,8 @@ function CanvasElementEditor({
                     e.stopPropagation();
                     if (consumeClickIfDrag()) return;
                     onSelect();
+                    setCanvasTextEditTarget("title", id);
+                    setEditTitle(readTextMarkdownFromElement(slide, element));
                     setIsEditing(true);
                     setActiveField("title");
                   }}
@@ -1159,6 +1198,8 @@ function CanvasElementEditor({
                     if (e.key === "Enter") {
                       e.preventDefault();
                       onSelect();
+                      setCanvasTextEditTarget("title", id);
+                      setEditTitle(readTextMarkdownFromElement(slide, element));
                       setIsEditing(true);
                       setActiveField("title");
                     }
@@ -1175,7 +1216,11 @@ function CanvasElementEditor({
                         : { fontSize: "var(--slide-title)" }
                     }
                   >
-                    {(isEditing ? editTitle : slide.title).trim() || "Sin título"}
+                    {(
+                      isEditing
+                        ? editTitle
+                        : readTextMarkdownFromElement(slide, element)
+                    ).trim() || "Sin título"}
                   </span>
                   {!chapter && (
                     <div className="mt-2 h-1.5 w-20 shrink-0 rounded-full bg-emerald-600" />
@@ -1244,6 +1289,8 @@ function CanvasElementEditor({
                     e.stopPropagation();
                     if (consumeClickIfDrag()) return;
                     onSelect();
+                    setCanvasTextEditTarget("subtitle", id);
+                    setEditSubtitle(readTextMarkdownFromElement(slide, element));
                     setIsEditing(true);
                     setActiveField("subtitle");
                   }}
@@ -1254,12 +1301,18 @@ function CanvasElementEditor({
                     if (e.key === "Enter") {
                       e.preventDefault();
                       onSelect();
+                      setCanvasTextEditTarget("subtitle", id);
+                      setEditSubtitle(readTextMarkdownFromElement(slide, element));
                       setIsEditing(true);
                       setActiveField("subtitle");
                     }
                   }}
                 >
-                  {(isEditing ? editSubtitle : slide.subtitle ?? "").trim() ? (
+                  {(
+                    isEditing && showSubtitleEdit
+                      ? editSubtitle
+                      : readTextMarkdownFromElement(slide, element)
+                  ).trim() ? (
                     <SlideMarkdown
                       contentTone={tone}
                       className={cn(
@@ -1268,7 +1321,9 @@ function CanvasElementEditor({
                       )}
                       style={{ fontSize: "var(--slide-subtitle)" }}
                     >
-                      {isEditing ? editSubtitle : slide.subtitle ?? ""}
+                      {isEditing && showSubtitleEdit
+                        ? editSubtitle
+                        : readTextMarkdownFromElement(slide, element)}
                     </SlideMarkdown>
                   ) : (
                     <span className={cn("italic", deckMutedTextClass(tone))}>
@@ -1301,7 +1356,11 @@ function CanvasElementEditor({
         </div>
       );
     }
-    case "markdown":
+    case "markdown": {
+      const bodyPreview =
+        isEditing && isSelected && activeField === "content"
+          ? editContent
+          : readTextMarkdownFromElement(slide, element);
       return (
         <div
           style={box}
@@ -1319,6 +1378,10 @@ function CanvasElementEditor({
                   e.stopPropagation();
                   if (consumeClickIfDrag()) return;
                   onSelect();
+                  setCanvasTextEditTarget("content", id);
+                  setEditContent(
+                    readTextMarkdownFromElement(slide, element),
+                  );
                   setIsEditing(true);
                   setActiveField("content");
                 }}
@@ -1329,13 +1392,17 @@ function CanvasElementEditor({
                   if (e.key === "Enter") {
                     e.preventDefault();
                     onSelect();
+                    setCanvasTextEditTarget("content", id);
+                    setEditContent(
+                      readTextMarkdownFromElement(slide, element),
+                    );
                     setIsEditing(true);
                     setActiveField("content");
                   }
                 }}
               >
-                {editContent.trim() ? (
-                  <SlideMarkdown contentTone={tone}>{editContent}</SlideMarkdown>
+                {bodyPreview.trim() ? (
+                  <SlideMarkdown contentTone={tone}>{bodyPreview}</SlideMarkdown>
                 ) : (
                   <p className={cn("italic", deckMutedTextClass(tone))}>
                     Doble clic para editar…
@@ -1373,8 +1440,9 @@ function CanvasElementEditor({
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
+    }
     case "mediaPanel": {
-      const isPresenter3d = slide.contentType === "presenter3d";
+      const isPresenter3d = panelSlide.contentType === "presenter3d";
       const onMediaPanelDragPointerDown = (
         e: React.PointerEvent<HTMLElement>,
         captureEl: HTMLElement | null,
@@ -1460,11 +1528,19 @@ function CanvasElementEditor({
                     onSelect();
                   }}
                 >
-                  <SlideRightPanel fullWidth embeddedInCanvas />
+                  <SlideRightPanel
+                    fullWidth
+                    embeddedInCanvas
+                    canvasPanelSlide={panelSlide}
+                  />
                 </div>
               </>
             ) : (
-              <SlideRightPanel fullWidth embeddedInCanvas />
+              <SlideRightPanel
+                fullWidth
+                embeddedInCanvas
+                canvasPanelSlide={panelSlide}
+              />
             ),
           )}
           {canvaChromeEl}
@@ -1514,7 +1590,11 @@ function CanvasElementEditor({
         </div>
       );
     }
-    case "matrixNotes":
+    case "matrixNotes": {
+      const matrixNotesPreview =
+        isEditing && isSelected && activeField === "content"
+          ? editContent
+          : readTextMarkdownFromElement(slide, element);
       return (
         <div
           style={box}
@@ -1537,6 +1617,10 @@ function CanvasElementEditor({
                   e.stopPropagation();
                   if (consumeClickIfDrag()) return;
                   onSelect();
+                  setCanvasTextEditTarget("content", id);
+                  setEditContent(
+                    readTextMarkdownFromElement(slide, element),
+                  );
                   setIsEditing(true);
                   setActiveField("content");
                 }}
@@ -1547,13 +1631,19 @@ function CanvasElementEditor({
                   if (e.key === "Enter") {
                     e.preventDefault();
                     onSelect();
+                    setCanvasTextEditTarget("content", id);
+                    setEditContent(
+                      readTextMarkdownFromElement(slide, element),
+                    );
                     setIsEditing(true);
                     setActiveField("content");
                   }
                 }}
               >
-                {editContent.trim() ? (
-                  <SlideMarkdown contentTone={tone}>{editContent}</SlideMarkdown>
+                {matrixNotesPreview.trim() ? (
+                  <SlideMarkdown contentTone={tone}>
+                    {matrixNotesPreview}
+                  </SlideMarkdown>
                 ) : (
                   <p className={cn("text-xs", deckMutedTextClass(tone))}>
                     Notas bajo la tabla…
@@ -1580,6 +1670,7 @@ function CanvasElementEditor({
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>
       );
+    }
     case "excalidraw":
       return (
         <div

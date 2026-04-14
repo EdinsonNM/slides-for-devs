@@ -3,8 +3,13 @@ import { Image as ImageIcon, Sparkles, Upload, ChevronDown } from "lucide-react"
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import type { Slide } from "../../types";
 
-export function ImagePanel() {
+export interface ImagePanelProps {
+  canvasPanelSlide?: Slide;
+}
+
+export function ImagePanel({ canvasPanelSlide }: ImagePanelProps = {}) {
   const { currentSlide, openImageModal, openImageUploadModal } = usePresentation();
   const isLgUp = useMinWidthLg();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -23,6 +28,8 @@ export function ImagePanel() {
 
   if (!currentSlide) return null;
 
+  const slide = canvasPanelSlide ?? currentSlide;
+
   const handleOpenGenerate = () => {
     setMenuOpen(false);
     openImageModal();
@@ -36,10 +43,10 @@ export function ImagePanel() {
   if (isLgUp) {
     return (
       <div className="flex-1 flex items-center justify-center relative h-full min-h-0">
-        {currentSlide.imageUrl ? (
+        {slide.imageUrl ? (
           <img
-            src={currentSlide.imageUrl}
-            alt={currentSlide.title}
+            src={slide.imageUrl}
+            alt={slide.title}
             className="w-full h-full object-cover select-none"
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
@@ -66,10 +73,10 @@ export function ImagePanel() {
       className="flex-1 flex items-center justify-center relative cursor-pointer h-full"
       onClick={() => setMenuOpen((v) => !v)}
     >
-      {currentSlide.imageUrl ? (
+      {slide.imageUrl ? (
         <img
-          src={currentSlide.imageUrl}
-          alt={currentSlide.title}
+          src={slide.imageUrl}
+          alt={slide.title}
           className="w-full h-full object-cover select-none"
           draggable={false}
           onDragStart={(e) => e.preventDefault()}
@@ -88,7 +95,7 @@ export function ImagePanel() {
       <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
         <div className="px-4 py-2 bg-white dark:bg-surface-elevated rounded-full shadow-lg text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform border border-stone-200 dark:border-border">
           <ChevronDown size={16} />
-          {currentSlide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
+          {slide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
         </div>
       </div>
 

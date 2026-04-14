@@ -15,17 +15,20 @@ import { usePresentation } from "../../context/PresentationContext";
 import { LANGUAGES } from "../../constants/languages";
 import { cn } from "../../utils/cn";
 import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
+import type { Slide } from "../../types";
 
 export interface CodeBlockProps {
   /** En vista grande los controles viven en el inspector; solo se muestran los dots de la ventana. */
   titleBarMode?: "full" | "minimal";
   /** Bloque `mediaPanel` en el lienzo: edición con doble clic, sin barra de guardar; tema/IA/fuente en el cromo flotante. */
   embeddedInCanvas?: boolean;
+  canvasPanelSlide?: Slide;
 }
 
 export function CodeBlock({
   titleBarMode = "full",
   embeddedInCanvas = false,
+  canvasPanelSlide,
 }: CodeBlockProps) {
   const {
     currentSlide,
@@ -45,6 +48,8 @@ export function CodeBlock({
   const { theme, toggleTheme, isLight } = useCodeEditorTheme();
 
   if (!currentSlide) return null;
+
+  const slide = canvasPanelSlide ?? currentSlide;
 
   const shell = isLight
     ? "bg-[#fafafa] border-stone-300 shadow-xl"
@@ -191,9 +196,9 @@ export function CodeBlock({
                   <span
                     className={`rounded px-1.5 py-0.5 ${isLight ? "bg-stone-300 text-stone-800" : "bg-stone-800"}`}
                   >
-                    {LANGUAGES.find((l) => l.id === currentSlide.language)
+                    {LANGUAGES.find((l) => l.id === slide.language)
                       ?.name ||
-                      currentSlide.language ||
+                      slide.language ||
                       "JavaScript"}
                   </span>
                   <button
@@ -308,9 +313,9 @@ export function CodeBlock({
                   : undefined
               }
             >
-              {currentSlide.code ? (
+              {slide.code ? (
                 <SyntaxHighlighter
-                  language={currentSlide.language || "javascript"}
+                  language={slide.language || "javascript"}
                   style={isLight ? oneLight : vscDarkPlus}
                   codeTagProps={{
                     style: {
@@ -328,7 +333,7 @@ export function CodeBlock({
                     overflow: "visible",
                   }}
                 >
-                  {currentSlide.code}
+                  {slide.code}
                 </SyntaxHighlighter>
               ) : (
                 <div

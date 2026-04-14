@@ -3,14 +3,21 @@ import { usePresentation } from "../../context/PresentationContext";
 import { getEmbedUrl } from "../../utils/video";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
 import { cn } from "../../utils/cn";
+import type { Slide } from "../../types";
 
-export function VideoPanel() {
+export interface VideoPanelProps {
+  canvasPanelSlide?: Slide;
+}
+
+export function VideoPanel({ canvasPanelSlide }: VideoPanelProps = {}) {
   const { currentSlide } = usePresentation();
   const isLgUp = useMinWidthLg();
 
   if (!currentSlide) return null;
 
-  const hasEmbed = Boolean(currentSlide.videoUrl?.trim());
+  const slide = canvasPanelSlide ?? currentSlide;
+
+  const hasEmbed = Boolean(slide.videoUrl?.trim());
 
   const outerFill =
     "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden";
@@ -30,7 +37,7 @@ export function VideoPanel() {
           )}
         >
           <iframe
-            src={getEmbedUrl(currentSlide.videoUrl!)}
+            src={getEmbedUrl(slide.videoUrl!)}
             className="absolute inset-0 h-full w-full border-0"
             allowFullScreen
             title="Vídeo incrustado"

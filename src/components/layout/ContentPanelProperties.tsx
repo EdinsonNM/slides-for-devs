@@ -19,6 +19,8 @@ import {
 import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 import { SLIDE_TYPE } from "../../domain/entities";
+import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
+import { slideAppearanceForMediaElement } from "../../domain/slideCanvas/slideCanvasPayload";
 
 /**
  * Controles del panel lateral (imagen / vídeo / código / 3D) en el inspector derecho.
@@ -38,6 +40,7 @@ export function ContentPanelProperties() {
     editFontSize,
     setEditFontSize,
     openCodeGenModal,
+    canvasMediaPanelElementId,
   } = usePresentation();
 
   const { theme, toggleTheme } = useCodeEditorTheme();
@@ -64,19 +67,23 @@ export function ContentPanelProperties() {
 
   if (!currentSlide) return null;
 
-  const isContentSplit =
-    currentSlide.type === SLIDE_TYPE.CONTENT &&
-    (currentSlide.contentLayout ?? "split") === "split";
-  const isContentPanelFull =
-    currentSlide.type === SLIDE_TYPE.CONTENT && currentSlide.contentLayout === "panel-full";
-  if (!isContentSplit && !isContentPanelFull) return null;
+  if (currentSlide.type !== SLIDE_TYPE.CONTENT) return null;
 
-  const contentType = currentSlide.contentType ?? "image";
-  const deviceId = (currentSlide.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
-  const screenMedia = currentSlide.presenter3dScreenMedia ?? "image";
+  const ensured = ensureSlideCanvasScene(currentSlide);
+  const mediaEl = canvasMediaPanelElementId
+    ? ensured.canvasScene?.elements.find((e) => e.id === canvasMediaPanelElementId)
+    : undefined;
+  const panelModel =
+    mediaEl?.kind === "mediaPanel"
+      ? slideAppearanceForMediaElement(ensured, mediaEl)
+      : ensured;
+
+  const contentType = panelModel.contentType ?? "image";
+  const deviceId = (panelModel.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
+  const screenMedia = panelModel.presenter3dScreenMedia ?? "image";
   const videoOk =
-    Boolean(currentSlide.videoUrl?.trim()) &&
-    isDirectVideoTextureUrl(currentSlide.videoUrl!.trim());
+    Boolean(panelModel.videoUrl?.trim()) &&
+    isDirectVideoTextureUrl(panelModel.videoUrl!.trim());
 
   const sectionTitle = (
     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -113,13 +120,13 @@ export function ContentPanelProperties() {
         <button
           type="button"
           onClick={() => {
-            setVideoUrlInput(currentSlide.videoUrl || "");
+            setVideoUrlInput(panelModel.videoUrl || "");
             setShowVideoModal(true);
           }}
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-700 transition-colors hover:border-emerald-400 hover:text-emerald-700 dark:border-border dark:bg-surface dark:text-foreground dark:hover:border-emerald-600 dark:hover:text-emerald-300"
         >
           <Video size={14} />
-          {currentSlide.videoUrl ? "Cambiar URL de vídeo" : "Añadir vídeo"}
+          {panelModel.videoUrl ? "Cambiar URL de vídeo" : "Añadir vídeo"}
         </button>
       )}
 
@@ -175,7 +182,7 @@ export function ContentPanelProperties() {
                 className="flex w-full items-center justify-center gap-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-700 dark:border-border dark:bg-surface dark:text-foreground"
               >
                 <ImageIcon size={14} />
-                {currentSlide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
+                {panelModel.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
                 <ChevronDown size={14} />
               </button>
               {imgMenuOpen && (
@@ -209,16 +216,16 @@ export function ContentPanelProperties() {
             <button
               type="button"
               onClick={() => {
-                setVideoUrlInput(currentSlide.videoUrl || "");
+                setVideoUrlInput(panelModel.videoUrl || "");
                 setShowVideoModal(true);
               }}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-700 dark:border-border dark:bg-surface dark:text-foreground"
             >
               <Video size={14} />
-              {currentSlide.videoUrl ? "Cambiar vídeo (URL directa)" : "Añadir vídeo (URL directa)"}
+              {panelModel.videoUrl ? "Cambiar vídeo (URL directa)" : "Añadir vídeo (URL directa)"}
             </button>
           )}
-          {screenMedia === "video" && currentSlide.videoUrl && !videoOk && (
+          {screenMedia === "video" && panelModel.videoUrl && !videoOk && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
               Para la pantalla 3D hace falta una URL directa (p. ej. MP4/WebM). YouTube o Vimeo siguen
               funcionando en el panel «Vídeo» clásico.

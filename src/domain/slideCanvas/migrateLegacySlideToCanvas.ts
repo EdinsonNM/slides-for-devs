@@ -6,22 +6,47 @@ import {
   type SlideCanvasScene,
   SLIDE_CANVAS_SCENE_VERSION,
 } from "../entities/SlideCanvas";
+import {
+  mediaPayloadFromSlideRoot,
+  textPayloadForElementKind,
+} from "./slideCanvasPayload";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
 
 function el(
+  slide: Slide,
   id: string,
   kind: SlideCanvasElement["kind"],
   z: number,
   rect: SlideCanvasRect,
 ): SlideCanvasElement {
-  return { id, kind, z, rect: clampCanvasRect(rect) };
+  const base: SlideCanvasElement = {
+    id,
+    kind,
+    z,
+    rect: clampCanvasRect(rect),
+  };
+  if (
+    kind === "title" ||
+    kind === "chapterTitle" ||
+    kind === "subtitle" ||
+    kind === "chapterSubtitle" ||
+    kind === "markdown" ||
+    kind === "matrixNotes"
+  ) {
+    return { ...base, payload: textPayloadForElementKind(slide, kind) };
+  }
+  if (kind === "mediaPanel" && slide.type === SLIDE_TYPE.CONTENT) {
+    return { ...base, payload: mediaPayloadFromSlideRoot(slide) };
+  }
+  return base;
 }
 
 /**
  * Construye una escena inicial a partir del modelo legacy (tipo, layouts y campos planos).
  * Se usa al abrir slides antiguos o tras cambiar plantilla (cuando se borra `canvasScene`).
+ * Emite escena v2 con `payload` por bloque de texto / panel.
  */
 export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
   switch (slide.type) {
@@ -29,7 +54,7 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,
         elements: [
-          el("canvas-excalidraw", "excalidraw", 1, {
+          el(slide, "canvas-excalidraw", "excalidraw", 1, {
             x: 0,
             y: 0,
             w: 100,
@@ -42,7 +67,7 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,
         elements: [
-          el("canvas-isometric-flow", "isometricFlow", 1, {
+          el(slide, "canvas-isometric-flow", "isometricFlow", 1, {
             x: 0,
             y: 0,
             w: 100,
@@ -55,13 +80,13 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,
         elements: [
-          el("canvas-chapter-title", "chapterTitle", 2, {
+          el(slide, "canvas-chapter-title", "chapterTitle", 2, {
             x: 8,
             y: 36,
             w: 84,
             h: 20,
           }),
-          el("canvas-chapter-subtitle", "chapterSubtitle", 3, {
+          el(slide, "canvas-chapter-subtitle", "chapterSubtitle", 3, {
             x: 10,
             y: 58,
             w: 80,
@@ -77,10 +102,10 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,
         elements: [
-          el("canvas-matrix-title", "title", 2, { x: 4, y: 3, w: 92, h: 9 }),
+          el(slide, "canvas-matrix-title", "title", 2, { x: 4, y: 3, w: 92, h: 9 }),
           ...(hasSub
             ? [
-                el("canvas-matrix-subtitle", "subtitle", 3, {
+                el(slide, "canvas-matrix-subtitle", "subtitle", 3, {
                   x: 4,
                   y: 12,
                   w: 92,
@@ -88,13 +113,13 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
                 }),
               ]
             : []),
-          el("canvas-matrix-table", "matrix", 4, {
+          el(slide, "canvas-matrix-table", "matrix", 4, {
             x: 3,
             y: tableTop,
             w: 94,
             h: tableH,
           }),
-          el("canvas-matrix-notes", "matrixNotes", 5, {
+          el(slide, "canvas-matrix-notes", "matrixNotes", 5, {
             x: 4,
             y: tableTop + tableH + 2,
             w: 92,
@@ -115,19 +140,19 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
         return {
           version: SLIDE_CANVAS_SCENE_VERSION,
           elements: [
-            el("canvas-pf-title", "title", 2, {
+            el(slide, "canvas-pf-title", "title", 2, {
               x: 4,
               y: 2,
               w: 92,
               h: titleBlockH,
             }),
-            el("canvas-pf-subtitle", "subtitle", 3, {
+            el(slide, "canvas-pf-subtitle", "subtitle", 3, {
               x: 4,
               y: 2 + titleBlockH,
               w: 92,
               h: subH,
             }),
-            el("canvas-pf-media", "mediaPanel", 5, {
+            el(slide, "canvas-pf-media", "mediaPanel", 5, {
               x: 2,
               y: topH,
               w: 96,
@@ -140,10 +165,10 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
         return {
           version: SLIDE_CANVAS_SCENE_VERSION,
           elements: [
-            el("canvas-sec", "sectionLabel", 1, { x: 4, y: 3, w: 50, h: 5 }),
-            el("canvas-title", "title", 2, { x: 4, y: 9, w: 92, h: 11 }),
-            el("canvas-subtitle", "subtitle", 3, { x: 4, y: 21, w: 92, h: 7 }),
-            el("canvas-markdown", "markdown", 4, { x: 4, y: 29, w: 92, h: 68 }),
+            el(slide, "canvas-sec", "sectionLabel", 1, { x: 4, y: 3, w: 50, h: 5 }),
+            el(slide, "canvas-title", "title", 2, { x: 4, y: 9, w: 92, h: 11 }),
+            el(slide, "canvas-subtitle", "subtitle", 3, { x: 4, y: 21, w: 92, h: 7 }),
+            el(slide, "canvas-markdown", "markdown", 4, { x: 4, y: 29, w: 92, h: 68 }),
           ],
         };
       }
@@ -156,11 +181,11 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,
         elements: [
-          el("canvas-sec", "sectionLabel", 1, { x: 3, y: 3, w: 44, h: 5 }),
-          el("canvas-title", "title", 2, { x: 3, y: 9, w: textW - 2, h: 11 }),
-          el("canvas-subtitle", "subtitle", 3, { x: 3, y: 21, w: textW - 2, h: 7 }),
-          el("canvas-markdown", "markdown", 4, { x: 3, y: 29, w: textW - 2, h: 68 }),
-          el("canvas-media", "mediaPanel", 5, {
+          el(slide, "canvas-sec", "sectionLabel", 1, { x: 3, y: 3, w: 44, h: 5 }),
+          el(slide, "canvas-title", "title", 2, { x: 3, y: 9, w: textW - 2, h: 11 }),
+          el(slide, "canvas-subtitle", "subtitle", 3, { x: 3, y: 21, w: textW - 2, h: 7 }),
+          el(slide, "canvas-markdown", "markdown", 4, { x: 3, y: 29, w: textW - 2, h: 68 }),
+          el(slide, "canvas-media", "mediaPanel", 5, {
             x: mediaX,
             y: 3,
             w: mediaW,

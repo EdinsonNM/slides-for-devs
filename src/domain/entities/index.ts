@@ -21,11 +21,21 @@ export type {
   SlideCanvasElementKind,
   SlideCanvasRect,
   SlideCanvasScene,
+  SlideCanvasSceneVersion,
+  SlideCanvasTextPayload,
+  SlideCanvasMediaPayload,
+  SlideCanvasElementPayload,
+  SlideCanvasTextRole,
+  SlideCanvasPanelContentType,
 } from "./SlideCanvas";
 export {
   SLIDE_CANVAS_SCENE_VERSION,
+  SLIDE_CANVAS_SCENE_LEGACY_VERSION,
   clampCanvasRect,
   isSlideCanvasScene,
+  isSlideCanvasTextPayload,
+  isSlideCanvasMediaPayload,
+  isSlideCanvasElementPayload,
 } from "./SlideCanvas";
 export type { SlideMatrixData } from "./SlideMatrix";
 export {

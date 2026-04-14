@@ -1,6 +1,7 @@
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import type { Slide } from "../../types";
 import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
@@ -11,17 +12,22 @@ export interface SlideRightPanelProps {
   fullWidth?: boolean;
   /** Lienzo del slide: el contenedor no es flex; hace falta llenar el rect del selector y encuadre 3D más ajustado. */
   embeddedInCanvas?: boolean;
+  /** Datos del `mediaPanel` concreto en el lienzo (varios paneles). Si no se pasa, se usa `currentSlide`. */
+  canvasPanelSlide?: Slide;
 }
 
 export function SlideRightPanel({
   fullWidth,
   embeddedInCanvas = false,
+  canvasPanelSlide,
 }: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
     usePresentation();
   const isLgUp = useMinWidthLg();
 
   if (!currentSlide) return null;
+
+  const panelSlide = canvasPanelSlide ?? currentSlide;
 
   return (
     <div
@@ -45,17 +51,21 @@ export function SlideRightPanel({
         </div>
       )}
 
-      {currentSlide.contentType === "code" ? (
+      {panelSlide.contentType === "code" ? (
         <CodeBlock
           titleBarMode={embeddedInCanvas ? "minimal" : isLgUp ? "minimal" : "full"}
           embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
         />
-      ) : currentSlide.contentType === "video" ? (
-        <VideoPanel />
-      ) : currentSlide.contentType === "presenter3d" ? (
-        <Presenter3DPanel embeddedInCanvas={embeddedInCanvas} />
+      ) : panelSlide.contentType === "video" ? (
+        <VideoPanel canvasPanelSlide={canvasPanelSlide} />
+      ) : panelSlide.contentType === "presenter3d" ? (
+        <Presenter3DPanel
+          embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
+        />
       ) : (
-        <ImagePanel />
+        <ImagePanel canvasPanelSlide={canvasPanelSlide} />
       )}
     </div>
   );
