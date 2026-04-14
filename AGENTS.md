@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `497ffa6a977d7cf8897d4466361a575374abbd45`  
+**Última revisión alineada con commit:** `2b01ce865f94477a56259c39fe3c956ac51a572c`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -35,7 +35,11 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/components/layout/SlideSidebar.tsx`: lista de slides con vista previa de medios y tipos de contenido
 - `src/components/layout/ContentPanelProperties.tsx` y `SlideStylePanel.tsx`: propiedades de contenido y estilos de slide
 - `src/components/editor/CanvaSelectionFrame.tsx`: marco de selección en el lienzo del slide
-- `src/components/shared/Device3DViewport.tsx`: viewport 3D (autoencuadre y límites)
+- `src/components/canvas/`: edición en lienzo del slide (`SlideCanvasSlide.tsx`, `SlideCanvasView.tsx`, `SlideCanvasCanvaChrome.tsx`, `SlideCanvasAlignmentGuides.tsx`, `SlideCanvasHoverOutline.tsx`)
+- `src/components/editor/Canvas3DPanel.tsx` y `src/components/shared/Device3DViewport.tsx`: panel 3D y viewport (autoencuadre y límites)
+- `src/domain/`: entidades de dominio (`Slide`, `SlideCanvas`, `SlideMatrix`, `DeckVisualTheme`, `IsometricFlowDiagram`, …), `src/domain/slideCanvas/` (migración, escena, z-order), `src/domain/ports/` (contratos hacia IA y operaciones)
+- `src/application/use-cases/`: casos de uso (p. ej. generación de diagrama o matriz desde IA)
+- `src/composition/container.ts`: composición de adaptadores y casos de uso
 - `src/context/PresentationContext.tsx`: estado global principal de presentaciones
 - `src/hooks/`: hooks de estado y lógica UI
 - `src/services/`: integración con almacenamiento, IA, updater y config
@@ -91,7 +95,7 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 
 ### UI / componentes
 
-- Busca primero en `src/components/home`, `editor`, `preview`, `presenter`, `layout`, `modals`
+- Busca primero en `src/components/home`, `editor`, `canvas`, `preview`, `presenter`, `layout`, `modals`
 - Mantén consistencia visual y de props
 
 ### Estado y flujo de presentación
@@ -104,6 +108,7 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 - Revisa `src/services/gemini.ts`
 - Revisa `src/services/openai.ts`
 - Revisa `src/services/apiConfig.ts`
+- Diagramas desde texto: flujo Mermaid → Excalidraw vía `src/utils/excalidrawMermaid.ts` y `@excalidraw/mermaid-to-excalidraw`; casos de uso y prompts en `src/application/use-cases/`, `src/infrastructure/promptEngine/`, adaptadores en `src/infrastructure/adapters/`
 
 ### Persistencia desktop
 
