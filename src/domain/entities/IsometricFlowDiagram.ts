@@ -13,6 +13,7 @@ export const ISOMETRIC_FLOW_NODE_SHAPES = [
   "cloud",
   "llm",
   "user",
+  "brand",
 ] as const;
 
 export type IsometricFlowNodeShape = (typeof ISOMETRIC_FLOW_NODE_SHAPES)[number];
@@ -37,8 +38,10 @@ export interface IsometricFlowNode {
   label: string;
   /** Matiz HSL del bloque (0–360). */
   hue: number;
-  /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC, nube, LLM o usuario). */
+  /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC, nube, LLM, usuario o marca SVG). */
   shape: IsometricFlowNodeShape;
+  /** Slug del icono de marca (archivo dentro de `public/lobe-icons/icons`). */
+  iconSlug?: string;
 }
 
 export interface IsometricFlowLink {
@@ -113,6 +116,9 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
         label,
         hue,
         shape: sanitizeNodeShape(n.shape) ?? "slab",
+        ...(typeof n.iconSlug === "string" && n.iconSlug.trim()
+          ? { iconSlug: n.iconSlug.trim().toLowerCase() }
+          : {}),
       });
     }
     const links: IsometricFlowLink[] = [];

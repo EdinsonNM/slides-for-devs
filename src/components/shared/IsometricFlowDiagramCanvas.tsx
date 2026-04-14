@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -13,6 +14,7 @@ import {
   Circle,
   Cloud,
   Database,
+  Image as ImageIcon,
   Link2,
   Monitor,
   Plus,
@@ -122,6 +124,7 @@ const NODE_SHAPE_TOOLBAR: {
   { value: "cloud", label: "Nube", Icon: Cloud },
   { value: "llm", label: "LLM", Icon: BrainCircuit },
   { value: "user", label: "Usuario", Icon: UserRound },
+  { value: "brand", label: "Marca (SVG)", Icon: ImageIcon },
 ];
 
 function isoCylinderBody(
@@ -367,6 +370,9 @@ export function IsometricFlowDiagramCanvas({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [iconManifest, setIconManifest] = useState<string[]>([]);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconSearchQuery, setIconSearchQuery] = useState("");
   const [drag, setDrag] = useState<{
     id: string;
     offsetX: number;
@@ -384,6 +390,56 @@ export function IsometricFlowDiagramCanvas({
   dataRef.current = data;
   const emitRef = useRef(emit);
   emitRef.current = emit;
+
+  useEffect(() => {
+    let alive = true;
+    void fetch("/lobe-icons/manifest.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: unknown) => {
+        if (!alive || !Array.isArray(list)) return;
+        const normalized = list
+          .filter((v): v is string => typeof v === "string")
+          .map((v) => v.trim().toLowerCase())
+          .filter(Boolean);
+        setIconManifest(normalized);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setIconManifest([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!iconPickerOpen) return;
+    const node = data.nodes.find((n) => n.id === selectedId);
+    setIconSearchQuery(node?.iconSlug ?? "");
+  }, [iconPickerOpen, data.nodes, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setIconPickerOpen(false);
+      setIconSearchQuery("");
+    }
+  }, [data.nodes, selectedId]);
+
+  const selectedNode = useMemo(
+    () => data.nodes.find((n) => n.id === selectedId) ?? null,
+    [data.nodes, selectedId],
+  );
+
+  const iconPickerResults = useMemo(() => {
+    if (!iconManifest.length) return [];
+    const q = iconSearchQuery.trim().toLowerCase();
+    if (!q) return iconManifest.slice(0, 120);
+    const starts = iconManifest.filter((s) => s.startsWith(q)).slice(0, 80);
+    const includes = iconManifest
+      .filter((s) => !s.startsWith(q) && s.includes(q))
+      .slice(0, 120 - starts.length);
+    return [...starts, ...includes];
+  }, [iconManifest, iconSearchQuery]);
 
   const pickNodeAt = useCallback(
     (sx: number, sy: number): IsometricFlowNode | null => {
@@ -670,6 +726,46 @@ export function IsometricFlowDiagramCanvas({
     [data, emit, selectedId],
   );
 
+  const setSelectedNodeIconSlug = useCallback(
+    (slug: string) => {
+      if (!selectedId) return;
+      const clean = slug.trim().toLowerCase();
+      emit({
+        ...data,
+        nodes: data.nodes.map((nn) =>
+          nn.id === selectedId
+            ? {
+                ...nn,
+                ...(clean ? { iconSlug: clean } : {}),
+                ...(clean ? {} : { iconSlug: undefined }),
+              }
+            : nn,
+        ),
+      });
+    },
+    [data, emit, selectedId],
+  );
+
+  const setSelectedNodeBrandIcon = useCallback(
+    (slug: string) => {
+      if (!selectedId) return;
+      const clean = slug.trim().toLowerCase();
+      emit({
+        ...data,
+        nodes: data.nodes.map((nn) =>
+          nn.id === selectedId
+            ? {
+                ...nn,
+                shape: "brand",
+                ...(clean ? { iconSlug: clean } : { iconSlug: "openai" }),
+              }
+            : nn,
+        ),
+      });
+    },
+    [data, emit, selectedId],
+  );
+
   useEffect(() => {
     if (readOnly) return;
     const onKey = (e: KeyboardEvent) => {
@@ -766,6 +862,19 @@ export function IsometricFlowDiagramCanvas({
           })}
         </div>
       )}
+      {selectedId && !selectedLinkId ? (
+        <div className="flex items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600">
+          <button
+            type="button"
+            onClick={() => setIconPickerOpen(true)}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+            title="Abrir selector de iconos"
+          >
+            <ImageIcon size={13} />
+            Cambiar icono
+          </button>
+        </div>
+      ) : null}
       {selectedLinkId && (
         <>
           <button
@@ -813,6 +922,71 @@ export function IsometricFlowDiagramCanvas({
   return (
     <div className={cn("relative h-full min-h-0 w-full", className)}>
       {toolbar}
+      {iconPickerOpen && selectedNode ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/45 p-3">
+          <div className="flex h-[min(78vh,520px)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-2xl dark:border-border dark:bg-stone-900">
+            <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-2 dark:border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
+                  Cambiar icono
+                </span>
+                <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                  {iconPickerResults.length} resultados
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIconPickerOpen(false)}
+                className="rounded-md border border-stone-200 px-2 py-1 text-xs text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="border-b border-stone-200 px-3 py-2 dark:border-border">
+              <input
+                value={iconSearchQuery}
+                onChange={(e) => setIconSearchQuery(e.target.value)}
+                placeholder="Buscar icono (ej: openai, claude, gemini...)"
+                className="h-9 w-full rounded-md border border-stone-200 bg-stone-50 px-3 text-sm text-stone-700 outline-none focus:border-sky-500 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200"
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {iconPickerResults.map((slug) => {
+                  const active = (selectedNode.iconSlug ?? "") === slug;
+                  return (
+                    <button
+                      key={slug}
+                      type="button"
+                      onClick={() => {
+                        setSelectedNodeBrandIcon(slug);
+                        setIconSearchQuery(slug);
+                        setIconPickerOpen(false);
+                      }}
+                      className={cn(
+                        "flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-[11px] text-stone-700 transition-colors dark:text-stone-200",
+                        active
+                          ? "border-sky-500 bg-sky-50 dark:bg-sky-950/50"
+                          : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800/70 dark:hover:bg-stone-800",
+                      )}
+                      title={slug}
+                    >
+                      <img
+                        src={`/lobe-icons/icons/${slug}.svg`}
+                        alt={slug}
+                        className="h-8 w-8 object-contain"
+                      />
+                      <span className="w-full truncate text-center">{slug}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <svg
         ref={svgRef}
         role="img"
@@ -966,7 +1140,8 @@ export function IsometricFlowDiagramCanvas({
                 : shape === "cloud" ||
                     shape === "orb" ||
                     shape === "llm" ||
-                    shape === "user"
+                    shape === "user" ||
+                    shape === "brand"
                   ? isoDeviceGlyphExtent(cy, topPt.y)
                   : null;
             const desktopLayout =
@@ -1299,6 +1474,52 @@ export function IsometricFlowDiagramCanvas({
                           fill={hslFill(n.hue, 48, 76)}
                           stroke={stroke}
                           strokeWidth={1}
+                        />
+                      </>
+                    );
+                  })() : null}
+                  {shape === "brand" && glyphExtent ? (() => {
+                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const { yTop, yBot } = glyphExtent;
+                    const iconSlug = (n.iconSlug ?? "openai").trim().toLowerCase();
+                    const sphereR = Math.min(CELL * 0.31, (yBot - yTop) * 0.5);
+                    const sphereCy = (yTop + yBot) / 2 + 1;
+                    const iconSize = sphereR * 1.35;
+                    const iconX = cx - iconSize / 2;
+                    const iconY = sphereCy - iconSize / 2;
+                    return (
+                      <>
+                        <ellipse
+                          cx={cx}
+                          cy={cy + 3}
+                          rx={sphereR * 0.92}
+                          ry={sphereR * 0.36}
+                          fill="rgba(15, 23, 42, 0.14)"
+                          className="dark:fill-slate-950/35"
+                        />
+                        <circle
+                          cx={cx}
+                          cy={sphereCy}
+                          r={sphereR}
+                          fill="rgb(255 255 255)"
+                          stroke={stroke}
+                          strokeWidth={1}
+                        />
+                        <circle
+                          cx={cx - sphereR * 0.24}
+                          cy={sphereCy - sphereR * 0.24}
+                          r={sphereR * 0.34}
+                          fill="rgba(255, 255, 255, 0.34)"
+                        />
+                        <image
+                          key={`brand-${n.id}-${iconSlug}`}
+                          href={`/lobe-icons/icons/${iconSlug}.svg`}
+                          x={iconX}
+                          y={iconY}
+                          width={iconSize}
+                          height={iconSize}
+                          opacity={0.98}
+                          preserveAspectRatio="xMidYMid meet"
                         />
                       </>
                     );
