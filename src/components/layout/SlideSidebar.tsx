@@ -158,6 +158,7 @@ export function SlideSidebar() {
       <div className="p-2 space-y-2 overflow-y-auto relative">
         {slides.map((slide, index) => {
           const panelKind = sidebarPanelKind(slide.contentType);
+          const isSelected = currentIndex === index;
           return (
           <div
             key={slide.id}
@@ -165,7 +166,10 @@ export function SlideSidebar() {
               rowRefs.current[index] = el;
             }}
             className={cn(
-              "flex gap-0.5 items-stretch shrink-0 rounded-md transition-shadow",
+              "flex items-stretch shrink-0 rounded-md transition-[box-shadow,background-color,border-color,gap]",
+              isSelected
+                ? "gap-0 overflow-hidden border-2 border-primary bg-primary/10 shadow-md shadow-primary/25 dark:bg-primary/16 dark:shadow-primary/30"
+                : "gap-0.5",
               dragOverIndex === index &&
                 dragSourceIndex !== null &&
                 dragSourceIndex !== index &&
@@ -175,7 +179,10 @@ export function SlideSidebar() {
           >
             <div
               className={cn(
-                "flex w-5 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-l-md border border-r-0 border-border bg-stone-50 text-stone-400 hover:bg-stone-100 hover:text-stone-600 active:cursor-grabbing dark:bg-stone-800/80 dark:text-stone-500 dark:hover:bg-stone-800 dark:hover:text-stone-300",
+                "flex w-5 shrink-0 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing",
+                isSelected
+                  ? "border-0 border-r border-primary/40 bg-primary/14 text-primary hover:bg-primary/18 hover:text-primary dark:bg-primary/25 dark:hover:bg-primary/30"
+                  : "rounded-l-md border border-r-0 border-border bg-stone-50 text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:bg-stone-800/80 dark:text-stone-500 dark:hover:bg-stone-800 dark:hover:text-stone-300",
               )}
               aria-label="Arrastrar para reordenar"
               title="Arrastrar para reordenar"
@@ -244,11 +251,12 @@ export function SlideSidebar() {
               e.preventDefault();
               setContextMenu({ x: e.clientX, y: e.clientY, index });
             }}
+            aria-current={isSelected ? "true" : undefined}
             className={cn(
-              "min-w-0 flex-1 aspect-video rounded-r-md border border-l-0 transition-all overflow-hidden relative group",
-              currentIndex === index
-                ? "border-primary ring-2 ring-primary/30 ring-inset"
-                : "border-border hover:border-stone-400 dark:hover:border-stone-500"
+              "min-w-0 flex-1 aspect-video overflow-hidden relative group transition-all",
+              isSelected
+                ? "rounded-none border-0"
+                : "rounded-r-md border border-l-0 border-border hover:border-stone-400 dark:hover:border-stone-500",
             )}
           >
             <div className="absolute inset-0 bg-white dark:bg-surface-elevated p-1.5 flex flex-col">
