@@ -11,6 +11,8 @@ export const ISOMETRIC_FLOW_NODE_SHAPES = [
   "mobile",
   "desktop",
   "cloud",
+  "llm",
+  "user",
 ] as const;
 
 export type IsometricFlowNodeShape = (typeof ISOMETRIC_FLOW_NODE_SHAPES)[number];
@@ -35,7 +37,7 @@ export interface IsometricFlowNode {
   label: string;
   /** Matiz HSL del bloque (0–360). */
   hue: number;
-  /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC o nube). */
+  /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC, nube, LLM o usuario). */
   shape: IsometricFlowNodeShape;
 }
 

@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   ArrowLeftRight,
+  BrainCircuit,
   Box,
   Circle,
   Cloud,
@@ -18,6 +19,7 @@ import {
   Smartphone,
   Trash2,
   Triangle,
+  UserRound,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 import {
@@ -118,6 +120,8 @@ const NODE_SHAPE_TOOLBAR: {
   { value: "mobile", label: "Móvil", Icon: Smartphone },
   { value: "desktop", label: "PC / escritorio", Icon: Monitor },
   { value: "cloud", label: "Nube", Icon: Cloud },
+  { value: "llm", label: "LLM", Icon: BrainCircuit },
+  { value: "user", label: "Usuario", Icon: UserRound },
 ];
 
 function isoCylinderBody(
@@ -360,6 +364,7 @@ export function IsometricFlowDiagramCanvas({
   const flowDashAnimName = `${uid}-flow-dash`;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{
@@ -816,6 +821,14 @@ export function IsometricFlowDiagramCanvas({
         className="h-full w-full touch-none select-none text-slate-900 dark:text-slate-100"
         preserveAspectRatio="xMidYMid meet"
         onPointerDown={onSvgPointerDown}
+        onPointerMove={(e) => {
+          const svg = svgRef.current;
+          if (!svg) return;
+          const { x, y } = clientToSvg(svg, e.clientX, e.clientY);
+          const hit = pickNodeAt(x, y);
+          setHoveredNodeId(hit?.id ?? null);
+        }}
+        onPointerLeave={() => setHoveredNodeId(null)}
         onDoubleClick={onSvgDoubleClick}
       >
         <defs>
@@ -838,9 +851,24 @@ export function IsometricFlowDiagramCanvas({
           @keyframes ${flowDashAnimName} {
             to { stroke-dashoffset: -${FLOW_DASH_SPAN}; }
           }
+          .iso-node-hoverable {
+            transition: transform 180ms ease, filter 180ms ease;
+            transform-origin: center;
+          }
+          .iso-node-hoverable.is-hovered {
+            transform: translateY(-3px) scale(1.018);
+            filter: brightness(1.04) saturate(1.05);
+          }
           @media (prefers-reduced-motion: reduce) {
             .iso-flow-dash {
               animation: none !important;
+            }
+            .iso-node-hoverable {
+              transition: none !important;
+            }
+            .iso-node-hoverable.is-hovered {
+              transform: none !important;
+              filter: none !important;
             }
           }
         `}</style>
@@ -935,7 +963,10 @@ export function IsometricFlowDiagramCanvas({
             const glyphExtent =
               shape === "mobile"
                 ? isoMobileGlyphExtent(cy, topPt.y)
-                : shape === "cloud" || shape === "orb"
+                : shape === "cloud" ||
+                    shape === "orb" ||
+                    shape === "llm" ||
+                    shape === "user"
                   ? isoDeviceGlyphExtent(cy, topPt.y)
                   : null;
             const desktopLayout =
@@ -950,6 +981,7 @@ export function IsometricFlowDiagramCanvas({
                 : cy - SLAB_TOP_RISE * 0.42;
             const orbStroke = "rgba(30, 64, 175, 0.28)";
             const sel = selectedId === n.id;
+            const hov = hoveredNodeId === n.id;
             const conn = connectFrom === n.id;
             const selDiamond = polygonPath(
               isoDiamondAroundPoint(cx, cy, CELL, SLAB_FOOT_HALF + 0.04),
@@ -975,7 +1007,10 @@ export function IsometricFlowDiagramCanvas({
             const stemBotY = pillTop + LABEL_PILL_H;
 
             return (
-              <g key={n.id}>
+              <g
+                key={n.id}
+                className={cn("iso-node-hoverable", hov && "is-hovered")}
+              >
                 {sel && (
                   <path
                     d={selDiamond}
@@ -1200,6 +1235,72 @@ export function IsometricFlowDiagramCanvas({
                         strokeWidth={1}
                         strokeLinejoin="round"
                       />
+                    );
+                  })() : null}
+                  {shape === "llm" && glyphExtent ? (() => {
+                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const { yTop, yBot } = glyphExtent;
+                    const h = yBot - yTop;
+                    const w = CELL * 0.56;
+                    const x0 = cx - w / 2;
+                    const y0 = yTop + h * 0.12;
+                    const bodyH = h * 0.72;
+                    const corner = Math.max(6, Math.min(10, h * 0.24));
+                    return (
+                      <>
+                        <rect
+                          x={x0}
+                          y={y0}
+                          width={w}
+                          height={bodyH}
+                          rx={corner}
+                          ry={corner}
+                          fill={hslFill(n.hue, 48, 82)}
+                          stroke={stroke}
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={cx}
+                          y={y0 + bodyH / 2 + 3}
+                          textAnchor="middle"
+                          className="fill-slate-800 text-[9px] font-bold tracking-[0.08em] dark:fill-slate-900"
+                        >
+                          LLM
+                        </text>
+                      </>
+                    );
+                  })() : null}
+                  {shape === "user" && glyphExtent ? (() => {
+                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const { yTop, yBot } = glyphExtent;
+                    const h = yBot - yTop;
+                    const headR = Math.min(CELL * 0.12, h * 0.2);
+                    const headY = yTop + h * 0.28;
+                    const shoulderY = headY + headR + h * 0.1;
+                    const bodyW = CELL * 0.42;
+                    const bodyH = h * 0.34;
+                    return (
+                      <>
+                        <circle
+                          cx={cx}
+                          cy={headY}
+                          r={headR}
+                          fill={hslFill(n.hue, 52, 86)}
+                          stroke={stroke}
+                          strokeWidth={1}
+                        />
+                        <rect
+                          x={cx - bodyW / 2}
+                          y={shoulderY}
+                          width={bodyW}
+                          height={bodyH}
+                          rx={bodyH / 2}
+                          ry={bodyH / 2}
+                          fill={hslFill(n.hue, 48, 76)}
+                          stroke={stroke}
+                          strokeWidth={1}
+                        />
+                      </>
                     );
                   })() : null}
                 </g>
