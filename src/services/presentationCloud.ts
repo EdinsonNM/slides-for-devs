@@ -372,6 +372,8 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     presenter3dDeviceId: s.presenter3dDeviceId ?? null,
     presenter3dScreenMedia: s.presenter3dScreenMedia ?? null,
     presenter3dViewState: s.presenter3dViewState ?? null,
+    canvas3dGlbUrl: s.canvas3dGlbUrl ?? null,
+    canvas3dViewState: s.canvas3dViewState ?? null,
     imageWidthPercent: s.imageWidthPercent ?? null,
     contentLayout: s.contentLayout ?? null,
     panelHeightPercent: s.panelHeightPercent ?? null,
@@ -409,6 +411,8 @@ function plainToSlide(p: Record<string, unknown>): Slide {
         ? p.presenter3dScreenMedia
         : undefined,
     presenter3dViewState: parsePresenter3dViewState(p.presenter3dViewState),
+    canvas3dGlbUrl: p.canvas3dGlbUrl != null ? String(p.canvas3dGlbUrl) : undefined,
+    canvas3dViewState: parsePresenter3dViewState(p.canvas3dViewState),
     imageWidthPercent:
       typeof p.imageWidthPercent === "number" ? p.imageWidthPercent : undefined,
     contentLayout: p.contentLayout as Slide["contentLayout"] | undefined,

@@ -1,5 +1,9 @@
 import type { Slide } from "../domain/entities/Slide";
 import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../domain/panelContent";
+import {
   markdownExtractImageUrls,
   markdownToPlainText,
 } from "../utils/markdownPlainText";
@@ -50,7 +54,7 @@ export function mapSlidesForDeckVideoExport(slides: Slide[]): DeckRemotionSlide[
       if (!isRenderableDeckImageUrl(abs)) return;
       if (!urls.includes(abs)) urls.push(abs);
     };
-    if (s.contentType !== "code") {
+    if (resolveMediaPanelDescriptor(s).kind !== PANEL_CONTENT_KIND.CODE) {
       push(s.imageUrl);
     }
     for (const u of markdownExtractImageUrls(s.content || "")) {

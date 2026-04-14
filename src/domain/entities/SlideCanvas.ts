@@ -1,13 +1,11 @@
 /** Escena 2D de una diapositiva: rectángulos en % del contenedor 16:9 (origen arriba-izquierda). */
 
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { PanelContentKind } from "../panelContent/panelContentKind";
+import { isPanelContentKind } from "../panelContent/panelContentKind";
 
-/** Alineado con `SlidePanelContentType` en Slide.ts (evita import circular). */
-export type SlideCanvasPanelContentType =
-  | "image"
-  | "code"
-  | "video"
-  | "presenter3d";
+/** Alineado con `SlidePanelContentType` / `PANEL_CONTENT_KIND`. */
+export type SlideCanvasPanelContentType = PanelContentKind;
 
 /** Escenas guardadas antes del modelo por-bloque (solo geometría + datos en raíz del slide). */
 export const SLIDE_CANVAS_SCENE_LEGACY_VERSION = 1 as const;
@@ -52,6 +50,8 @@ export type SlideCanvasMediaPayload = {
   presenter3dDeviceId?: string;
   presenter3dScreenMedia?: "image" | "video";
   presenter3dViewState?: Presenter3dViewState;
+  canvas3dGlbUrl?: string;
+  canvas3dViewState?: Presenter3dViewState;
 };
 
 export type SlideCanvasElementPayload =
@@ -118,13 +118,7 @@ export function isSlideCanvasTextPayload(v: unknown): v is SlideCanvasTextPayloa
 export function isSlideCanvasMediaPayload(v: unknown): v is SlideCanvasMediaPayload {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return (
-    o.type === "media" &&
-    (o.contentType === "image" ||
-      o.contentType === "code" ||
-      o.contentType === "video" ||
-      o.contentType === "presenter3d")
-  );
+  return o.type === "media" && isPanelContentKind(o.contentType);
 }
 
 export function isSlideCanvasElementPayload(

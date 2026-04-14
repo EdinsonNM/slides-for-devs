@@ -6,6 +6,13 @@ import {
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
 } from "../domain/entities";
+import {
+  resolveMediaPanelDescriptor,
+  CodeMediaPanelDescriptor,
+  VideoMediaPanelDescriptor,
+  Presenter3dMediaPanelDescriptor,
+  Canvas3dMediaPanelDescriptor,
+} from "../domain/panelContent";
 import { markdownToPlainText } from "../utils/markdownPlainText";
 import { isTauri } from "./updater";
 
@@ -241,9 +248,8 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
 
   // type === "content"
   const bodyY = 0.9;
-  const hasSplitPanel =
-    Boolean(slide.imageUrl || slide.code || slide.videoUrl) ||
-    slide.contentType === "presenter3d";
+  const panelDesc = resolveMediaPanelDescriptor(slide);
+  const hasSplitPanel = panelDesc.splitPanelOccupied(slide);
   s.addText(slide.title, {
     x: 0.5,
     y: 0.3,
@@ -281,7 +287,7 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
     const imgH = 3.2;
     const xRight = 6;
 
-    if (slide.contentType === "code" && slide.code) {
+    if (panelDesc instanceof CodeMediaPanelDescriptor && slide.code) {
       s.addText(slide.code, {
         x: xRight,
         y: bodyY,
@@ -294,8 +300,9 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
         align: "left",
       });
     } else if (
-      (slide.contentType === "video" ||
-        (slide.contentType === "presenter3d" && slide.presenter3dScreenMedia === "video")) &&
+      (panelDesc instanceof VideoMediaPanelDescriptor ||
+        (panelDesc instanceof Presenter3dMediaPanelDescriptor &&
+          slide.presenter3dScreenMedia === "video")) &&
       slide.videoUrl
     ) {
       s.addText(`Video: ${slide.videoUrl}`, {
@@ -309,7 +316,8 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
       });
     } else if (
       slide.imageUrl &&
-      (slide.contentType !== "presenter3d" || slide.presenter3dScreenMedia !== "video")
+      (!(panelDesc instanceof Presenter3dMediaPanelDescriptor) ||
+        slide.presenter3dScreenMedia !== "video")
     ) {
       const parsed = parseDataUrl(slide.imageUrl);
       if (parsed) {
@@ -343,7 +351,7 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
           });
         }
       }
-    } else if (slide.contentType === "presenter3d") {
+    } else if (panelDesc instanceof Presenter3dMediaPanelDescriptor) {
       s.addText(
         "[Presentador 3D — la maqueta no se exporta a PPTX; la textura de pantalla sí, si hay imagen o enlace de vídeo válido]",
         {
@@ -356,6 +364,26 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
           color: "7F7F7F",
         }
       );
+    } else if (panelDesc instanceof Canvas3dMediaPanelDescriptor) {
+      const raw = slide.canvas3dGlbUrl?.trim() ?? "";
+      const urlPreview =
+        raw.startsWith("data:") && raw.length > 80
+          ? `${raw.slice(0, 48)}… (modelo incrustado en la presentación)`
+          : raw.length > 120
+            ? `${raw.slice(0, 120)}…`
+            : raw;
+      const hint = raw
+        ? `[Canvas 3D — el GLB no se incrusta en PPTX; referencia: ${urlPreview}]`
+        : "[Canvas 3D — sin modelo enlazado en esta diapositiva]";
+      s.addText(hint, {
+        x: xRight,
+        y: bodyY + 0.8,
+        w: imgW,
+        h: 1.5,
+        fontSize: 10,
+        fontFace: "Arial",
+        color: "7F7F7F",
+      });
     }
   }
 }

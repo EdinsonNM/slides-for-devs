@@ -1,4 +1,5 @@
 import { SLIDE_TYPE, type Slide } from "../entities";
+import { PANEL_CONTENT_KIND } from "../panelContent/panelContentKind";
 import {
   clampCanvasRect,
   type SlideCanvasElement,
@@ -10,7 +11,7 @@ import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 
 const EMPTY_MEDIA: SlideCanvasMediaPayload = {
   type: "media",
-  contentType: "image",
+  contentType: PANEL_CONTENT_KIND.IMAGE,
 };
 
 function emptyTextPayloadForKind(kind: SlideCanvasElementKind): SlideCanvasTextPayload {

@@ -6,6 +6,11 @@ import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
 import { Presenter3DPanel } from "./Presenter3DPanel";
+import { Canvas3DPanel } from "./Canvas3DPanel";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 
 export interface SlideRightPanelProps {
   /** Si true, el panel ocupa todo el espacio (layout panel-full), sin borde ni resize. */
@@ -28,6 +33,7 @@ export function SlideRightPanel({
   if (!currentSlide) return null;
 
   const panelSlide = canvasPanelSlide ?? currentSlide;
+  const panelKind = resolveMediaPanelDescriptor(panelSlide).kind;
 
   return (
     <div
@@ -51,16 +57,21 @@ export function SlideRightPanel({
         </div>
       )}
 
-      {panelSlide.contentType === "code" ? (
+      {panelKind === PANEL_CONTENT_KIND.CODE ? (
         <CodeBlock
           titleBarMode={embeddedInCanvas ? "minimal" : isLgUp ? "minimal" : "full"}
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
         />
-      ) : panelSlide.contentType === "video" ? (
+      ) : panelKind === PANEL_CONTENT_KIND.VIDEO ? (
         <VideoPanel canvasPanelSlide={canvasPanelSlide} />
-      ) : panelSlide.contentType === "presenter3d" ? (
+      ) : panelKind === PANEL_CONTENT_KIND.PRESENTER_3D ? (
         <Presenter3DPanel
+          embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
+        />
+      ) : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ? (
+        <Canvas3DPanel
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
         />

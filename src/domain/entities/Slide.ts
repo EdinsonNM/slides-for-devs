@@ -1,4 +1,5 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { PanelContentKind } from "../panelContent/panelContentKind";
 import type { SlideCanvasScene } from "./SlideCanvas";
 import type { SlideMatrixData } from "./SlideMatrix";
 
@@ -21,7 +22,8 @@ export function slideUsesFullBleedCanvas(_type: SlideType): boolean {
   return false;
 }
 
-export type SlidePanelContentType = "image" | "code" | "video" | "presenter3d";
+/** Alias del discriminante persistido; valores en `PANEL_CONTENT_KIND` (`domain/panelContent`). */
+export type SlidePanelContentType = PanelContentKind;
 
 export interface Slide {
   id: string;
@@ -35,15 +37,22 @@ export interface Slide {
   language?: string;
   fontSize?: number;
   editorHeight?: number;
-  /** URL de vídeo incrustado (YouTube, Vimeo o directa) cuando `contentType === "video"`. */
+  /** URL de vídeo incrustado cuando el panel de media es de tipo vídeo. */
   videoUrl?: string;
   contentType?: SlidePanelContentType;
-  /** Modelo GLB del catálogo `DEVICE_3D_CATALOG` cuando `contentType === "presenter3d"`. */
+  /** Modelo GLB del catálogo `DEVICE_3D_CATALOG` cuando el panel es Presentador 3D. */
   presenter3dDeviceId?: string;
   /** Si la textura de la pantalla del dispositivo viene de `imageUrl` o de `videoUrl`. */
   presenter3dScreenMedia?: "image" | "video";
   /** Cámara y punto de mira guardados del visor 3D (modo edición). */
   presenter3dViewState?: Presenter3dViewState;
+  /**
+   * URL o data URL (`model/gltf-binary`) del GLB para el panel Canvas 3D.
+   * Las URLs remotas requieren CORS en el servidor del modelo.
+   */
+  canvas3dGlbUrl?: string;
+  /** Vista de cámara guardada para el panel Canvas 3D (mismo formato que Presentador 3D). */
+  canvas3dViewState?: Presenter3dViewState;
   contentLayout?: "split" | "full" | "panel-full";
   imageWidthPercent?: number;
   panelHeightPercent?: number;

@@ -29,6 +29,7 @@ import {
   type SlideCanvasElement,
   type SlideCanvasRect,
 } from "../../domain/entities";
+import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
@@ -622,7 +623,8 @@ export function SlideCanvasSlide() {
 
   const showIaToolbar = slide.type === SLIDE_TYPE.CONTENT;
   const showPanelVideoToolbarBtn =
-    showIaToolbar && (slide.contentType ?? "image") === "video";
+    showIaToolbar &&
+    resolveMediaPanelDescriptor(slide).showSlideContentVideoToolbar();
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
 
   return (
@@ -1050,12 +1052,13 @@ function CanvasElementEditor({
     toolbarAiKinds.includes(kind) &&
     (slide.type === SLIDE_TYPE.CONTENT || slide.type === SLIDE_TYPE.MATRIX);
 
+  const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
   const showMediaPanelImageActions =
-    kind === "mediaPanel" && (panelSlide.contentType ?? "image") === "image";
+    kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarImageActions();
   const showMediaPanelCodeActions =
-    kind === "mediaPanel" && panelSlide.contentType === "code";
+    kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCodeActions();
   const showMediaPanelVideoActions =
-    kind === "mediaPanel" && panelSlide.contentType === "video";
+    kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarVideoModal();
 
   const canvaChromeEl =
     showCanvaChrome ? (
@@ -1442,7 +1445,8 @@ function CanvasElementEditor({
       );
     }
     case "mediaPanel": {
-      const isPresenter3d = panelSlide.contentType === "presenter3d";
+      const uses3dOrbitChrome =
+        resolveMediaPanelDescriptor(panelSlide).usesOrbitInteractionChrome();
       const onMediaPanelDragPointerDown = (
         e: React.PointerEvent<HTMLElement>,
         captureEl: HTMLElement | null,
@@ -1476,7 +1480,7 @@ function CanvasElementEditor({
           className={cn(outerShellClass, deckMediaPanelShellClass(tone))}
           {...shellHoverProps}
           onPointerDown={
-            isPresenter3d
+            uses3dOrbitChrome
               ? undefined
               : (e) => {
                   const cap =
@@ -1489,13 +1493,13 @@ function CanvasElementEditor({
         >
           {rotatedInner(
             "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden",
-            isPresenter3d ? (
+            uses3dOrbitChrome ? (
               <>
                 <div
                   {...{ [CANVAS_DRAG_STRIP_ATTR]: "true" }}
                   role="group"
                   aria-label="Arrastrar para mover el panel en el lienzo"
-                  title="Arrastra esta franja para mover el bloque; en el área inferior giras el modelo 3D"
+                  title="Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
                   className={deckMediaPanelDragStripClass(tone)}
                   onPointerDown={(e) => {
                     const cap =
@@ -1511,7 +1515,7 @@ function CanvasElementEditor({
                     aria-hidden
                   />
                   <span className="truncate">
-                    Arrastra aquí para mover · abajo, girar el modelo 3D
+                    Arrastra aquí para mover · abajo, orbitar el modelo 3D
                   </span>
                 </div>
                 <div

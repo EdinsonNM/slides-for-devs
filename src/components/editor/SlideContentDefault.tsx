@@ -7,6 +7,7 @@ import {
   Video,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideRightPanel } from "./SlideRightPanel";
@@ -164,8 +165,9 @@ export function SlideContentDefault() {
 
   if (!currentSlide) return null;
 
-  const panelContentType = currentSlide.contentType ?? "image";
-  const showPanelVideoToolbarBtn = panelContentType === "video";
+  const showPanelVideoToolbarBtn = resolveMediaPanelDescriptor(
+    currentSlide,
+  ).showSlideContentVideoToolbar();
 
   const isPanelFull = currentSlide.contentLayout === "panel-full";
 

@@ -1,6 +1,7 @@
 import { Monitor } from "lucide-react";
 import type { Slide } from "../../types";
 import { SLIDE_TYPE } from "../../domain/entities";
+import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 
@@ -17,6 +18,7 @@ export interface PresenterSlideSummaryProps {
  * Resumen de la diapositiva actual en el panel lateral del presentador.
  */
 export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSlideSummaryProps) {
+  const mediaPanelBadge = resolveMediaPanelDescriptor(slide).presenterSummaryBadge();
   return (
     <aside
       className={cn(
@@ -87,19 +89,9 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
               Imagen
             </span>
           )}
-          {slide.contentType === "code" && (
+          {mediaPanelBadge && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
-              Código
-            </span>
-          )}
-          {slide.contentType === "video" && (
-            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
-              Video
-            </span>
-          )}
-          {slide.contentType === "presenter3d" && (
-            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
-              Presentador 3D
+              {mediaPanelBadge}
             </span>
           )}
         </div>

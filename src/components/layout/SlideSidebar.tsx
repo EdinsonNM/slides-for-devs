@@ -8,11 +8,16 @@ import {
   Code2,
   Video,
   Box,
+  Cuboid,
   Table2,
   GripVertical,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE, type Slide } from "../../domain/entities";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
 
@@ -38,21 +43,10 @@ function slideRowIndexAtY(
   return rects[rects.length - 1].index;
 }
 
-function sidebarPanelKind(contentType: Slide["contentType"]): NonNullable<Slide["contentType"]> {
-  return contentType ?? "image";
-}
-
-function sidebarSplitStripSurfaceClass(
-  kind: NonNullable<Slide["contentType"]>,
-  hasImageUrl: boolean,
-): string {
-  if (kind === "image" && !hasImageUrl) {
-    return "bg-stone-100 dark:bg-stone-700 animate-pulse";
-  }
-  if (kind === "code") return "bg-amber-100/80 dark:bg-amber-900/40";
-  if (kind === "video") return "bg-sky-100/80 dark:bg-sky-900/40";
-  if (kind === "presenter3d") return "bg-violet-100/80 dark:bg-violet-900/40";
-  return "";
+function sidebarSplitStripSurfaceClass(slide: Slide): string {
+  return resolveMediaPanelDescriptor(slide).sidebarSplitStripSurfaceClass(
+    Boolean(slide.imageUrl),
+  );
 }
 
 const SIDEBAR_MEDIA_ICON_CLASS =
@@ -60,28 +54,31 @@ const SIDEBAR_MEDIA_ICON_CLASS =
 
 /** Miniatura del panel derecho: imagen si es tipo imagen; icono para código, video o 3D. */
 function SidebarPanelMediaPreview({ slide }: { slide: Slide }) {
-  const kind = sidebarPanelKind(slide.contentType);
-  if (kind === "image") {
-    return slide.imageUrl ? (
-      <img
-        src={slide.imageUrl}
-        alt=""
-        draggable={false}
-        className="w-full h-full object-cover"
-        referrerPolicy="no-referrer"
-      />
-    ) : null;
+  const kind = resolveMediaPanelDescriptor(slide).kind;
+  switch (kind) {
+    case PANEL_CONTENT_KIND.IMAGE:
+      return slide.imageUrl ? (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          draggable={false}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : null;
+    case PANEL_CONTENT_KIND.CODE:
+      return <Code2 className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+    case PANEL_CONTENT_KIND.VIDEO:
+      return <Video className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+    case PANEL_CONTENT_KIND.PRESENTER_3D:
+      return <Box className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+    case PANEL_CONTENT_KIND.CANVAS_3D:
+      return <Cuboid className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
+    default: {
+      const _e: never = kind;
+      return _e;
+    }
   }
-  if (kind === "code") {
-    return <Code2 className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
-  }
-  if (kind === "video") {
-    return <Video className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
-  }
-  if (kind === "presenter3d") {
-    return <Box className={SIDEBAR_MEDIA_ICON_CLASS} strokeWidth={1.5} aria-hidden />;
-  }
-  return null;
 }
 
 export function SlideSidebar() {
@@ -157,7 +154,6 @@ export function SlideSidebar() {
       </div>
       <div className="p-2 space-y-2 overflow-y-auto relative">
         {slides.map((slide, index) => {
-          const panelKind = sidebarPanelKind(slide.contentType);
           const isSelected = currentIndex === index;
           return (
           <div
@@ -334,7 +330,7 @@ export function SlideSidebar() {
                   </span>
                   <div className="h-0.5 w-3/4 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
                   <div className="flex-1 min-h-0 rounded border border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center bg-stone-50 dark:bg-stone-800 p-0.5">
-                    {panelKind === "image" ? (
+                    {resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.IMAGE ? (
                       slide.imageUrl ? (
                         <img
                           src={slide.imageUrl}
@@ -382,7 +378,7 @@ export function SlideSidebar() {
                   <div
                     className={cn(
                       "rounded shrink-0 overflow-hidden flex items-center justify-center",
-                      sidebarSplitStripSurfaceClass(panelKind, Boolean(slide.imageUrl)),
+                      sidebarSplitStripSurfaceClass(slide),
                     )}
                     style={{ width: "36%" }}
                   >

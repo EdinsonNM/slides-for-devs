@@ -26,7 +26,12 @@ import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
 import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
 import { Device3DViewport } from "../shared/Device3DViewport";
+import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 
 export interface SlideCanvasViewProps {
   slide: Slide;
@@ -37,74 +42,87 @@ export interface SlideCanvasViewProps {
 }
 
 function mediaBlock(slide: Slide, tone: DeckContentTone) {
-  if (slide.contentType === "code") {
-    return (
-      <CodeDisplay
-        code={slide.code ?? ""}
-        language={slide.language}
-        fontSize={slide.fontSize ?? 14}
-        showChrome
-        responsiveFontSize
-        className="h-full min-h-0 w-full"
-      />
-    );
-  }
-  if (slide.contentType === "video") {
-    return (
-      <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
-        {slide.videoUrl ? (
-          <iframe
-            src={getEmbedUrl(slide.videoUrl)}
-            className="h-full w-full"
-            allowFullScreen
-            title="Video"
-          />
-        ) : (
-          <span className={cn("italic", deckMutedTextClass(tone))}>
-            Sin video
-          </span>
-        )}
-      </div>
-    );
-  }
-  if (slide.contentType === "presenter3d") {
-    return (
-      <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
-        <Device3DViewport
-          slideId={slide.id}
-          deviceId={slide.presenter3dDeviceId}
-          screenMedia={slide.presenter3dScreenMedia ?? "image"}
-          imageUrl={slide.imageUrl}
-          videoUrl={slide.videoUrl}
-          viewState={slide.presenter3dViewState}
-          showInteractionHint={false}
-          className="h-full min-h-[120px]"
+  const panel = resolveMediaPanelDescriptor(slide);
+  switch (panel.kind) {
+    case PANEL_CONTENT_KIND.CODE:
+      return (
+        <CodeDisplay
+          code={slide.code ?? ""}
+          language={slide.language}
+          fontSize={slide.fontSize ?? 14}
+          showChrome
+          responsiveFontSize
+          className="h-full min-h-0 w-full"
         />
-      </div>
-    );
+      );
+    case PANEL_CONTENT_KIND.VIDEO:
+      return (
+        <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
+          {slide.videoUrl ? (
+            <iframe
+              src={getEmbedUrl(slide.videoUrl)}
+              className="h-full w-full"
+              allowFullScreen
+              title="Video"
+            />
+          ) : (
+            <span className={cn("italic", deckMutedTextClass(tone))}>
+              Sin video
+            </span>
+          )}
+        </div>
+      );
+    case PANEL_CONTENT_KIND.PRESENTER_3D:
+      return (
+        <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
+          <Device3DViewport
+            slideId={slide.id}
+            deviceId={slide.presenter3dDeviceId}
+            screenMedia={slide.presenter3dScreenMedia ?? "image"}
+            imageUrl={slide.imageUrl}
+            videoUrl={slide.videoUrl}
+            viewState={slide.presenter3dViewState}
+            showInteractionHint={false}
+            className="h-full min-h-[120px]"
+          />
+        </div>
+      );
+    case PANEL_CONTENT_KIND.CANVAS_3D:
+      return (
+        <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
+          <Canvas3DViewport
+            slideId={slide.id}
+            glbUrl={slide.canvas3dGlbUrl}
+            viewState={slide.canvas3dViewState}
+            showInteractionHint
+            className="h-full min-h-[120px]"
+          />
+        </div>
+      );
+    case PANEL_CONTENT_KIND.IMAGE:
+      if (slide.imageUrl) {
+        return (
+          <img
+            src={slide.imageUrl}
+            alt={slide.title}
+            className="h-full w-full object-cover select-none"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            referrerPolicy="no-referrer"
+          />
+        );
+      }
+      return (
+        <div
+          className={cn(
+            "flex h-full w-full items-center justify-center",
+            deckMutedTextClass(tone),
+          )}
+        >
+          <ImageIcon size={64} strokeWidth={1} />
+        </div>
+      );
   }
-  if (slide.imageUrl) {
-    return (
-      <img
-        src={slide.imageUrl}
-        alt={slide.title}
-        className="h-full w-full object-cover select-none"
-        draggable={false}
-        onDragStart={(e) => e.preventDefault()}
-        referrerPolicy="no-referrer"
-      />
-    );
-  }
-  return (
-    <div
-      className={cn(
-        "flex h-full w-full items-center justify-center",
-        deckMutedTextClass(tone),
-      )}
-    >
-      <ImageIcon size={64} strokeWidth={1} />
-    </div>
-  );
 }
 
 function CanvasElementReadOnly({

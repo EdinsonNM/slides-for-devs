@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import {
   ChevronDown,
   Image as ImageIcon,
@@ -19,6 +25,10 @@ import {
 import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 import { SLIDE_TYPE } from "../../domain/entities";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { slideAppearanceForMediaElement } from "../../domain/slideCanvas/slideCanvasPayload";
 
@@ -35,6 +45,8 @@ export function ContentPanelProperties() {
     setShowVideoModal,
     setCurrentSlidePresenter3dDeviceId,
     setCurrentSlidePresenter3dScreenMedia,
+    setCurrentSlideCanvas3dGlbUrl,
+    clearCurrentSlideCanvas3dViewState,
     editLanguage,
     setEditLanguage,
     editFontSize,
@@ -47,6 +59,28 @@ export function ContentPanelProperties() {
 
   const [imgMenuOpen, setImgMenuOpen] = useState(false);
   const imgMenuRef = useRef<HTMLDivElement>(null);
+  const canvas3dFileInputRef = useRef<HTMLInputElement>(null);
+  const canvas3dUrlInputRef = useRef<HTMLInputElement>(null);
+
+  const applyCanvas3dUrl = useCallback(() => {
+    const raw = canvas3dUrlInputRef.current?.value?.trim() ?? "";
+    setCurrentSlideCanvas3dGlbUrl(raw);
+  }, [setCurrentSlideCanvas3dGlbUrl]);
+
+  const onCanvas3dFile = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === "string" ? reader.result : "";
+        if (dataUrl) setCurrentSlideCanvas3dGlbUrl(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    },
+    [setCurrentSlideCanvas3dGlbUrl],
+  );
 
   useEffect(() => {
     if (!imgMenuOpen) return;
@@ -78,7 +112,7 @@ export function ContentPanelProperties() {
       ? slideAppearanceForMediaElement(ensured, mediaEl)
       : ensured;
 
-  const contentType = panelModel.contentType ?? "image";
+  const mediaPanelKind = resolveMediaPanelDescriptor(panelModel).kind;
   const deviceId = (panelModel.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
   const screenMedia = panelModel.presenter3dScreenMedia ?? "image";
   const videoOk =
@@ -95,7 +129,7 @@ export function ContentPanelProperties() {
     <div className="space-y-3 border-t border-stone-100 px-3 py-3 dark:border-border">
       {sectionTitle}
 
-      {contentType === "image" && (
+      {mediaPanelKind === PANEL_CONTENT_KIND.IMAGE && (
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -116,7 +150,7 @@ export function ContentPanelProperties() {
         </div>
       )}
 
-      {contentType === "video" && (
+      {mediaPanelKind === PANEL_CONTENT_KIND.VIDEO && (
         <button
           type="button"
           onClick={() => {
@@ -130,7 +164,78 @@ export function ContentPanelProperties() {
         </button>
       )}
 
-      {contentType === "presenter3d" && (
+      {mediaPanelKind === PANEL_CONTENT_KIND.CANVAS_3D && (
+        <div className="flex flex-col gap-2">
+          <p className="text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+            Carga un GLB desde URL (CORS en el origen) o desde tu equipo. En vista previa y presentador
+            puedes girar, hacer zoom y paneo (clic derecho o botón central).
+          </p>
+          <input
+            ref={canvas3dFileInputRef}
+            type="file"
+            accept=".glb,.gltf,model/gltf-binary,application/octet-stream"
+            className="hidden"
+            onChange={onCanvas3dFile}
+          />
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-stone-600 dark:text-stone-300">
+              URL del modelo
+            </span>
+            <div className="flex gap-1">
+              <input
+                ref={canvas3dUrlInputRef}
+                type="url"
+                name="canvas3d-url-inspector"
+                defaultValue={
+                  panelModel.canvas3dGlbUrl?.startsWith("http")
+                    ? panelModel.canvas3dGlbUrl
+                    : ""
+                }
+                key={
+                  panelModel.canvas3dGlbUrl?.startsWith("http")
+                    ? panelModel.canvas3dGlbUrl
+                    : "canvas3d-no-http"
+                }
+                placeholder="https://ejemplo.com/modelo.glb"
+                className="min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs dark:border-border dark:bg-surface dark:text-foreground"
+              />
+              <button
+                type="button"
+                onClick={applyCanvas3dUrl}
+                className="shrink-0 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs font-medium dark:border-border dark:bg-surface"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => canvas3dFileInputRef.current?.click()}
+              className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs font-medium text-stone-700 dark:border-border dark:bg-surface dark:text-foreground"
+            >
+              <Upload size={14} />
+              Subir .glb
+            </button>
+            <button
+              type="button"
+              onClick={() => clearCurrentSlideCanvas3dViewState()}
+              className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs dark:border-border dark:bg-surface"
+            >
+              Encuadrar
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentSlideCanvas3dGlbUrl("")}
+              className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-600 dark:border-border dark:bg-surface dark:text-stone-300"
+            >
+              Quitar modelo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mediaPanelKind === PANEL_CONTENT_KIND.PRESENTER_3D && (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-xs text-stone-600 dark:text-stone-300">
             <span className="font-medium">Dispositivo</span>
@@ -234,7 +339,7 @@ export function ContentPanelProperties() {
         </div>
       )}
 
-      {contentType === "code" && (
+      {mediaPanelKind === PANEL_CONTENT_KIND.CODE && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Fuente</span>

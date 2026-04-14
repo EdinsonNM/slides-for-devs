@@ -1,4 +1,5 @@
 import type { Slide } from "../entities";
+import { PANEL_CONTENT_KIND } from "../panelContent/panelContentKind";
 import type {
   SlideCanvasElement,
   SlideCanvasElementKind,
@@ -56,7 +57,7 @@ export function textPayloadForElementKind(
 export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload {
   return {
     type: "media",
-    contentType: slide.contentType ?? "image",
+    contentType: slide.contentType ?? PANEL_CONTENT_KIND.IMAGE,
     imageUrl: slide.imageUrl,
     imagePrompt: slide.imagePrompt,
     code: slide.code,
@@ -67,6 +68,8 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     presenter3dDeviceId: slide.presenter3dDeviceId,
     presenter3dScreenMedia: slide.presenter3dScreenMedia,
     presenter3dViewState: slide.presenter3dViewState,
+    canvas3dGlbUrl: slide.canvas3dGlbUrl,
+    canvas3dViewState: slide.canvas3dViewState,
   };
 }
 
@@ -87,6 +90,8 @@ export function mergeMediaPayloadIntoSlide(
     presenter3dDeviceId: media.presenter3dDeviceId,
     presenter3dScreenMedia: media.presenter3dScreenMedia,
     presenter3dViewState: media.presenter3dViewState,
+    canvas3dGlbUrl: media.canvas3dGlbUrl,
+    canvas3dViewState: media.canvas3dViewState,
   };
 }
 

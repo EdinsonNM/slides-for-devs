@@ -130,6 +130,14 @@ import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 import { trackEvent, ANALYTICS_EVENTS } from "../services/analytics";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 import type { Presenter3dViewState } from "../utils/presenter3dView";
+import {
+  PANEL_CONTENT_KIND,
+  PANEL_CONTENT_TOGGLE_ORDER,
+  normalizePanelContentKind,
+  resolveMediaPanelDescriptor,
+  Presenter3dMediaPanelDescriptor,
+  Canvas3dMediaPanelDescriptor,
+} from "../domain/panelContent";
 
 const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
 const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
@@ -997,11 +1005,11 @@ export function usePresentationState() {
 
   const toggleContentType = () => {
     if (!currentSlide) return;
-    let newType: NonNullable<Slide["contentType"]> = "code";
-    if (currentSlide.contentType === "code") newType = "video";
-    else if (currentSlide.contentType === "video") newType = "image";
-    else if (currentSlide.contentType === "image") newType = "presenter3d";
-    else newType = "code";
+    const curKind = normalizePanelContentKind(currentSlide.contentType);
+    let idx = PANEL_CONTENT_TOGGLE_ORDER.indexOf(curKind);
+    if (idx < 0) idx = 0;
+    const newType =
+      PANEL_CONTENT_TOGGLE_ORDER[(idx + 1) % PANEL_CONTENT_TOGGLE_ORDER.length]!;
 
     setSlides((prev) => {
       const updated = [...prev];
@@ -1012,7 +1020,7 @@ export function usePresentationState() {
         canvasTextTargetsRef.current.mediaPanelElementId,
         (m) => ({ ...m, contentType: newType }),
       );
-      if (newType === "presenter3d") {
+      if (newType === PANEL_CONTENT_KIND.PRESENTER_3D) {
         next = patchSlideMediaPanelByElementId(
           next,
           canvasTextTargetsRef.current.mediaPanelElementId,
@@ -1069,7 +1077,7 @@ export function usePresentationState() {
         );
       } else if (type === SLIDE_TYPE.CONTENT) {
         delete (next as Slide).matrixData;
-        if (!next.contentType) next.contentType = "image";
+        if (!next.contentType) next.contentType = PANEL_CONTENT_KIND.IMAGE;
         if (!next.contentLayout) next.contentLayout = "split";
       }
 
@@ -1184,7 +1192,7 @@ export function usePresentationState() {
         canvasTextTargetsRef.current.mediaPanelElementId,
         (m) => ({ ...m, contentType }),
       );
-      if (contentType === "presenter3d") {
+      if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
         next = patchSlideMediaPanelByElementId(
           next,
           canvasTextTargetsRef.current.mediaPanelElementId,
@@ -1202,7 +1210,11 @@ export function usePresentationState() {
 
   const setCurrentSlidePresenter3dDeviceId = (presenter3dDeviceId: string) => {
     if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (currentSlide.contentType !== "presenter3d") return;
+    if (
+      !(resolveMediaPanelDescriptor(currentSlide) instanceof Presenter3dMediaPanelDescriptor)
+    ) {
+      return;
+    }
     setSlides((prev) => {
       const updated = [...prev];
       const cur = updated[currentIndex];
@@ -1220,7 +1232,11 @@ export function usePresentationState() {
     presenter3dScreenMedia: "image" | "video",
   ) => {
     if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (currentSlide.contentType !== "presenter3d") return;
+    if (
+      !(resolveMediaPanelDescriptor(currentSlide) instanceof Presenter3dMediaPanelDescriptor)
+    ) {
+      return;
+    }
     setSlides((prev) => {
       const updated = [...prev];
       const cur = updated[currentIndex];
@@ -1238,7 +1254,11 @@ export function usePresentationState() {
     presenter3dViewState: Presenter3dViewState,
   ) => {
     if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (currentSlide.contentType !== "presenter3d") return;
+    if (
+      !(resolveMediaPanelDescriptor(currentSlide) instanceof Presenter3dMediaPanelDescriptor)
+    ) {
+      return;
+    }
     setSlides((prev) => {
       const updated = [...prev];
       const cur = updated[currentIndex];
@@ -1247,6 +1267,67 @@ export function usePresentationState() {
         cur,
         canvasTextTargetsRef.current.mediaPanelElementId,
         (m) => ({ ...m, presenter3dViewState }),
+      );
+      return updated;
+    });
+  };
+
+  const setCurrentSlideCanvas3dGlbUrl = (canvas3dGlbUrl: string) => {
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
+    if (!(resolveMediaPanelDescriptor(currentSlide) instanceof Canvas3dMediaPanelDescriptor)) {
+      return;
+    }
+    setSlides((prev) => {
+      const updated = [...prev];
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      const trimmed = canvas3dGlbUrl.trim();
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({
+          ...m,
+          canvas3dGlbUrl: trimmed || undefined,
+          canvas3dViewState: undefined,
+        }),
+      );
+      return updated;
+    });
+  };
+
+  const setCurrentSlideCanvas3dViewState = (
+    canvas3dViewState: Presenter3dViewState,
+  ) => {
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
+    if (!(resolveMediaPanelDescriptor(currentSlide) instanceof Canvas3dMediaPanelDescriptor)) {
+      return;
+    }
+    setSlides((prev) => {
+      const updated = [...prev];
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, canvas3dViewState }),
+      );
+      return updated;
+    });
+  };
+
+  const clearCurrentSlideCanvas3dViewState = () => {
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
+    if (!(resolveMediaPanelDescriptor(currentSlide) instanceof Canvas3dMediaPanelDescriptor)) {
+      return;
+    }
+    setSlides((prev) => {
+      const updated = [...prev];
+      const cur = updated[currentIndex];
+      if (!cur) return prev;
+      updated[currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        canvasTextTargetsRef.current.mediaPanelElementId,
+        (m) => ({ ...m, canvas3dViewState: undefined }),
       );
       return updated;
     });
@@ -1397,7 +1478,7 @@ export function usePresentationState() {
               ...m,
               imageUrl,
               imagePrompt: promptUsed,
-              contentType: "image",
+              contentType: PANEL_CONTENT_KIND.IMAGE,
             }),
           );
           return updated;
@@ -1667,7 +1748,7 @@ export function usePresentationState() {
         (m) => ({
           ...m,
           videoUrl: videoUrlInput.trim(),
-          contentType: "video",
+          contentType: PANEL_CONTENT_KIND.VIDEO,
         }),
       );
       return updated;
@@ -3147,7 +3228,7 @@ export function usePresentationState() {
           updated[index] = patchSlideMediaPanelByElementId(
             cur,
             canvasTextTargetsRef.current.mediaPanelElementId,
-            (m) => ({ ...m, imageUrl: dataUrl, contentType: "image" }),
+            (m) => ({ ...m, imageUrl: dataUrl, contentType: PANEL_CONTENT_KIND.IMAGE }),
           );
           return updated;
         });
@@ -3184,7 +3265,7 @@ export function usePresentationState() {
             ...m,
             code,
             language: codeGenLanguage,
-            contentType: "code",
+            contentType: PANEL_CONTENT_KIND.CODE,
           }),
         );
         return updated;
@@ -3426,6 +3507,9 @@ export function usePresentationState() {
     setCurrentSlidePresenter3dDeviceId,
     setCurrentSlidePresenter3dScreenMedia,
     setCurrentSlidePresenter3dViewState,
+    setCurrentSlideCanvas3dGlbUrl,
+    setCurrentSlideCanvas3dViewState,
+    clearCurrentSlideCanvas3dViewState,
     handleGenerate,
     homePromptAttachments,
     addHomePromptAttachment,
