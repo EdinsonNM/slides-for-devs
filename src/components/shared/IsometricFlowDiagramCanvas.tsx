@@ -58,6 +58,10 @@ const HIT_R = 42;
 const LINK_HIT_PX = 11;
 const ARROW_TRIM = 13;
 const ARROW_SIZE = 9.5;
+const FLOW_DASH_LENGTH = 7;
+const FLOW_DASH_GAP = 9;
+const FLOW_DASH_SPAN = FLOW_DASH_LENGTH + FLOW_DASH_GAP;
+const FLOW_ANIMATION_SEC = 1.15;
 
 const LINK_COLOR_PRESETS = [
   { label: "Azul", stroke: "rgb(37 99 235)", swatch: "rgb(37, 99, 235)" },
@@ -250,6 +254,11 @@ function linkStroke(l: IsometricFlowLink): string {
   return l.stroke ?? DEFAULT_ISOMETRIC_LINK_STROKE;
 }
 
+function resolveLinkDirection(l: IsometricFlowLink): { source: string; target: string } {
+  if (l.reversed) return { source: l.to, target: l.from };
+  return { source: l.from, target: l.to };
+}
+
 function linkPolylinePoints(
   l: IsometricFlowLink,
   nodes: IsometricFlowNode[],
@@ -348,6 +357,7 @@ export function IsometricFlowDiagramCanvas({
   const uid = useId().replace(/:/g, "");
   const gradId = `${uid}-bg`;
   const shadowId = `${uid}-sh`;
+  const flowDashAnimName = `${uid}-flow-dash`;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
@@ -480,9 +490,10 @@ export function IsometricFlowDiagramCanvas({
       if (connectFrom) {
         if (hit && hit.id !== connectFrom) {
           const exists = data.links.some(
-            (l) =>
-              (l.from === connectFrom && l.to === hit.id) ||
-              (l.from === hit.id && l.to === connectFrom),
+            (l) => {
+              const dir = resolveLinkDirection(l);
+              return dir.source === connectFrom && dir.target === hit.id;
+            },
           );
           if (!exists) {
             emit({
@@ -616,6 +627,31 @@ export function IsometricFlowDiagramCanvas({
     });
   }, [data, emit, selectedLinkId]);
 
+  const addReverseLink = useCallback(() => {
+    if (!selectedLinkId) return;
+    const selected = data.links.find((l) => l.id === selectedLinkId);
+    if (!selected) return;
+    const { source, target } = resolveLinkDirection(selected);
+    const reverseExists = data.links.some((l) => {
+      if (l.id === selected.id) return false;
+      const dir = resolveLinkDirection(l);
+      return dir.source === target && dir.target === source;
+    });
+    if (reverseExists) return;
+    emit({
+      ...data,
+      links: [
+        ...data.links,
+        {
+          id: crypto.randomUUID(),
+          from: target,
+          to: source,
+          ...(selected.stroke ? { stroke: selected.stroke } : {}),
+        },
+      ],
+    });
+  }, [data, emit, selectedLinkId]);
+
   const setSelectedNodeShape = useCallback(
     (shape: IsometricFlowNodeShape) => {
       if (!selectedId) return;
@@ -737,6 +773,16 @@ export function IsometricFlowDiagramCanvas({
             <ArrowLeftRight size={14} />
             Sentido
           </button>
+          <button
+            type="button"
+            onClick={addReverseLink}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+            aria-label="Crear conector de regreso"
+            title="Crear conector en sentido contrario"
+          >
+            <ArrowLeftRight size={14} />
+            Doble sentido
+          </button>
           <div className="flex items-center gap-0.5 border-l border-stone-200 pl-1.5 dark:border-stone-600">
             <span className="sr-only">Color del conector</span>
             {LINK_COLOR_PRESETS.map((p) => (
@@ -788,6 +834,16 @@ export function IsometricFlowDiagramCanvas({
             />
           </filter>
         </defs>
+        <style>{`
+          @keyframes ${flowDashAnimName} {
+            to { stroke-dashoffset: -${FLOW_DASH_SPAN}; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .iso-flow-dash {
+              animation: none !important;
+            }
+          }
+        `}</style>
 
         <rect
           width={ISOMETRIC_VIEWBOX.w}
@@ -827,6 +883,20 @@ export function IsometricFlowDiagramCanvas({
                   strokeWidth={sel ? 4 : 3.2}
                   strokeLinejoin="round"
                   strokeLinecap="round"
+                />
+                <path
+                  d={lineD}
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.95)"
+                  strokeWidth={sel ? 2.1 : 1.6}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  strokeDasharray={`${FLOW_DASH_LENGTH} ${FLOW_DASH_GAP}`}
+                  className="iso-flow-dash"
+                  style={{
+                    strokeDashoffset: 0,
+                    animation: `${flowDashAnimName} ${FLOW_ANIMATION_SEC}s linear infinite`,
+                  }}
                 />
                 {headD ? (
                   <path d={headD} fill={stroke} stroke="none" />
