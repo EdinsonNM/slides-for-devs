@@ -40,7 +40,10 @@ export interface IsometricFlowNode {
   hue: number;
   /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC, nube, LLM, usuario o marca SVG). */
   shape: IsometricFlowNodeShape;
-  /** Slug del icono de marca (archivo dentro de `public/lobe-icons/icons`). */
+  /**
+   * Icono de marca: slug Lobe (`public/lobe-icons/icons/{slug}.svg`) o id Google
+   * (`public/google-icons/manifest.json`, prefijo `g:`).
+   */
   iconSlug?: string;
 }
 
@@ -52,6 +55,49 @@ export interface IsometricFlowLink {
   stroke?: string;
   /** Si es true, la flecha apunta al nodo `from` en lugar de a `to`. */
   reversed?: boolean;
+  /** Estilo de animación del flujo en el conector. */
+  animationStyle?: "dash" | "pulse";
+}
+
+/** Extremos efectivos del conector (tiene en cuenta `reversed`). */
+export function getResolvedLinkEndpoints(l: IsometricFlowLink): {
+  source: string;
+  target: string;
+} {
+  if (l.reversed) return { source: l.to, target: l.from };
+  return { source: l.from, target: l.to };
+}
+
+export function resolvedLinkKey(l: IsometricFlowLink): string {
+  const { source, target } = getResolvedLinkEndpoints(l);
+  return `${source}\0${target}`;
+}
+
+/**
+ * Un solo enlace por sentido efectivo A→B. Evita solapamientos cuando se combinan
+ * `reversed` con un segundo tramo creado por «doble sentido».
+ * Si `preferId` existe en la lista, ese enlace gana la clave frente a duplicados posteriores.
+ */
+export function dedupeIsometricFlowLinks(
+  links: IsometricFlowLink[],
+  preferId?: string,
+): IsometricFlowLink[] {
+  const ordered =
+    preferId != null && links.some((l) => l.id === preferId)
+      ? [
+          ...links.filter((l) => l.id === preferId),
+          ...links.filter((l) => l.id !== preferId),
+        ]
+      : [...links];
+  const seen = new Set<string>();
+  const out: IsometricFlowLink[] = [];
+  for (const l of ordered) {
+    const k = resolvedLinkKey(l);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(l);
+  }
+  return out;
 }
 
 const LINK_STROKE_MAX = 80;
@@ -137,6 +183,7 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
         to: l.to,
         ...(stroke ? { stroke } : {}),
         ...(reversed ? { reversed: true } : {}),
+        ...(l.animationStyle === "pulse" ? { animationStyle: "pulse" } : {}),
       });
     }
     if (nodes.length === 0) return fallback;
@@ -145,7 +192,7 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
     return {
       version: ISOMETRIC_FLOW_VERSION,
       nodes,
-      links: filteredLinks,
+      links: dedupeIsometricFlowLinks(filteredLinks),
     };
   } catch {
     return fallback;

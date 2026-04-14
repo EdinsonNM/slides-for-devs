@@ -18,14 +18,18 @@ import {
   Link2,
   Monitor,
   Plus,
+  Repeat2,
   Smartphone,
   Trash2,
   Triangle,
   UserRound,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
+import { hrefFromGoogleIconRelativePath, resolveBrandIconHref } from "../../utils/isometricBrandIcon";
 import {
   DEFAULT_ISOMETRIC_LINK_STROKE,
+  dedupeIsometricFlowLinks,
+  getResolvedLinkEndpoints,
   type IsometricFlowDiagram,
   type IsometricFlowLink,
   type IsometricFlowNode,
@@ -66,6 +70,8 @@ const FLOW_DASH_LENGTH = 7;
 const FLOW_DASH_GAP = 9;
 const FLOW_DASH_SPAN = FLOW_DASH_LENGTH + FLOW_DASH_GAP;
 const FLOW_ANIMATION_SEC = 1.15;
+/** Miniaturas por página en el selector (evita miles de etiquetas img a la vez). */
+const ICON_PICKER_PAGE_SIZE = 140;
 
 const LINK_COLOR_PRESETS = [
   { label: "Azul", stroke: "rgb(37 99 235)", swatch: "rgb(37, 99, 235)" },
@@ -74,6 +80,12 @@ const LINK_COLOR_PRESETS = [
   { label: "Rosa", stroke: "rgb(225 29 72)", swatch: "rgb(225, 29, 72)" },
   { label: "Pizarra", stroke: "rgb(71 85 105)", swatch: "rgb(71, 85, 105)" },
 ] as const;
+
+type BrandIconCatalogEntry = {
+  id: string;
+  label: string;
+  href: string;
+};
 
 function hslFill(h: number, s: number, l: number) {
   return `hsl(${h} ${s}% ${l}%)`;
@@ -190,6 +202,14 @@ function isoDeviceGlyphExtent(cy: number, topPtY: number): { yTop: number; yBot:
   return { yTop, yBot };
 }
 
+/** Marca (esfera + SVG): franja un poco más alta que nube/orbe para icono legible. */
+function isoBrandGlyphExtent(cy: number, topPtY: number): { yTop: number; yBot: number } {
+  const yBot = cy - 4;
+  const minH = CELL * 0.58;
+  const yTop = Math.min(topPtY - 16, yBot - minH);
+  return { yTop, yBot };
+}
+
 /** Móvil: más alto y ancho que la franja genérica. */
 function isoMobileGlyphExtent(cy: number, topPtY: number): { yTop: number; yBot: number } {
   const yBot = cy - 3;
@@ -261,25 +281,47 @@ function linkStroke(l: IsometricFlowLink): string {
   return l.stroke ?? DEFAULT_ISOMETRIC_LINK_STROKE;
 }
 
-function resolveLinkDirection(l: IsometricFlowLink): { source: string; target: string } {
-  if (l.reversed) return { source: l.to, target: l.from };
-  return { source: l.from, target: l.to };
-}
-
 function linkPolylinePoints(
   l: IsometricFlowLink,
   nodes: IsometricFlowNode[],
 ): { x: number; y: number }[] | null {
-  const a = nodes.find((n) => n.id === l.from);
-  const b = nodes.find((n) => n.id === l.to);
-  if (!a || !b) return null;
-  const fromN = l.reversed ? b : a;
-  const toN = l.reversed ? a : b;
-  const p0 = nodeSlabTop(fromN.gx, fromN.gy, CELL, ORIGIN_X, ORIGIN_Y, SLAB_TOP_RISE);
-  const p2 = nodeSlabTop(toN.gx, toN.gy, CELL, ORIGIN_X, ORIGIN_Y, SLAB_TOP_RISE);
-  const dgx = toN.gx - fromN.gx;
-  const dgy = toN.gy - fromN.gy;
-  return isoOrthogonalLinkPoints(p0, p2, dgx, dgy, CELL);
+  const dir = getResolvedLinkEndpoints(l);
+  const sourceNode = nodes.find((n) => n.id === dir.source);
+  const targetNode = nodes.find((n) => n.id === dir.target);
+  if (!sourceNode || !targetNode) return null;
+
+  // Usa una orientación canónica por par de nodos para que ida/vuelta compartan exactamente la misma ruta.
+  const canonicalStartNode =
+    sourceNode.id <= targetNode.id ? sourceNode : targetNode;
+  const canonicalEndNode =
+    sourceNode.id <= targetNode.id ? targetNode : sourceNode;
+
+  const p0 = nodeSlabTop(
+    canonicalStartNode.gx,
+    canonicalStartNode.gy,
+    CELL,
+    ORIGIN_X,
+    ORIGIN_Y,
+    SLAB_TOP_RISE,
+  );
+  const p2 = nodeSlabTop(
+    canonicalEndNode.gx,
+    canonicalEndNode.gy,
+    CELL,
+    ORIGIN_X,
+    ORIGIN_Y,
+    SLAB_TOP_RISE,
+  );
+  const dgx = canonicalEndNode.gx - canonicalStartNode.gx;
+  const dgy = canonicalEndNode.gy - canonicalStartNode.gy;
+  const canonicalPoints = isoOrthogonalLinkPoints(p0, p2, dgx, dgy, CELL);
+
+  // Si la dirección real es la opuesta a la canónica, invierte la secuencia:
+  // mismo trazo físico, flecha en el extremo contrario.
+  if (sourceNode.id !== canonicalStartNode.id) {
+    return [...canonicalPoints].reverse();
+  }
+  return canonicalPoints;
 }
 
 function labelPillWidth(text: string): number {
@@ -365,14 +407,17 @@ export function IsometricFlowDiagramCanvas({
   const gradId = `${uid}-bg`;
   const shadowId = `${uid}-sh`;
   const flowDashAnimName = `${uid}-flow-dash`;
+  const flowDashReverseAnimName = `${uid}-flow-dash-reverse`;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [iconManifest, setIconManifest] = useState<string[]>([]);
+  const [brandIconCatalog, setBrandIconCatalog] = useState<BrandIconCatalogEntry[]>([]);
+  const [googleIconPathById, setGoogleIconPathById] = useState<Record<string, string>>({});
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [iconSearchQuery, setIconSearchQuery] = useState("");
+  const [iconPickerVisibleLimit, setIconPickerVisibleLimit] = useState(ICON_PICKER_PAGE_SIZE);
   const [drag, setDrag] = useState<{
     id: string;
     offsetX: number;
@@ -393,19 +438,57 @@ export function IsometricFlowDiagramCanvas({
 
   useEffect(() => {
     let alive = true;
-    void fetch("/lobe-icons/manifest.json")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: unknown) => {
-        if (!alive || !Array.isArray(list)) return;
-        const normalized = list
-          .filter((v): v is string => typeof v === "string")
-          .map((v) => v.trim().toLowerCase())
-          .filter(Boolean);
-        setIconManifest(normalized);
+    void Promise.all([
+      fetch("/lobe-icons/manifest.json").then((r) => (r.ok ? r.json() : [])),
+      fetch("/google-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([lobeList, googleDoc]: [unknown, unknown]) => {
+        if (!alive) return;
+        const googlePathById: Record<string, string> = {};
+        const googleEntries: BrandIconCatalogEntry[] = [];
+        if (googleDoc && typeof googleDoc === "object") {
+          const icons = (googleDoc as { icons?: unknown }).icons;
+          if (Array.isArray(icons)) {
+            for (const raw of icons) {
+              if (!raw || typeof raw !== "object") continue;
+              const o = raw as Record<string, unknown>;
+              if (typeof o.id !== "string" || typeof o.path !== "string") continue;
+              const id = o.id.trim().toLowerCase();
+              const path = o.path.trim();
+              if (!id || !path) continue;
+              googlePathById[id] = path;
+              const label =
+                typeof o.label === "string" && o.label.trim()
+                  ? o.label.trim()
+                  : id.replace(/^g:/, "");
+              googleEntries.push({
+                id,
+                label,
+                href: hrefFromGoogleIconRelativePath(path),
+              });
+            }
+          }
+        }
+
+        const lobeSlugs: string[] = Array.isArray(lobeList)
+          ? lobeList
+              .filter((v): v is string => typeof v === "string")
+              .map((v) => v.trim().toLowerCase())
+              .filter(Boolean)
+          : [];
+        const lobeEntries: BrandIconCatalogEntry[] = lobeSlugs.map((id) => ({
+          id,
+          label: id,
+          href: `/lobe-icons/icons/${id}.svg`,
+        }));
+
+        setGoogleIconPathById(googlePathById);
+        setBrandIconCatalog([...googleEntries, ...lobeEntries]);
       })
       .catch(() => {
         if (!alive) return;
-        setIconManifest([]);
+        setGoogleIconPathById({});
+        setBrandIconCatalog([]);
       });
     return () => {
       alive = false;
@@ -414,9 +497,13 @@ export function IsometricFlowDiagramCanvas({
 
   useEffect(() => {
     if (!iconPickerOpen) return;
-    const node = data.nodes.find((n) => n.id === selectedId);
-    setIconSearchQuery(node?.iconSlug ?? "");
-  }, [iconPickerOpen, data.nodes, selectedId]);
+    setIconSearchQuery("");
+  }, [iconPickerOpen]);
+
+  useEffect(() => {
+    if (!iconPickerOpen) return;
+    setIconPickerVisibleLimit(ICON_PICKER_PAGE_SIZE);
+  }, [iconPickerOpen, iconSearchQuery]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -430,16 +517,41 @@ export function IsometricFlowDiagramCanvas({
     [data.nodes, selectedId],
   );
 
-  const iconPickerResults = useMemo(() => {
-    if (!iconManifest.length) return [];
+  const bidirectionalLinkIds = useMemo(() => {
+    const directionPairs = new Set(
+      data.links.map((l) => {
+        const dir = getResolvedLinkEndpoints(l);
+        return `${dir.source}->${dir.target}`;
+      }),
+    );
+    const ids = new Set<string>();
+    for (const l of data.links) {
+      const dir = getResolvedLinkEndpoints(l);
+      if (directionPairs.has(`${dir.target}->${dir.source}`)) {
+        ids.add(l.id);
+      }
+    }
+    return ids;
+  }, [data.links]);
+
+  const iconPickerFiltered = useMemo(() => {
+    if (!brandIconCatalog.length) return [];
     const q = iconSearchQuery.trim().toLowerCase();
-    if (!q) return iconManifest.slice(0, 120);
-    const starts = iconManifest.filter((s) => s.startsWith(q)).slice(0, 80);
-    const includes = iconManifest
-      .filter((s) => !s.startsWith(q) && s.includes(q))
-      .slice(0, 120 - starts.length);
-    return [...starts, ...includes];
-  }, [iconManifest, iconSearchQuery]);
+    if (!q) return brandIconCatalog;
+    return brandIconCatalog.filter(
+      (e) =>
+        e.id.includes(q) ||
+        e.label.toLowerCase().includes(q) ||
+        e.id.replace(/^g:/, "").includes(q),
+    );
+  }, [brandIconCatalog, iconSearchQuery]);
+
+  const iconPickerResults = useMemo(
+    () => iconPickerFiltered.slice(0, iconPickerVisibleLimit),
+    [iconPickerFiltered, iconPickerVisibleLimit],
+  );
+
+  const iconPickerHasMore = iconPickerFiltered.length > iconPickerResults.length;
 
   const pickNodeAt = useCallback(
     (sx: number, sy: number): IsometricFlowNode | null => {
@@ -552,21 +664,20 @@ export function IsometricFlowDiagramCanvas({
         if (hit && hit.id !== connectFrom) {
           const exists = data.links.some(
             (l) => {
-              const dir = resolveLinkDirection(l);
+              const dir = getResolvedLinkEndpoints(l);
               return dir.source === connectFrom && dir.target === hit.id;
             },
           );
           if (!exists) {
+            const newId = crypto.randomUUID();
+            const newLink: IsometricFlowLink = {
+              id: newId,
+              from: connectFrom,
+              to: hit.id,
+            };
             emit({
               ...data,
-              links: [
-                ...data.links,
-                {
-                  id: crypto.randomUUID(),
-                  from: connectFrom,
-                  to: hit.id,
-                },
-              ],
+              links: dedupeIsometricFlowLinks([...data.links, newLink], newId),
             });
           }
         }
@@ -680,10 +791,38 @@ export function IsometricFlowDiagramCanvas({
 
   const toggleLinkReversed = useCallback(() => {
     if (!selectedLinkId) return;
+    const nextLinks = data.links.map((l) =>
+      l.id === selectedLinkId ? { ...l, reversed: !l.reversed } : l,
+    );
+    emit({
+      ...data,
+      links: dedupeIsometricFlowLinks(nextLinks, selectedLinkId),
+    });
+  }, [data, emit, selectedLinkId]);
+
+  const toggleLinkAnimationStyle = useCallback(() => {
+    if (!selectedLinkId) return;
+    const selected = data.links.find((l) => l.id === selectedLinkId);
+    if (!selected) return;
+    const selectedDir = getResolvedLinkEndpoints(selected);
+    const reverseId = data.links.find((l) => {
+      if (l.id === selected.id) return false;
+      const dir = getResolvedLinkEndpoints(l);
+      return (
+        dir.source === selectedDir.target && dir.target === selectedDir.source
+      );
+    })?.id;
+
     emit({
       ...data,
       links: data.links.map((l) =>
-        l.id === selectedLinkId ? { ...l, reversed: !l.reversed } : l,
+        l.id === selectedLinkId || l.id === reverseId
+          ? {
+              ...l,
+              animationStyle:
+                (selected.animationStyle ?? "dash") === "pulse" ? "dash" : "pulse",
+            }
+          : l,
       ),
     });
   }, [data, emit, selectedLinkId]);
@@ -692,24 +831,23 @@ export function IsometricFlowDiagramCanvas({
     if (!selectedLinkId) return;
     const selected = data.links.find((l) => l.id === selectedLinkId);
     if (!selected) return;
-    const { source, target } = resolveLinkDirection(selected);
+    const { source, target } = getResolvedLinkEndpoints(selected);
     const reverseExists = data.links.some((l) => {
       if (l.id === selected.id) return false;
-      const dir = resolveLinkDirection(l);
+      const dir = getResolvedLinkEndpoints(l);
       return dir.source === target && dir.target === source;
     });
     if (reverseExists) return;
+    const newId = crypto.randomUUID();
+    const newLink: IsometricFlowLink = {
+      id: newId,
+      from: target,
+      to: source,
+      ...(selected.stroke ? { stroke: selected.stroke } : {}),
+    };
     emit({
       ...data,
-      links: [
-        ...data.links,
-        {
-          id: crypto.randomUUID(),
-          from: target,
-          to: source,
-          ...(selected.stroke ? { stroke: selected.stroke } : {}),
-        },
-      ],
+      links: dedupeIsometricFlowLinks([...data.links, newLink], newId),
     });
   }, [data, emit, selectedLinkId]);
 
@@ -879,6 +1017,18 @@ export function IsometricFlowDiagramCanvas({
         <>
           <button
             type="button"
+            onClick={toggleLinkAnimationStyle}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+            aria-label="Cambiar estilo de animación del conector"
+            title="Cambiar estilo de animación"
+          >
+            {data.links.find((l) => l.id === selectedLinkId)?.animationStyle ===
+            "pulse"
+              ? "Anim: Pulso"
+              : "Anim: Flujo"}
+          </button>
+          <button
+            type="button"
             onClick={toggleLinkReversed}
             className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
             aria-label="Invertir sentido de la flecha"
@@ -894,7 +1044,7 @@ export function IsometricFlowDiagramCanvas({
             aria-label="Crear conector de regreso"
             title="Crear conector en sentido contrario"
           >
-            <ArrowLeftRight size={14} />
+            <Repeat2 size={14} />
             Doble sentido
           </button>
           <div className="flex items-center gap-0.5 border-l border-stone-200 pl-1.5 dark:border-stone-600">
@@ -931,7 +1081,9 @@ export function IsometricFlowDiagramCanvas({
                   Cambiar icono
                 </span>
                 <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-                  {iconPickerResults.length} resultados
+                  {iconPickerHasMore
+                    ? `${iconPickerResults.length} de ${iconPickerFiltered.length}`
+                    : `${iconPickerFiltered.length} iconos`}
                 </span>
               </div>
               <button
@@ -947,22 +1099,27 @@ export function IsometricFlowDiagramCanvas({
               <input
                 value={iconSearchQuery}
                 onChange={(e) => setIconSearchQuery(e.target.value)}
-                placeholder="Buscar icono (ej: openai, claude, gemini...)"
+                placeholder="Buscar (openai, compute, g:storage, networking…)"
                 className="h-9 w-full rounded-md border border-stone-200 bg-stone-50 px-3 text-sm text-stone-700 outline-none focus:border-sky-500 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200"
               />
+              <p className="mt-2 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                El catálogo Lobe es muy grande: solo se pintan miniaturas por tandas para que la UI siga fluida. Usa la
+                búsqueda o «Cargar más» para ver el resto.
+              </p>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {iconPickerResults.map((slug) => {
-                  const active = (selectedNode.iconSlug ?? "") === slug;
+                {iconPickerResults.map((entry) => {
+                  const active =
+                    (selectedNode.iconSlug ?? "").trim().toLowerCase() === entry.id;
                   return (
                     <button
-                      key={slug}
+                      key={entry.id}
                       type="button"
                       onClick={() => {
-                        setSelectedNodeBrandIcon(slug);
-                        setIconSearchQuery(slug);
+                        setSelectedNodeBrandIcon(entry.id);
+                        setIconSearchQuery("");
                         setIconPickerOpen(false);
                       }}
                       className={cn(
@@ -971,18 +1128,31 @@ export function IsometricFlowDiagramCanvas({
                           ? "border-sky-500 bg-sky-50 dark:bg-sky-950/50"
                           : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800/70 dark:hover:bg-stone-800",
                       )}
-                      title={slug}
+                      title={entry.id}
                     >
                       <img
-                        src={`/lobe-icons/icons/${slug}.svg`}
-                        alt={slug}
+                        src={entry.href}
+                        alt={entry.label}
                         className="h-8 w-8 object-contain"
                       />
-                      <span className="w-full truncate text-center">{slug}</span>
+                      <span className="w-full truncate text-center">{entry.label}</span>
                     </button>
                   );
                 })}
               </div>
+              {iconPickerHasMore ? (
+                <div className="flex justify-center pt-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIconPickerVisibleLimit((n) => n + ICON_PICKER_PAGE_SIZE)
+                    }
+                    className="rounded-md border border-stone-200 bg-stone-50 px-3 py-1.5 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                  >
+                    Cargar más ({iconPickerFiltered.length - iconPickerResults.length} restantes)
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1025,12 +1195,16 @@ export function IsometricFlowDiagramCanvas({
           @keyframes ${flowDashAnimName} {
             to { stroke-dashoffset: -${FLOW_DASH_SPAN}; }
           }
+          @keyframes ${flowDashReverseAnimName} {
+            to { stroke-dashoffset: ${FLOW_DASH_SPAN}; }
+          }
           .iso-node-hoverable {
             transition: transform 180ms ease, filter 180ms ease;
-            transform-origin: center;
+            transform-box: fill-box;
+            transform-origin: center center;
           }
           .iso-node-hoverable.is-hovered {
-            transform: translateY(-3px) scale(1.018);
+            transform: scale(1.045);
             filter: brightness(1.04) saturate(1.05);
           }
           @media (prefers-reduced-motion: reduce) {
@@ -1064,6 +1238,8 @@ export function IsometricFlowDiagramCanvas({
             const lineD = `M ${trimmed.map((p) => `${p.x} ${p.y}`).join(" L ")}`;
             const headD = arrowHeadPath(pts, ARROW_SIZE);
             const sel = selectedLinkId === l.id;
+            const isBidirectional = bidirectionalLinkIds.has(l.id);
+            const animationStyle = l.animationStyle ?? "dash";
             return (
               <g key={l.id} opacity={0.94}>
                 {sel && (
@@ -1086,20 +1262,58 @@ export function IsometricFlowDiagramCanvas({
                   strokeLinejoin="round"
                   strokeLinecap="round"
                 />
-                <path
-                  d={lineD}
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.95)"
-                  strokeWidth={sel ? 2.1 : 1.6}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  strokeDasharray={`${FLOW_DASH_LENGTH} ${FLOW_DASH_GAP}`}
-                  className="iso-flow-dash"
-                  style={{
-                    strokeDashoffset: 0,
-                    animation: `${flowDashAnimName} ${FLOW_ANIMATION_SEC}s linear infinite`,
-                  }}
-                />
+                {animationStyle === "dash" ? (
+                  <>
+                    <path
+                      d={lineD}
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.95)"
+                      strokeWidth={sel ? 2.1 : 1.6}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      strokeDasharray={`${FLOW_DASH_LENGTH} ${FLOW_DASH_GAP}`}
+                      className="iso-flow-dash"
+                      style={{
+                        strokeDashoffset: 0,
+                        animation: `${flowDashAnimName} ${FLOW_ANIMATION_SEC}s linear infinite`,
+                      }}
+                    />
+                    {isBidirectional ? (
+                      <path
+                        d={lineD}
+                        fill="none"
+                        stroke="rgba(255, 255, 255, 0.75)"
+                        strokeWidth={sel ? 1.5 : 1.2}
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        strokeDasharray={`${FLOW_DASH_LENGTH} ${FLOW_DASH_GAP}`}
+                        className="iso-flow-dash"
+                        style={{
+                          strokeDashoffset: 0,
+                          animation: `${flowDashReverseAnimName} ${FLOW_ANIMATION_SEC}s linear infinite`,
+                        }}
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <circle
+                      r={sel ? 3.2 : 2.8}
+                      fill="rgba(255,255,255,0.96)"
+                      stroke={stroke}
+                      strokeWidth={0.75}
+                    >
+                      <animateMotion
+                        dur={`${Math.max(1.05, FLOW_ANIMATION_SEC * 1.05)}s`}
+                        repeatCount="indefinite"
+                        path={lineD}
+                        keyPoints={isBidirectional ? "0;1;0" : "0;1"}
+                        keyTimes={isBidirectional ? "0;0.5;1" : "0;1"}
+                        calcMode="linear"
+                      />
+                    </circle>
+                  </>
+                )}
                 {headD ? (
                   <path d={headD} fill={stroke} stroke="none" />
                 ) : null}
@@ -1137,13 +1351,14 @@ export function IsometricFlowDiagramCanvas({
             const glyphExtent =
               shape === "mobile"
                 ? isoMobileGlyphExtent(cy, topPt.y)
-                : shape === "cloud" ||
-                    shape === "orb" ||
-                    shape === "llm" ||
-                    shape === "user" ||
-                    shape === "brand"
-                  ? isoDeviceGlyphExtent(cy, topPt.y)
-                  : null;
+                : shape === "brand"
+                  ? isoBrandGlyphExtent(cy, topPt.y)
+                  : shape === "cloud" ||
+                      shape === "orb" ||
+                      shape === "llm" ||
+                      shape === "user"
+                    ? isoDeviceGlyphExtent(cy, topPt.y)
+                    : null;
             const desktopLayout =
               shape === "desktop" ? isoDesktopMonitorLayout(cx, cy, topPt.y) : null;
             const orbR =
@@ -1482,9 +1697,10 @@ export function IsometricFlowDiagramCanvas({
                     const stroke = "rgba(30, 64, 175, 0.28)";
                     const { yTop, yBot } = glyphExtent;
                     const iconSlug = (n.iconSlug ?? "openai").trim().toLowerCase();
-                    const sphereR = Math.min(CELL * 0.31, (yBot - yTop) * 0.5);
-                    const sphereCy = (yTop + yBot) / 2 + 1;
-                    const iconSize = sphereR * 1.35;
+                    const brandIconHref = resolveBrandIconHref(n.iconSlug, googleIconPathById);
+                    const sphereR = Math.min(CELL * 0.38, (yBot - yTop) * 0.46);
+                    const sphereCy = (yTop + yBot) / 2 + 0.5;
+                    const iconSize = sphereR * 1.45;
                     const iconX = cx - iconSize / 2;
                     const iconY = sphereCy - iconSize / 2;
                     return (
@@ -1513,7 +1729,7 @@ export function IsometricFlowDiagramCanvas({
                         />
                         <image
                           key={`brand-${n.id}-${iconSlug}`}
-                          href={`/lobe-icons/icons/${iconSlug}.svg`}
+                          href={brandIconHref}
                           x={iconX}
                           y={iconY}
                           width={iconSize}
