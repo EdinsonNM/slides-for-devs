@@ -438,6 +438,9 @@ export function useIsometricFlowCanvasController({
 
   useEffect(() => {
     const onWheel = (ev: WheelEvent) => {
+      /* El overlay del picker es absolute sobre el mismo área que el SVG: el hit-test por
+       * rectángulo del SVG sigue siendo true y robaba el wheel al listado con scroll. */
+      if (iconPickerOpen) return;
       const svg = svgRef.current;
       if (!svg) return;
       const r = svg.getBoundingClientRect();
@@ -462,7 +465,7 @@ export function useIsometricFlowCanvasController({
     return () => {
       window.removeEventListener("wheel", onWheel, { capture: true });
     };
-  }, []);
+  }, [iconPickerOpen]);
 
   useEffect(() => {
     if (!panDrag) return;

@@ -128,7 +128,7 @@ export function IsometricFlowCanvasIconPickerOverlay(props: IsometricFlowCanvasI
               </p>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3">
               {iconPickerGroupByCategory && iconPickerGroupedSections ? (
                 <div className="flex flex-col gap-5">
                   {iconPickerGroupedSections.map((section) => (
