@@ -887,49 +887,92 @@ function zoomIsoViewTowardPoint(
   return { x: nx, y: ny, w: nw, h: nh };
 }
 
+/**
+ * Rango de índices de rejilla isométrica que cubre el rectángulo de vista SVG.
+ * `gx`/`gy` son lineales en (x,y), así que basta con evaluar las esquinas.
+ */
+function isoGridIndexBoundsForView(
+  view: IsoViewRect,
+  cell: number,
+  ox: number,
+  oy: number,
+  padCells: number,
+): { gx0: number; gx1: number; gy0: number; gy1: number } {
+  const corners: [number, number][] = [
+    [view.x, view.y],
+    [view.x + view.w, view.y],
+    [view.x, view.y + view.h],
+    [view.x + view.w, view.y + view.h],
+  ];
+  let minGx = Infinity;
+  let maxGx = -Infinity;
+  let minGy = Infinity;
+  let maxGy = -Infinity;
+  for (const [cx, cy] of corners) {
+    const { gx, gy } = canvasToIsoGridFloat(cx, cy, cell, ox, oy);
+    minGx = Math.min(minGx, gx);
+    maxGx = Math.max(maxGx, gx);
+    minGy = Math.min(minGy, gy);
+    maxGy = Math.max(maxGy, gy);
+  }
+  return {
+    gx0: Math.floor(minGx) - padCells,
+    gx1: Math.ceil(maxGx) + padCells,
+    gy0: Math.floor(minGy) - padCells,
+    gy1: Math.ceil(maxGy) + padCells,
+  };
+}
+
 function IsoGridBackground({
   cell,
   ox,
   oy,
+  view,
 }: {
   cell: number;
   ox: number;
   oy: number;
+  view: IsoViewRect;
 }) {
-  const range = 14;
-  const lines: ReactNode[] = [];
-  const stroke = "rgba(148, 163, 184, 0.45)";
-  const strokeDark = "rgba(100, 116, 139, 0.35)";
-  for (let k = -range; k <= range; k++) {
-    const a = isoGridToCanvas(k, -range, cell, ox, oy);
-    const b = isoGridToCanvas(k, range, cell, ox, oy);
-    lines.push(
-      <line
-        key={`g${k}`}
-        x1={a.x}
-        y1={a.y}
-        x2={b.x}
-        y2={b.y}
-        stroke={stroke}
-        strokeWidth={0.75}
-        vectorEffect="non-scaling-stroke"
-      />,
-    );
-    const c = isoGridToCanvas(-range, k, cell, ox, oy);
-    const d = isoGridToCanvas(range, k, cell, ox, oy);
-    lines.push(
-      <line
-        key={`h${k}`}
-        x1={c.x}
-        y1={c.y}
-        x2={d.x}
-        y2={d.y}
-        stroke={strokeDark}
-        strokeWidth={0.75}
-        vectorEffect="non-scaling-stroke"
-      />,
-    );
-  }
+  const lines = useMemo(() => {
+    const { gx0, gx1, gy0, gy1 } = isoGridIndexBoundsForView(view, cell, ox, oy, 5);
+    const out: ReactNode[] = [];
+    const stroke = "rgba(148, 163, 184, 0.45)";
+    const strokeDark = "rgba(100, 116, 139, 0.35)";
+    for (let k = gx0; k <= gx1; k++) {
+      const a = isoGridToCanvas(k, gy0, cell, ox, oy);
+      const b = isoGridToCanvas(k, gy1, cell, ox, oy);
+      out.push(
+        <line
+          key={`gx${k}`}
+          x1={a.x}
+          y1={a.y}
+          x2={b.x}
+          y2={b.y}
+          stroke={stroke}
+          strokeWidth={0.75}
+          vectorEffect="non-scaling-stroke"
+        />,
+      );
+    }
+    for (let k = gy0; k <= gy1; k++) {
+      const c = isoGridToCanvas(gx0, k, cell, ox, oy);
+      const d = isoGridToCanvas(gx1, k, cell, ox, oy);
+      out.push(
+        <line
+          key={`gy${k}`}
+          x1={c.x}
+          y1={c.y}
+          x2={d.x}
+          y2={d.y}
+          stroke={strokeDark}
+          strokeWidth={0.75}
+          vectorEffect="non-scaling-stroke"
+        />,
+      );
+    }
+    return out;
+  }, [cell, ox, oy, view.x, view.y, view.w, view.h]);
   return <g aria-hidden>{lines}</g>;
 }
 
@@ -2371,7 +2414,14 @@ export function IsometricFlowDiagramCanvas({
         onDoubleClick={onSvgDoubleClick}
       >
         <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+          <linearGradient
+            id={gradId}
+            gradientUnits="objectBoundingBox"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1"
+          >
             <stop offset="0%" stopColor="rgb(248 250 252)" />
             <stop offset="55%" stopColor="rgb(241 245 249)" />
             <stop offset="100%" stopColor="rgb(224 231 239)" />
@@ -2417,12 +2467,19 @@ export function IsometricFlowDiagramCanvas({
         `}</style>
 
         <rect
-          width={ISOMETRIC_VIEWBOX.w}
-          height={ISOMETRIC_VIEWBOX.h}
+          x={viewRect.x}
+          y={viewRect.y}
+          width={viewRect.w}
+          height={viewRect.h}
           fill={`url(#${gradId})`}
           className="dark:opacity-90"
         />
-        <IsoGridBackground cell={CELL} ox={ORIGIN_X} oy={ORIGIN_Y} />
+        <IsoGridBackground
+          cell={CELL}
+          ox={ORIGIN_X}
+          oy={ORIGIN_Y}
+          view={viewRect}
+        />
 
         <g aria-hidden>
           {data.links.map((l) => {
@@ -3085,7 +3142,6 @@ export function IsometricFlowDiagramCanvas({
                         strokeLinejoin="round"
                         pointerEvents="stroke"
                         className="cursor-grab touch-none active:cursor-grabbing"
-                        title="Arrastra para mover el tramo en la rejilla. Doble clic: insertar vértice."
                         onPointerDown={(e) => {
                           if (e.button !== 0) return;
                           e.stopPropagation();
@@ -3127,7 +3183,12 @@ export function IsometricFlowDiagramCanvas({
                             e.clientY,
                           );
                         }}
-                      />
+                      >
+                        <title>
+                          Arrastra para mover el tramo en la rejilla. Doble clic: insertar
+                          vértice.
+                        </title>
+                      </path>
                     );
                   })}
                 </g>
