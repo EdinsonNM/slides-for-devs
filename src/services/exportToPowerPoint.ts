@@ -1,6 +1,7 @@
 import PptxGenJS from "pptxgenjs";
 import type { Presentation } from "../types";
 import type { Slide } from "../domain/entities/Slide";
+import type { DeckVisualTheme } from "../domain/entities";
 import {
   SLIDE_TYPE,
   createEmptySlideMatrixData,
@@ -15,6 +16,7 @@ import {
 } from "../domain/panelContent";
 import { markdownToPlainText } from "../utils/markdownPlainText";
 import { isTauri } from "./updater";
+import { captureAllSlidesAsPngBase64 } from "./pptxSlideRasterCapture";
 
 /**
  * Extrae base64 y tipo de un data URL (data:image/png;base64,...).
@@ -23,18 +25,101 @@ function parseDataUrl(dataUrl: string): { data: string; type: string } | null {
   if (!dataUrl || !dataUrl.startsWith("data:")) return null;
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return null;
-  return { data: match[2], type: match[1] };
+  return { data: match[2]!, type: match[1]! };
 }
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const sub = bytes.subarray(i, Math.min(i + chunk, bytes.length));
+    binary += String.fromCharCode.apply(
+      null,
+      Array.from(sub) as unknown as number[],
+    );
+  }
+  return btoa(binary);
+}
+
+/**
+ * Obtiene PNG/JPEG/WebP en base64 crudo para `pptxgenjs` (sin prefijo data:).
+ */
+export async function loadImageUrlAsPptxBase64(rawUrl: string): Promise<string | null> {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  const parsed = parseDataUrl(trimmed);
+  if (parsed?.type.startsWith("image/")) return parsed.data;
+
+  if (trimmed.startsWith("blob:")) {
+    try {
+      const res = await fetch(trimmed);
+      if (!res.ok) return null;
+      const buf = await res.arrayBuffer();
+      return arrayBufferToBase64(buf);
+    } catch {
+      return null;
+    }
+  }
+
+  let url = trimmed;
+  if (trimmed.startsWith("/") && typeof window !== "undefined" && window.location?.origin) {
+    url = `${window.location.origin}${trimmed}`;
+  }
+  if (!/^https?:\/\//i.test(url)) return null;
+
+  try {
+    const res = await fetch(url, { mode: "cors", credentials: "omit" });
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type") ?? "";
+    if (!ct.startsWith("image/") && !/octet-stream/i.test(ct)) {
+      /* Algunos CDN no envían content-type correcto; aceptamos el buffer. */
+    }
+    const buf = await res.arrayBuffer();
+    return arrayBufferToBase64(buf);
+  } catch {
+    return null;
+  }
+}
+
+export type PowerPointExportOptions = {
+  deckVisualTheme?: DeckVisualTheme;
+  /**
+   * En el navegador, por defecto se rasteriza cada diapositiva (imágenes, 3D, isométrico, Excalidraw).
+   * Desactivar solo para depuración o entornos sin DOM.
+   */
+  rasterizeSlides?: boolean;
+  onRasterProgress?: (done: number, total: number) => void;
+};
 
 /**
  * Genera un archivo .pptx en memoria a partir de la presentación
  * y lo devuelve como base64 (para Tauri) o dispara la descarga (navegador).
  */
 export async function buildPresentationPptx(
-  presentation: Presentation
+  presentation: Presentation,
+  options?: PowerPointExportOptions,
 ): Promise<string> {
-  const pptx = new PptxGenJS();
   const { topic, slides } = presentation;
+  const themeForCapture =
+    options?.deckVisualTheme ?? presentation.deckVisualTheme;
+
+  const useRaster =
+    options?.rasterizeSlides !== false &&
+    typeof window !== "undefined" &&
+    slides.length > 0;
+
+  let slideRasterPngBase64: Record<string, string> = {};
+  if (useRaster) {
+    slideRasterPngBase64 = await captureAllSlidesAsPngBase64(
+      slides,
+      themeForCapture,
+      options?.onRasterProgress,
+    );
+  }
+
+  const pptx = new PptxGenJS();
 
   pptx.title = topic || "Presentación";
   pptx.author = "Slides for Devs";
@@ -60,11 +145,25 @@ export async function buildPresentationPptx(
     fill: { color: "2D7D5E" },
   });
 
+  const imageCache = new Map<string, Promise<string | null>>();
+
+  const getCachedImage = (url: string) => {
+    const key = url.trim();
+    let p = imageCache.get(key);
+    if (!p) {
+      p = loadImageUrlAsPptxBase64(key);
+      imageCache.set(key, p);
+    }
+    return p;
+  };
+
   for (const slide of slides) {
-    addSlideToPptx(pptx, slide);
+    await addSlideToPptx(pptx, slide, {
+      fullSlideRasterBase64: slideRasterPngBase64[slide.id],
+      getImageBase64: getCachedImage,
+    });
   }
 
-  // Escribir a base64 para poder guardar desde Tauri o devolver
   const base64 = await pptx.write({ outputType: "base64" });
   return typeof base64 === "string" ? base64 : "";
 }
@@ -75,9 +174,10 @@ export async function buildPresentationPptx(
  */
 export async function exportPresentationToPowerPoint(
   presentation: Presentation,
-  defaultFileName?: string
+  defaultFileName?: string,
+  options?: PowerPointExportOptions,
 ): Promise<void> {
-  const base64 = await buildPresentationPptx(presentation);
+  const base64 = await buildPresentationPptx(presentation, options);
   if (!base64) {
     throw new Error("No se pudo generar el archivo PowerPoint.");
   }
@@ -113,7 +213,28 @@ export async function exportPresentationToPowerPoint(
   }
 }
 
-function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
+type AddSlideOpts = {
+  fullSlideRasterBase64?: string;
+  getImageBase64: (url: string) => Promise<string | null>;
+};
+
+async function addSlideToPptx(
+  pptx: PptxGenJS,
+  slide: Slide,
+  opts: AddSlideOpts,
+): Promise<void> {
+  if (opts.fullSlideRasterBase64) {
+    const s = pptx.addSlide();
+    s.addImage({
+      data: opts.fullSlideRasterBase64,
+      x: 0,
+      y: 0,
+      w: "100%",
+      h: "100%",
+    });
+    return;
+  }
+
   const s = pptx.addSlide();
 
   if (slide.type === SLIDE_TYPE.CHAPTER) {
@@ -347,36 +468,24 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
         slide.presenter3dScreenMedia !== "video")
     ) {
       const parsed = parseDataUrl(slide.imageUrl);
-      if (parsed) {
+      const imgData = parsed?.data ?? (await opts.getImageBase64(slide.imageUrl));
+      if (imgData) {
         s.addImage({
-          data: parsed.data,
+          data: imgData,
           x: xRight,
           y: bodyY,
           w: imgW,
           h: imgH,
         });
-      } else if (
-        slide.imageUrl.startsWith("http://") ||
-        slide.imageUrl.startsWith("https://")
-      ) {
-        try {
-          s.addImage({
-            path: slide.imageUrl,
-            x: xRight,
-            y: bodyY,
-            w: imgW,
-            h: imgH,
-          });
-        } catch {
-          s.addText("[Imagen no disponible]", {
-            x: xRight,
-            y: bodyY + 1.2,
-            w: imgW,
-            h: 0.5,
-            fontSize: 11,
-            color: "7F7F7F",
-          });
-        }
+      } else {
+        s.addText("[Imagen no disponible o CORS bloqueado]", {
+          x: xRight,
+          y: bodyY + 1.2,
+          w: imgW,
+          h: 0.5,
+          fontSize: 11,
+          color: "7F7F7F",
+        });
       }
     } else if (panelDesc instanceof Presenter3dMediaPanelDescriptor) {
       s.addText(
@@ -389,7 +498,7 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
           fontSize: 10,
           fontFace: "Arial",
           color: "7F7F7F",
-        }
+        },
       );
     } else if (panelDesc instanceof Canvas3dMediaPanelDescriptor) {
       const raw = slide.canvas3dGlbUrl?.trim() ?? "";

@@ -56,6 +56,7 @@ export function Header(props: HeaderProps) {
     setShowSlideStylePanel,
     openGenerateFullDeckModal,
     openExportDeckVideoModal,
+    captureWorkspaceSnapshot,
   } = usePresentation();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -70,9 +71,11 @@ export function Header(props: HeaderProps) {
     setIsExportingPptx(true);
     setMoreMenuOpen(false);
     try {
+      const snap = flushSync(() => captureWorkspaceSnapshot());
       await exportPresentationToPowerPoint({
-        topic: topic || "Presentación",
-        slides,
+        topic: snap.topic || "Presentación",
+        slides: snap.slides,
+        deckVisualTheme: snap.deckVisualTheme,
       });
     } catch (e) {
       console.error(e);

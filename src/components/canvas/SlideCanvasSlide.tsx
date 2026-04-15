@@ -33,6 +33,7 @@ import {
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
+import { useSlideContainerImageDnD } from "../../hooks/useSlideContainerImageDnD";
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
 import {
@@ -189,12 +190,21 @@ export function SlideCanvasSlide() {
     setCanvasTextEditTarget,
     setCanvasMediaPanelEditTarget,
     canvasMediaPanelElementId,
+    ingestImageFileOnCurrentSlide,
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [isDragOverImageFile, setIsDragOverImageFile] = useState(false);
   const [activeField, setActiveField] = useState<TextField | null>(null);
   const slideContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useSlideContainerImageDnD(
+    currentSlide,
+    slideContainerRef,
+    ingestImageFileOnCurrentSlide,
+    setIsDragOverImageFile,
+  );
   /** Elementos de la escena (orden z) para snap y guías durante el arrastre. */
   const sceneElementsRef = useRef<SlideCanvasElement[]>([]);
   const [alignmentGuides, setAlignmentGuides] = useState<{
@@ -614,7 +624,8 @@ export function SlideCanvasSlide() {
     flushCanvasTextCommitIfEditing();
     setSelectedId(null);
     setHoveredId(null);
-  }, [flushCanvasTextCommitIfEditing]);
+    setCanvasMediaPanelEditTarget(null);
+  }, [flushCanvasTextCommitIfEditing, setCanvasMediaPanelEditTarget]);
 
   if (!currentSlide) {
     sceneElementsRef.current = [];
@@ -638,6 +649,9 @@ export function SlideCanvasSlide() {
       if (!k || !CANVAS_KIND_CLICK_PASSTHROUGH.has(k)) return;
     }
     dismissSlideCanvasSelection();
+    if (slide.type === SLIDE_TYPE.CONTENT) {
+      slideContainerRef.current?.focus({ preventScroll: true });
+    }
   };
 
   const showIaToolbar = slide.type === SLIDE_TYPE.CONTENT;
@@ -649,10 +663,15 @@ export function SlideCanvasSlide() {
   return (
     <div
       ref={slideContainerRef}
+      id={slide.type === SLIDE_TYPE.CONTENT ? "slide-container" : undefined}
+      tabIndex={slide.type === SLIDE_TYPE.CONTENT ? -1 : undefined}
       className={cn(
-        "relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent",
+        "relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
         deckSlideContentWrapperClass(deckVisualTheme.contentTone),
         isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+        slide.type === SLIDE_TYPE.CONTENT &&
+          isDragOverImageFile &&
+          "ring-2 ring-emerald-500/60 ring-inset",
       )}
       onPointerDown={onBackgroundPointerDown}
     >
@@ -745,6 +764,9 @@ export function SlideCanvasSlide() {
               setCanvasMediaPanelEditTarget(el.id, {
                 rehydrateCodeBuffers: true,
               });
+            } else {
+              /* Evita que pegar/subir imagen siga yendo al último `mediaPanel` cliqueado. */
+              setCanvasMediaPanelEditTarget(null);
             }
           }}
           isEditing={isEditing}
@@ -1521,6 +1543,8 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-slide-canvas-kind="mediaPanel"
+          data-slide-element-id={id}
           className={cn(
             outerShellClass,
             codePanelOnCanvas

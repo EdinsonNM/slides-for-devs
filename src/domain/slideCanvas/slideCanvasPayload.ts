@@ -111,6 +111,26 @@ export function mergeMediaPayloadIntoSlide(
   return next;
 }
 
+/** Quita de la copia del slide los campos que el panel de media refleja en la raíz (evita “fantasma” del primer panel al mostrar otro `mediaPanel`). */
+function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
+  const next: Slide = { ...slide };
+  const o = next as unknown as Record<string, unknown>;
+  delete o.imageUrl;
+  delete o.imagePrompt;
+  delete o.code;
+  delete o.language;
+  delete o.fontSize;
+  delete o.editorHeight;
+  delete o.videoUrl;
+  delete o.presenter3dDeviceId;
+  delete o.presenter3dScreenMedia;
+  delete o.presenter3dViewState;
+  delete o.canvas3dGlbUrl;
+  delete o.canvas3dViewState;
+  delete o.codeEditorTheme;
+  return next;
+}
+
 /** Primer `mediaPanel` en orden z (misma convención que `syncSlideRootFromCanvas`). */
 export function canvasFirstMediaPanelElementId(slide: Slide): string | null {
   const els = slide.canvasScene?.elements ?? [];
@@ -166,7 +186,10 @@ export function readMediaPayloadFromElement(
 
   let base: SlideCanvasMediaPayload;
   if (isSlideCanvasMediaPayload(p)) {
-    base = { ...p };
+    base =
+      firstId === el.id
+        ? { ...mediaPayloadFromSlideRoot(slide), ...p }
+        : { ...p };
   } else if (firstId === el.id) {
     base = mediaPayloadFromSlideRoot(slide);
   } else {
@@ -185,8 +208,9 @@ export function slideAppearanceForMediaElement(
   el: SlideCanvasElement,
 ): Slide {
   if (el.kind !== "mediaPanel") return slide;
+  const cleared = slideWithoutMirroredPanelRootForView(slide);
   return mergeMediaPayloadIntoSlide(
-    slide,
+    cleared,
     readMediaPayloadFromElement(slide, el),
   );
 }

@@ -308,7 +308,12 @@ export function Device3DViewport({
           ],
           fov: 42,
         }}
-        gl={{ antialias: true, alpha: true, premultipliedAlpha: false }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          premultipliedAlpha: false,
+          preserveDrawingBuffer: true,
+        }}
         onCreated={({ gl, scene }) => {
           scene.background = null;
           gl.setClearColor(0x000000, 0);

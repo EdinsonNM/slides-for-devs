@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Home,
@@ -40,6 +41,7 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     setShowSpeechModal,
     presentationModelId,
     presentationModels,
+    captureWorkspaceSnapshot,
   } = usePresentation();
 
   const [exporting, setExporting] = useState(false);
@@ -65,9 +67,11 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     if (slides.length === 0) return;
     setExporting(true);
     try {
+      const snap = flushSync(() => captureWorkspaceSnapshot());
       await exportPresentationToPowerPoint({
-        topic: topic || "Presentación",
-        slides,
+        topic: snap.topic || "Presentación",
+        slides: snap.slides,
+        deckVisualTheme: snap.deckVisualTheme,
       });
     } catch (e) {
       console.error(e);

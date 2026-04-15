@@ -28,6 +28,10 @@ import {
 } from "../utils/promptAttachments";
 import { optimizeImageDataUrl } from "../utils/imageOptimize";
 import {
+  coerceImageDataUrlForSlideFile,
+  isUsableSlideImageFile,
+} from "../utils/slideImageFile";
+import {
   generateCodeForSlide as generateCodeForSlideApi,
   generatePresenterNotes as generatePresenterNotesApi,
   generateSpeechForSlide as generateSpeechForSlideApi,
@@ -49,6 +53,7 @@ import {
   normalizeSlideMatrixData,
   SLIDE_TYPE,
   type SlideCanvasElementKind,
+  type SlideCanvasRect,
   type SlideCanvasScene,
   type SlideCodeEditorTheme,
   type SlideMatrixData,
@@ -547,7 +552,7 @@ export function usePresentationState() {
 
   const setCanvasMediaPanelEditTarget = useCallback(
     (
-      elementId: string,
+      elementId: string | null,
       options?: { rehydrateCodeBuffers?: boolean },
     ) => {
       canvasTextTargetsRef.current = {
@@ -556,7 +561,7 @@ export function usePresentationState() {
       };
       setCanvasMediaPanelElementId(elementId);
       /** Tras `flushSync(commit)` al cambiar de panel con edición activa, el buffer debe ser del `mediaPanel` seleccionado. */
-      if (!options?.rehydrateCodeBuffers) return;
+      if (!elementId || !options?.rehydrateCodeBuffers) return;
       const idx = currentIndexRef.current;
       const cur = slidesRef.current[idx];
       if (!cur) return;
@@ -3278,33 +3283,136 @@ export function usePresentationState() {
     setShowImageUploadModal(true);
   };
 
+  /**
+   * Incrusta una imagen en el slide de contenido actual: actualiza el panel de media
+   * objetivo (seleccionado o por defecto), o crea un `mediaPanel` nuevo con rect opcional.
+   */
+  const ingestImageFileOnCurrentSlide = useCallback(
+    (
+      file: File,
+      placement: "patchTargetPanel" | "newPanel",
+      newPanelRect?: SlideCanvasRect,
+      callbacks?: {
+        onAfterApply?: () => void;
+        /** Drop sobre un `mediaPanel` concreto: actualizar ese bloque en lugar del ref. */
+        patchMediaPanelElementId?: string;
+      },
+    ) => {
+      if (!isUsableSlideImageFile(file)) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        void (async () => {
+          let dataUrl = coerceImageDataUrlForSlideFile(
+            reader.result as string,
+            file,
+          );
+          try {
+            dataUrl = await optimizeImageDataUrl(dataUrl);
+          } catch {
+            /* mantener original */
+          }
+          setSlides((prev) => {
+            const index = currentIndexRef.current;
+            const raw = prev[index];
+            if (!raw || raw.type !== SLIDE_TYPE.CONTENT) return prev;
+            const cur = ensureSlideCanvasScene(raw);
+            const scene = cur.canvasScene;
+            if (!scene) return prev;
+
+            if (placement === "newPanel") {
+              const appendOpts: AppendCanvasElementOptions = {
+                mediaContentType: PANEL_CONTENT_KIND.IMAGE,
+                mediaPanelPayloadOverrides: {
+                  imageUrl: dataUrl,
+                  contentType: PANEL_CONTENT_KIND.IMAGE,
+                },
+              };
+              if (newPanelRect) {
+                appendOpts.insertRectOverride = newPanelRect;
+              }
+              const nextElements = appendCanvasElementToScene(
+                cur,
+                scene.elements,
+                "mediaPanel",
+                appendOpts,
+              );
+              if (!nextElements) return prev;
+              const updated = [...prev];
+              updated[index] = syncSlideRootFromCanvas({
+                ...cur,
+                canvasScene: { ...scene, elements: nextElements },
+              });
+              return updated;
+            }
+
+            const explicitPatchId = callbacks?.patchMediaPanelElementId?.trim();
+            if (explicitPatchId) {
+              const el = scene.elements.find((x) => x.id === explicitPatchId);
+              if (el?.kind === "mediaPanel") {
+                const updated = [...prev];
+                updated[index] = patchSlideMediaPanelByElementId(
+                  cur,
+                  explicitPatchId,
+                  (m) => ({
+                    ...m,
+                    imageUrl: dataUrl,
+                    contentType: PANEL_CONTENT_KIND.IMAGE,
+                  }),
+                );
+                return updated;
+              }
+            }
+
+            const targetId =
+              canvasTextTargetsRef.current.mediaPanelElementId ??
+              defaultCanvasTextEditTargets(cur).mediaPanelElementId;
+
+            const updated = [...prev];
+            if (targetId) {
+              updated[index] = patchSlideMediaPanelByElementId(
+                cur,
+                targetId,
+                (m) => ({
+                  ...m,
+                  imageUrl: dataUrl,
+                  contentType: PANEL_CONTENT_KIND.IMAGE,
+                }),
+              );
+              return updated;
+            }
+
+            const nextElements = appendCanvasElementToScene(
+              cur,
+              scene.elements,
+              "mediaPanel",
+              {
+                mediaContentType: PANEL_CONTENT_KIND.IMAGE,
+                mediaPanelPayloadOverrides: {
+                  imageUrl: dataUrl,
+                  contentType: PANEL_CONTENT_KIND.IMAGE,
+                },
+              },
+            );
+            if (!nextElements) return prev;
+            updated[index] = syncSlideRootFromCanvas({
+              ...cur,
+              canvasScene: { ...scene, elements: nextElements },
+            });
+            return updated;
+          });
+          callbacks?.onAfterApply?.();
+        })();
+      };
+      reader.readAsDataURL(file);
+    },
+    [],
+  );
+
   const handleImageUpload = (file: File) => {
     if (!currentSlide) return;
-    const index = currentIndex;
-    const reader = new FileReader();
-    reader.onload = () => {
-      void (async () => {
-        let dataUrl = reader.result as string;
-        try {
-          dataUrl = await optimizeImageDataUrl(dataUrl);
-        } catch {
-          /* mantener original */
-        }
-        setSlides((prev) => {
-          const updated = [...prev];
-          const cur = updated[index];
-          if (!cur) return prev;
-          updated[index] = patchSlideMediaPanelByElementId(
-            cur,
-            canvasTextTargetsRef.current.mediaPanelElementId,
-            (m) => ({ ...m, imageUrl: dataUrl, contentType: PANEL_CONTENT_KIND.IMAGE }),
-          );
-          return updated;
-        });
-        setShowImageUploadModal(false);
-      })();
-    };
-    reader.readAsDataURL(file);
+    ingestImageFileOnCurrentSlide(file, "patchTargetPanel", undefined, {
+      onAfterApply: () => setShowImageUploadModal(false),
+    });
   };
 
   const openCodeGenModal = () => {
@@ -3528,6 +3636,7 @@ export function usePresentationState() {
     diagramFlushRef,
     isometricFlowFlushRef,
     diagramRemountToken,
+    captureWorkspaceSnapshot,
     flushDiagramPending,
     flushIsometricFlowPending,
     isEditing,
@@ -3646,6 +3755,7 @@ export function usePresentationState() {
     openImageModal,
     openImageUploadModal,
     handleImageUpload,
+    ingestImageFileOnCurrentSlide,
     hasGemini,
     hasOpenAI,
     hasXai,

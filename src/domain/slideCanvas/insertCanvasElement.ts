@@ -9,6 +9,7 @@ import {
   type SlideCanvasElement,
   type SlideCanvasElementKind,
   type SlideCanvasMediaPayload,
+  type SlideCanvasRect,
   type SlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
@@ -31,6 +32,10 @@ function mediaPayloadForNewPanel(
 export type AppendCanvasElementOptions = {
   /** Solo aplica al insertar `mediaPanel` en diapositivas de tipo contenido. */
   mediaContentType?: PanelContentKind;
+  /** Sustituye el rectángulo calculado (p. ej. soltar una imagen en una posición concreta). */
+  insertRectOverride?: SlideCanvasRect;
+  /** Se fusiona sobre el payload de media al crear un `mediaPanel`. */
+  mediaPanelPayloadOverrides?: Partial<SlideCanvasMediaPayload>;
 };
 
 function emptyTextPayloadForKind(kind: SlideCanvasElementKind): SlideCanvasTextPayload {
@@ -110,16 +115,19 @@ export function createCanvasElementForInsert(
   if (!canInsertCanvasElementKind(slide, kind)) return null;
 
   const sameKindCount = elements.filter((e) => e.kind === kind).length;
-  const ox = (sameKindCount % 4) * 3;
-  const oy = (sameKindCount % 3) * 2.5;
+  const useRectOverride = options?.insertRectOverride != null;
+  const ox = useRectOverride ? 0 : (sameKindCount % 4) * 3;
+  const oy = useRectOverride ? 0 : (sameKindCount % 3) * 2.5;
 
   const raw = defaultInsertRect(kind, slide);
-  const rect = clampCanvasRect({
-    x: raw.x + ox,
-    y: raw.y + oy,
-    w: raw.w,
-    h: raw.h,
-  });
+  const rect = useRectOverride
+    ? clampCanvasRect(options.insertRectOverride!)
+    : clampCanvasRect({
+        x: raw.x + ox,
+        y: raw.y + oy,
+        w: raw.w,
+        h: raw.h,
+      });
 
   const maxZ = elements.reduce((m, e) => Math.max(m, e.z), -1);
   const z = maxZ + 1;
@@ -146,10 +154,19 @@ export function createCanvasElementForInsert(
 
   if (kind === "mediaPanel" && slide.type === SLIDE_TYPE.CONTENT) {
     const contentType =
-      options?.mediaContentType ?? PANEL_CONTENT_KIND.IMAGE;
+      options?.mediaContentType ??
+      options?.mediaPanelPayloadOverrides?.contentType ??
+      PANEL_CONTENT_KIND.IMAGE;
+    const baseMedia = mediaPayloadForNewPanel(contentType);
+    const payload: SlideCanvasMediaPayload = {
+      ...baseMedia,
+      ...options?.mediaPanelPayloadOverrides,
+      type: "media",
+      contentType,
+    };
     return {
       ...base,
-      payload: mediaPayloadForNewPanel(contentType),
+      payload,
     };
   }
 

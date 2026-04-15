@@ -208,7 +208,12 @@ export function Canvas3DViewport({
           ],
           fov: 45,
         }}
-        gl={{ antialias: true, alpha: true, premultipliedAlpha: false }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          premultipliedAlpha: false,
+          preserveDrawingBuffer: true,
+        }}
         onCreated={({ gl, scene }) => {
           scene.background = null;
           gl.setClearColor(0x000000, 0);
