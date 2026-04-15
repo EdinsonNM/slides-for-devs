@@ -1043,15 +1043,17 @@ function CanvasElementEditor({
     }
     const captureEl =
       e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
-    attachDragThreshold(
-      id,
-      rect,
-      e.clientX,
-      e.clientY,
-      e.pointerId,
-      captureEl,
-      dragThresholdPx,
-    );
+    if (kind !== "isometricFlow") {
+      attachDragThreshold(
+        id,
+        rect,
+        e.clientX,
+        e.clientY,
+        e.pointerId,
+        captureEl,
+        dragThresholdPx,
+      );
+    }
   };
 
   const toolbarAiKinds: SlideCanvasElement["kind"][] = [

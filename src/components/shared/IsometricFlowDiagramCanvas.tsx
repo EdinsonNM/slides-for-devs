@@ -19,6 +19,7 @@ import {
   Heading,
   Image as ImageIcon,
   Link2,
+  Maximize2,
   Monitor,
   Plus,
   Repeat2,
@@ -833,6 +834,59 @@ function clientToSvg(
   return { x: p.x, y: p.y };
 }
 
+type IsoViewRect = { x: number; y: number; w: number; h: number };
+
+const ISO_VIEW_ASPECT = ISOMETRIC_VIEWBOX.h / ISOMETRIC_VIEWBOX.w;
+/** Zoom máximo (vista más cercana). */
+const ISO_VIEW_MIN_W = 72;
+/** No ampliar el encuadre más allá del lienzo completo. */
+const ISO_VIEW_MAX_W = ISOMETRIC_VIEWBOX.w;
+
+function defaultIsoViewRect(): IsoViewRect {
+  return {
+    x: 0,
+    y: 0,
+    w: ISOMETRIC_VIEWBOX.w,
+    h: ISOMETRIC_VIEWBOX.h,
+  };
+}
+
+function isoViewRectIsDefault(r: IsoViewRect): boolean {
+  return (
+    Math.abs(r.x) < 0.5 &&
+    Math.abs(r.y) < 0.5 &&
+    Math.abs(r.w - ISOMETRIC_VIEWBOX.w) < 0.5 &&
+    Math.abs(r.h - ISOMETRIC_VIEWBOX.h) < 0.5
+  );
+}
+
+/** Convierte deltaY del evento wheel a píxeles de línea (deltaMode 0/1/2). */
+function wheelDeltaYInPixels(ev: WheelEvent): number {
+  let dy = ev.deltaY;
+  if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
+  else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= 120;
+  return dy;
+}
+
+function zoomIsoViewTowardPoint(
+  prev: IsoViewRect,
+  sx: number,
+  sy: number,
+  deltaY: number,
+): IsoViewRect {
+  const zoomIntensity = 0.0014;
+  const factor = Math.exp(-deltaY * zoomIntensity);
+  let nw = prev.w / factor;
+  nw = Math.min(ISO_VIEW_MAX_W, Math.max(ISO_VIEW_MIN_W, nw));
+  const nh = nw * ISO_VIEW_ASPECT;
+  const nx = sx - ((sx - prev.x) / prev.w) * nw;
+  const ny = sy - ((sy - prev.y) / prev.h) * nh;
+  if (nw >= ISO_VIEW_MAX_W - 0.05) {
+    return defaultIsoViewRect();
+  }
+  return { x: nx, y: ny, w: nw, h: nh };
+}
+
 function IsoGridBackground({
   cell,
   ox,
@@ -910,6 +964,20 @@ export function IsometricFlowDiagramCanvas({
   onEditorSurfacePointerDown,
 }: IsometricFlowDiagramCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const [viewRect, setViewRect] = useState<IsoViewRect>(() => defaultIsoViewRect());
+  const viewRectRef = useRef<IsoViewRect>(viewRect);
+  viewRectRef.current = viewRect;
+  const [panDrag, setPanDrag] = useState<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startVx: number;
+    startVy: number;
+    startVw: number;
+    startVh: number;
+    /** Escala uniforme viewBox→pantalla (`meet`) al inicio del pan. */
+    viewCssScale: number;
+  } | null>(null);
   const uid = useId().replace(/:/g, "");
   const gradId = `${uid}-bg`;
   const shadowId = `${uid}-sh`;
@@ -1152,6 +1220,63 @@ export function IsometricFlowDiagramCanvas({
   }, [iconPickerOpen, iconSearchQuery, iconPickerPackFilter, iconPickerGroupByCategory]);
 
   useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (ev: WheelEvent) => {
+      ev.preventDefault();
+      const { x: sx, y: sy } = clientToSvg(svg, ev.clientX, ev.clientY);
+      const prev = viewRectRef.current;
+      const dy = wheelDeltaYInPixels(ev);
+      const next = zoomIsoViewTowardPoint(prev, sx, sy, dy);
+      viewRectRef.current = next;
+      setViewRect(next);
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, []);
+
+  useEffect(() => {
+    if (!panDrag) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const { pointerId } = panDrag;
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      const dcx = ev.clientX - panDrag.startClientX;
+      const dcy = ev.clientY - panDrag.startClientY;
+      const s = panDrag.viewCssScale;
+      const next: IsoViewRect = {
+        x: panDrag.startVx - dcx / s,
+        y: panDrag.startVy - dcy / s,
+        w: panDrag.startVw,
+        h: panDrag.startVh,
+      };
+      viewRectRef.current = next;
+      setViewRect(next);
+    };
+
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      setPanDrag(null);
+      try {
+        svg.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [panDrag]);
+
+  useEffect(() => {
     if (!selectedId) {
       setIconPickerOpen(false);
       setIconSearchQuery("");
@@ -1323,11 +1448,53 @@ export function IsometricFlowDiagramCanvas({
 
   const onSvgPointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
-      if (readOnly || e.button !== 0) return;
       e.stopPropagation();
       onEditorSurfacePointerDown?.();
       const svg = svgRef.current;
       if (!svg) return;
+
+      const startPan = (pointerId: number) => {
+        const vr = viewRectRef.current;
+        const r = svg.getBoundingClientRect();
+        const viewCssScale = Math.min(r.width / vr.w, r.height / vr.h);
+        setPanDrag({
+          pointerId,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startVx: vr.x,
+          startVy: vr.y,
+          startVw: vr.w,
+          startVh: vr.h,
+          viewCssScale: viewCssScale > 0 ? viewCssScale : 1,
+        });
+        svg.setPointerCapture(pointerId);
+      };
+
+      if (e.button === 1) {
+        e.preventDefault();
+        startPan(e.pointerId);
+        return;
+      }
+
+      if (readOnly) {
+        if (e.button === 0 && e.altKey) {
+          e.preventDefault();
+          startPan(e.pointerId);
+        }
+        return;
+      }
+
+      if (e.button === 0 && e.altKey) {
+        const { x, y } = clientToSvg(svg, e.clientX, e.clientY);
+        if (!pickNodeAt(x, y) && !pickLinkAt(x, y)) {
+          e.preventDefault();
+          startPan(e.pointerId);
+          return;
+        }
+      }
+
+      if (e.button !== 0) return;
+
       const { x, y } = clientToSvg(svg, e.clientX, e.clientY);
       const hit = pickNodeAt(x, y);
 
@@ -1385,6 +1552,12 @@ export function IsometricFlowDiagramCanvas({
     },
     [readOnly, connectFrom, data, emit, onEditorSurfacePointerDown, pickLinkAt, pickNodeAt],
   );
+
+  const resetIsoView = useCallback(() => {
+    const next = defaultIsoViewRect();
+    viewRectRef.current = next;
+    setViewRect(next);
+  }, []);
 
   useEffect(() => {
     if (readOnly || !drag) return;
@@ -1986,8 +2159,33 @@ export function IsometricFlowDiagramCanvas({
   );
 
   return (
-    <div className={cn("relative h-full min-h-0 w-full", className)}>
+    <div
+      className={cn("relative h-full min-h-0 w-full", className)}
+      onPointerDown={(e) => {
+        /* Block slide-canvas block drag / alignment overlay from this subtree. */
+        e.stopPropagation();
+      }}
+    >
       {toolbar}
+      <div className="pointer-events-none absolute bottom-2 right-2 z-10 flex max-w-[min(100%,260px)] flex-col items-end gap-1">
+        <div className="pointer-events-auto flex items-center gap-1 rounded-md border border-stone-200/90 bg-white/95 px-1.5 py-1 shadow-sm dark:border-border dark:bg-stone-900/95">
+          <button
+            type="button"
+            onClick={resetIsoView}
+            disabled={isoViewRectIsDefault(viewRect)}
+            title="Volver al encuadre completo (también restablece zoom y desplazamiento)"
+            aria-label="Encuadrar diagrama completo"
+            className={cn(
+              "inline-flex items-center justify-center rounded-md border border-stone-200 p-1.5 text-stone-700 hover:bg-stone-100 disabled:pointer-events-none disabled:opacity-35 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800",
+            )}
+          >
+            <Maximize2 size={15} strokeWidth={2} />
+          </button>
+        </div>
+        <p className="hidden text-right text-[10px] leading-snug text-stone-500 dark:text-stone-400 sm:block">
+          Rueda del ratón: zoom · Botón central o Alt y arrastrar: mover la vista
+        </p>
+      </div>
       {iconPickerOpen && selectedNode ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/45 p-3">
           <div className="flex h-[min(78vh,520px)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-2xl dark:border-border dark:bg-stone-900">
@@ -2154,9 +2352,12 @@ export function IsometricFlowDiagramCanvas({
       <svg
         ref={svgRef}
         role="img"
-        aria-label="Diagrama isométrico"
-        viewBox={`0 0 ${ISOMETRIC_VIEWBOX.w} ${ISOMETRIC_VIEWBOX.h}`}
-        className="h-full w-full touch-none select-none text-slate-900 dark:text-slate-100"
+        aria-label="Diagrama isométrico. Rueda del ratón para ampliar o reducir. Botón central o tecla Alt y arrastrar para desplazar la vista."
+        viewBox={`${viewRect.x} ${viewRect.y} ${viewRect.w} ${viewRect.h}`}
+        className={cn(
+          "h-full w-full touch-none select-none text-slate-900 dark:text-slate-100",
+          panDrag ? "cursor-grabbing" : "cursor-default",
+        )}
         preserveAspectRatio="xMidYMid meet"
         onPointerDown={onSvgPointerDown}
         onPointerMove={(e) => {
