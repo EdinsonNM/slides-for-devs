@@ -623,6 +623,10 @@ export function SlideCanvasSlide() {
   const scene = slide.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
   sceneElementsRef.current = sorted;
+  const canvasStackMaxZRank = sorted.reduce(
+    (m, e) => Math.max(m, Math.round(Number.isFinite(e.z) ? e.z : 0)),
+    0,
+  );
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     const t = e.target as HTMLElement;
@@ -783,6 +787,7 @@ export function SlideCanvasSlide() {
           openCodeGenModal={openCodeGenModal}
           deckContentTone={deckVisualTheme.contentTone}
           onDismissSlideCanvasSelection={dismissSlideCanvasSelection}
+          canvasStackMaxZRank={canvasStackMaxZRank}
         />
       ))}
     </div>
@@ -836,6 +841,7 @@ function CanvasElementEditor({
   deckContentTone,
   setCanvasTextEditTarget,
   onDismissSlideCanvasSelection,
+  canvasStackMaxZRank,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -909,6 +915,8 @@ function CanvasElementEditor({
     elementId: string,
   ) => void;
   onDismissSlideCanvasSelection: () => void;
+  /** Máximo `element.z` del lienzo: el seleccionado se apila por encima de todos (toolbar/cromo). */
+  canvasStackMaxZRank: number;
 }) {
   const tone = deckContentTone;
   const { theme: codeEditorTheme, toggleTheme: toggleCodeEditorTheme } =
@@ -981,12 +989,17 @@ function CanvasElementEditor({
   const sub =
     (isSelected ? CANVAS_Z_SUB_SELECTED : 0) +
     (!isSelected && isHovered ? CANVAS_Z_SUB_HOVER : 0);
+  const stackInLayer = zRank * CANVAS_Z_STRIDE + sub;
+  /** El seleccionado sube a un plano por encima del mayor `z` del resto para que cromo/toolbar no queden tapados. */
+  const zIndex = isSelected
+    ? (canvasStackMaxZRank + 1) * CANVAS_Z_STRIDE + zRank
+    : stackInLayer;
   const box: React.CSSProperties = {
     left: `${rect.x}%`,
     top: `${rect.y}%`,
     width: `${rect.w}%`,
     height: `${rect.h}%`,
-    zIndex: zRank * CANVAS_Z_STRIDE + sub,
+    zIndex,
   };
 
   const shellHoverProps = {
