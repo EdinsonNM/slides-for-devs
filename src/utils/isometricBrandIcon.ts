@@ -30,6 +30,12 @@ export function hrefFromSimpleIconRelativePath(relativePath: string): string {
   return tail ? `/simple-icons/${tail}` : "/simple-icons/";
 }
 
+/** Ruta bajo `public/lucide-icons/`. */
+export function hrefFromLucideIconRelativePath(relativePath: string): string {
+  const tail = encodePublicAssetRelativePath(relativePath);
+  return tail ? `/lucide-icons/${tail}` : "/lucide-icons/";
+}
+
 const LOBE_ICON_BASE = "/lobe-icons/icons";
 
 /**
@@ -38,12 +44,14 @@ const LOBE_ICON_BASE = "/lobe-icons/icons";
  * - Google Cloud pictograms: prefijo `g:` (`public/google-icons/manifest.json`).
  * - AWS / Amazon Architecture: prefijo `aws:` (`public/amazon-icons/manifest.json`).
  * - Simple Icons: prefijo `si:` (`public/simple-icons/manifest.json`).
+ * - Lucide (`public/lucide-icons/manifest.json`): prefijo `li:`.
  */
 export function resolveBrandIconHref(
   iconSlug: string | undefined,
   googleIdToPath: Readonly<Record<string, string>>,
   amazonIdToPath: Readonly<Record<string, string>> = {},
   simpleIconIdToPath: Readonly<Record<string, string>> = {},
+  lucideIconIdToPath: Readonly<Record<string, string>> = {},
 ): string {
   const s = (iconSlug ?? "openai").trim().toLowerCase();
   if (s.startsWith("g:")) {
@@ -59,6 +67,11 @@ export function resolveBrandIconHref(
   if (s.startsWith("si:")) {
     const rel = simpleIconIdToPath[s];
     if (rel) return hrefFromSimpleIconRelativePath(rel);
+    return `${LOBE_ICON_BASE}/openai.svg`;
+  }
+  if (s.startsWith("li:")) {
+    const rel = lucideIconIdToPath[s];
+    if (rel) return hrefFromLucideIconRelativePath(rel);
     return `${LOBE_ICON_BASE}/openai.svg`;
   }
   return `${LOBE_ICON_BASE}/${s}.svg`;

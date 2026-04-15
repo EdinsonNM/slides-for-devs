@@ -6,8 +6,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, "..");
 const iconsDir = path.join(repoRoot, "public", "simple-icons");
 
-/** Títulos canónicos desde el paquete `simple-icons` (opcional). */
-function loadTitleBySlug() {
+/** Metadatos canónicos (título + hex de marca) desde el paquete `simple-icons`. */
+function loadMetaBySlug() {
   const map = new Map();
   try {
     const raw = fs.readFileSync(
@@ -20,15 +20,16 @@ function loadTitleBySlug() {
       if (!x || typeof x.slug !== "string") continue;
       const slug = x.slug.trim().toLowerCase();
       const title = typeof x.title === "string" && x.title.trim() ? x.title.trim() : slug;
-      map.set(slug, title);
+      const hex = typeof x.hex === "string" && /^[0-9A-Fa-f]{6}$/.test(x.hex.trim()) ? x.hex.trim() : null;
+      map.set(slug, { title, hex });
     }
   } catch {
-    // Sin node_modules o JSON: solo etiquetas derivadas del slug.
+    // Sin node_modules o JSON.
   }
   return map;
 }
 
-const titleBySlug = loadTitleBySlug();
+const metaBySlug = loadMetaBySlug();
 
 const files = fs
   .readdirSync(iconsDir)
@@ -41,8 +42,11 @@ for (const file of files) {
   const slug = path.basename(file, path.extname(file)).trim().toLowerCase();
   if (!slug) continue;
   const id = `si:${slug}`;
-  const label = titleBySlug.get(slug) ?? slug.replace(/-/g, " ");
-  out.icons.push({ id, path: file, label });
+  const meta = metaBySlug.get(slug);
+  const label = meta?.title ?? slug.replace(/-/g, " ");
+  const entry = { id, path: file, label };
+  if (meta?.hex) entry.hex = meta.hex;
+  out.icons.push(entry);
 }
 
 fs.writeFileSync(path.join(iconsDir, "manifest.json"), JSON.stringify(out, null, 2), "utf8");

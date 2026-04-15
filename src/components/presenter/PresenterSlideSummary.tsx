@@ -47,7 +47,24 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
         ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
           <p className="text-stone-400 text-xs">Diagrama editable</p>
         ) : slide.type === SLIDE_TYPE.ISOMETRIC ? (
-          <p className="text-stone-400 text-xs">Diagrama isométrico</p>
+          <>
+            {slide.subtitle?.trim() ? (
+              <div className="line-clamp-2 min-h-0 overflow-hidden text-xs">
+                <SlideMarkdown className="prose-sm max-w-none normal-case dark:prose-invert">
+                  {slide.subtitle}
+                </SlideMarkdown>
+              </div>
+            ) : null}
+            <p className="text-stone-400 text-xs line-clamp-2 overflow-hidden">
+              {slide.content?.trim()
+                ? slide.content
+                    .replace(/#{1,6}\s/g, "")
+                    .replace(/\*\*/g, "")
+                    .slice(0, 100)
+                : "Diagrama isométrico"}
+              {(slide.content?.length ?? 0) > 100 ? "…" : ""}
+            </p>
+          </>
         ) : slide.type === SLIDE_TYPE.MATRIX ? (
           <p className="text-stone-400 text-xs line-clamp-2">
             Tabla · {slide.matrixData?.columnHeaders?.length ?? 0}×

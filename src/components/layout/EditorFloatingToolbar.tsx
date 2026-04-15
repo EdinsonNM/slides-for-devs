@@ -110,9 +110,12 @@ export function EditorFloatingToolbar({
   );
   const showMatrixToolbar = currentSlide?.type === SLIDE_TYPE.MATRIX;
   const showDiagramToolbar = currentSlide?.type === SLIDE_TYPE.DIAGRAM;
-  const insertableCanvasKinds = currentSlide
-    ? insertableCanvasElementKindsForSlide(currentSlide)
-    : [];
+  const insertableCanvasKinds =
+    currentSlide?.type === SLIDE_TYPE.ISOMETRIC
+      ? []
+      : currentSlide
+        ? insertableCanvasElementKindsForSlide(currentSlide)
+        : [];
   const showCanvasInsertToolbar = insertableCanvasKinds.length > 0;
 
   const barClass =

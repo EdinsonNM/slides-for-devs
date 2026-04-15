@@ -24,12 +24,19 @@ function emptyTextPayloadForKind(kind: SlideCanvasElementKind): SlideCanvasTextP
   return { type: "text", role: "body", markdown: "" };
 }
 
-function defaultInsertRect(kind: SlideCanvasElementKind): {
+function defaultInsertRect(
+  kind: SlideCanvasElementKind,
+  slide?: Slide,
+): {
   x: number;
   y: number;
   w: number;
   h: number;
 } {
+  if (slide?.type === SLIDE_TYPE.ISOMETRIC) {
+    if (kind === "title") return { x: 4, y: 3, w: 88, h: 11 };
+    if (kind === "markdown") return { x: 4, y: 76, w: 92, h: 20 };
+  }
   switch (kind) {
     case "title":
     case "chapterTitle":
@@ -57,6 +64,9 @@ export function insertableCanvasElementKindsForSlide(slide: Slide): SlideCanvasE
       return ["chapterTitle", "chapterSubtitle"];
     case SLIDE_TYPE.MATRIX:
       return ["title", "subtitle", "matrixNotes"];
+    case SLIDE_TYPE.ISOMETRIC:
+      /** Inserción desde el toolbar del diagrama (no se lista en la barra flotante inferior). */
+      return ["title", "markdown"];
     default:
       return [];
   }
@@ -83,7 +93,7 @@ export function createCanvasElementForInsert(
   const ox = (sameKindCount % 4) * 3;
   const oy = (sameKindCount % 3) * 2.5;
 
-  const raw = defaultInsertRect(kind);
+  const raw = defaultInsertRect(kind, slide);
   const rect = clampCanvasRect({
     x: raw.x + ox,
     y: raw.y + oy,

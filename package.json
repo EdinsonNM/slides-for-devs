@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "gen:simple-icons-manifest": "node scripts/gen-simple-icons-manifest.mjs",
+    "gen:lucide-icons-manifest": "node scripts/gen-lucide-icons-manifest.mjs",
     "lint": "tsc --noEmit",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

@@ -1,7 +1,30 @@
-import type { Slide } from "../entities";
+import { SLIDE_TYPE, type Slide } from "../entities";
 import { isSlideCanvasScene } from "../entities/SlideCanvas";
 import { migrateLegacySlideToCanvas } from "./migrateLegacySlideToCanvas";
+import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 import { upgradeSlideToBlockModel } from "./upgradeSlideToBlockModel";
+
+function isometricFlowNotFullBleed(iso: { rect: { x: number; y: number; w: number; h: number } }): boolean {
+  const { x, y, w, h } = iso.rect;
+  return x > 0.5 || y > 0.5 || w < 99 || h < 99;
+}
+
+/** Diagrama isométrico no a pantalla completa (p. ej. layout antiguo): restaura rect y z sin borrar bloques de texto. */
+function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
+  if (slide.type !== SLIDE_TYPE.ISOMETRIC) return slide;
+  const cs = slide.canvasScene;
+  if (!isSlideCanvasScene(cs) || cs.elements.length === 0) return slide;
+  const iso = cs.elements.find((e) => e.kind === "isometricFlow");
+  if (!iso || !isometricFlowNotFullBleed(iso)) return slide;
+  const others = cs.elements.filter((e) => e.kind !== "isometricFlow");
+  const isoFixed = {
+    ...iso,
+    rect: { x: 0, y: 0, w: 100, h: 100 },
+    z: -1,
+  };
+  const elements = normalizeCanvasElementsZOrder([isoFixed, ...others]);
+  return { ...slide, canvasScene: { ...cs, elements } };
+}
 
 /** Devuelve el slide con `canvasScene` válido (migra si falta o está corrupto) y modelo v2 por bloque. */
 export function ensureSlideCanvasScene(slide: Slide): Slide {
@@ -9,6 +32,8 @@ export function ensureSlideCanvasScene(slide: Slide): Slide {
   const cs = s.canvasScene;
   if (!isSlideCanvasScene(cs) || cs.elements.length === 0) {
     s = { ...s, canvasScene: migrateLegacySlideToCanvas(s) };
+  } else {
+    s = patchLegacyIsometricCanvasScene(s);
   }
   return upgradeSlideToBlockModel(s);
 }

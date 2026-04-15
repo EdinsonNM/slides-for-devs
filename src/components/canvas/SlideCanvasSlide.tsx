@@ -75,6 +75,9 @@ import {
 } from "../../utils/slideCanvasAlignmentSnap";
 
 const EDIT_FIELD_ATTR = "data-slide-edit-field";
+
+/** Bloques a pantalla completa: un clic en su interior debe deseleccionar otros bloques del lienzo. */
+const CANVAS_KIND_CLICK_PASSTHROUGH = new Set(["isometricFlow", "excalidraw"]);
 /** Solo esta franja inicia arrastre del panel con presentador 3D (el lienzo WebGL captura puntero y chocaba con el movimiento). */
 const CANVAS_DRAG_STRIP_ATTR = "data-slide-canvas-drag-strip";
 
@@ -603,6 +606,12 @@ export function SlideCanvasSlide() {
     });
   }, [isEditing, commitSlideEdits]);
 
+  const dismissSlideCanvasSelection = useCallback(() => {
+    flushCanvasTextCommitIfEditing();
+    setSelectedId(null);
+    setHoveredId(null);
+  }, [flushCanvasTextCommitIfEditing]);
+
   if (!currentSlide) {
     sceneElementsRef.current = [];
     return null;
@@ -615,10 +624,12 @@ export function SlideCanvasSlide() {
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     const t = e.target as HTMLElement;
-    if (t.closest("[data-slide-canvas-el]")) return;
-    flushCanvasTextCommitIfEditing();
-    setSelectedId(null);
-    setHoveredId(null);
+    const canvasHit = t.closest("[data-slide-canvas-el]");
+    if (canvasHit) {
+      const k = canvasHit.getAttribute("data-slide-canvas-kind");
+      if (!k || !CANVAS_KIND_CLICK_PASSTHROUGH.has(k)) return;
+    }
+    dismissSlideCanvasSelection();
   };
 
   const showIaToolbar = slide.type === SLIDE_TYPE.CONTENT;
@@ -791,6 +802,7 @@ export function SlideCanvasSlide() {
           setEditFontSize={setEditFontSize}
           openCodeGenModal={openCodeGenModal}
           deckContentTone={deckVisualTheme.contentTone}
+          onDismissSlideCanvasSelection={dismissSlideCanvasSelection}
         />
       ))}
     </div>
@@ -843,6 +855,7 @@ function CanvasElementEditor({
   openCodeGenModal,
   deckContentTone,
   setCanvasTextEditTarget,
+  onDismissSlideCanvasSelection,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -915,6 +928,7 @@ function CanvasElementEditor({
     field: "title" | "subtitle" | "content",
     elementId: string,
   ) => void;
+  onDismissSlideCanvasSelection: () => void;
 }) {
   const tone = deckContentTone;
   const { theme: codeEditorTheme, toggleTheme: toggleCodeEditorTheme } =
@@ -1050,7 +1064,9 @@ function CanvasElementEditor({
   ];
   const showToolbarAi =
     toolbarAiKinds.includes(kind) &&
-    (slide.type === SLIDE_TYPE.CONTENT || slide.type === SLIDE_TYPE.MATRIX);
+    (slide.type === SLIDE_TYPE.CONTENT ||
+      slide.type === SLIDE_TYPE.MATRIX ||
+      slide.type === SLIDE_TYPE.ISOMETRIC);
 
   const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
   const showMediaPanelImageActions =
@@ -1680,6 +1696,7 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-slide-canvas-kind="excalidraw"
           className={cn(outerShellClass, "bg-white dark:bg-surface-elevated")}
           {...shellHoverProps}
         >
@@ -1697,6 +1714,7 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-slide-canvas-kind="isometricFlow"
           className={cn(
             outerShellClass,
             "bg-transparent",
@@ -1704,7 +1722,9 @@ function CanvasElementEditor({
           {...shellHoverProps}
         >
           <div className="absolute inset-0 min-h-0">
-            <SlideContentIsometricFlow />
+            <SlideContentIsometricFlow
+              onEditorSurfacePointerDown={onDismissSlideCanvasSelection}
+            />
           </div>
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
         </div>

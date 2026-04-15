@@ -5,15 +5,24 @@ import {
   serializeIsometricFlowDiagram,
   type IsometricFlowDiagram,
 } from "../../domain/entities/IsometricFlowDiagram";
+import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas";
 
 const PERSIST_DEBOUNCE_MS = 200;
 
-export function SlideContentIsometricFlow() {
+export interface SlideContentIsometricFlowProps {
+  /** Clic en el SVG del diagrama (no burbujea al lienzo del slide). */
+  onEditorSurfacePointerDown?: () => void;
+}
+
+export function SlideContentIsometricFlow({
+  onEditorSurfacePointerDown,
+}: SlideContentIsometricFlowProps) {
   const {
     currentSlide,
     setCurrentSlideIsometricFlowData,
     isometricFlowFlushRef,
+    addCanvasElementToCurrentSlide,
   } = usePresentation();
   const pendingRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,6 +98,22 @@ export function SlideContentIsometricFlow() {
     [setCurrentSlideIsometricFlowData],
   );
 
+  const slideTextOverlayToolbar = useMemo(() => {
+    if (!currentSlide) return undefined;
+    const ensured = ensureSlideCanvasScene(currentSlide);
+    const els = ensured.canvasScene?.elements ?? [];
+    const hasTitle = els.some(
+      (e) => e.kind === "title" || e.kind === "chapterTitle",
+    );
+    const hasDescription = els.some((e) => e.kind === "markdown");
+    return {
+      onAddTitle: () => addCanvasElementToCurrentSlide("title"),
+      onAddDescription: () => addCanvasElementToCurrentSlide("markdown"),
+      disableTitle: hasTitle,
+      disableDescription: hasDescription,
+    };
+  }, [currentSlide, addCanvasElementToCurrentSlide]);
+
   if (!currentSlide) return null;
 
   return (
@@ -98,6 +123,8 @@ export function SlideContentIsometricFlow() {
         data={liveDiagram}
         onChange={handleChange}
         className="rounded-md"
+        slideTextOverlayToolbar={slideTextOverlayToolbar}
+        onEditorSurfacePointerDown={onEditorSurfacePointerDown}
       />
     </div>
   );

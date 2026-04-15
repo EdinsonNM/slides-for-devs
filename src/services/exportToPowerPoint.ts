@@ -224,18 +224,45 @@ function addSlideToPptx(pptx: PptxGenJS, slide: Slide): void {
   }
 
   if (slide.type === SLIDE_TYPE.ISOMETRIC) {
+    let y = 0.3;
     s.addText(slide.title || "Diagrama isométrico", {
       x: 0.5,
-      y: 0.3,
+      y,
       w: "90%",
-      h: 0.6,
+      h: 0.55,
       fontSize: 28,
       bold: true,
       fontFace: "Arial",
     });
+    y += 0.75;
+    const subPlain = markdownToPlainText(slide.subtitle || "").trim();
+    if (subPlain) {
+      s.addText(subPlain, {
+        x: 0.5,
+        y,
+        w: "90%",
+        h: 0.45,
+        fontSize: 16,
+        fontFace: "Arial",
+      });
+      y += 0.55;
+    }
+    const bodyPlain = markdownToPlainText(slide.content || "").trim();
+    if (bodyPlain) {
+      s.addText(bodyPlain, {
+        x: 0.5,
+        y,
+        w: "90%",
+        h: Math.min(2.8, 4.2 - y),
+        fontSize: 12,
+        fontFace: "Arial",
+        valign: "top",
+      });
+      y += Math.min(2.8, 4.2 - y) + 0.15;
+    }
     s.addText("(Diagrama isométrico – revisar en la app)", {
       x: 0.5,
-      y: 2.5,
+      y: Math.max(y, 2.5),
       w: "90%",
       h: 0.5,
       fontSize: 14,

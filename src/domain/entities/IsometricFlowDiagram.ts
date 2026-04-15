@@ -43,10 +43,78 @@ export interface IsometricFlowNode {
   /**
    * Icono de marca: slug Lobe (`public/lobe-icons/icons/{slug}.svg`), id Google
    * (`public/google-icons/manifest.json`, prefijo `g:`), id AWS
-   * (`public/amazon-icons/manifest.json`, prefijo `aws:`) o id Simple Icons
-   * (`public/simple-icons/manifest.json`, prefijo `si:`).
+   * (`public/amazon-icons/manifest.json`, prefijo `aws:`), id Simple Icons
+   * (`public/simple-icons/manifest.json`, prefijo `si:`) o id Lucide
+   * (`public/lucide-icons/manifest.json`, prefijo `li:`).
    */
   iconSlug?: string;
+  /**
+   * Simple Icons (`si:`) o Lucide (`li:`): sustituye el color por defecto del icono.
+   * Formato CSS: `#RRGGBB`, `rgb()` o `hsl()`.
+   */
+  brandIconColor?: string;
+}
+
+/** Desplazamiento en px del punto de ruta (codo o punto medio) respecto a la ortogonal automática. */
+export interface IsometricFlowLinkBendOffset {
+  x: number;
+  y: number;
+}
+
+export const ISOMETRIC_LINK_BEND_MAX = 520;
+
+export function clampLinkBendOffset(
+  x: number,
+  y: number,
+): IsometricFlowLinkBendOffset {
+  const m = ISOMETRIC_LINK_BEND_MAX;
+  return {
+    x: Math.max(-m, Math.min(m, x)),
+    y: Math.max(-m, Math.min(m, y)),
+  };
+}
+
+export function sanitizeLinkBendOffset(
+  raw: unknown,
+): IsometricFlowLinkBendOffset | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.x !== "number" || typeof o.y !== "number") return undefined;
+  if (!Number.isFinite(o.x) || !Number.isFinite(o.y)) return undefined;
+  const c = clampLinkBendOffset(o.x, o.y);
+  if (c.x === 0 && c.y === 0) return undefined;
+  return c;
+}
+
+/** Esquinas internas de la ruta en celdas isométricas (orden canónico id menor → id mayor). */
+export interface IsometricFlowRouteWaypoint {
+  gx: number;
+  gy: number;
+}
+
+const ISOMETRIC_ROUTE_WP_MAX = 32;
+
+export function sanitizeRouteWaypoints(
+  raw: unknown,
+): IsometricFlowRouteWaypoint[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  const out: IsometricFlowRouteWaypoint[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    if (
+      typeof o.gx !== "number" ||
+      typeof o.gy !== "number" ||
+      !Number.isFinite(o.gx) ||
+      !Number.isFinite(o.gy)
+    )
+      continue;
+    out.push({ gx: Math.round(o.gx), gy: Math.round(o.gy) });
+    if (out.length >= ISOMETRIC_ROUTE_WP_MAX) break;
+  }
+  if (out.length === 0) return undefined;
+  return out;
 }
 
 export interface IsometricFlowLink {
@@ -59,6 +127,16 @@ export interface IsometricFlowLink {
   reversed?: boolean;
   /** Estilo de animación del flujo en el conector. */
   animationStyle?: "dash" | "pulse";
+  /**
+   * Ajuste manual de la ruta: desplaza el codo (o el punto medio si el trazo es recto)
+   * en coordenadas de lienzo SVG respecto a la geometría automática.
+   */
+  bendOffset?: IsometricFlowLinkBendOffset;
+  /**
+   * Ruta ortogonal explícita en la rejilla (solo esquinas internas, orden canónico).
+   * Si existe, sustituye la ruta automática de un codo y el ajuste por `bendOffset`.
+   */
+  routeWaypoints?: IsometricFlowRouteWaypoint[];
 }
 
 /** Extremos efectivos del conector (tiene en cuenta `reversed`). */
@@ -103,11 +181,22 @@ export function dedupeIsometricFlowLinks(
 }
 
 const LINK_STROKE_MAX = 80;
+const BRAND_ICON_COLOR_MAX = 80;
 
 function sanitizeLinkStroke(raw: unknown): string | undefined {
   if (raw == null || typeof raw !== "string") return undefined;
   const s = raw.trim();
   if (s.length === 0 || s.length > LINK_STROKE_MAX) return undefined;
+  if (/^#[0-9A-Fa-f]{3,8}$/.test(s)) return s;
+  if (/^rgba?\(\s*[\d.\s%,]+\)$/i.test(s)) return s;
+  if (/^hsla?\(\s*[\d.\s%,]+\)$/i.test(s)) return s;
+  return undefined;
+}
+
+export function sanitizeBrandIconColor(raw: unknown): string | undefined {
+  if (raw == null || typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (s.length === 0 || s.length > BRAND_ICON_COLOR_MAX) return undefined;
   if (/^#[0-9A-Fa-f]{3,8}$/.test(s)) return s;
   if (/^rgba?\(\s*[\d.\s%,]+\)$/i.test(s)) return s;
   if (/^hsla?\(\s*[\d.\s%,]+\)$/i.test(s)) return s;
@@ -157,6 +246,7 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
       const label = typeof n.label === "string" ? n.label : "Bloque";
       const hue =
         isFiniteNumber(n.hue) ? Math.max(0, Math.min(360, Math.round(n.hue))) : 160;
+      const brandIconColor = sanitizeBrandIconColor(n.brandIconColor);
       nodes.push({
         id: n.id,
         gx: Math.round(n.gx),
@@ -167,6 +257,7 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
         ...(typeof n.iconSlug === "string" && n.iconSlug.trim()
           ? { iconSlug: n.iconSlug.trim().toLowerCase() }
           : {}),
+        ...(brandIconColor ? { brandIconColor } : {}),
       });
     }
     const links: IsometricFlowLink[] = [];
@@ -179,6 +270,8 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
       const stroke = sanitizeLinkStroke(l.stroke);
       const reversed =
         l.reversed === true || l.reversed === "true" || l.reversed === 1;
+      const bendOffset = sanitizeLinkBendOffset(l.bendOffset);
+      const routeWaypoints = sanitizeRouteWaypoints(l.routeWaypoints);
       links.push({
         id: l.id,
         from: l.from,
@@ -186,6 +279,8 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
         ...(stroke ? { stroke } : {}),
         ...(reversed ? { reversed: true } : {}),
         ...(l.animationStyle === "pulse" ? { animationStyle: "pulse" } : {}),
+        ...(bendOffset ? { bendOffset } : {}),
+        ...(routeWaypoints ? { routeWaypoints } : {}),
       });
     }
     if (nodes.length === 0) return fallback;

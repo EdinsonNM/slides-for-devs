@@ -27,7 +27,8 @@ export function isoGridToCanvas(
 }
 
 /** Punto en espacio de lienzo SVG → celda isométrica aproximada. */
-export function canvasToIsoGrid(
+/** Celda isométrica fraccionaria (sin redondear), útil para arrastres suaves. */
+export function canvasToIsoGridFloat(
   x: number,
   y: number,
   cell: number,
@@ -40,6 +41,17 @@ export function canvasToIsoGrid(
   const dy = (y - originY) / b;
   const gx = (dx + dy) / 2;
   const gy = (dy - dx) / 2;
+  return { gx, gy };
+}
+
+export function canvasToIsoGrid(
+  x: number,
+  y: number,
+  cell: number,
+  originX: number,
+  originY: number,
+): { gx: number; gy: number } {
+  const { gx, gy } = canvasToIsoGridFloat(x, y, cell, originX, originY);
   return { gx: Math.round(gx), gy: Math.round(gy) };
 }
 

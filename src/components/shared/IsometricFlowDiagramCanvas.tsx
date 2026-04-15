@@ -2,18 +2,21 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
   ArrowLeftRight,
-  BrainCircuit,
   Box,
   Circle,
   Cloud,
   Database,
+  FileText,
+  Heading,
   Image as ImageIcon,
   Link2,
   Monitor,
@@ -22,12 +25,12 @@ import {
   Smartphone,
   Trash2,
   Triangle,
-  UserRound,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 import {
   hrefFromAmazonIconRelativePath,
   hrefFromGoogleIconRelativePath,
+  hrefFromLucideIconRelativePath,
   hrefFromSimpleIconRelativePath,
   resolveBrandIconHref,
 } from "../../utils/isometricBrandIcon";
@@ -35,6 +38,7 @@ import {
   DEFAULT_ISOMETRIC_LINK_STROKE,
   dedupeIsometricFlowLinks,
   getResolvedLinkEndpoints,
+  sanitizeBrandIconColor,
   type IsometricFlowDiagram,
   type IsometricFlowLink,
   type IsometricFlowNode,
@@ -44,6 +48,7 @@ import {
   ISOMETRIC_VIEWBOX,
   arrowHeadPath,
   canvasToIsoGrid,
+  canvasToIsoGridFloat,
   distancePointToPolyline,
   isoDiamondAroundPoint,
   isoGridToCanvas,
@@ -69,6 +74,7 @@ const LABEL_PILL_H = 22;
 const LABEL_PILL_PAD_X = 10;
 const HIT_R = 42;
 const LINK_HIT_PX = 11;
+const LINK_SEG_HIT_STROKE = 22;
 const ARROW_TRIM = 13;
 const ARROW_SIZE = 9.5;
 const FLOW_DASH_LENGTH = 7;
@@ -77,6 +83,66 @@ const FLOW_DASH_SPAN = FLOW_DASH_LENGTH + FLOW_DASH_GAP;
 const FLOW_ANIMATION_SEC = 1.15;
 /** Miniaturas por página en el selector (evita miles de etiquetas img a la vez). */
 const ICON_PICKER_PAGE_SIZE = 140;
+/** Tinte por defecto para iconos Lucide (`li:`) en el lienzo y en el selector. */
+const LUCIDE_BRAND_ICON_FILL = "#475569";
+
+const PICKER_MASK_THUMB_STYLE: CSSProperties = {
+  maskSize: "contain",
+  WebkitMaskSize: "contain",
+  maskRepeat: "no-repeat",
+  WebkitMaskRepeat: "no-repeat",
+  maskPosition: "center",
+  WebkitMaskPosition: "center",
+  maskMode: "alpha",
+  WebkitMaskMode: "alpha",
+};
+
+function brandIconPickerThumbnail(
+  entry: BrandIconCatalogEntry,
+  simpleHexById: Record<string, string>,
+): ReactNode {
+  const maskUrl = `url("${entry.href.replace(/"/g, "%22")}")`;
+  if (entry.pack === "simpleicons") {
+    const hex = simpleHexById[entry.id];
+    if (hex) {
+      return (
+        <span
+          className="block h-8 w-8 shrink-0"
+          style={{
+            backgroundColor: hex,
+            WebkitMaskImage: maskUrl,
+            maskImage: maskUrl,
+            ...PICKER_MASK_THUMB_STYLE,
+          }}
+          aria-hidden
+        />
+      );
+    }
+  }
+  if (entry.pack === "lucide") {
+    return (
+      <span
+        className="block h-8 w-8 shrink-0"
+        style={{
+          backgroundColor: LUCIDE_BRAND_ICON_FILL,
+          WebkitMaskImage: maskUrl,
+          maskImage: maskUrl,
+          ...PICKER_MASK_THUMB_STYLE,
+        }}
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <img
+      src={entry.href}
+      alt=""
+      className="h-8 w-8 object-contain"
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
 
 const LINK_COLOR_PRESETS = [
   { label: "Azul", stroke: "rgb(37 99 235)", swatch: "rgb(37, 99, 235)" },
@@ -86,7 +152,7 @@ const LINK_COLOR_PRESETS = [
   { label: "Pizarra", stroke: "rgb(71 85 105)", swatch: "rgb(71, 85, 105)" },
 ] as const;
 
-type BrandIconPack = "google" | "amazon" | "simpleicons" | "lobe";
+type BrandIconPack = "google" | "amazon" | "simpleicons" | "lucide" | "lobe";
 
 type IconPickerPackFilter = "all" | BrandIconPack;
 
@@ -99,6 +165,7 @@ const ICON_PICKER_PACK_FILTERS: {
   { id: "google", label: "Google Cloud", aria: "Solo pictogramas Google Cloud" },
   { id: "amazon", label: "AWS", aria: "Solo iconos Amazon Web Services" },
   { id: "simpleicons", label: "Simple Icons", aria: "Solo iconos Simple Icons" },
+  { id: "lucide", label: "Lucide", aria: "Solo iconos Lucide" },
   { id: "lobe", label: "Lobe Icons", aria: "Solo iconos Lobe" },
 ];
 
@@ -115,6 +182,8 @@ function iconPickerPackChipClasses(id: IconPickerPackFilter, active: boolean): s
       return "border-amber-500 bg-amber-100 text-amber-950 dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-50";
     case "simpleicons":
       return "border-emerald-500 bg-emerald-100 text-emerald-950 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-50";
+    case "lucide":
+      return "border-rose-500 bg-rose-100 text-rose-950 dark:border-rose-500 dark:bg-rose-950/50 dark:text-rose-50";
     case "lobe":
       return "border-violet-500 bg-violet-100 text-violet-950 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-50";
     default:
@@ -135,7 +204,8 @@ function packSortOrder(p: BrandIconPack): number {
   if (p === "google") return 0;
   if (p === "amazon") return 1;
   if (p === "simpleicons") return 2;
-  return 3;
+  if (p === "lucide") return 3;
+  return 4;
 }
 
 function sortBrandIconCatalog(entries: BrandIconCatalogEntry[]): BrandIconCatalogEntry[] {
@@ -161,6 +231,7 @@ function packShortLabel(p: BrandIconPack): string {
   if (p === "google") return "Google Cloud";
   if (p === "amazon") return "AWS";
   if (p === "simpleicons") return "Simple Icons";
+  if (p === "lucide") return "Lucide";
   return "Lobe Icons";
 }
 
@@ -194,6 +265,22 @@ function categoryFromRelativePath(relPath: string, fallback: string): string {
 
 function hslFill(h: number, s: number, l: number) {
   return `hsl(${h} ${s}% ${l}%)`;
+}
+
+/** Normaliza hex de Simple Icons (`ABC` o `#abc`) a `#rrggbb` para `<input type="color">` y `fill`. */
+function normalizeSimpleIconHex(raw: string | undefined): string | undefined {
+  if (raw == null) return undefined;
+  let t = raw.trim();
+  if (!t) return undefined;
+  if (t.startsWith("#")) t = t.slice(1);
+  if (!/^[0-9A-Fa-f]{3}$/.test(t) && !/^[0-9A-Fa-f]{6}$/.test(t)) return undefined;
+  if (t.length === 3) {
+    const a = t[0]!;
+    const b = t[1]!;
+    const c = t[2]!;
+    t = `${a}${a}${b}${b}${c}${c}`;
+  }
+  return `#${t.toLowerCase()}`;
 }
 
 /** Prisma isométrico alineado a la cuadrícula (pie + caras + tapa). */
@@ -239,8 +326,6 @@ const NODE_SHAPE_TOOLBAR: {
   { value: "mobile", label: "Móvil", Icon: Smartphone },
   { value: "desktop", label: "PC / escritorio", Icon: Monitor },
   { value: "cloud", label: "Nube", Icon: Cloud },
-  { value: "llm", label: "LLM", Icon: BrainCircuit },
-  { value: "user", label: "Usuario", Icon: UserRound },
   { value: "brand", label: "Marca (SVG)", Icon: ImageIcon },
 ];
 
@@ -386,7 +471,254 @@ function linkStroke(l: IsometricFlowLink): string {
   return l.stroke ?? DEFAULT_ISOMETRIC_LINK_STROKE;
 }
 
-function linkPolylinePoints(
+type IsoGridPoint = { gx: number; gy: number };
+
+function dedupeIsoGridPath(points: IsoGridPoint[]): IsoGridPoint[] {
+  const out: IsoGridPoint[] = [];
+  for (const p of points) {
+    const prev = out[out.length - 1];
+    if (prev && prev.gx === p.gx && prev.gy === p.gy) continue;
+    out.push({ gx: p.gx, gy: p.gy });
+  }
+  return out;
+}
+
+function isoGridOrthogonalOk(seq: IsoGridPoint[]): boolean {
+  for (let i = 0; i < seq.length - 1; i++) {
+    const a = seq[i]!;
+    const b = seq[i + 1]!;
+    if (a.gx !== b.gx && a.gy !== b.gy) return false;
+  }
+  return true;
+}
+
+function classifyIsoCanonicalPath(
+  g: IsoGridPoint[],
+): "line" | "lGx" | "lGy" | "corridorGx" | "corridorGy" | "other" {
+  if (g.length < 2) return "other";
+  if (g.length === 2) return "line";
+  const s = g[0]!;
+  const t = g[g.length - 1]!;
+  if (g.length === 3) {
+    const w = g[1]!;
+    if (w.gy === s.gy && w.gx === t.gx && s.gx !== t.gx && s.gy !== t.gy) return "lGx";
+    if (w.gx === s.gx && w.gy === t.gy && s.gx !== t.gx && s.gy !== t.gy) return "lGy";
+    return "other";
+  }
+  if (g.length === 4) {
+    const a = g[0]!;
+    const b = g[1]!;
+    const c = g[2]!;
+    const d = g[3]!;
+    if (a.gy === b.gy && b.gy === c.gy && b.gx !== c.gx && c.gx === d.gx) return "corridorGx";
+    if (a.gx === b.gx && b.gx !== c.gx && b.gy === c.gy && c.gx === d.gx && d.gy !== b.gy)
+      return "corridorGy";
+  }
+  return "other";
+}
+
+function defaultRouteInternals(s: IsoGridPoint, t: IsoGridPoint): IsoGridPoint[] {
+  const dgx = t.gx - s.gx;
+  const dgy = t.gy - s.gy;
+  if (dgx === 0 || dgy === 0) return [];
+  return [{ gx: t.gx, gy: s.gy }];
+}
+
+function clampInt(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+/** Arrastra tramos internos (no tocan los extremos S/T). */
+function applyIsoLinkUniDrag(
+  g: IsoGridPoint[],
+  canonicalSegIndex: number,
+  sfx: number,
+  sfy: number,
+): IsoGridPoint[] | null {
+  const n = g.length;
+  if (n < 4) return null;
+  const si = canonicalSegIndex;
+  if (si <= 0 || si >= n - 2) return null;
+  const A = g[si]!;
+  const B = g[si + 1]!;
+  const loYB = Math.min(...g.map((p) => p.gy)) - 40;
+  const hiYB = Math.max(...g.map((p) => p.gy)) + 40;
+  const loXB = Math.min(...g.map((p) => p.gx)) - 40;
+  const hiXB = Math.max(...g.map((p) => p.gx)) + 40;
+  const out = [...g];
+  if (A.gy === B.gy && A.gx !== B.gx) {
+    const ng = clampInt(Math.round(sfy), loYB, hiYB);
+    out[si] = { gx: A.gx, gy: ng };
+    out[si + 1] = { gx: B.gx, gy: ng };
+    if (!isoGridOrthogonalOk(out)) return null;
+    return dedupeIsoGridPath(out);
+  }
+  if (A.gx === B.gx && A.gy !== B.gy) {
+    const ng = clampInt(Math.round(sfx), loXB, hiXB);
+    out[si] = { gx: ng, gy: A.gy };
+    out[si + 1] = { gx: ng, gy: B.gy };
+    if (!isoGridOrthogonalOk(out)) return null;
+    return dedupeIsoGridPath(out);
+  }
+  return null;
+}
+
+function applyIsoLinkCanonicalDrag(
+  g: IsoGridPoint[],
+  canonicalSegIndex: number,
+  sfx: number,
+  sfy: number,
+): IsoGridPoint[] | null {
+  const kind = classifyIsoCanonicalPath(g);
+  const s = g[0]!;
+  const t = g[g.length - 1]!;
+  const nseg = g.length - 1;
+  if (canonicalSegIndex < 0 || canonicalSegIndex >= nseg) return null;
+
+  const loX = Math.min(s.gx, t.gx);
+  const hiX = Math.max(s.gx, t.gx);
+  const loY = Math.min(s.gy, t.gy);
+  const hiY = Math.max(s.gy, t.gy);
+
+  if (kind === "line") return null;
+
+  if (kind === "lGx") {
+    if (canonicalSegIndex === 0) {
+      const k = clampInt(Math.round(sfx), loX, hiX);
+      if (k === t.gx) return dedupeIsoGridPath([s, { gx: t.gx, gy: s.gy }, t]);
+      return dedupeIsoGridPath([s, { gx: k, gy: s.gy }, { gx: t.gx, gy: s.gy }, t]);
+    }
+    if (canonicalSegIndex === 1) {
+      const k = clampInt(Math.round(sfy), loY, hiY);
+      if (k === s.gy) return dedupeIsoGridPath([s, { gx: t.gx, gy: s.gy }, t]);
+      return dedupeIsoGridPath([s, { gx: s.gx, gy: k }, { gx: t.gx, gy: k }, t]);
+    }
+    return null;
+  }
+  if (kind === "lGy") {
+    if (canonicalSegIndex === 0 || canonicalSegIndex === 1) {
+      const k = clampInt(Math.round(sfy), loY, hiY);
+      if (k === t.gy) return dedupeIsoGridPath([s, { gx: s.gx, gy: t.gy }, t]);
+      return dedupeIsoGridPath([s, { gx: s.gx, gy: k }, { gx: t.gx, gy: k }, t]);
+    }
+    return null;
+  }
+  if (kind === "corridorGx") {
+    if (canonicalSegIndex === 2) return null;
+    const sy = g[1]!.gy;
+    const k = clampInt(Math.round(sfx), loX, hiX);
+    if (k === t.gx) return dedupeIsoGridPath([s, { gx: t.gx, gy: sy }, t]);
+    return dedupeIsoGridPath([s, { gx: k, gy: sy }, { gx: t.gx, gy: sy }, t]);
+  }
+  if (kind === "corridorGy") {
+    if (canonicalSegIndex === 2) return null;
+    const sx0 = g[0]!.gx;
+    const tx0 = g[2]!.gx;
+    const k = clampInt(Math.round(sfy), loY, hiY);
+    if (k === t.gy) return dedupeIsoGridPath([s, { gx: sx0, gy: t.gy }, t]);
+    return dedupeIsoGridPath([s, { gx: sx0, gy: k }, { gx: tx0, gy: k }, t]);
+  }
+  return null;
+}
+
+/** Inserta un vértice en la rejilla sobre un tramo (subdivide la arista). */
+function insertWaypointOnCanonicalSegment(
+  g: IsoGridPoint[],
+  canonicalSegIndex: number,
+  sfx: number,
+  sfy: number,
+): IsoGridPoint[] | null {
+  const n = g.length;
+  if (canonicalSegIndex < 0 || canonicalSegIndex >= n - 1) return null;
+  const A = g[canonicalSegIndex]!;
+  const B = g[canonicalSegIndex + 1]!;
+  if (A.gy === B.gy && A.gx !== B.gx) {
+    const lo = Math.min(A.gx, B.gx);
+    const hi = Math.max(A.gx, B.gx);
+    const midGx = clampInt(Math.round(sfx), lo, hi);
+    if (midGx === A.gx || midGx === B.gx) return null;
+    const p: IsoGridPoint = { gx: midGx, gy: A.gy };
+    return dedupeIsoGridPath([
+      ...g.slice(0, canonicalSegIndex + 1),
+      p,
+      ...g.slice(canonicalSegIndex + 1),
+    ]);
+  }
+  if (A.gx === B.gx && A.gy !== B.gy) {
+    const lo = Math.min(A.gy, B.gy);
+    const hi = Math.max(A.gy, B.gy);
+    const midGy = clampInt(Math.round(sfy), lo, hi);
+    if (midGy === A.gy || midGy === B.gy) return null;
+    const p: IsoGridPoint = { gx: A.gx, gy: midGy };
+    return dedupeIsoGridPath([
+      ...g.slice(0, canonicalSegIndex + 1),
+      p,
+      ...g.slice(canonicalSegIndex + 1),
+    ]);
+  }
+  return null;
+}
+
+function displaySegToCanonical(
+  displaySeg: number,
+  nPoints: number,
+  sourceIsCanonicalFirst: boolean,
+): number {
+  const nSeg = nPoints - 1;
+  if (sourceIsCanonicalFirst) return displaySeg;
+  return nSeg - 1 - displaySeg;
+}
+
+function sourceIsCanonicalFirstLink(
+  l: IsometricFlowLink,
+  nodes: IsometricFlowNode[],
+): boolean {
+  const { source, target } = getResolvedLinkEndpoints(l);
+  const sn = nodes.find((n) => n.id === source);
+  const tn = nodes.find((n) => n.id === target);
+  if (!sn || !tn) return true;
+  const cFirst = sn.id <= tn.id ? sn : tn;
+  return cFirst.id === source;
+}
+
+function linkCanonicalFullGridPath(
+  l: IsometricFlowLink,
+  nodes: IsometricFlowNode[],
+): IsoGridPoint[] | null {
+  const dir = getResolvedLinkEndpoints(l);
+  const sourceNode = nodes.find((n) => n.id === dir.source);
+  const targetNode = nodes.find((n) => n.id === dir.target);
+  if (!sourceNode || !targetNode) return null;
+  const canonicalStart =
+    sourceNode.id <= targetNode.id ? sourceNode : targetNode;
+  const canonicalEnd =
+    sourceNode.id <= targetNode.id ? targetNode : sourceNode;
+  const s: IsoGridPoint = { gx: canonicalStart.gx, gy: canonicalStart.gy };
+  const t: IsoGridPoint = { gx: canonicalEnd.gx, gy: canonicalEnd.gy };
+  const def = defaultRouteInternals(s, t);
+  let internals: IsoGridPoint[];
+  if (l.routeWaypoints != null && l.routeWaypoints.length > 0) {
+    internals = l.routeWaypoints.map((p) => ({
+      gx: Math.round(p.gx),
+      gy: Math.round(p.gy),
+    }));
+  } else {
+    internals = [...def];
+  }
+  let full = dedupeIsoGridPath([s, ...internals, t]);
+  const endsOk =
+    full.length >= 2 &&
+    full[0]!.gx === s.gx &&
+    full[0]!.gy === s.gy &&
+    full[full.length - 1]!.gx === t.gx &&
+    full[full.length - 1]!.gy === t.gy;
+  if (!isoGridOrthogonalOk(full) || !endsOk) {
+    full = dedupeIsoGridPath([s, ...def, t]);
+  }
+  return full;
+}
+
+function linkPolylinePointsNoBend(
   l: IsometricFlowLink,
   nodes: IsometricFlowNode[],
 ): { x: number; y: number }[] | null {
@@ -427,6 +759,59 @@ function linkPolylinePoints(
     return [...canonicalPoints].reverse();
   }
   return canonicalPoints;
+}
+
+function applyLinkBendToPoints(
+  pts: { x: number; y: number }[],
+  bend: { x: number; y: number },
+): { x: number; y: number }[] {
+  if (pts.length === 3) {
+    const a = pts[0]!;
+    const b = pts[1]!;
+    const c = pts[2]!;
+    return [a, { x: b.x + bend.x, y: b.y + bend.y }, c];
+  }
+  if (pts.length === 2) {
+    const a = pts[0]!;
+    const b = pts[1]!;
+    return [
+      a,
+      {
+        x: (a.x + b.x) / 2 + bend.x,
+        y: (a.y + b.y) / 2 + bend.y,
+      },
+      b,
+    ];
+  }
+  return pts;
+}
+
+function linkPolylinePoints(
+  l: IsometricFlowLink,
+  nodes: IsometricFlowNode[],
+): { x: number; y: number }[] | null {
+  const dir = getResolvedLinkEndpoints(l);
+  const sourceNode = nodes.find((n) => n.id === dir.source);
+  const targetNode = nodes.find((n) => n.id === dir.target);
+  if (!sourceNode || !targetNode) return null;
+  const canonicalStart =
+    sourceNode.id <= targetNode.id ? sourceNode : targetNode;
+
+  if (!l.routeWaypoints?.length && l.bendOffset) {
+    const base = linkPolylinePointsNoBend(l, nodes);
+    if (!base) return null;
+    return applyLinkBendToPoints(base, l.bendOffset);
+  }
+
+  const G = linkCanonicalFullGridPath(l, nodes);
+  if (!G) return null;
+  let canvas = G.map((p) =>
+    nodeSlabTop(p.gx, p.gy, CELL, ORIGIN_X, ORIGIN_Y, SLAB_TOP_RISE),
+  );
+  if (sourceNode.id !== canonicalStart.id) {
+    canvas = [...canvas].reverse();
+  }
+  return canvas;
 }
 
 function labelPillWidth(text: string): number {
@@ -494,11 +879,26 @@ function IsoGridBackground({
   return <g aria-hidden>{lines}</g>;
 }
 
+/** Añade bloques de título / descripción al lienzo del slide (toolbar del diagrama). */
+export interface IsometricSlideTextOverlayToolbar {
+  onAddTitle: () => void;
+  onAddDescription: () => void;
+  disableTitle: boolean;
+  disableDescription: boolean;
+}
+
 export interface IsometricFlowDiagramCanvasProps {
   data: IsometricFlowDiagram;
   readOnly?: boolean;
   className?: string;
   onChange?: (next: IsometricFlowDiagram) => void;
+  /** Solo edición: botones para insertar título y texto en el lienzo 16:9 encima del diagrama. */
+  slideTextOverlayToolbar?: IsometricSlideTextOverlayToolbar;
+  /**
+   * El SVG hace `stopPropagation` en pointerdown; el padre usa esto para quitar selección
+   * de bloques de texto superpuestos al hacer clic en el diagrama.
+   */
+  onEditorSurfacePointerDown?: () => void;
 }
 
 export function IsometricFlowDiagramCanvas({
@@ -506,6 +906,8 @@ export function IsometricFlowDiagramCanvas({
   readOnly = false,
   className,
   onChange,
+  slideTextOverlayToolbar,
+  onEditorSurfacePointerDown,
 }: IsometricFlowDiagramCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const uid = useId().replace(/:/g, "");
@@ -522,6 +924,8 @@ export function IsometricFlowDiagramCanvas({
   const [googleIconPathById, setGoogleIconPathById] = useState<Record<string, string>>({});
   const [amazonIconPathById, setAmazonIconPathById] = useState<Record<string, string>>({});
   const [simpleIconPathById, setSimpleIconPathById] = useState<Record<string, string>>({});
+  const [simpleIconHexById, setSimpleIconHexById] = useState<Record<string, string>>({});
+  const [lucideIconPathById, setLucideIconPathById] = useState<Record<string, string>>({});
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [iconSearchQuery, setIconSearchQuery] = useState("");
   const [iconPickerPackFilter, setIconPickerPackFilter] = useState<IconPickerPackFilter>("all");
@@ -532,6 +936,11 @@ export function IsometricFlowDiagramCanvas({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+  const [linkSegDrag, setLinkSegDrag] = useState<{
+    linkId: string;
+    /** Índice del tramo en orden canónico (id menor → id mayor), fijado al pulsar. */
+    canonicalSegIndex: number;
+  } | null>(null);
 
   const emit = useCallback(
     (next: IsometricFlowDiagram) => {
@@ -541,7 +950,9 @@ export function IsometricFlowDiagramCanvas({
   );
 
   const dataRef = useRef(data);
-  dataRef.current = data;
+  if (!linkSegDrag) {
+    dataRef.current = data;
+  }
   const emitRef = useRef(emit);
   emitRef.current = emit;
 
@@ -552,8 +963,16 @@ export function IsometricFlowDiagramCanvas({
       fetch("/google-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
       fetch("/amazon-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
       fetch("/simple-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
+      fetch("/lucide-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([lobeList, googleDoc, amazonDoc, simpleDoc]: [unknown, unknown, unknown, unknown]) => {
+      .then(
+        ([lobeList, googleDoc, amazonDoc, simpleDoc, lucideDoc]: [
+          unknown,
+          unknown,
+          unknown,
+          unknown,
+          unknown,
+        ]) => {
         if (!alive) return;
         const googlePathById: Record<string, string> = {};
         const googleEntries: BrandIconCatalogEntry[] = [];
@@ -614,6 +1033,7 @@ export function IsometricFlowDiagramCanvas({
         }
 
         const simplePathById: Record<string, string> = {};
+        const simpleHexById: Record<string, string> = {};
         const simpleEntries: BrandIconCatalogEntry[] = [];
         if (simpleDoc && typeof simpleDoc === "object") {
           const icons = (simpleDoc as { icons?: unknown }).icons;
@@ -626,6 +1046,10 @@ export function IsometricFlowDiagramCanvas({
               const relPath = o.path.trim();
               if (!id || !relPath) continue;
               simplePathById[id] = relPath;
+              if (typeof o.hex === "string") {
+                const hx = normalizeSimpleIconHex(o.hex);
+                if (hx) simpleHexById[id] = hx;
+              }
               const label =
                 typeof o.label === "string" && o.label.trim()
                   ? o.label.trim()
@@ -636,6 +1060,38 @@ export function IsometricFlowDiagramCanvas({
                 href: hrefFromSimpleIconRelativePath(relPath),
                 pack: "simpleicons",
                 category: "Simple Icons",
+              });
+            }
+          }
+        }
+
+        const lucidePathById: Record<string, string> = {};
+        const lucideEntries: BrandIconCatalogEntry[] = [];
+        if (lucideDoc && typeof lucideDoc === "object") {
+          const icons = (lucideDoc as { icons?: unknown }).icons;
+          if (Array.isArray(icons)) {
+            for (const raw of icons) {
+              if (!raw || typeof raw !== "object") continue;
+              const o = raw as Record<string, unknown>;
+              if (typeof o.id !== "string" || typeof o.path !== "string") continue;
+              const id = o.id.trim().toLowerCase();
+              const relPath = o.path.trim();
+              if (!id || !relPath) continue;
+              lucidePathById[id] = relPath;
+              const label =
+                typeof o.label === "string" && o.label.trim()
+                  ? o.label.trim()
+                  : id.replace(/^li:/, "").replace(/-/g, " ");
+              const cat =
+                typeof o.category === "string" && o.category.trim()
+                  ? o.category.trim()
+                  : "Lucide";
+              lucideEntries.push({
+                id,
+                label,
+                href: hrefFromLucideIconRelativePath(relPath),
+                pack: "lucide",
+                category: cat,
               });
             }
           }
@@ -658,11 +1114,14 @@ export function IsometricFlowDiagramCanvas({
         setGoogleIconPathById(googlePathById);
         setAmazonIconPathById(amazonPathById);
         setSimpleIconPathById(simplePathById);
+        setSimpleIconHexById(simpleHexById);
+        setLucideIconPathById(lucidePathById);
         setBrandIconCatalog(
           sortBrandIconCatalog([
             ...googleEntries,
             ...amazonEntries,
             ...simpleEntries,
+            ...lucideEntries,
             ...lobeEntries,
           ]),
         );
@@ -672,6 +1131,8 @@ export function IsometricFlowDiagramCanvas({
         setGoogleIconPathById({});
         setAmazonIconPathById({});
         setSimpleIconPathById({});
+        setSimpleIconHexById({});
+        setLucideIconPathById({});
         setBrandIconCatalog([]);
       });
     return () => {
@@ -739,7 +1200,8 @@ export function IsometricFlowDiagramCanvas({
         e.category.toLowerCase().includes(q) ||
         e.id.replace(/^g:/, "").includes(q) ||
         e.id.replace(/^aws:/, "").includes(q) ||
-        e.id.replace(/^si:/, "").includes(q),
+        e.id.replace(/^si:/, "").includes(q) ||
+        e.id.replace(/^li:/, "").includes(q),
     );
     return sortBrandIconCatalog(matched);
   }, [brandIconCatalog, brandIconCatalogByPack, iconSearchQuery]);
@@ -863,6 +1325,7 @@ export function IsometricFlowDiagramCanvas({
     (e: React.PointerEvent<SVGSVGElement>) => {
       if (readOnly || e.button !== 0) return;
       e.stopPropagation();
+      onEditorSurfacePointerDown?.();
       const svg = svgRef.current;
       if (!svg) return;
       const { x, y } = clientToSvg(svg, e.clientX, e.clientY);
@@ -920,7 +1383,7 @@ export function IsometricFlowDiagramCanvas({
       setSelectedLinkId(null);
       setConnectFrom(null);
     },
-    [readOnly, connectFrom, data, emit, pickLinkAt, pickNodeAt],
+    [readOnly, connectFrom, data, emit, onEditorSurfacePointerDown, pickLinkAt, pickNodeAt],
   );
 
   useEffect(() => {
@@ -954,10 +1417,74 @@ export function IsometricFlowDiagramCanvas({
     };
   }, [readOnly, drag]);
 
+  useLayoutEffect(() => {
+    if (readOnly || !linkSegDrag) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const { linkId, canonicalSegIndex } = linkSegDrag;
+
+    const onMove = (ev: PointerEvent) => {
+      const { x, y } = clientToSvg(svg, ev.clientX, ev.clientY);
+      const { gx: sfx, gy: sfy } = canvasToIsoGridFloat(
+        x,
+        y,
+        CELL,
+        ORIGIN_X,
+        ORIGIN_Y,
+      );
+
+      const d = dataRef.current;
+      const link = d.links.find((ll) => ll.id === linkId);
+      if (!link) return;
+
+      const flat =
+        link.bendOffset &&
+        (!link.routeWaypoints || link.routeWaypoints.length === 0)
+          ? { ...link, bendOffset: undefined }
+          : link;
+      const G = linkCanonicalFullGridPath(flat, d.nodes);
+      if (!G || G.length < 2) return;
+
+      const nextFull =
+        applyIsoLinkUniDrag(G, canonicalSegIndex, sfx, sfy) ??
+        applyIsoLinkCanonicalDrag(G, canonicalSegIndex, sfx, sfy);
+      if (!nextFull) return;
+
+      const internals = nextFull.slice(1, -1);
+      const nextDiagram: IsometricFlowDiagram = {
+        ...d,
+        links: d.links.map((ll) => {
+          if (ll.id !== linkId) return ll;
+          const { bendOffset: _b, routeWaypoints: _rw, ...rest } = ll;
+          return {
+            ...rest,
+            ...(internals.length > 0 ? { routeWaypoints: internals } : {}),
+          };
+        }),
+      };
+      dataRef.current = nextDiagram;
+      emitRef.current(nextDiagram);
+    };
+
+    const onUp = () => {
+      setLinkSegDrag(null);
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [readOnly, linkSegDrag]);
+
   const onSvgDoubleClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       if (readOnly) return;
       e.stopPropagation();
+      if (editingId !== null) return;
       const svg = svgRef.current;
       if (!svg) return;
       const { x, y } = clientToSvg(svg, e.clientX, e.clientY);
@@ -981,7 +1508,7 @@ export function IsometricFlowDiagramCanvas({
       setSelectedId(id);
       setSelectedLinkId(null);
     },
-    [readOnly, data, emit, pickNodeAt],
+    [readOnly, editingId, data, emit, pickNodeAt],
   );
 
   const setLinkStrokeColor = useCallback(
@@ -1007,6 +1534,66 @@ export function IsometricFlowDiagramCanvas({
       links: dedupeIsometricFlowLinks(nextLinks, selectedLinkId),
     });
   }, [data, emit, selectedLinkId]);
+
+  const resetLinkBend = useCallback(() => {
+    if (!selectedLinkId) return;
+    emit({
+      ...data,
+      links: data.links.map((ll) => {
+        if (ll.id !== selectedLinkId) return ll;
+        const { bendOffset: _b, routeWaypoints: _r, ...rest } = ll;
+        return rest;
+      }),
+    });
+  }, [data, emit, selectedLinkId]);
+
+  const splitLinkAtDisplaySegment = useCallback(
+    (linkIdForSplit: string, displaySegIndex: number, clientX: number, clientY: number) => {
+      if (readOnly) return;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const { x, y } = clientToSvg(svg, clientX, clientY);
+      const { gx: sfx, gy: sfy } = canvasToIsoGridFloat(
+        x,
+        y,
+        CELL,
+        ORIGIN_X,
+        ORIGIN_Y,
+      );
+      const d = dataRef.current;
+      const link = d.links.find((ll) => ll.id === linkIdForSplit);
+      if (!link) return;
+      const flat =
+        link.bendOffset &&
+        (!link.routeWaypoints || link.routeWaypoints.length === 0)
+          ? { ...link, bendOffset: undefined }
+          : link;
+      const G = linkCanonicalFullGridPath(flat, d.nodes);
+      if (!G || G.length < 2) return;
+      const srcFirst = sourceIsCanonicalFirstLink(link, d.nodes);
+      const canonicalSeg = displaySegToCanonical(
+        displaySegIndex,
+        G.length,
+        srcFirst,
+      );
+      const nextFull = insertWaypointOnCanonicalSegment(G, canonicalSeg, sfx, sfy);
+      if (!nextFull) return;
+      const internals = nextFull.slice(1, -1);
+      if (internals.length > 32) return;
+      emit({
+        ...d,
+        links: d.links.map((ll) => {
+          if (ll.id !== linkIdForSplit) return ll;
+          const { bendOffset: _b, routeWaypoints: _rw, ...rest } = ll;
+          return {
+            ...rest,
+            routeWaypoints: internals,
+          };
+        }),
+      });
+    },
+    [emit, readOnly],
+  );
 
   const toggleLinkAnimationStyle = useCallback(() => {
     if (!selectedLinkId) return;
@@ -1052,6 +1639,15 @@ export function IsometricFlowDiagramCanvas({
       from: target,
       to: source,
       ...(selected.stroke ? { stroke: selected.stroke } : {}),
+      ...(selected.bendOffset ? { bendOffset: { ...selected.bendOffset } } : {}),
+      ...(selected.routeWaypoints?.length
+        ? {
+            routeWaypoints: selected.routeWaypoints.map((p) => ({
+              gx: p.gx,
+              gy: p.gy,
+            })),
+          }
+        : {}),
     };
     emit({
       ...data,
@@ -1104,9 +1700,29 @@ export function IsometricFlowDiagramCanvas({
                 ...nn,
                 shape: "brand",
                 ...(clean ? { iconSlug: clean } : { iconSlug: "openai" }),
+                brandIconColor: undefined,
               }
             : nn,
         ),
+      });
+    },
+    [data, emit, selectedId],
+  );
+
+  const setSelectedNodeBrandIconColor = useCallback(
+    (cssColor: string | null) => {
+      if (!selectedId) return;
+      const sanitized = cssColor != null ? sanitizeBrandIconColor(cssColor) : undefined;
+      emit({
+        ...data,
+        nodes: data.nodes.map((nn) => {
+          if (nn.id !== selectedId) return nn;
+          if (!sanitized) {
+            const { brandIconColor: _c, ...rest } = nn;
+            return rest;
+          }
+          return { ...nn, brandIconColor: sanitized };
+        }),
       });
     },
     [data, emit, selectedId],
@@ -1119,6 +1735,7 @@ export function IsometricFlowDiagramCanvas({
         setConnectFrom(null);
         setEditingId(null);
         setSelectedLinkId(null);
+        setLinkSegDrag(null);
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
@@ -1177,6 +1794,48 @@ export function IsometricFlowDiagramCanvas({
         <Trash2 size={14} />
         Quitar
       </button>
+      {slideTextOverlayToolbar ? (
+        <div
+          className="flex flex-wrap items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600"
+          role="group"
+          aria-label="Texto en el lienzo"
+        >
+          <button
+            type="button"
+            onClick={slideTextOverlayToolbar.onAddTitle}
+            disabled={slideTextOverlayToolbar.disableTitle}
+            title={
+              slideTextOverlayToolbar.disableTitle
+                ? "Ya hay un título en el lienzo"
+                : "Añadir bloque de título al lienzo"
+            }
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700",
+              slideTextOverlayToolbar.disableTitle && "pointer-events-none opacity-40",
+            )}
+          >
+            <Heading size={14} />
+            Título
+          </button>
+          <button
+            type="button"
+            onClick={slideTextOverlayToolbar.onAddDescription}
+            disabled={slideTextOverlayToolbar.disableDescription}
+            title={
+              slideTextOverlayToolbar.disableDescription
+                ? "Ya hay un bloque de descripción"
+                : "Añadir bloque de descripción (markdown) al lienzo"
+            }
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700",
+              slideTextOverlayToolbar.disableDescription && "pointer-events-none opacity-40",
+            )}
+          >
+            <FileText size={14} />
+            Descripción
+          </button>
+        </div>
+      ) : null}
       {selectedId && !selectedLinkId && (
         <div
           className="flex flex-wrap items-center gap-0.5 border-l border-stone-200 pl-1.5 dark:border-stone-600"
@@ -1209,7 +1868,7 @@ export function IsometricFlowDiagramCanvas({
         </div>
       )}
       {selectedId && !selectedLinkId ? (
-        <div className="flex items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600">
+        <div className="flex flex-wrap items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600">
           <button
             type="button"
             onClick={() => setIconPickerOpen(true)}
@@ -1219,6 +1878,44 @@ export function IsometricFlowDiagramCanvas({
             <ImageIcon size={13} />
             Cambiar icono
           </button>
+          {selectedNode?.shape === "brand" &&
+          (() => {
+            const slug = (selectedNode.iconSlug ?? "").trim().toLowerCase();
+            return slug.startsWith("si:") || slug.startsWith("li:");
+          })() ? (
+            <>
+              <label className="inline-flex items-center gap-1 text-[10px] font-medium text-stone-600 dark:text-stone-300">
+                <span className="hidden sm:inline">Color</span>
+                <input
+                  type="color"
+                  className="h-7 w-8 cursor-pointer rounded border border-stone-200 bg-white p-0 dark:border-stone-600"
+                  title="Color del icono (Simple Icons o Lucide)"
+                  aria-label="Color del icono de marca"
+                  value={(() => {
+                    const s = (selectedNode.iconSlug ?? "").trim().toLowerCase();
+                    const catSi = s.startsWith("si:") ? simpleIconHexById[s] : undefined;
+                    const catLi = s.startsWith("li:") ? LUCIDE_BRAND_ICON_FILL : undefined;
+                    const cat = catSi ?? catLi;
+                    const ov = selectedNode.brandIconColor
+                      ? sanitizeBrandIconColor(selectedNode.brandIconColor)
+                      : undefined;
+                    const fromOv =
+                      ov && /^#[0-9A-Fa-f]{3,8}$/i.test(ov) ? normalizeSimpleIconHex(ov) : undefined;
+                    return fromOv ?? cat ?? "#64748b";
+                  })()}
+                  onChange={(e) => setSelectedNodeBrandIconColor(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setSelectedNodeBrandIconColor(null)}
+                className="rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[10px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+                title="Quitar color personalizado y usar el del catálogo (hex Simple Icons o tinte Lucide por defecto)"
+              >
+                Auto
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
       {selectedLinkId && (
@@ -1269,11 +1966,22 @@ export function IsometricFlowDiagramCanvas({
               />
             ))}
           </div>
+          <button
+            type="button"
+            onClick={resetLinkBend}
+            disabled={(() => {
+              const sl = data.links.find((l) => l.id === selectedLinkId);
+              if (!sl) return true;
+              return !sl.bendOffset && !sl.routeWaypoints?.length;
+            })()}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
+            title="Vuelve a la ruta ortogonal automática"
+            aria-label="Restablecer ruta del conector"
+          >
+            Ruta auto
+          </button>
         </>
       )}
-      <span className="hidden text-[10px] text-stone-500 sm:inline dark:text-stone-400">
-        Doble clic en vacío · clic en línea · Del
-      </span>
     </div>
   );
 
@@ -1333,7 +2041,7 @@ export function IsometricFlowDiagramCanvas({
               <input
                 value={iconSearchQuery}
                 onChange={(e) => setIconSearchQuery(e.target.value)}
-                placeholder="Buscar (openai, g:storage, aws:lambda, si:react…)"
+                placeholder="Buscar (openai, g:storage, aws:lambda, si:react, li:workflow…)"
                 className="h-9 w-full rounded-md border border-stone-200 bg-stone-50 px-3 text-sm text-stone-700 outline-none focus:border-sky-500 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200"
               />
               <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] text-stone-700 dark:text-stone-200">
@@ -1346,8 +2054,9 @@ export function IsometricFlowDiagramCanvas({
                 <span>Agrupar por carpeta del pack (subcategorías)</span>
               </label>
               <p className="mt-2 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                Arriba elige pack (Google Cloud, AWS, Simple Icons, Lobe o todos). Con texto en el buscador la búsqueda
-                es global en todos los packs. Los catálogos Lobe y Simple Icons son muy grandes: usa «Cargar más».
+                Arriba elige pack (Google Cloud, AWS, Simple Icons, Lucide, Lobe o todos). Con texto en el buscador la
+                búsqueda es global en todos los packs. Los catálogos Lobe, Simple Icons y Lucide son muy grandes: usa
+                «Cargar más».
                 {iconPickerGroupByCategory ? (
                   <>
                     {" "}
@@ -1387,13 +2096,7 @@ export function IsometricFlowDiagramCanvas({
                               )}
                               title={entry.id}
                             >
-                              <img
-                                src={entry.href}
-                                alt={entry.label}
-                                className="h-8 w-8 object-contain"
-                                loading="lazy"
-                                decoding="async"
-                              />
+                              {brandIconPickerThumbnail(entry, simpleIconHexById)}
                               <span className="w-full truncate text-center">{entry.label}</span>
                             </button>
                           );
@@ -1424,13 +2127,7 @@ export function IsometricFlowDiagramCanvas({
                         )}
                         title={entry.id}
                       >
-                        <img
-                          src={entry.href}
-                          alt={entry.label}
-                          className="h-8 w-8 object-contain"
-                          loading="lazy"
-                          decoding="async"
-                        />
+                        {brandIconPickerThumbnail(entry, simpleIconHexById)}
                         <span className="w-full truncate text-center">{entry.label}</span>
                       </button>
                     );
@@ -1999,12 +2696,28 @@ export function IsometricFlowDiagramCanvas({
                       googleIconPathById,
                       amazonIconPathById,
                       simpleIconPathById,
+                      lucideIconPathById,
                     );
                     const sphereR = Math.min(CELL * 0.38, (yBot - yTop) * 0.46);
                     const sphereCy = (yTop + yBot) / 2 + 0.5;
                     const iconSize = sphereR * 1.45;
                     const iconX = cx - iconSize / 2;
                     const iconY = sphereCy - iconSize / 2;
+                    const isSimpleIcon = iconSlug.startsWith("si:");
+                    const isLucideIcon = iconSlug.startsWith("li:");
+                    const catalogHex = isSimpleIcon
+                      ? simpleIconHexById[iconSlug]
+                      : isLucideIcon
+                        ? LUCIDE_BRAND_ICON_FILL
+                        : undefined;
+                    const customFill = n.brandIconColor
+                      ? sanitizeBrandIconColor(n.brandIconColor)
+                      : undefined;
+                    const tintFill = (customFill ?? catalogHex ?? "").trim();
+                    const useSvgTint =
+                      (isSimpleIcon || isLucideIcon) && tintFill.length > 0;
+                    /** `feFlood` + `feComposite in` respeta la alpha del icono (no la máscara por luminancia, que deja el negro invisible). */
+                    const brandTintFilterId = `${uid}-sib-${n.id.replace(/\s/g, "")}`;
                     return (
                       <>
                         <ellipse
@@ -2029,16 +2742,45 @@ export function IsometricFlowDiagramCanvas({
                           r={sphereR * 0.34}
                           fill="rgba(255, 255, 255, 0.34)"
                         />
-                        <image
-                          key={`brand-${n.id}-${iconSlug}`}
-                          href={brandIconHref}
-                          x={iconX}
-                          y={iconY}
-                          width={iconSize}
-                          height={iconSize}
-                          opacity={0.98}
-                          preserveAspectRatio="xMidYMid meet"
-                        />
+                        {useSvgTint ? (
+                          <>
+                            <defs>
+                              <filter
+                                id={brandTintFilterId}
+                                colorInterpolationFilters="sRGB"
+                                x="0%"
+                                y="0%"
+                                width="100%"
+                                height="100%"
+                              >
+                                <feFlood floodColor={tintFill} floodOpacity="1" result="flood" />
+                                <feComposite in="flood" in2="SourceGraphic" operator="in" />
+                              </filter>
+                            </defs>
+                            <image
+                              key={`brand-${n.id}-${iconSlug}-tint`}
+                              href={brandIconHref}
+                              x={iconX}
+                              y={iconY}
+                              width={iconSize}
+                              height={iconSize}
+                              opacity={0.98}
+                              preserveAspectRatio="xMidYMid meet"
+                              filter={`url(#${brandTintFilterId})`}
+                            />
+                          </>
+                        ) : (
+                          <image
+                            key={`brand-${n.id}-${iconSlug}`}
+                            href={brandIconHref}
+                            x={iconX}
+                            y={iconY}
+                            width={iconSize}
+                            height={iconSize}
+                            opacity={0.98}
+                            preserveAspectRatio="xMidYMid meet"
+                          />
+                        )}
                       </>
                     );
                   })() : null}
@@ -2060,11 +2802,13 @@ export function IsometricFlowDiagramCanvas({
                     y={pillTop}
                     width={pillW}
                     height={LABEL_PILL_H}
+                    onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <input
                       autoFocus
                       className="box-border h-full w-full rounded-full border border-sky-500/70 bg-white px-2 text-center text-[11px] font-medium text-slate-900 shadow-sm outline-none dark:bg-slate-900 dark:text-slate-100"
                       value={n.label}
+                      onDoubleClick={(e) => e.stopPropagation()}
                       onChange={(ev) => {
                         const v = ev.target.value;
                         emit({
@@ -2118,6 +2862,77 @@ export function IsometricFlowDiagramCanvas({
               </g>
             );
           })}
+        {!readOnly && selectedLinkId
+          ? (() => {
+              const sl = data.links.find((x) => x.id === selectedLinkId);
+              if (!sl) return null;
+              const pts = linkPolylinePoints(sl, data.nodes);
+              if (!pts || pts.length < 2) return null;
+              return (
+                <g key="iso-link-seg-hits" className="pointer-events-auto">
+                  {pts.slice(0, -1).map((p, i) => {
+                    const q = pts[i + 1]!;
+                    const d = `M ${p.x} ${p.y} L ${q.x} ${q.y}`;
+                    return (
+                      <path
+                        key={`seg-hit-${i}`}
+                        d={d}
+                        fill="none"
+                        stroke="rgba(59, 130, 246, 0.14)"
+                        strokeWidth={LINK_SEG_HIT_STROKE}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        pointerEvents="stroke"
+                        className="cursor-grab touch-none active:cursor-grabbing"
+                        title="Arrastra para mover el tramo en la rejilla. Doble clic: insertar vértice."
+                        onPointerDown={(e) => {
+                          if (e.button !== 0) return;
+                          e.stopPropagation();
+                          try {
+                            (e.currentTarget as SVGPathElement).setPointerCapture(
+                              e.pointerId,
+                            );
+                          } catch {
+                            /* noop */
+                          }
+                          setSelectedId(null);
+                          setConnectFrom(null);
+                          const flat =
+                            sl.bendOffset &&
+                            (!sl.routeWaypoints || sl.routeWaypoints.length === 0)
+                              ? { ...sl, bendOffset: undefined }
+                              : sl;
+                          const G = linkCanonicalFullGridPath(flat, data.nodes);
+                          if (!G || G.length < 2) return;
+                          const cf = sourceIsCanonicalFirstLink(sl, data.nodes);
+                          const canonicalSegIndex = displaySegToCanonical(
+                            i,
+                            G.length,
+                            cf,
+                          );
+                          setLinkSegDrag({
+                            linkId: selectedLinkId,
+                            canonicalSegIndex,
+                          });
+                        }}
+                        onDoubleClick={(e) => {
+                          if (readOnly) return;
+                          e.stopPropagation();
+                          e.preventDefault();
+                          splitLinkAtDisplaySegment(
+                            selectedLinkId,
+                            i,
+                            e.clientX,
+                            e.clientY,
+                          );
+                        }}
+                      />
+                    );
+                  })}
+                </g>
+              );
+            })()
+          : null}
       </svg>
     </div>
   );
