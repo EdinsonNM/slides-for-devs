@@ -892,12 +892,28 @@ function isoViewRectIsDefault(r: IsoViewRect): boolean {
   );
 }
 
-/** Convierte deltaY del evento wheel a píxeles de línea (deltaMode 0/1/2). */
-function wheelDeltaYInPixels(ev: WheelEvent): number {
+/**
+ * Delta para zoom: preferimos `deltaY`; solo `deltaX` si `deltaY` es casi nulo (Shift+rueda horizontal).
+ */
+function wheelZoomEffectiveDelta(ev: WheelEvent): number {
   let dy = ev.deltaY;
-  if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
-  else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= 120;
-  return dy;
+  let dx = ev.deltaX;
+  if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    dy *= 16;
+    dx *= 16;
+  } else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    dy *= 120;
+    dx *= 120;
+  }
+  const yMag = Math.abs(dy);
+  const xMag = Math.abs(dx);
+  if (yMag < 0.5 && xMag >= 0.5) return dx;
+  if (yMag >= 0.5) return dy;
+  const legacyWd = (ev as unknown as { wheelDelta?: number }).wheelDelta;
+  if (typeof legacyWd === "number" && legacyWd !== 0) {
+    return -legacyWd / 3;
+  }
+  return dy + dx;
 }
 
 function zoomIsoViewTowardPoint(
@@ -911,8 +927,10 @@ function zoomIsoViewTowardPoint(
   let nw = prev.w / factor;
   nw = Math.min(ISO_VIEW_MAX_W, Math.max(ISO_VIEW_MIN_W, nw));
   const nh = nw * ISO_VIEW_ASPECT;
-  const nx = sx - ((sx - prev.x) / prev.w) * nw;
-  const ny = sy - ((sy - prev.y) / prev.h) * nh;
+  const safeW = prev.w > 1e-6 ? prev.w : ISO_VIEW_MAX_W;
+  const safeH = prev.h > 1e-6 ? prev.h : ISO_VIEW_MAX_W * ISO_VIEW_ASPECT;
+  const nx = sx - ((sx - prev.x) / safeW) * nw;
+  const ny = sy - ((sy - prev.y) / safeH) * nh;
   if (nw >= ISO_VIEW_MAX_W - 0.05) {
     return defaultIsoViewRect();
   }
@@ -1408,19 +1426,31 @@ export function IsometricFlowDiagramCanvas({
   }, [iconPickerOpen, iconSearchQuery, iconPickerPackFilter, iconPickerGroupByCategory]);
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
     const onWheel = (ev: WheelEvent) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const r = svg.getBoundingClientRect();
+      if (
+        ev.clientX < r.left ||
+        ev.clientX > r.right ||
+        ev.clientY < r.top ||
+        ev.clientY > r.bottom
+      ) {
+        return;
+      }
       ev.preventDefault();
+      ev.stopPropagation();
       const { x: sx, y: sy } = clientToSvg(svg, ev.clientX, ev.clientY);
       const prev = viewRectRef.current;
-      const dy = wheelDeltaYInPixels(ev);
+      const dy = wheelZoomEffectiveDelta(ev);
       const next = zoomIsoViewTowardPoint(prev, sx, sy, dy);
       viewRectRef.current = next;
       setViewRect(next);
     };
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => {
+      window.removeEventListener("wheel", onWheel, { capture: true });
+    };
   }, []);
 
   useEffect(() => {
