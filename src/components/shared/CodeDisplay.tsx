@@ -16,6 +16,8 @@ export interface CodeDisplayProps {
   className?: string;
   /** Para preview: tamaño responsivo con clamp */
   responsiveFontSize?: boolean;
+  /** Tema del bloque (p. ej. panel en lienzo); si no se pasa, se usa el tema global del editor. */
+  codeEditorTheme?: "light" | "dark";
 }
 
 /**
@@ -30,8 +32,11 @@ export function CodeDisplay({
   showChrome = true,
   className,
   responsiveFontSize = false,
+  codeEditorTheme: codeEditorThemeProp,
 }: CodeDisplayProps) {
-  const { isLight } = useCodeEditorTheme();
+  const globalTheme = useCodeEditorTheme();
+  const resolved = codeEditorThemeProp ?? globalTheme.theme;
+  const isLight = resolved === "light";
   const languageName =
     LANGUAGES.find((l) => l.id === language)?.name || language;
 
@@ -45,10 +50,13 @@ export function CodeDisplay({
 
   return (
     <div
+      data-code-panel=""
       className={cn(
         "w-full h-full rounded-2xl overflow-hidden flex flex-col",
         shell,
-        className
+        className,
+        !isLight && "!text-[#d4d4d4]",
+        isLight && "!text-stone-800",
       )}
     >
       {showChrome && (

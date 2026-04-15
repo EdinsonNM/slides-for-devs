@@ -8,6 +8,8 @@ export function deckSlideContentWrapperClass(tone: DeckContentTone): string {
       "text-slate-100",
       "[&_.prose]:text-slate-200",
       "[&_textarea]:text-slate-100 [&_textarea]:placeholder:text-slate-500",
+      /* No pisar el editor de código del lienzo (`data-code-panel`). */
+      "[&_[data-code-panel]_textarea]:text-inherit [&_[data-code-panel]_textarea]:placeholder:text-inherit",
       "[&_input]:text-slate-100 [&_input]:placeholder:text-slate-500",
     );
   }
@@ -15,6 +17,7 @@ export function deckSlideContentWrapperClass(tone: DeckContentTone): string {
     "text-stone-900",
     "[&_.prose]:text-stone-700",
     "[&_textarea]:text-stone-900 [&_textarea]:placeholder:text-stone-400",
+    "[&_[data-code-panel]_textarea]:text-inherit [&_[data-code-panel]_textarea]:placeholder:text-inherit",
     "[&_input]:text-stone-900 [&_input]:placeholder:text-stone-400",
   );
 }

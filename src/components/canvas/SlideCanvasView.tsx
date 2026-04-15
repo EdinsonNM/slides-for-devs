@@ -52,6 +52,7 @@ function mediaBlock(slide: Slide, tone: DeckContentTone) {
           fontSize={slide.fontSize ?? 14}
           showChrome
           responsiveFontSize
+          codeEditorTheme={slide.codeEditorTheme}
           className="h-full min-h-0 w-full"
         />
       );

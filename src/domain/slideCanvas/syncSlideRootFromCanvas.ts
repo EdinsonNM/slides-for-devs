@@ -65,6 +65,11 @@ export function syncSlideRootFromCanvas(slide: Slide): Slide {
       canvas3dGlbUrl: media.canvas3dGlbUrl,
       canvas3dViewState: media.canvas3dViewState,
     };
+    if (media.codeEditorTheme !== undefined) {
+      next.codeEditorTheme = media.codeEditorTheme;
+    } else {
+      delete (next as { codeEditorTheme?: unknown }).codeEditorTheme;
+    }
   }
 
   return next;

@@ -7,6 +7,9 @@ import { isPanelContentKind } from "../panelContent/panelContentKind";
 /** Alineado con `SlidePanelContentType` / `PANEL_CONTENT_KIND`. */
 export type SlideCanvasPanelContentType = PanelContentKind;
 
+/** Tema del bloque de código en un `mediaPanel` (persistido en el payload del lienzo). */
+export type SlideCodeEditorTheme = "light" | "dark";
+
 /** Escenas guardadas antes del modelo por-bloque (solo geometría + datos en raíz del slide). */
 export const SLIDE_CANVAS_SCENE_LEGACY_VERSION = 1 as const;
 /** Escena con `payload` por elemento de texto / panel de media. */
@@ -52,6 +55,8 @@ export type SlideCanvasMediaPayload = {
   presenter3dViewState?: Presenter3dViewState;
   canvas3dGlbUrl?: string;
   canvas3dViewState?: Presenter3dViewState;
+  /** Solo panel código en lienzo: tema claro/oscuro independiente por bloque. */
+  codeEditorTheme?: SlideCodeEditorTheme;
 };
 
 export type SlideCanvasElementPayload =

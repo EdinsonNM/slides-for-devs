@@ -173,6 +173,7 @@ export function SlideCanvasSlide() {
     setGenerateSlideContentPrompt,
     setShowSplitModal,
     patchCurrentSlideCanvasScene,
+    cycleCodeEditorThemeForMediaPanel,
     patchCurrentSlideMatrix,
     diagramRemountToken,
     openImageModal,
@@ -187,6 +188,7 @@ export function SlideCanvasSlide() {
     deckVisualTheme,
     setCanvasTextEditTarget,
     setCanvasMediaPanelEditTarget,
+    canvasMediaPanelElementId,
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -739,8 +741,9 @@ export function SlideCanvasSlide() {
             setSelectedId(el.id);
             setHoveredId(null);
             if (el.kind === "mediaPanel") {
+              /* Siempre rehidratar buffers al cambiar de panel (tamaño/idioma/código del payload correcto). */
               setCanvasMediaPanelEditTarget(el.id, {
-                rehydrateCodeBuffers: isEditing,
+                rehydrateCodeBuffers: true,
               });
             }
           }}
@@ -788,6 +791,8 @@ export function SlideCanvasSlide() {
           deckContentTone={deckVisualTheme.contentTone}
           onDismissSlideCanvasSelection={dismissSlideCanvasSelection}
           canvasStackMaxZRank={canvasStackMaxZRank}
+          canvasMediaPanelElementId={canvasMediaPanelElementId}
+          cycleCodeEditorThemeForMediaPanel={cycleCodeEditorThemeForMediaPanel}
         />
       ))}
     </div>
@@ -842,6 +847,8 @@ function CanvasElementEditor({
   setCanvasTextEditTarget,
   onDismissSlideCanvasSelection,
   canvasStackMaxZRank,
+  canvasMediaPanelElementId,
+  cycleCodeEditorThemeForMediaPanel,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -917,10 +924,11 @@ function CanvasElementEditor({
   onDismissSlideCanvasSelection: () => void;
   /** Máximo `element.z` del lienzo: el seleccionado se apila por encima de todos (toolbar/cromo). */
   canvasStackMaxZRank: number;
+  canvasMediaPanelElementId: string | null;
+  cycleCodeEditorThemeForMediaPanel: (elementId: string) => void;
 }) {
   const tone = deckContentTone;
-  const { theme: codeEditorTheme, toggleTheme: toggleCodeEditorTheme } =
-    useCodeEditorTheme();
+  const { theme: globalCodeEditorTheme } = useCodeEditorTheme();
   const { rect, kind, id, z } = element;
   const panelSlide =
     kind === "mediaPanel"
@@ -1073,6 +1081,11 @@ function CanvasElementEditor({
   const showMediaPanelCanvas3dActions =
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCanvas3dActions();
 
+  const effectiveCanvasCodeTheme =
+    kind === "mediaPanel" && mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE
+      ? panelSlide.codeEditorTheme ?? globalCodeEditorTheme
+      : globalCodeEditorTheme;
+
   const canvaChromeEl =
     showCanvaChrome ? (
       <SlideCanvasCanvaChrome
@@ -1093,15 +1106,24 @@ function CanvasElementEditor({
             : undefined,
           codeActions: showMediaPanelCodeActions
             ? {
-                fontSize: editFontSize,
+                fontSize:
+                  canvasMediaPanelElementId != null &&
+                  id === canvasMediaPanelElementId
+                    ? editFontSize
+                    : panelSlide.fontSize ?? 14,
                 onFontDec: () =>
                   setEditFontSize((p) => Math.max(8, p - 2)),
                 onFontInc: () =>
                   setEditFontSize((p) => Math.min(64, p + 2)),
-                language: editLanguage,
+                language:
+                  canvasMediaPanelElementId != null &&
+                  id === canvasMediaPanelElementId
+                    ? editLanguage
+                    : panelSlide.language || "javascript",
                 onLanguageChange: setEditLanguage,
-                onThemeToggle: toggleCodeEditorTheme,
-                codeTheme: codeEditorTheme,
+                codeTheme: effectiveCanvasCodeTheme,
+                onCyclePanelCodeTheme: () =>
+                  cycleCodeEditorThemeForMediaPanel(id),
                 onOpenCodeGen: () => openCodeGenModal(),
               }
             : undefined,

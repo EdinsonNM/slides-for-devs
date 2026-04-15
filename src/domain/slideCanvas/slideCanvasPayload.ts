@@ -103,6 +103,11 @@ export function mergeMediaPayloadIntoSlide(
   if (media.canvas3dViewState !== undefined) {
     next.canvas3dViewState = media.canvas3dViewState;
   }
+  if (media.codeEditorTheme !== undefined) {
+    next.codeEditorTheme = media.codeEditorTheme;
+  } else {
+    delete (next as { codeEditorTheme?: unknown }).codeEditorTheme;
+  }
   return next;
 }
 

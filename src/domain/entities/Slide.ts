@@ -1,6 +1,6 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
-import type { SlideCanvasScene } from "./SlideCanvas";
+import type { SlideCanvasScene, SlideCodeEditorTheme } from "./SlideCanvas";
 import type { SlideMatrixData } from "./SlideMatrix";
 
 /** Valores canónicos de `Slide.type` (evita comparar strings sueltos en la UI). */
@@ -73,4 +73,9 @@ export interface Slide {
   matrixData?: SlideMatrixData;
   /** Posicionamiento libre de bloques en el lienzo (% del área del slide). */
   canvasScene?: SlideCanvasScene;
+  /**
+   * Tema del editor de código (solo lectura / espejo del primer `mediaPanel` en algunos flujos).
+   * En lienzo, el valor canónico vive en el `payload` de cada `mediaPanel`.
+   */
+  codeEditorTheme?: SlideCodeEditorTheme;
 }

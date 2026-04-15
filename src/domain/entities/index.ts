@@ -27,6 +27,7 @@ export type {
   SlideCanvasElementPayload,
   SlideCanvasTextRole,
   SlideCanvasPanelContentType,
+  SlideCodeEditorTheme,
 } from "./SlideCanvas";
 export {
   SLIDE_CANVAS_SCENE_VERSION,

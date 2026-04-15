@@ -50,6 +50,7 @@ import {
   SLIDE_TYPE,
   type SlideCanvasElementKind,
   type SlideCanvasScene,
+  type SlideCodeEditorTheme,
   type SlideMatrixData,
 } from "../domain/entities";
 import {
@@ -68,6 +69,8 @@ import {
   type CanvasTextEditTargets,
 } from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import {
+  patchElementPayload,
+  readMediaPayloadFromElement,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
 } from "../domain/slideCanvas/slideCanvasPayload";
@@ -76,6 +79,7 @@ import {
   appendCanvasElementToScene,
   type AppendCanvasElementOptions,
 } from "../domain/slideCanvas/insertCanvasElement";
+import { readPersistedCodeEditorTheme } from "./useCodeEditorTheme";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -1154,6 +1158,28 @@ export function usePresentationState() {
     },
     [],
   );
+
+  /** Tema claro/oscuro del editor de código solo para un `mediaPanel` del lienzo (payload). */
+  const cycleCodeEditorThemeForMediaPanel = useCallback((elementId: string) => {
+    setSlides((prev) => {
+      const idx = currentIndexRef.current;
+      const cur = prev[idx];
+      if (!cur?.canvasScene || cur.type !== SLIDE_TYPE.CONTENT) return prev;
+      const el = cur.canvasScene.elements.find((e) => e.id === elementId);
+      if (!el || el.kind !== "mediaPanel") return prev;
+      const media = readMediaPayloadFromElement(cur, el);
+      const persisted = readPersistedCodeEditorTheme();
+      const effective: SlideCodeEditorTheme =
+        media.codeEditorTheme ?? persisted;
+      const flipped: SlideCodeEditorTheme =
+        effective === "dark" ? "light" : "dark";
+      const nextMedia = { ...media, codeEditorTheme: flipped };
+      const scene = patchElementPayload(cur.canvasScene, elementId, nextMedia);
+      const out = [...prev];
+      out[idx] = syncSlideRootFromCanvas({ ...cur, canvasScene: scene });
+      return out;
+    });
+  }, []);
 
   const addCanvasElementToCurrentSlide = useCallback(
     (
@@ -3545,6 +3571,7 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
+    cycleCodeEditorThemeForMediaPanel,
     addCanvasElementToCurrentSlide,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,

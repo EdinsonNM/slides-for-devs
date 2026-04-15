@@ -53,9 +53,10 @@ export function ContentPanelProperties() {
     setEditFontSize,
     openCodeGenModal,
     canvasMediaPanelElementId,
+    cycleCodeEditorThemeForMediaPanel,
   } = usePresentation();
 
-  const { theme, toggleTheme } = useCodeEditorTheme();
+  const globalCodeTheme = useCodeEditorTheme();
 
   const [imgMenuOpen, setImgMenuOpen] = useState(false);
   const imgMenuRef = useRef<HTMLDivElement>(null);
@@ -113,6 +114,8 @@ export function ContentPanelProperties() {
       : ensured;
 
   const mediaPanelKind = resolveMediaPanelDescriptor(panelModel).kind;
+  const inspectorCodeTheme =
+    panelModel.codeEditorTheme ?? globalCodeTheme.theme;
   const deviceId = (panelModel.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
   const screenMedia = panelModel.presenter3dScreenMedia ?? "image";
   const videoOk =
@@ -388,14 +391,29 @@ export function ContentPanelProperties() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => toggleTheme()}
+              onClick={() => {
+                if (
+                  canvasMediaPanelElementId &&
+                  mediaPanelKind === PANEL_CONTENT_KIND.CODE
+                ) {
+                  cycleCodeEditorThemeForMediaPanel(canvasMediaPanelElementId);
+                } else {
+                  globalCodeTheme.toggleTheme();
+                }
+              }}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
                 controlBtn,
               )}
-              title={theme === "dark" ? "Tema claro" : "Tema oscuro"}
+              title={
+                inspectorCodeTheme === "dark" ? "Tema claro" : "Tema oscuro"
+              }
             >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+              {inspectorCodeTheme === "dark" ? (
+                <Sun size={14} />
+              ) : (
+                <Moon size={14} />
+              )}
               Tema
             </button>
             <button

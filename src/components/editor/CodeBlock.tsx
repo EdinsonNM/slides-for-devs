@@ -49,13 +49,21 @@ export function CodeBlock({
     openCodeGenModal,
     canvasMediaPanelElementId,
     setCanvasMediaPanelEditTarget,
+    cycleCodeEditorThemeForMediaPanel,
   } = usePresentation();
 
-  const { theme, toggleTheme, isLight } = useCodeEditorTheme();
+  const globalCodeTheme = useCodeEditorTheme();
 
   if (!currentSlide) return null;
 
   const slide = canvasPanelSlide ?? currentSlide;
+
+  /** En lienzo: tema por `payload` del panel; si no hay override, mismo valor que el hook global. */
+  const codeUiTheme =
+    embeddedInCanvas && canvasPanelSlide
+      ? (canvasPanelSlide.codeEditorTheme ?? globalCodeTheme.theme)
+      : globalCodeTheme.theme;
+  const isLight = codeUiTheme === "light";
 
   const isThisCanvasCodePanelEditing =
     embeddedInCanvas &&
@@ -63,6 +71,12 @@ export function CodeBlock({
     canvasMediaPanelElementId === canvasMediaElementId;
   const isCodeTextareaActive =
     isEditing && (!embeddedInCanvas || isThisCanvasCodePanelEditing);
+
+  /** En el lienzo cada panel tiene su `fontSize` en el payload; el buffer global solo aplica al panel en edición. */
+  const displayFontSize =
+    embeddedInCanvas && !isCodeTextareaActive
+      ? slide.fontSize ?? 14
+      : editFontSize;
 
   const shell = isLight
     ? "bg-[#fafafa] border-stone-300 shadow-none"
@@ -117,10 +131,14 @@ export function CodeBlock({
       }
     >
       <div
+        data-code-panel={embeddedInCanvas ? "" : undefined}
         className={cn(
           "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border group/window",
           shell,
           embeddedInCanvas ? "cursor-default" : "cursor-text",
+          /* El lienzo aplica `deckSlideContentWrapperClass` con `text-stone-900` y apaga Prism en el panel activo. */
+          embeddedInCanvas && !isLight && "!text-[#d4d4d4]",
+          embeddedInCanvas && isLight && "!text-stone-800",
         )}
       >
         <div
@@ -249,21 +267,25 @@ export function CodeBlock({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleTheme();
+                  if (embeddedInCanvas && canvasMediaElementId) {
+                    cycleCodeEditorThemeForMediaPanel(canvasMediaElementId);
+                  } else {
+                    globalCodeTheme.toggleTheme();
+                  }
                 }}
                 className={`rounded-md p-1.5 transition-colors ${isLight ? "bg-stone-300 text-amber-700 hover:bg-stone-400" : "bg-stone-700 text-amber-400 hover:bg-stone-600"}`}
                 title={
-                  theme === "dark"
+                  codeUiTheme === "dark"
                     ? "Tema claro del editor"
                     : "Tema oscuro del editor"
                 }
                 aria-label={
-                  theme === "dark"
+                  codeUiTheme === "dark"
                     ? "Cambiar a tema claro del editor"
                     : "Cambiar a tema oscuro del editor"
                 }
               >
-                {theme === "dark" ? (
+                {codeUiTheme === "dark" ? (
                   <Sun size={16} strokeWidth={2} />
                 ) : (
                   <Moon size={16} strokeWidth={2} />
@@ -277,6 +299,11 @@ export function CodeBlock({
             "custom-scrollbar min-h-0 flex-1 overflow-auto p-0 font-mono",
             editorArea,
             isLight ? "[&::-webkit-scrollbar-thumb]:bg-stone-400" : "",
+            /* El slide usa `deckSlideContentWrapperClass` (`text-stone-900` / slate) y apaga tokens Prism o el textarea si heredan. */
+            embeddedInCanvas &&
+              (isLight
+                ? "text-stone-900 [&_textarea]:!text-stone-800"
+                : "text-[#e5e5e5] [&_textarea]:!text-[#e5e5e5]"),
           )}
         >
           {isCodeTextareaActive ? (
@@ -308,8 +335,12 @@ export function CodeBlock({
                 isLight
                   ? "text-stone-800 placeholder:text-stone-400"
                   : "text-stone-300",
+                embeddedInCanvas &&
+                  (isLight
+                    ? "!text-stone-800 !placeholder:text-stone-400"
+                    : "!text-stone-200 !placeholder:text-stone-500"),
               )}
-              style={{ fontSize: `${editFontSize}px` }}
+              style={{ fontSize: `${displayFontSize}px` }}
               placeholder={
                 embeddedInCanvas
                   ? "// Escribe tu código… (Esc para guardar y salir)"
@@ -356,7 +387,7 @@ export function CodeBlock({
                     padding: "1.5rem",
                     background: "transparent",
                     boxShadow: "none",
-                    fontSize: `${editFontSize}px`,
+                    fontSize: `${displayFontSize}px`,
                     lineHeight: "1.5",
                     overflow: "visible",
                   }}

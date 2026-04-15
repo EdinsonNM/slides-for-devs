@@ -81,8 +81,8 @@ export interface SlideCanvasCanvaChromeProps {
       onFontInc: () => void;
       language: string;
       onLanguageChange: (id: string) => void;
-      onThemeToggle: () => void;
       codeTheme: "dark" | "light";
+      onCyclePanelCodeTheme: () => void;
       onOpenCodeGen: () => void;
     };
     /** Panel Canvas 3D: URL http actual para el modal (vacío si solo hay data URL). */
@@ -170,8 +170,8 @@ export function SlideCanvasCanvaChrome({
     };
   }, [toolbar, layoutDigest]);
 
+  /** Solo `stopPropagation`: `preventDefault` en pointerdown puede impedir el `click` (p. ej. tema del editor). */
   const stop = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
     e.stopPropagation();
   }, []);
 
@@ -197,7 +197,7 @@ export function SlideCanvasCanvaChrome({
       {toolbar && (
         <div
           className={cn(
-            "pointer-events-auto absolute left-1/2 z-[55] -translate-x-1/2",
+            "pointer-events-auto absolute left-1/2 z-[200] -translate-x-1/2",
             toolbarPlacement === "above" && "bottom-full mb-2",
             toolbarPlacement === "below" && "top-full mt-2",
             toolbarPlacement === "inside" && "top-2",
@@ -302,7 +302,16 @@ export function SlideCanvasCanvaChrome({
                       : "Tema oscuro del editor de código"
                   }
                   onPointerDown={stop}
-                  onClick={() => toolbar.codeActions?.onThemeToggle()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toolbar.codeActions?.onCyclePanelCodeTheme();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toolbar.codeActions?.onCyclePanelCodeTheme();
+                  }}
                 >
                   {toolbar.codeActions.codeTheme === "dark" ? (
                     <Sun size={16} strokeWidth={2} aria-hidden />
