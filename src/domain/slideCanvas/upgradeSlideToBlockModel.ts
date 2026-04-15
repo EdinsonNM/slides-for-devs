@@ -9,7 +9,7 @@ import {
 import {
   canvasElementKindNeedsMediaPayload,
   canvasElementKindNeedsTextPayload,
-  mediaPayloadFromSlideRoot,
+  readMediaPayloadFromElement,
   textPayloadForElementKind,
 } from "./slideCanvasPayload";
 import { syncSlideRootFromCanvas } from "./syncSlideRootFromCanvas";
@@ -33,6 +33,7 @@ export function detectLegacySlideCanvas(slide: Slide): boolean {
 }
 
 function upgradeScene(slide: Slide, scene: SlideCanvasScene): SlideCanvasScene {
+  const slideCtx: Slide = { ...slide, canvasScene: scene };
   const elements = scene.elements.map((e) => {
     if (canvasElementKindNeedsTextPayload(e.kind)) {
       return {
@@ -43,7 +44,7 @@ function upgradeScene(slide: Slide, scene: SlideCanvasScene): SlideCanvasScene {
     if (canvasElementKindNeedsMediaPayload(e.kind) && slide.type === "content") {
       return {
         ...e,
-        payload: mediaPayloadFromSlideRoot(slide),
+        payload: readMediaPayloadFromElement(slideCtx, e),
       };
     }
     return e;

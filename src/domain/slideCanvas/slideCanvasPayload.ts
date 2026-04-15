@@ -1,4 +1,5 @@
 import type { Slide } from "../entities";
+import { SLIDE_TYPE } from "../entities";
 import { PANEL_CONTENT_KIND } from "../panelContent/panelContentKind";
 import type {
   SlideCanvasElement,
@@ -73,26 +74,43 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
   };
 }
 
+/**
+ * Aplica un payload de panel al slide “vista”. Solo sobrescribe campos definidos en `media`
+ * para no borrar con `undefined` (p. ej. varios `mediaPanel` y payloads parciales).
+ */
 export function mergeMediaPayloadIntoSlide(
   slide: Slide,
   media: SlideCanvasMediaPayload,
 ): Slide {
-  return {
-    ...slide,
-    contentType: media.contentType,
-    imageUrl: media.imageUrl,
-    imagePrompt: media.imagePrompt,
-    code: media.code,
-    language: media.language,
-    fontSize: media.fontSize,
-    editorHeight: media.editorHeight,
-    videoUrl: media.videoUrl,
-    presenter3dDeviceId: media.presenter3dDeviceId,
-    presenter3dScreenMedia: media.presenter3dScreenMedia,
-    presenter3dViewState: media.presenter3dViewState,
-    canvas3dGlbUrl: media.canvas3dGlbUrl,
-    canvas3dViewState: media.canvas3dViewState,
-  };
+  const next: Slide = { ...slide, contentType: media.contentType };
+  if (media.imageUrl !== undefined) next.imageUrl = media.imageUrl;
+  if (media.imagePrompt !== undefined) next.imagePrompt = media.imagePrompt;
+  if (media.code !== undefined) next.code = media.code;
+  if (media.language !== undefined) next.language = media.language;
+  if (media.fontSize !== undefined) next.fontSize = media.fontSize;
+  if (media.editorHeight !== undefined) next.editorHeight = media.editorHeight;
+  if (media.videoUrl !== undefined) next.videoUrl = media.videoUrl;
+  if (media.presenter3dDeviceId !== undefined) {
+    next.presenter3dDeviceId = media.presenter3dDeviceId;
+  }
+  if (media.presenter3dScreenMedia !== undefined) {
+    next.presenter3dScreenMedia = media.presenter3dScreenMedia;
+  }
+  if (media.presenter3dViewState !== undefined) {
+    next.presenter3dViewState = media.presenter3dViewState;
+  }
+  if (media.canvas3dGlbUrl !== undefined) next.canvas3dGlbUrl = media.canvas3dGlbUrl;
+  if (media.canvas3dViewState !== undefined) {
+    next.canvas3dViewState = media.canvas3dViewState;
+  }
+  return next;
+}
+
+/** Primer `mediaPanel` en orden z (misma convención que `syncSlideRootFromCanvas`). */
+export function canvasFirstMediaPanelElementId(slide: Slide): string | null {
+  const els = slide.canvasScene?.elements ?? [];
+  const sorted = [...els].sort((a, b) => a.z - b.z);
+  return sorted.find((e) => e.kind === "mediaPanel")?.id ?? null;
 }
 
 export function readTextMarkdownFromElement(
@@ -111,13 +129,49 @@ export function readTextMarkdownFromElement(
   return "";
 }
 
+function normalizeCodeMediaPayload(
+  media: SlideCanvasMediaPayload,
+): SlideCanvasMediaPayload {
+  if (media.contentType !== PANEL_CONTENT_KIND.CODE) return media;
+  return {
+    ...media,
+    code: media.code ?? "",
+    language: media.language ?? "javascript",
+    fontSize: media.fontSize ?? 14,
+    editorHeight: media.editorHeight ?? 280,
+  };
+}
+
+/**
+ * Lee el payload de un `mediaPanel`. Solo el **primer** panel sin payload hereda la raíz del slide;
+ * el resto obtiene un payload aislado para no espejar el mismo `code` entre paneles.
+ */
 export function readMediaPayloadFromElement(
   slide: Slide,
   el: SlideCanvasElement,
 ): SlideCanvasMediaPayload {
+  if (el.kind !== "mediaPanel" || slide.type !== SLIDE_TYPE.CONTENT) {
+    const p = el.payload;
+    if (isSlideCanvasMediaPayload(p)) return normalizeCodeMediaPayload({ ...p });
+    return mediaPayloadFromSlideRoot(slide);
+  }
+
   const p = el.payload;
-  if (isSlideCanvasMediaPayload(p)) return p;
-  return mediaPayloadFromSlideRoot(slide);
+  const firstId = canvasFirstMediaPanelElementId(slide);
+
+  let base: SlideCanvasMediaPayload;
+  if (isSlideCanvasMediaPayload(p)) {
+    base = { ...p };
+  } else if (firstId === el.id) {
+    base = mediaPayloadFromSlideRoot(slide);
+  } else {
+    base = {
+      type: "media",
+      contentType: slide.contentType ?? PANEL_CONTENT_KIND.IMAGE,
+    };
+  }
+
+  return normalizeCodeMediaPayload(base);
 }
 
 /** Slide “vista” con campos de panel tomados de un `mediaPanel` concreto. */

@@ -67,7 +67,10 @@ import {
   patchSlideMediaPanelByElementId,
   type CanvasTextEditTargets,
 } from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
-import { readTextMarkdownFromElement } from "../domain/slideCanvas/slideCanvasPayload";
+import {
+  readTextMarkdownFromElement,
+  slideAppearanceForMediaElement,
+} from "../domain/slideCanvas/slideCanvasPayload";
 import { syncSlideRootFromCanvas } from "../domain/slideCanvas/syncSlideRootFromCanvas";
 import {
   appendCanvasElementToScene,
@@ -189,6 +192,8 @@ export function usePresentationState() {
 
   const [topic, setTopic] = useState("");
   const [slides, setSlides] = useState<Slide[]>([]);
+  const slidesRef = useRef<Slide[]>(slides);
+  slidesRef.current = slides;
   const [deckVisualTheme, setDeckVisualThemeState] = useState<DeckVisualTheme>(
     DEFAULT_DECK_VISUAL_THEME,
   );
@@ -528,13 +533,40 @@ export function usePresentationState() {
     [],
   );
 
-  const setCanvasMediaPanelEditTarget = useCallback((elementId: string) => {
-    canvasTextTargetsRef.current = {
-      ...canvasTextTargetsRef.current,
-      mediaPanelElementId: elementId,
-    };
-    setCanvasMediaPanelElementId(elementId);
+  /** Rellena los buffers de código desde un slide (p. ej. un `mediaPanel` concreto del lienzo). */
+  const hydrateCodeEditFromSlide = useCallback((s: Slide) => {
+    setEditCode(s.code ?? "");
+    setEditLanguage(s.language || "javascript");
+    setEditFontSizeState(s.fontSize ?? 14);
+    setEditEditorHeight(s.editorHeight ?? 280);
   }, []);
+
+  const setCanvasMediaPanelEditTarget = useCallback(
+    (
+      elementId: string,
+      options?: { rehydrateCodeBuffers?: boolean },
+    ) => {
+      canvasTextTargetsRef.current = {
+        ...canvasTextTargetsRef.current,
+        mediaPanelElementId: elementId,
+      };
+      setCanvasMediaPanelElementId(elementId);
+      /** Tras `flushSync(commit)` al cambiar de panel con edición activa, el buffer debe ser del `mediaPanel` seleccionado. */
+      if (!options?.rehydrateCodeBuffers) return;
+      const idx = currentIndexRef.current;
+      const cur = slidesRef.current[idx];
+      if (!cur) return;
+      const ensured = ensureSlideCanvasScene(cur);
+      const panelEl = ensured.canvasScene?.elements.find(
+        (e) => e.id === elementId,
+      );
+      if (!panelEl || panelEl.kind !== "mediaPanel") return;
+      hydrateCodeEditFromSlide(
+        slideAppearanceForMediaElement(ensured, panelEl),
+      );
+    },
+    [hydrateCodeEditFromSlide],
+  );
 
   const flushEditsToSlideIndex = useCallback(
     (slideIndex: number) => {
@@ -3505,6 +3537,7 @@ export function usePresentationState() {
     commitSlideEdits,
     setCanvasTextEditTarget,
     setCanvasMediaPanelEditTarget,
+    hydrateCodeEditFromSlide,
     canvasMediaPanelElementId,
     toggleContentType,
     setCurrentSlideType,

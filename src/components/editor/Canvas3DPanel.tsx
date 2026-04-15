@@ -68,7 +68,7 @@ export function Canvas3DPanel({
       <div
         className={cn(
           "flex shrink-0 flex-wrap items-center gap-2 border-b border-stone-200 px-3 py-2 dark:border-border",
-          embeddedInCanvas ? "bg-white dark:bg-surface-elevated" : "",
+          "bg-transparent",
         )}
       >
         <input
@@ -117,10 +117,8 @@ export function Canvas3DPanel({
       </div>
       <div
         className={cn(
-          "relative flex min-h-0 flex-1 flex-col",
-          embeddedInCanvas
-            ? "bg-white p-0 dark:bg-surface-elevated"
-            : "p-2",
+          "relative flex min-h-0 flex-1 flex-col bg-transparent",
+          embeddedInCanvas ? "p-0" : "p-2",
         )}
       >
         <Canvas3DViewport

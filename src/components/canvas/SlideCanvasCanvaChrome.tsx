@@ -173,7 +173,7 @@ export function SlideCanvasCanvaChrome({
     >
       {/* Borde de selección: más grueso que el hover (`SlideCanvasHoverOutline`). */}
       <div
-        className="pointer-events-none absolute inset-0 rounded-sm ring-2 ring-emerald-600 ring-offset-0 dark:ring-emerald-500"
+        className="pointer-events-none absolute inset-0 rounded-sm border-2 border-emerald-600 dark:border-emerald-500"
         aria-hidden
       />
 

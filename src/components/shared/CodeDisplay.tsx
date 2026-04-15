@@ -36,8 +36,8 @@ export function CodeDisplay({
     LANGUAGES.find((l) => l.id === language)?.name || language;
 
   const shell = isLight
-    ? "bg-[#fafafa] border-stone-300 shadow-xl"
-    : "bg-[#1e1e1e] border-white/10 shadow-2xl";
+    ? "bg-[#fafafa] border-stone-300 shadow-none"
+    : "bg-[#1e1e1e] border-stone-700/90 shadow-none";
   const titleBar = isLight
     ? "bg-stone-200/90 border-b border-stone-300"
     : "bg-[#2d2d2d]";
@@ -100,6 +100,7 @@ export function CodeDisplay({
                 margin: 0,
                 padding: "2rem",
                 background: "transparent",
+                boxShadow: "none",
                 fontSize: responsiveFontSize
                   ? `clamp(${fontSize * 1.2}px, 1.4vw, ${fontSize * 2.2}px)`
                   : `${fontSize}px`,

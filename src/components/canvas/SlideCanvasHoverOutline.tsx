@@ -8,7 +8,7 @@ export function SlideCanvasHoverOutline({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-0 z-[12] rounded-sm ring-1 ring-emerald-500/95 ring-offset-0 dark:ring-emerald-400/90",
+        "pointer-events-none absolute inset-0 z-[12] rounded-sm border border-emerald-500/95 dark:border-emerald-400/90",
         className,
       )}
       aria-hidden

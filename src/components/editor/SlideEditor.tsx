@@ -27,7 +27,7 @@ export function SlideEditor() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.02 }}
             className={cn(
-              "slide-content relative flex aspect-video w-full overflow-hidden rounded-lg border border-stone-200/90 bg-white shadow-md shadow-stone-900/5 ring-1 ring-stone-900/[0.04] dark:border-border dark:bg-surface-elevated dark:shadow-xl dark:ring-white/10",
+              "slide-content relative flex aspect-video w-full overflow-hidden rounded-lg border border-stone-200/90 bg-white dark:border-border dark:bg-surface-elevated",
             )}
           >
             <SlideCanvasSlide />

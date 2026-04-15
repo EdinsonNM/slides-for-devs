@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import {
   Pencil,
   Check,
@@ -23,12 +24,15 @@ export interface CodeBlockProps {
   /** Bloque `mediaPanel` en el lienzo: edición con doble clic, sin barra de guardar; tema/IA/fuente en el cromo flotante. */
   embeddedInCanvas?: boolean;
   canvasPanelSlide?: Slide;
+  /** Id del elemento `mediaPanel` en el lienzo (aislar edición con varios paneles de código). */
+  canvasMediaElementId?: string;
 }
 
 export function CodeBlock({
   titleBarMode = "full",
   embeddedInCanvas = false,
   canvasPanelSlide,
+  canvasMediaElementId,
 }: CodeBlockProps) {
   const {
     currentSlide,
@@ -43,6 +47,8 @@ export function CodeBlock({
     handleSaveManualEdit,
     commitSlideEdits,
     openCodeGenModal,
+    canvasMediaPanelElementId,
+    setCanvasMediaPanelEditTarget,
   } = usePresentation();
 
   const { theme, toggleTheme, isLight } = useCodeEditorTheme();
@@ -51,9 +57,16 @@ export function CodeBlock({
 
   const slide = canvasPanelSlide ?? currentSlide;
 
+  const isThisCanvasCodePanelEditing =
+    embeddedInCanvas &&
+    canvasMediaElementId != null &&
+    canvasMediaPanelElementId === canvasMediaElementId;
+  const isCodeTextareaActive =
+    isEditing && (!embeddedInCanvas || isThisCanvasCodePanelEditing);
+
   const shell = isLight
-    ? "bg-[#fafafa] border-stone-300 shadow-xl"
-    : "bg-[#1e1e1e] border-white/10 shadow-2xl";
+    ? "bg-[#fafafa] border-stone-300 shadow-none"
+    : "bg-[#1e1e1e] border-stone-700/90 shadow-none";
   const titleBar = isLight
     ? "bg-stone-200/90 border-b border-stone-300"
     : "bg-[#2d2d2d]";
@@ -68,6 +81,20 @@ export function CodeBlock({
 
   const enterCodeEdit = (e?: React.SyntheticEvent) => {
     e?.stopPropagation();
+    if (embeddedInCanvas && canvasMediaElementId) {
+      if (
+        isEditing &&
+        canvasMediaPanelElementId != null &&
+        canvasMediaPanelElementId !== canvasMediaElementId
+      ) {
+        flushSync(() => {
+          commitSlideEdits({ keepEditing: true });
+        });
+      }
+      setCanvasMediaPanelEditTarget(canvasMediaElementId, {
+        rehydrateCodeBuffers: true,
+      });
+    }
     setIsEditing(true);
   };
 
@@ -79,7 +106,7 @@ export function CodeBlock({
     <div
       className={cn(
         "flex min-h-0 w-full flex-1 flex-col overflow-hidden",
-        embeddedInCanvas ? "p-1.5" : "p-4 md:p-6",
+        embeddedInCanvas ? "p-0" : "p-4 md:p-6",
       )}
       onClick={
         embeddedInCanvas
@@ -112,7 +139,7 @@ export function CodeBlock({
             <div
               className={`flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider ${isLight ? "text-stone-600" : "text-stone-400"}`}
             >
-              {isEditing ? (
+              {isCodeTextareaActive ? (
                 <>
                   <div className="mr-1 flex items-center gap-1 border-r border-stone-700 pr-2">
                     <button
@@ -252,7 +279,7 @@ export function CodeBlock({
             isLight ? "[&::-webkit-scrollbar-thumb]:bg-stone-400" : "",
           )}
         >
-          {isEditing ? (
+          {isCodeTextareaActive ? (
             <textarea
               value={editCode}
               onChange={(e) => setEditCode(e.target.value)}
@@ -328,6 +355,7 @@ export function CodeBlock({
                     margin: 0,
                     padding: "1.5rem",
                     background: "transparent",
+                    boxShadow: "none",
                     fontSize: `${editFontSize}px`,
                     lineHeight: "1.5",
                     overflow: "visible",
@@ -369,7 +397,7 @@ export function CodeBlock({
             </div>
           )}
         </div>
-        {!isEditing && (
+        {!isCodeTextareaActive && (
           <div
             className={`pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-colors group-hover/window:opacity-100 ${isLight ? "bg-emerald-600/0 group-hover/window:bg-emerald-500/10" : "bg-emerald-600/0 group-hover/window:bg-emerald-600/5"}`}
           >

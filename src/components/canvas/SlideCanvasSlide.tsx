@@ -28,7 +28,10 @@ import {
   type SlideCanvasElement,
   type SlideCanvasRect,
 } from "../../domain/entities";
-import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
@@ -732,7 +735,9 @@ export function SlideCanvasSlide() {
             setSelectedId(el.id);
             setHoveredId(null);
             if (el.kind === "mediaPanel") {
-              setCanvasMediaPanelEditTarget(el.id);
+              setCanvasMediaPanelEditTarget(el.id, {
+                rehydrateCodeBuffers: isEditing,
+              });
             }
           }}
           isEditing={isEditing}
@@ -1438,8 +1443,9 @@ function CanvasElementEditor({
       );
     }
     case "mediaPanel": {
-      const uses3dOrbitChrome =
-        resolveMediaPanelDescriptor(panelSlide).usesOrbitInteractionChrome();
+      const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
+      const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
+      const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
       const onMediaPanelDragPointerDown = (
         e: React.PointerEvent<HTMLElement>,
         captureEl: HTMLElement | null,
@@ -1470,7 +1476,12 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
-          className={cn(outerShellClass, deckMediaPanelShellClass(tone))}
+          className={cn(
+            outerShellClass,
+            codePanelOnCanvas
+              ? "bg-transparent"
+              : deckMediaPanelShellClass(tone),
+          )}
           {...shellHoverProps}
           onPointerDown={
             uses3dOrbitChrome
@@ -1529,6 +1540,7 @@ function CanvasElementEditor({
                     fullWidth
                     embeddedInCanvas
                     canvasPanelSlide={panelSlide}
+                    canvasMediaElementId={id}
                   />
                 </div>
               </>
@@ -1537,6 +1549,7 @@ function CanvasElementEditor({
                 fullWidth
                 embeddedInCanvas
                 canvasPanelSlide={panelSlide}
+                canvasMediaElementId={id}
               />
             ),
           )}

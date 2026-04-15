@@ -19,12 +19,15 @@ export interface SlideRightPanelProps {
   embeddedInCanvas?: boolean;
   /** Datos del `mediaPanel` concreto en el lienzo (varios paneles). Si no se pasa, se usa `currentSlide`. */
   canvasPanelSlide?: Slide;
+  /** Id del elemento `mediaPanel` en el lienzo (varios paneles de código). */
+  canvasMediaElementId?: string;
 }
 
 export function SlideRightPanel({
   fullWidth,
   embeddedInCanvas = false,
   canvasPanelSlide,
+  canvasMediaElementId,
 }: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
     usePresentation();
@@ -38,7 +41,12 @@ export function SlideRightPanel({
   return (
     <div
       className={cn(
-        "bg-white dark:bg-surface flex flex-col relative group min-h-0",
+        "flex flex-col relative group min-h-0",
+        embeddedInCanvas
+          ? "bg-transparent"
+          : panelKind === PANEL_CONTENT_KIND.CANVAS_3D
+            ? "bg-transparent"
+            : "bg-white dark:bg-surface",
         fullWidth
           ? "h-full min-h-0 w-full flex-1 border-0"
           : "h-full min-h-0 border-l border-stone-200 dark:border-border",
@@ -62,6 +70,7 @@ export function SlideRightPanel({
           titleBarMode={embeddedInCanvas ? "minimal" : isLgUp ? "minimal" : "full"}
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
+          canvasMediaElementId={canvasMediaElementId}
         />
       ) : panelKind === PANEL_CONTENT_KIND.VIDEO ? (
         <VideoPanel canvasPanelSlide={canvasPanelSlide} />
