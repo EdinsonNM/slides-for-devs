@@ -1,10 +1,12 @@
 import {
   Copy,
+  Link2,
   Minus,
   Moon,
   MoreHorizontal,
   Pencil,
   Plus,
+  RotateCcw,
   RotateCw,
   Sparkles,
   Sun,
@@ -20,7 +22,12 @@ import {
   useState,
 } from "react";
 import { LANGUAGES } from "../../constants/languages";
+import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import {
+  CANVAS_3D_GLB_FILE_ACCEPT,
+  Canvas3dUrlModal,
+} from "../editor/Canvas3dUrlModal";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
 
 /** Marca el cromo flotante para ignorar clics en el lienzo del bloque. */
@@ -78,6 +85,8 @@ export interface SlideCanvasCanvaChromeProps {
       codeTheme: "dark" | "light";
       onOpenCodeGen: () => void;
     };
+    /** Panel Canvas 3D: URL http actual para el modal (vacío si solo hay data URL). */
+    canvas3dSource?: { httpGlbUrl: string };
   };
 }
 
@@ -97,7 +106,11 @@ export function SlideCanvasCanvaChrome({
   layoutDigest,
   toolbar,
 }: SlideCanvasCanvaChromeProps) {
+  const { setCurrentSlideCanvas3dGlbUrl, clearCurrentSlideCanvas3dViewState } =
+    usePresentation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [canvas3dUrlModalOpen, setCanvas3dUrlModalOpen] = useState(false);
+  const canvas3dFileRef = useRef<HTMLInputElement>(null);
   const [toolbarPlacement, setToolbarPlacement] =
     useState<ToolbarPlacement>("above");
   const moreRef = useRef<HTMLDivElement>(null);
@@ -165,7 +178,10 @@ export function SlideCanvasCanvaChrome({
   const corners: ResizeCorner[] = ["nw", "ne", "sw", "se"];
   const edges: ResizeEdge[] = ["n", "s", "e", "w"];
 
+  const canvas3d = toolbar?.canvas3dSource;
+
   return (
+    <>
     <div
       ref={chromeRootRef}
       className="pointer-events-none absolute inset-0 z-50"
@@ -333,6 +349,64 @@ export function SlideCanvasCanvaChrome({
                 <Pencil size={16} strokeWidth={2} />
               </button>
             ) : null}
+            {canvas3d ? (
+              <>
+                <input
+                  ref={canvas3dFileRef}
+                  type="file"
+                  accept={CANVAS_3D_GLB_FILE_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const dataUrl =
+                        typeof reader.result === "string"
+                          ? reader.result
+                          : "";
+                      if (dataUrl) setCurrentSlideCanvas3dGlbUrl(dataUrl);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title="Subir modelo .glb"
+                  aria-label="Subir modelo .glb"
+                  onPointerDown={stop}
+                  onClick={() => canvas3dFileRef.current?.click()}
+                >
+                  <Upload size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title="Cargar modelo desde URL"
+                  aria-label="Cargar modelo desde URL"
+                  onPointerDown={stop}
+                  onClick={() => setCanvas3dUrlModalOpen(true)}
+                >
+                  <Link2 size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={toolbarIconBtn}
+                  title="Reencuadrar vista del modelo"
+                  aria-label="Reencuadrar vista del modelo"
+                  onPointerDown={stop}
+                  onClick={() => clearCurrentSlideCanvas3dViewState()}
+                >
+                  <RotateCcw size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <div
+                  className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
+                  aria-hidden
+                />
+              </>
+            ) : null}
             {toolbar.onDuplicate ? (
               <button
                 type="button"
@@ -485,5 +559,14 @@ export function SlideCanvasCanvaChrome({
         </button>
       </div>
     </div>
+    {canvas3d ? (
+      <Canvas3dUrlModal
+        isOpen={canvas3dUrlModalOpen}
+        onClose={() => setCanvas3dUrlModalOpen(false)}
+        initialUrl={canvas3d.httpGlbUrl}
+        onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+      />
+    ) : null}
+    </>
   );
 }

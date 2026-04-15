@@ -1,5 +1,9 @@
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "../../utils/cn";
+
+/** Por encima del lienzo (`isolate` + bloques con z alto), inspector y toolbars típicos. */
+const BASE_MODAL_PORTAL_Z = "z-[300]";
 
 export interface BaseModalProps {
   isOpen: boolean;
@@ -29,9 +33,12 @@ export function BaseModal({
     if (!disabledBackdropClose) onClose();
   };
 
-  return (
+  const node = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className={cn(
+        "fixed inset-0 flex items-center justify-center p-4 bg-black/50",
+        BASE_MODAL_PORTAL_Z,
+      )}
       onClick={handleBackdropClick}
       role="presentation"
     >
@@ -84,4 +91,6 @@ export function BaseModal({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

@@ -1057,6 +1057,8 @@ function CanvasElementEditor({
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCodeActions();
   const showMediaPanelVideoActions =
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarVideoModal();
+  const showMediaPanelCanvas3dActions =
+    kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCanvas3dActions();
 
   const canvaChromeEl =
     showCanvaChrome ? (
@@ -1100,7 +1102,8 @@ function CanvasElementEditor({
           onEdit:
             showMediaPanelImageActions ||
             showMediaPanelCodeActions ||
-            showMediaPanelVideoActions
+            showMediaPanelVideoActions ||
+            showMediaPanelCanvas3dActions
             ? undefined
             : () => {
                 setIsEditing(true);
@@ -1130,6 +1133,13 @@ function CanvasElementEditor({
           onDelete: () => deleteCanvasElement(id),
           onBringForward: () => bringCanvasElementForward(id),
           onSendBackward: () => sendCanvasElementBackward(id),
+          canvas3dSource: showMediaPanelCanvas3dActions
+            ? {
+                httpGlbUrl: panelSlide.canvas3dGlbUrl?.startsWith("http")
+                  ? panelSlide.canvas3dGlbUrl
+                  : "",
+              }
+            : undefined,
         }}
       />
     ) : null;

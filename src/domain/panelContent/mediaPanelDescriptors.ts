@@ -38,6 +38,11 @@ export abstract class MediaPanelDescriptor {
     return false;
   }
 
+  /** Lienzo: el panel Canvas 3D no usa “editar texto”; las acciones van en la franja / overlay. */
+  showCanvasToolbarCanvas3dActions(): boolean {
+    return false;
+  }
+
   /** PPTX: el cuerpo del slide usa layout de dos columnas (panel derecho). */
   splitPanelOccupied(slide: Slide): boolean {
     void slide;
@@ -141,6 +146,10 @@ export class Presenter3dMediaPanelDescriptor extends MediaPanelDescriptor {
 
 export class Canvas3dMediaPanelDescriptor extends MediaPanelDescriptor {
   readonly kind = PANEL_CONTENT_KIND.CANVAS_3D;
+
+  override showCanvasToolbarCanvas3dActions(): boolean {
+    return true;
+  }
 
   override usesOrbitInteractionChrome(): boolean {
     return true;
