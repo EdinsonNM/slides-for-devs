@@ -25,7 +25,12 @@ import {
   UserRound,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
-import { hrefFromGoogleIconRelativePath, resolveBrandIconHref } from "../../utils/isometricBrandIcon";
+import {
+  hrefFromAmazonIconRelativePath,
+  hrefFromGoogleIconRelativePath,
+  hrefFromSimpleIconRelativePath,
+  resolveBrandIconHref,
+} from "../../utils/isometricBrandIcon";
 import {
   DEFAULT_ISOMETRIC_LINK_STROKE,
   dedupeIsometricFlowLinks,
@@ -81,11 +86,111 @@ const LINK_COLOR_PRESETS = [
   { label: "Pizarra", stroke: "rgb(71 85 105)", swatch: "rgb(71, 85, 105)" },
 ] as const;
 
+type BrandIconPack = "google" | "amazon" | "simpleicons" | "lobe";
+
+type IconPickerPackFilter = "all" | BrandIconPack;
+
+const ICON_PICKER_PACK_FILTERS: {
+  id: IconPickerPackFilter;
+  label: string;
+  aria: string;
+}[] = [
+  { id: "all", label: "Todos", aria: "Mostrar iconos de todos los packs" },
+  { id: "google", label: "Google Cloud", aria: "Solo pictogramas Google Cloud" },
+  { id: "amazon", label: "AWS", aria: "Solo iconos Amazon Web Services" },
+  { id: "simpleicons", label: "Simple Icons", aria: "Solo iconos Simple Icons" },
+  { id: "lobe", label: "Lobe Icons", aria: "Solo iconos Lobe" },
+];
+
+function iconPickerPackChipClasses(id: IconPickerPackFilter, active: boolean): string {
+  if (!active) {
+    return "border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700";
+  }
+  switch (id) {
+    case "all":
+      return "border-stone-500 bg-stone-200 text-stone-900 dark:border-stone-500 dark:bg-stone-700 dark:text-stone-100";
+    case "google":
+      return "border-sky-500 bg-sky-100 text-sky-950 dark:border-sky-500 dark:bg-sky-950/70 dark:text-sky-100";
+    case "amazon":
+      return "border-amber-500 bg-amber-100 text-amber-950 dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-50";
+    case "simpleicons":
+      return "border-emerald-500 bg-emerald-100 text-emerald-950 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-50";
+    case "lobe":
+      return "border-violet-500 bg-violet-100 text-violet-950 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-50";
+    default:
+      return "";
+  }
+}
+
 type BrandIconCatalogEntry = {
   id: string;
   label: string;
   href: string;
+  pack: BrandIconPack;
+  /** Carpeta / familia dentro del pack (p. ej. «Storage», «Analytics»). */
+  category: string;
 };
+
+function packSortOrder(p: BrandIconPack): number {
+  if (p === "google") return 0;
+  if (p === "amazon") return 1;
+  if (p === "simpleicons") return 2;
+  return 3;
+}
+
+function sortBrandIconCatalog(entries: BrandIconCatalogEntry[]): BrandIconCatalogEntry[] {
+  return [...entries].sort(
+    (a, b) =>
+      packSortOrder(a.pack) - packSortOrder(b.pack) ||
+      a.label.localeCompare(b.label, "es", { sensitivity: "base" }) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+function sortBrandIconCatalogByCategory(entries: BrandIconCatalogEntry[]): BrandIconCatalogEntry[] {
+  return [...entries].sort(
+    (a, b) =>
+      packSortOrder(a.pack) - packSortOrder(b.pack) ||
+      a.category.localeCompare(b.category, "es", { sensitivity: "base" }) ||
+      a.label.localeCompare(b.label, "es", { sensitivity: "base" }) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+function packShortLabel(p: BrandIconPack): string {
+  if (p === "google") return "Google Cloud";
+  if (p === "amazon") return "AWS";
+  if (p === "simpleicons") return "Simple Icons";
+  return "Lobe Icons";
+}
+
+/** Encabezado de subgrupo: carpeta del manifiesto; si hay varios packs, se antepone el nombre del pack. */
+function iconPickerGroupHeading(entry: BrandIconCatalogEntry, packFilter: IconPickerPackFilter): string {
+  if (packFilter !== "all") return entry.category;
+  return `${packShortLabel(entry.pack)} · ${entry.category}`;
+}
+
+function groupIconPickerEntriesByHeading(
+  entries: BrandIconCatalogEntry[],
+  packFilter: IconPickerPackFilter,
+): { heading: string; entries: BrandIconCatalogEntry[] }[] {
+  const map = new Map<string, BrandIconCatalogEntry[]>();
+  const order: string[] = [];
+  for (const e of entries) {
+    const h = iconPickerGroupHeading(e, packFilter);
+    if (!map.has(h)) {
+      map.set(h, []);
+      order.push(h);
+    }
+    map.get(h)!.push(e);
+  }
+  return order.map((heading) => ({ heading, entries: map.get(heading)! }));
+}
+
+function categoryFromRelativePath(relPath: string, fallback: string): string {
+  const seg = relPath.split("/").filter(Boolean)[0];
+  return seg && seg.length > 0 ? seg : fallback;
+}
 
 function hslFill(h: number, s: number, l: number) {
   return `hsl(${h} ${s}% ${l}%)`;
@@ -415,8 +520,12 @@ export function IsometricFlowDiagramCanvas({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [brandIconCatalog, setBrandIconCatalog] = useState<BrandIconCatalogEntry[]>([]);
   const [googleIconPathById, setGoogleIconPathById] = useState<Record<string, string>>({});
+  const [amazonIconPathById, setAmazonIconPathById] = useState<Record<string, string>>({});
+  const [simpleIconPathById, setSimpleIconPathById] = useState<Record<string, string>>({});
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [iconSearchQuery, setIconSearchQuery] = useState("");
+  const [iconPickerPackFilter, setIconPickerPackFilter] = useState<IconPickerPackFilter>("all");
+  const [iconPickerGroupByCategory, setIconPickerGroupByCategory] = useState(false);
   const [iconPickerVisibleLimit, setIconPickerVisibleLimit] = useState(ICON_PICKER_PAGE_SIZE);
   const [drag, setDrag] = useState<{
     id: string;
@@ -441,8 +550,10 @@ export function IsometricFlowDiagramCanvas({
     void Promise.all([
       fetch("/lobe-icons/manifest.json").then((r) => (r.ok ? r.json() : [])),
       fetch("/google-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
+      fetch("/amazon-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
+      fetch("/simple-icons/manifest.json").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([lobeList, googleDoc]: [unknown, unknown]) => {
+      .then(([lobeList, googleDoc, amazonDoc, simpleDoc]: [unknown, unknown, unknown, unknown]) => {
         if (!alive) return;
         const googlePathById: Record<string, string> = {};
         const googleEntries: BrandIconCatalogEntry[] = [];
@@ -461,10 +572,70 @@ export function IsometricFlowDiagramCanvas({
                 typeof o.label === "string" && o.label.trim()
                   ? o.label.trim()
                   : id.replace(/^g:/, "");
+              const cat = categoryFromRelativePath(path, "Google Cloud");
               googleEntries.push({
                 id,
                 label,
                 href: hrefFromGoogleIconRelativePath(path),
+                pack: "google",
+                category: cat,
+              });
+            }
+          }
+        }
+
+        const amazonPathById: Record<string, string> = {};
+        const amazonEntries: BrandIconCatalogEntry[] = [];
+        if (amazonDoc && typeof amazonDoc === "object") {
+          const icons = (amazonDoc as { icons?: unknown }).icons;
+          if (Array.isArray(icons)) {
+            for (const raw of icons) {
+              if (!raw || typeof raw !== "object") continue;
+              const o = raw as Record<string, unknown>;
+              if (typeof o.id !== "string" || typeof o.path !== "string") continue;
+              const id = o.id.trim().toLowerCase();
+              const path = o.path.trim();
+              if (!id || !path) continue;
+              amazonPathById[id] = path;
+              const label =
+                typeof o.label === "string" && o.label.trim()
+                  ? o.label.trim()
+                  : id.replace(/^aws:/, "").replace(/__/g, " / ");
+              const cat = categoryFromRelativePath(path, "AWS");
+              amazonEntries.push({
+                id,
+                label,
+                href: hrefFromAmazonIconRelativePath(path),
+                pack: "amazon",
+                category: cat,
+              });
+            }
+          }
+        }
+
+        const simplePathById: Record<string, string> = {};
+        const simpleEntries: BrandIconCatalogEntry[] = [];
+        if (simpleDoc && typeof simpleDoc === "object") {
+          const icons = (simpleDoc as { icons?: unknown }).icons;
+          if (Array.isArray(icons)) {
+            for (const raw of icons) {
+              if (!raw || typeof raw !== "object") continue;
+              const o = raw as Record<string, unknown>;
+              if (typeof o.id !== "string" || typeof o.path !== "string") continue;
+              const id = o.id.trim().toLowerCase();
+              const relPath = o.path.trim();
+              if (!id || !relPath) continue;
+              simplePathById[id] = relPath;
+              const label =
+                typeof o.label === "string" && o.label.trim()
+                  ? o.label.trim()
+                  : id.replace(/^si:/, "").replace(/-/g, " ");
+              simpleEntries.push({
+                id,
+                label,
+                href: hrefFromSimpleIconRelativePath(relPath),
+                pack: "simpleicons",
+                category: "Simple Icons",
               });
             }
           }
@@ -480,14 +651,27 @@ export function IsometricFlowDiagramCanvas({
           id,
           label: id,
           href: `/lobe-icons/icons/${id}.svg`,
+          pack: "lobe",
+          category: "Lobe Icons",
         }));
 
         setGoogleIconPathById(googlePathById);
-        setBrandIconCatalog([...googleEntries, ...lobeEntries]);
+        setAmazonIconPathById(amazonPathById);
+        setSimpleIconPathById(simplePathById);
+        setBrandIconCatalog(
+          sortBrandIconCatalog([
+            ...googleEntries,
+            ...amazonEntries,
+            ...simpleEntries,
+            ...lobeEntries,
+          ]),
+        );
       })
       .catch(() => {
         if (!alive) return;
         setGoogleIconPathById({});
+        setAmazonIconPathById({});
+        setSimpleIconPathById({});
         setBrandIconCatalog([]);
       });
     return () => {
@@ -498,12 +682,13 @@ export function IsometricFlowDiagramCanvas({
   useEffect(() => {
     if (!iconPickerOpen) return;
     setIconSearchQuery("");
+    setIconPickerPackFilter("all");
   }, [iconPickerOpen]);
 
   useEffect(() => {
     if (!iconPickerOpen) return;
     setIconPickerVisibleLimit(ICON_PICKER_PAGE_SIZE);
-  }, [iconPickerOpen, iconSearchQuery]);
+  }, [iconPickerOpen, iconSearchQuery, iconPickerPackFilter, iconPickerGroupByCategory]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -534,24 +719,47 @@ export function IsometricFlowDiagramCanvas({
     return ids;
   }, [data.links]);
 
-  const iconPickerFiltered = useMemo(() => {
+  const brandIconCatalogByPack = useMemo(() => {
     if (!brandIconCatalog.length) return [];
+    if (iconPickerPackFilter === "all") return brandIconCatalog;
+    return brandIconCatalog.filter((e) => e.pack === iconPickerPackFilter);
+  }, [brandIconCatalog, iconPickerPackFilter]);
+
+  const iconPickerFiltered = useMemo(() => {
     const q = iconSearchQuery.trim().toLowerCase();
-    if (!q) return brandIconCatalog;
-    return brandIconCatalog.filter(
+    if (!q) {
+      if (!brandIconCatalogByPack.length) return [];
+      return brandIconCatalogByPack;
+    }
+    if (!brandIconCatalog.length) return [];
+    const matched = brandIconCatalog.filter(
       (e) =>
         e.id.includes(q) ||
         e.label.toLowerCase().includes(q) ||
-        e.id.replace(/^g:/, "").includes(q),
+        e.category.toLowerCase().includes(q) ||
+        e.id.replace(/^g:/, "").includes(q) ||
+        e.id.replace(/^aws:/, "").includes(q) ||
+        e.id.replace(/^si:/, "").includes(q),
     );
-  }, [brandIconCatalog, iconSearchQuery]);
+    return sortBrandIconCatalog(matched);
+  }, [brandIconCatalog, brandIconCatalogByPack, iconSearchQuery]);
+
+  const iconPickerOrderedFlat = useMemo(() => {
+    if (!iconPickerGroupByCategory) return iconPickerFiltered;
+    return sortBrandIconCatalogByCategory(iconPickerFiltered);
+  }, [iconPickerFiltered, iconPickerGroupByCategory]);
 
   const iconPickerResults = useMemo(
-    () => iconPickerFiltered.slice(0, iconPickerVisibleLimit),
-    [iconPickerFiltered, iconPickerVisibleLimit],
+    () => iconPickerOrderedFlat.slice(0, iconPickerVisibleLimit),
+    [iconPickerOrderedFlat, iconPickerVisibleLimit],
   );
 
-  const iconPickerHasMore = iconPickerFiltered.length > iconPickerResults.length;
+  const iconPickerGroupedSections = useMemo(() => {
+    if (!iconPickerGroupByCategory) return null;
+    return groupIconPickerEntriesByHeading(iconPickerResults, iconPickerPackFilter);
+  }, [iconPickerGroupByCategory, iconPickerResults, iconPickerPackFilter]);
+
+  const iconPickerHasMore = iconPickerOrderedFlat.length > iconPickerResults.length;
 
   const pickNodeAt = useCallback(
     (sx: number, sy: number): IsometricFlowNode | null => {
@@ -1075,71 +1283,160 @@ export function IsometricFlowDiagramCanvas({
       {iconPickerOpen && selectedNode ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/45 p-3">
           <div className="flex h-[min(78vh,520px)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-2xl dark:border-border dark:bg-stone-900">
-            <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-2 dark:border-border">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
-                  Cambiar icono
-                </span>
-                <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-                  {iconPickerHasMore
-                    ? `${iconPickerResults.length} de ${iconPickerFiltered.length}`
-                    : `${iconPickerFiltered.length} iconos`}
-                </span>
+            <div className="border-b border-stone-200 px-3 py-2 dark:border-border">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
+                    Cambiar icono
+                  </span>
+                  <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                    {iconPickerHasMore
+                      ? `${iconPickerResults.length} de ${iconPickerOrderedFlat.length}`
+                      : `${iconPickerOrderedFlat.length} iconos`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIconPickerOpen(false)}
+                  className="rounded-md border border-stone-200 px-2 py-1 text-xs text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
+                >
+                  Cerrar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIconPickerOpen(false)}
-                className="rounded-md border border-stone-200 px-2 py-1 text-xs text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-800"
+              <div
+                className="mt-2.5 flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Filtrar por origen del icono"
               >
-                Cerrar
-              </button>
+                {ICON_PICKER_PACK_FILTERS.map((opt) => {
+                  const active = iconPickerPackFilter === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      aria-label={opt.aria}
+                      aria-pressed={active}
+                      onClick={() => setIconPickerPackFilter(opt.id)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors",
+                        iconPickerPackChipClasses(opt.id, active),
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="border-b border-stone-200 px-3 py-2 dark:border-border">
               <input
                 value={iconSearchQuery}
                 onChange={(e) => setIconSearchQuery(e.target.value)}
-                placeholder="Buscar (openai, compute, g:storage, networking…)"
+                placeholder="Buscar (openai, g:storage, aws:lambda, si:react…)"
                 className="h-9 w-full rounded-md border border-stone-200 bg-stone-50 px-3 text-sm text-stone-700 outline-none focus:border-sky-500 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200"
               />
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] text-stone-700 dark:text-stone-200">
+                <input
+                  type="checkbox"
+                  checked={iconPickerGroupByCategory}
+                  onChange={(e) => setIconPickerGroupByCategory(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-stone-300 text-sky-600 focus:ring-sky-500 dark:border-stone-600 dark:bg-stone-800"
+                />
+                <span>Agrupar por carpeta del pack (subcategorías)</span>
+              </label>
               <p className="mt-2 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                El catálogo Lobe es muy grande: solo se pintan miniaturas por tandas para que la UI siga fluida. Usa la
-                búsqueda o «Cargar más» para ver el resto.
+                Arriba elige pack (Google Cloud, AWS, Simple Icons, Lobe o todos). Con texto en el buscador la búsqueda
+                es global en todos los packs. Los catálogos Lobe y Simple Icons son muy grandes: usa «Cargar más».
+                {iconPickerGroupByCategory ? (
+                  <>
+                    {" "}
+                    Con agrupación activa, los iconos visibles se ordenan por pack y carpeta; si el filtro es «Todos»,
+                    cada bloque muestra «Pack · carpeta».
+                  </>
+                ) : null}
               </p>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {iconPickerResults.map((entry) => {
-                  const active =
-                    (selectedNode.iconSlug ?? "").trim().toLowerCase() === entry.id;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedNodeBrandIcon(entry.id);
-                        setIconSearchQuery("");
-                        setIconPickerOpen(false);
-                      }}
-                      className={cn(
-                        "flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-[11px] text-stone-700 transition-colors dark:text-stone-200",
-                        active
-                          ? "border-sky-500 bg-sky-50 dark:bg-sky-950/50"
-                          : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800/70 dark:hover:bg-stone-800",
-                      )}
-                      title={entry.id}
-                    >
-                      <img
-                        src={entry.href}
-                        alt={entry.label}
-                        className="h-8 w-8 object-contain"
-                      />
-                      <span className="w-full truncate text-center">{entry.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {iconPickerGroupByCategory && iconPickerGroupedSections ? (
+                <div className="flex flex-col gap-5">
+                  {iconPickerGroupedSections.map((section) => (
+                    <div key={section.heading}>
+                      <h3 className="mb-2 border-b border-stone-200 pb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:border-stone-700 dark:text-stone-400">
+                        {section.heading}
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                        {section.entries.map((entry) => {
+                          const active =
+                            (selectedNode.iconSlug ?? "").trim().toLowerCase() === entry.id;
+                          return (
+                            <button
+                              key={entry.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedNodeBrandIcon(entry.id);
+                                setIconSearchQuery("");
+                                setIconPickerOpen(false);
+                              }}
+                              className={cn(
+                                "flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-[11px] text-stone-700 transition-colors dark:text-stone-200",
+                                active
+                                  ? "border-sky-500 bg-sky-50 dark:bg-sky-950/50"
+                                  : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800/70 dark:hover:bg-stone-800",
+                              )}
+                              title={entry.id}
+                            >
+                              <img
+                                src={entry.href}
+                                alt={entry.label}
+                                className="h-8 w-8 object-contain"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                              <span className="w-full truncate text-center">{entry.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {iconPickerResults.map((entry) => {
+                    const active =
+                      (selectedNode.iconSlug ?? "").trim().toLowerCase() === entry.id;
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedNodeBrandIcon(entry.id);
+                          setIconSearchQuery("");
+                          setIconPickerOpen(false);
+                        }}
+                        className={cn(
+                          "flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-lg border p-2 text-[11px] text-stone-700 transition-colors dark:text-stone-200",
+                          active
+                            ? "border-sky-500 bg-sky-50 dark:bg-sky-950/50"
+                            : "border-stone-200 bg-stone-50 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800/70 dark:hover:bg-stone-800",
+                        )}
+                        title={entry.id}
+                      >
+                        <img
+                          src={entry.href}
+                          alt={entry.label}
+                          className="h-8 w-8 object-contain"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <span className="w-full truncate text-center">{entry.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {iconPickerHasMore ? (
                 <div className="flex justify-center pt-3">
                   <button
@@ -1149,7 +1446,7 @@ export function IsometricFlowDiagramCanvas({
                     }
                     className="rounded-md border border-stone-200 bg-stone-50 px-3 py-1.5 text-[11px] font-medium text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
                   >
-                    Cargar más ({iconPickerFiltered.length - iconPickerResults.length} restantes)
+                    Cargar más ({iconPickerOrderedFlat.length - iconPickerResults.length} restantes)
                   </button>
                 </div>
               ) : null}
@@ -1697,7 +1994,12 @@ export function IsometricFlowDiagramCanvas({
                     const stroke = "rgba(30, 64, 175, 0.28)";
                     const { yTop, yBot } = glyphExtent;
                     const iconSlug = (n.iconSlug ?? "openai").trim().toLowerCase();
-                    const brandIconHref = resolveBrandIconHref(n.iconSlug, googleIconPathById);
+                    const brandIconHref = resolveBrandIconHref(
+                      n.iconSlug,
+                      googleIconPathById,
+                      amazonIconPathById,
+                      simpleIconPathById,
+                    );
                     const sphereR = Math.min(CELL * 0.38, (yBot - yTop) * 0.46);
                     const sphereCy = (yTop + yBot) / 2 + 0.5;
                     const iconSize = sphereR * 1.45;

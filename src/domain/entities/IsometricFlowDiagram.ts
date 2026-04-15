@@ -41,8 +41,10 @@ export interface IsometricFlowNode {
   /** Silueta del icono (prisma, cilindro, cono, orbe, móvil, PC, nube, LLM, usuario o marca SVG). */
   shape: IsometricFlowNodeShape;
   /**
-   * Icono de marca: slug Lobe (`public/lobe-icons/icons/{slug}.svg`) o id Google
-   * (`public/google-icons/manifest.json`, prefijo `g:`).
+   * Icono de marca: slug Lobe (`public/lobe-icons/icons/{slug}.svg`), id Google
+   * (`public/google-icons/manifest.json`, prefijo `g:`), id AWS
+   * (`public/amazon-icons/manifest.json`, prefijo `aws:`) o id Simple Icons
+   * (`public/simple-icons/manifest.json`, prefijo `si:`).
    */
   iconSlug?: string;
 }

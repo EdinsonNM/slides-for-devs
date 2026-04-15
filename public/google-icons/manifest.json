@@ -8,8 +8,8 @@
     },
     {
       "id": "g:ai-machine-learning",
-      "path": "AI _ Machine Learning/SVG/AIMachineLearning-512-color.svg",
-      "label": "AI / Machine Learning"
+      "path": "AI_Machine Learning/SVG/AIMachineLearning-512-color.svg",
+      "label": "AI & Machine Learning"
     },
     {
       "id": "g:business-intelligence",
@@ -53,7 +53,7 @@
     },
     {
       "id": "g:hybrid-multicloud",
-      "path": "Hybrid & Multicloud/SVG/HybridMulticloud-512-color.svg",
+      "path": "Hybrid_Multicloud/SVG/HybridMulticloud-512-color.svg",
       "label": "Hybrid & Multicloud"
     },
     {
@@ -68,7 +68,7 @@
     },
     {
       "id": "g:maps-geospatial",
-      "path": "Maps & Geospatial/SVG/MapsGeospatial-512-color.svg",
+      "path": "Maps_Geospatial/SVG/MapsGeospatial-512-color.svg",
       "label": "Maps & Geospatial"
     },
     {
@@ -109,7 +109,7 @@
     {
       "id": "g:security-identity",
       "path": "Security Identity/SVG/SecurityIdentity-512-color.svg",
-      "label": "Security & Identity"
+      "label": "Security / Identity"
     },
     {
       "id": "g:serverless-computing",
@@ -123,7 +123,7 @@
     },
     {
       "id": "g:web-mobile",
-      "path": "Web & Mobile/SVG/WebMobile-512-color.svg",
+      "path": "Web_Mobile/SVG/WebMobile-512-color.svg",
       "label": "Web & Mobile"
     },
     {
