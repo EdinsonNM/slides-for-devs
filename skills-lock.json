@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "react-refactor": {
+      "source": "pproenca/dot-skills",
+      "sourceType": "github",
+      "computedHash": "e8311b720ebd9143b16c119fad4817e683914e9499bb127d397c712a320ec6d4"
+    },
     "tailwind-design-system": {
       "source": "wshobson/agents",
       "sourceType": "github",
