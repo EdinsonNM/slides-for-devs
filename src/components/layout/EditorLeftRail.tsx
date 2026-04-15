@@ -1,21 +1,28 @@
-import { useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Home,
-  ChevronDown,
   Clapperboard,
   FileDown,
   Loader2,
   UserPlus,
   LayoutTemplate,
+  Sparkles,
+  Mic,
+  StickyNote,
 } from "lucide-react";
+import { PRESENTATION_MODELS } from "../../constants/presentationModels";
 import { usePresentation } from "../../context/PresentationContext";
-import { cn } from "../../utils/cn";
 import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
+import { RailPresentationModelPicker } from "../shared/RailPresentationModelPicker";
+import { RailTooltip } from "../shared/RailTooltip";
 
 interface EditorLeftRailProps {
   onOpenConfig?: () => void;
 }
+
+const railIconBtnClass =
+  "flex size-full min-h-9 min-w-9 items-center justify-center rounded-lg text-foreground/90 outline-none hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-40";
 
 export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailProps) {
   void _onOpenConfig;
@@ -30,21 +37,12 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     setShowSlideStylePanel,
     setInspectorSection,
     setIsNotesPanelOpen,
+    setShowSpeechModal,
+    presentationModelId,
+    presentationModels,
   } = usePresentation();
 
-  const [menuOpen, setMenuOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return;
-      setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [menuOpen]);
 
   const goPanels = (which: "characters" | "template" | "notes") => {
     if (which === "characters") {
@@ -61,13 +59,11 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
       setShowCharactersPanel(false);
       setShowSlideStylePanel(false);
     }
-    setMenuOpen(false);
   };
 
   const exportPptx = async () => {
     if (slides.length === 0) return;
     setExporting(true);
-    setMenuOpen(false);
     try {
       await exportPresentationToPowerPoint({
         topic: topic || "Presentación",
@@ -81,118 +77,141 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     }
   };
 
+  const hasSlides = slides.length > 0;
+
+  const currentModelLabel = useMemo(() => {
+    const fromAllowed = presentationModels.find((m) => m.id === presentationModelId);
+    if (fromAllowed) return fromAllowed.label;
+    return PRESENTATION_MODELS.find((m) => m.id === presentationModelId)?.label ?? null;
+  }, [presentationModelId, presentationModels]);
+
   return (
     <aside
-      className="z-20 flex w-12 shrink-0 flex-col items-center gap-2 border-r border-stone-200/90 bg-white py-2 dark:border-border dark:bg-surface-elevated"
+      className="z-20 flex w-16 shrink-0 flex-col items-center gap-1.5 border-r border-stone-200/90 bg-white px-2 py-2 dark:border-border dark:bg-surface-elevated"
       aria-label="Navegación principal del editor"
     >
-      <button
-        type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground/90 outline-none hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="Inicio"
-        title="Volver al inicio"
-        onClick={() => {
-          goHome();
-          navigate("/");
-        }}
-      >
-        <Home size={20} strokeWidth={1.75} />
-      </button>
-
-      <div ref={menuRef} className="relative flex flex-col items-center">
+      <RailTooltip label="Inicio" detail="Volver al inicio">
         <button
           type="button"
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg text-foreground/90 outline-none hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary",
-            menuOpen && "bg-stone-100 dark:bg-white/10",
-          )}
-          aria-label="Menú archivo y paneles"
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-          onClick={() => setMenuOpen((v) => !v)}
-          title="Menú"
+          className={railIconBtnClass}
+          aria-label="Inicio"
+          onClick={() => {
+            goHome();
+            navigate("/");
+          }}
         >
-          <ChevronDown size={18} strokeWidth={2} />
+          <Home size={20} strokeWidth={1.75} />
         </button>
-        {menuOpen && (
-          <div
-            role="menu"
-            className="absolute left-full top-0 z-50 ml-1 w-52 rounded-lg border border-stone-200 bg-white py-1 shadow-lg shadow-stone-900/8 dark:border-border dark:bg-surface-elevated dark:shadow-black/40"
+      </RailTooltip>
+
+      <RailTooltip
+        label="Modelo de IA"
+        detail={
+          currentModelLabel ??
+          "Configura al menos una API key (Gemini, OpenAI, Groq…) en el menú de tu cuenta."
+        }
+      >
+        <RailPresentationModelPicker triggerClassName={railIconBtnClass} />
+      </RailTooltip>
+
+      <div
+        className="flex w-full flex-col items-center gap-1 border-t border-stone-200/80 pt-1.5 dark:border-stone-600/60"
+        role="toolbar"
+        aria-label="Acciones de presentación"
+      >
+        <RailTooltip
+          label="Generar con IA"
+          detail="Toda la presentación a partir del tema (usa el modelo elegido arriba)."
+        >
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Generar toda la presentación con IA"
+            disabled={!hasSlides}
+            onClick={() => openGenerateFullDeckModal()}
           >
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8"
-              onClick={() => {
-                goPanels("characters");
-              }}
-            >
-              <UserPlus size={16} className="shrink-0 opacity-80" />
-              Personajes
-            </button>
-            {slides.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8"
-                  onClick={() => {
-                    goPanels("template");
-                  }}
-                >
-                  <LayoutTemplate size={16} className="shrink-0 opacity-80" />
-                  Plantilla de diapositiva
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8"
-                  onClick={() => goPanels("notes")}
-                >
-                  Notas del presentador
-                </button>
-              </>
+            <Sparkles size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
+        <RailTooltip label="Speech" detail="Notas y speech para todas las diapositivas.">
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Speech para toda la presentación"
+            disabled={!hasSlides}
+            onClick={() => setShowSpeechModal(true)}
+          >
+            <Mic size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
+        <RailTooltip label="Exportar vídeo" detail="Render con Remotion.">
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Exportar vídeo"
+            disabled={!hasSlides}
+            onClick={() => openExportDeckVideoModal()}
+          >
+            <Clapperboard size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
+        <RailTooltip
+          label={exporting ? "Exportando…" : "Exportar a PowerPoint"}
+          detail={exporting ? "Generando archivo .pptx" : "Descarga compatible con Microsoft PowerPoint."}
+        >
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Exportar a PowerPoint"
+            disabled={!hasSlides || exporting}
+            onClick={() => void exportPptx()}
+          >
+            {exporting ? (
+              <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden />
+            ) : (
+              <FileDown size={18} strokeWidth={2} />
             )}
-            <button
-              type="button"
-              role="menuitem"
-              disabled={slides.length === 0}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8 disabled:opacity-40"
-              onClick={() => {
-                setMenuOpen(false);
-                openExportDeckVideoModal();
-              }}
-            >
-              <Clapperboard size={16} className="shrink-0 opacity-80" />
-              Exportar vídeo (Remotion)
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              disabled={slides.length === 0 || exporting}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8 disabled:opacity-40"
-              onClick={() => void exportPptx()}
-            >
-              {exporting ? (
-                <Loader2 size={16} className="shrink-0 animate-spin" />
-              ) : (
-                <FileDown size={16} className="shrink-0 opacity-80" />
-              )}
-              Exportar PowerPoint
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-stone-50 dark:hover:bg-white/8"
-              onClick={() => {
-                setMenuOpen(false);
-                openGenerateFullDeckModal();
-              }}
-            >
-              Generar presentación (IA)
-            </button>
-          </div>
-        )}
+          </button>
+        </RailTooltip>
+      </div>
+
+      <div
+        className="flex w-full flex-col items-center gap-1 border-t border-stone-200/80 pt-1.5 dark:border-stone-600/60"
+        role="toolbar"
+        aria-label="Paneles del editor"
+      >
+        <RailTooltip label="Personajes" detail="Avatares y voz para la presentación.">
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Personajes"
+            onClick={() => goPanels("characters")}
+          >
+            <UserPlus size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
+        <RailTooltip label="Plantilla" detail="Estilos de la diapositiva actual.">
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Plantilla de diapositiva"
+            disabled={!hasSlides}
+            onClick={() => goPanels("template")}
+          >
+            <LayoutTemplate size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
+        <RailTooltip label="Notas del presentador" detail="Vista para notas y teleprompter.">
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Notas del presentador"
+            disabled={!hasSlides}
+            onClick={() => goPanels("notes")}
+          >
+            <StickyNote size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
       </div>
     </aside>
   );

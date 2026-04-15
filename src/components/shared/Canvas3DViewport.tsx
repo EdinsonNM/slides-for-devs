@@ -23,6 +23,7 @@ import {
   DEFAULT_PRESENTER_3D_VIEW,
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
+import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
 
 function disposeClonedGeometries(root: THREE.Object3D) {
   root.traverse((obj) => {
@@ -84,6 +85,8 @@ function Canvas3DOrbitControls({
   const appliedForKey = useRef<string | null>(null);
   const pendingApply = useRef(false);
 
+  useFixedTargetOrbitPan(ref, Boolean(!disableControls));
+
   useEffect(() => {
     pendingApply.current = true;
     appliedForKey.current = null;
@@ -119,7 +122,7 @@ function Canvas3DOrbitControls({
       dampingFactor={0.08}
       rotateSpeed={0.85}
       zoomSpeed={0.9}
-      enablePan={!disableControls}
+      enablePan={false}
       enableRotate={!disableControls}
       enableZoom={!disableControls}
       minPolarAngle={0.08}
@@ -249,8 +252,7 @@ export function Canvas3DViewport({
       )}
       {!disableControls && showInteractionHint && trimmed && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
-          Clic + arrastre para girar · rueda o pellizco para zoom · clic derecho o botón central
-          para desplazar
+          Clic + arrastre para girar · rueda o pellizco para zoom · clic derecho para desplazar
         </p>
       )}
     </div>

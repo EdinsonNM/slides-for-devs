@@ -2244,42 +2244,43 @@ export function IsometricFlowDiagramCanvas({
         <Plus size={14} />
         Bloque
       </button>
-      <button
-        type="button"
-        onClick={() => {
-          setSelectedLinkId(null);
-          setConnectFrom((c) => (c ? null : primarySelectedId));
-        }}
-        disabled={!primarySelectedId}
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
-          connectFrom
-            ? "border-sky-500 bg-sky-50 text-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
-            : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200",
-          !primarySelectedId && "pointer-events-none opacity-40",
-        )}
-        aria-label="Modo conexión: elige dos bloques"
-        title="Conectar: origen y destino"
-      >
-        <Link2 size={14} />
-        {connectFrom ? "Destino…" : "Conectar"}
-      </button>
-      <button
-        type="button"
-        onClick={removeSelection}
-        disabled={selectedNodeIds.length === 0 && !selectedLinkId}
-        className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-red-950/40"
-        aria-label={
-          selectedLinkId
-            ? "Eliminar conector seleccionado"
-            : selectedNodeIds.length > 1
-              ? "Eliminar bloques seleccionados"
-              : "Eliminar bloque seleccionado"
-        }
-      >
-        <Trash2 size={14} />
-        Quitar
-      </button>
+      {(primarySelectedId || connectFrom) && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedLinkId(null);
+            setConnectFrom((c) => (c ? null : primarySelectedId));
+          }}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
+            connectFrom
+              ? "border-sky-500 bg-sky-50 text-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
+              : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200",
+          )}
+          aria-label="Modo conexión: elige dos bloques"
+          title="Conectar: origen y destino"
+        >
+          <Link2 size={14} />
+          {connectFrom ? "Destino…" : "Conectar"}
+        </button>
+      )}
+      {(selectedNodeIds.length > 0 || selectedLinkId) && (
+        <button
+          type="button"
+          onClick={removeSelection}
+          className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-red-50 hover:text-red-700 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-red-950/40"
+          aria-label={
+            selectedLinkId
+              ? "Eliminar conector seleccionado"
+              : selectedNodeIds.length > 1
+                ? "Eliminar bloques seleccionados"
+                : "Eliminar bloque seleccionado"
+          }
+        >
+          <Trash2 size={14} />
+          Quitar
+        </button>
+      )}
       {slideTextOverlayToolbar ? (
         <div
           className="flex flex-wrap items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600"

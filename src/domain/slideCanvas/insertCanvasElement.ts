@@ -1,5 +1,9 @@
+import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import { SLIDE_TYPE, type Slide } from "../entities";
-import { PANEL_CONTENT_KIND } from "../panelContent/panelContentKind";
+import {
+  PANEL_CONTENT_KIND,
+  type PanelContentKind,
+} from "../panelContent/panelContentKind";
 import {
   clampCanvasRect,
   type SlideCanvasElement,
@@ -9,9 +13,24 @@ import {
 } from "../entities/SlideCanvas";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 
-const EMPTY_MEDIA: SlideCanvasMediaPayload = {
-  type: "media",
-  contentType: PANEL_CONTENT_KIND.IMAGE,
+function mediaPayloadForNewPanel(
+  contentType: PanelContentKind,
+): SlideCanvasMediaPayload {
+  const base: SlideCanvasMediaPayload = { type: "media", contentType };
+  if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
+    return {
+      ...base,
+      presenter3dDeviceId: DEFAULT_DEVICE_3D_ID,
+      presenter3dScreenMedia: "image",
+    };
+  }
+  return base;
+}
+
+/** Opciones al añadir un bloque al lienzo desde la UI. */
+export type AppendCanvasElementOptions = {
+  /** Solo aplica al insertar `mediaPanel` en diapositivas de tipo contenido. */
+  mediaContentType?: PanelContentKind;
 };
 
 function emptyTextPayloadForKind(kind: SlideCanvasElementKind): SlideCanvasTextPayload {
@@ -86,6 +105,7 @@ export function createCanvasElementForInsert(
   slide: Slide,
   elements: SlideCanvasElement[],
   kind: SlideCanvasElementKind,
+  options?: AppendCanvasElementOptions,
 ): SlideCanvasElement | null {
   if (!canInsertCanvasElementKind(slide, kind)) return null;
 
@@ -125,7 +145,12 @@ export function createCanvasElementForInsert(
   }
 
   if (kind === "mediaPanel" && slide.type === SLIDE_TYPE.CONTENT) {
-    return { ...base, payload: { ...EMPTY_MEDIA } };
+    const contentType =
+      options?.mediaContentType ?? PANEL_CONTENT_KIND.IMAGE;
+    return {
+      ...base,
+      payload: mediaPayloadForNewPanel(contentType),
+    };
   }
 
   return null;
@@ -135,8 +160,9 @@ export function appendCanvasElementToScene(
   slide: Slide,
   elements: SlideCanvasElement[],
   kind: SlideCanvasElementKind,
+  options?: AppendCanvasElementOptions,
 ): SlideCanvasElement[] | null {
-  const el = createCanvasElementForInsert(slide, elements, kind);
+  const el = createCanvasElementForInsert(slide, elements, kind, options);
   if (!el) return null;
   return normalizeCanvasElementsZOrder([...elements, el]);
 }

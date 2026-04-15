@@ -303,7 +303,10 @@ function CanvasElementReadOnly({
       );
     case "excalidraw":
       return (
-        <div style={box} className={cn(shell, "bg-white dark:bg-surface-elevated")}>
+        <div
+          style={box}
+          className={cn(shell, "bg-white dark:bg-surface-elevated")}
+        >
           {rotated(
             "absolute inset-0 min-h-0",
             <ExcalidrawViewer

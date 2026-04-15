@@ -69,7 +69,10 @@ import {
 } from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import { readTextMarkdownFromElement } from "../domain/slideCanvas/slideCanvasPayload";
 import { syncSlideRootFromCanvas } from "../domain/slideCanvas/syncSlideRootFromCanvas";
-import { appendCanvasElementToScene } from "../domain/slideCanvas/insertCanvasElement";
+import {
+  appendCanvasElementToScene,
+  type AppendCanvasElementOptions,
+} from "../domain/slideCanvas/insertCanvasElement";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -1121,7 +1124,10 @@ export function usePresentationState() {
   );
 
   const addCanvasElementToCurrentSlide = useCallback(
-    (kind: SlideCanvasElementKind) => {
+    (
+      kind: SlideCanvasElementKind,
+      options?: AppendCanvasElementOptions,
+    ) => {
       setSlides((prev) => {
         const idx = currentIndexRef.current;
         const raw = prev[idx];
@@ -1129,7 +1135,12 @@ export function usePresentationState() {
         const cur = ensureSlideCanvasScene(raw);
         const scene = cur.canvasScene;
         if (!scene) return prev;
-        const nextElements = appendCanvasElementToScene(cur, scene.elements, kind);
+        const nextElements = appendCanvasElementToScene(
+          cur,
+          scene.elements,
+          kind,
+          options,
+        );
         if (!nextElements) return prev;
         const nextSlide = syncSlideRootFromCanvas({
           ...cur,

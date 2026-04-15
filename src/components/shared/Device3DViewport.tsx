@@ -32,6 +32,7 @@ import {
   type Presenter3dViewState,
   presenter3dViewIsTooTightHeadOn,
 } from "../../utils/presenter3dView";
+import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
 
 function isScreenMaterial(mesh: THREE.Mesh, mat: THREE.Material): boolean {
   const mn = (mesh.name || "").toLowerCase();
@@ -157,6 +158,8 @@ function PersistedOrbitControls({
   const appliedForSlideId = useRef<string | null>(null);
   const pendingApply = useRef(false);
 
+  useFixedTargetOrbitPan(ref, Boolean(!disableControls));
+
   useEffect(() => {
     pendingApply.current = true;
     appliedForSlideId.current = null;
@@ -192,7 +195,7 @@ function PersistedOrbitControls({
       dampingFactor={0.08}
       rotateSpeed={0.85}
       zoomSpeed={0.9}
-      enablePan={!disableControls}
+      enablePan={false}
       enableRotate={!disableControls}
       enableZoom={!disableControls}
       minPolarAngle={0.35}

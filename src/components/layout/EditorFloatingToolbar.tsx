@@ -1,12 +1,13 @@
 import { flushSync } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Save,
   Maximize2,
   Loader2,
   Sparkles,
-  Mic,
   Columns3,
   Rows3,
   Minus,
@@ -14,11 +15,20 @@ import {
   Heading2,
   FileText,
   ImagePlus,
+  Image as ImageIcon,
+  Code2,
+  Video,
+  Smartphone,
+  Cuboid,
   StickyNote,
   type LucideIcon,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import {
+  PANEL_CONTENT_KIND,
+  type PanelContentKind,
+} from "../../domain/panelContent";
 import {
   SLIDE_TYPE,
   applyMatrixAddColumn,
@@ -80,10 +90,44 @@ const INSERT_BLOCK_UI: Record<
   isometricFlow: undefined,
 };
 
+const PANEL_INSERT_MENU_ITEMS: {
+  id: PanelContentKind;
+  label: string;
+  Icon: LucideIcon;
+}[] = [
+  { id: PANEL_CONTENT_KIND.IMAGE, label: "Imagen", Icon: ImageIcon },
+  { id: PANEL_CONTENT_KIND.CODE, label: "Código", Icon: Code2 },
+  { id: PANEL_CONTENT_KIND.VIDEO, label: "Video", Icon: Video },
+  { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", Icon: Smartphone },
+  { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", Icon: Cuboid },
+];
+
 export function EditorFloatingToolbar({
   onOpenConfig: _onOpenConfig,
 }: EditorFloatingToolbarProps) {
   void _onOpenConfig;
+  const [panelInsertMenuOpen, setPanelInsertMenuOpen] = useState(false);
+  const panelInsertMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!panelInsertMenuOpen) return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      const root = panelInsertMenuRef.current;
+      if (root && !root.contains(e.target as Node)) {
+        setPanelInsertMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPanelInsertMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [panelInsertMenuOpen]);
+
   const {
     currentIndex,
     slides,
@@ -95,8 +139,6 @@ export function EditorFloatingToolbar({
     flushDiagramPending,
     flushIsometricFlowPending,
     setIsPreviewMode,
-    openGenerateFullDeckModal,
-    setShowSpeechModal,
     patchCurrentSlideMatrix,
     setShowGenerateSlideContentModal,
     setGenerateSlideContentPrompt,
@@ -153,6 +195,63 @@ export function EditorFloatingToolbar({
               const meta = INSERT_BLOCK_UI[kind];
               if (!meta) return null;
               const { Icon, label, title } = meta;
+              if (kind === "mediaPanel") {
+                return (
+                  <div key={kind} className="relative shrink-0" ref={panelInsertMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setPanelInsertMenuOpen((open) => !open)}
+                      title="Añadir panel (elegir tipo)"
+                      aria-label="Añadir panel (elegir tipo)"
+                      aria-expanded={panelInsertMenuOpen}
+                      aria-haspopup="menu"
+                      className={cn(
+                        "flex h-9 shrink-0 items-center gap-0.5 rounded-lg px-2 text-[12px] font-medium text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/10",
+                        panelInsertMenuOpen && "bg-stone-100 dark:bg-white/10",
+                      )}
+                    >
+                      <Icon size={16} className="shrink-0 opacity-90" aria-hidden />
+                      <span className="hidden sm:inline">{label}</span>
+                      <ChevronDown
+                        size={14}
+                        className={cn(
+                          "hidden shrink-0 opacity-70 transition-transform sm:inline",
+                          panelInsertMenuOpen && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+                    {panelInsertMenuOpen ? (
+                      <div
+                        role="menu"
+                        aria-label="Tipo de panel"
+                        className={cn(
+                          "absolute bottom-full left-1/2 z-40 mb-1.5 min-w-[11.5rem] -translate-x-1/2 rounded-xl border border-stone-200/90 bg-white py-1 shadow-lg shadow-stone-900/12",
+                          "dark:border-border dark:bg-surface-elevated dark:shadow-black/50",
+                        )}
+                      >
+                        {PANEL_INSERT_MENU_ITEMS.map(({ id, label: itemLabel, Icon: ItemIcon }) => (
+                          <button
+                            key={id}
+                            role="menuitem"
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-muted-foreground outline-none hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:hover:bg-white/10 dark:focus-visible:bg-white/10"
+                            onClick={() => {
+                              addCanvasElementToCurrentSlide("mediaPanel", {
+                                mediaContentType: id,
+                              });
+                              setPanelInsertMenuOpen(false);
+                            }}
+                          >
+                            <ItemIcon size={16} className="shrink-0 opacity-90" aria-hidden />
+                            {itemLabel}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
               return (
                 <button
                   key={kind}
@@ -251,27 +350,6 @@ export function EditorFloatingToolbar({
             aria-label="Diapositiva siguiente"
           >
             <ChevronRight size={20} />
-          </button>
-        </div>
-
-        <div className={barClass}>
-          <button
-            type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/10"
-            aria-label="Generar toda la presentación"
-            title="Generar con IA"
-            onClick={() => openGenerateFullDeckModal()}
-          >
-            <Sparkles size={18} />
-          </button>
-          <button
-            type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/10"
-            aria-label="Speech general"
-            title="Speech para toda la presentación"
-            onClick={() => setShowSpeechModal(true)}
-          >
-            <Mic size={18} />
           </button>
         </div>
 

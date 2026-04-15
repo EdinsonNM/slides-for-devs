@@ -1,9 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ChevronDown, Image as ImageIcon, Sparkles, Upload, Video } from "lucide-react";
+import {
+  ChevronDown,
+  Image as ImageIcon,
+  Sparkles,
+  Upload,
+  Video,
+} from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { Device3DViewport } from "../shared/Device3DViewport";
-import { DEVICE_3D_CATALOG, DEFAULT_DEVICE_3D_ID, type Device3dId } from "../../constants/device3d";
+import {
+  DEVICE_3D_CATALOG,
+  DEFAULT_DEVICE_3D_ID,
+  type Device3dId,
+} from "../../constants/device3d";
 import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
@@ -57,7 +67,8 @@ export function Presenter3DPanel({
 
   const slide = canvasPanelSlide ?? currentSlide;
 
-  const deviceId = (slide.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
+  const deviceId =
+    (slide.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
   const screenMedia = slide.presenter3dScreenMedia ?? "image";
   const videoOk =
     Boolean(slide.videoUrl?.trim()) &&
@@ -164,8 +175,9 @@ export function Presenter3DPanel({
   const warnMobile =
     !isLgUp && screenMedia === "video" && slide.videoUrl && !videoOk ? (
       <p className="shrink-0 px-4 py-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900">
-        Para la pantalla 3D hace falta una URL directa a vídeo (p. ej. MP4/WebM). Los enlaces de YouTube o
-        Vimeo siguen funcionando en el modo panel &quot;Video&quot; clásico.
+        Para la pantalla 3D hace falta una URL directa a vídeo (p. ej.
+        MP4/WebM). Los enlaces de YouTube o Vimeo siguen funcionando en el modo
+        panel &quot;Video&quot; clásico.
       </p>
     ) : null;
 
@@ -176,9 +188,7 @@ export function Presenter3DPanel({
       <div
         className={cn(
           "relative flex min-h-0 flex-1 flex-col",
-          embeddedInCanvas
-            ? "bg-white p-0 dark:bg-surface-elevated"
-            : "p-2",
+          embeddedInCanvas ? "bg-white p-0 dark:bg-surface-elevated" : "p-2",
         )}
       >
         <Device3DViewport
