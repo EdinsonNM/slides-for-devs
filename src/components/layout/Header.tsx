@@ -62,6 +62,7 @@ export function Header(props: HeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(topic || "");
   const [isExportingPptx, setIsExportingPptx] = useState(false);
+  const [pptxExportHint, setPptxExportHint] = useState<string | null>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -69,19 +70,39 @@ export function Header(props: HeaderProps) {
   const handleExportPowerPoint = async () => {
     if (slides.length === 0) return;
     setIsExportingPptx(true);
+    setPptxExportHint("Preparando exportación…");
     setMoreMenuOpen(false);
     try {
       const snap = flushSync(() => captureWorkspaceSnapshot());
-      await exportPresentationToPowerPoint({
-        topic: snap.topic || "Presentación",
-        slides: snap.slides,
-        deckVisualTheme: snap.deckVisualTheme,
-      });
+      await exportPresentationToPowerPoint(
+        {
+          topic: snap.topic || "Presentación",
+          slides: snap.slides,
+          deckVisualTheme: snap.deckVisualTheme,
+        },
+        undefined,
+        {
+          onExportProgress: (info) => {
+            flushSync(() => {
+              if (info.phase === "capture_start") {
+                setPptxExportHint(
+                  `Capturando diapositiva ${info.slideIndex + 1} de ${info.totalSlides}…`,
+                );
+              } else if (info.phase === "pptx_packaging") {
+                setPptxExportHint(
+                  "Generando archivo PowerPoint (muchas imágenes pueden tardar varios minutos)…",
+                );
+              }
+            });
+          },
+        },
+      );
     } catch (e) {
       console.error(e);
       alert("Error al exportar a PowerPoint. Revisa la consola.");
     } finally {
       setIsExportingPptx(false);
+      setPptxExportHint(null);
     }
   };
 
@@ -209,7 +230,11 @@ export function Header(props: HeaderProps) {
         )
       }
       aria-label="Exportar a PowerPoint"
-      title="Exportar a PowerPoint"
+      title={
+        isExportingPptx
+          ? pptxExportHint ?? "Exportando a PowerPoint…"
+          : "Exportar a PowerPoint"
+      }
       onClick={handleExportPowerPoint}
       disabled={isExportingPptx}
       className="hidden xl:inline-flex"
@@ -228,7 +253,7 @@ export function Header(props: HeaderProps) {
   );
 
   return (
-    <header className="h-14 bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border px-4 flex items-center justify-between z-10 shrink-0 gap-3">
+    <header className="relative h-14 bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border px-4 flex items-center justify-between z-10 shrink-0 gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <IconButton
           variant="default"
@@ -416,16 +441,23 @@ export function Header(props: HeaderProps) {
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface disabled:opacity-50"
+                    className="w-full px-3 py-2.5 text-left text-sm flex flex-col items-start gap-1 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface disabled:opacity-50"
                     onClick={handleExportPowerPoint}
                     disabled={isExportingPptx}
                   >
-                    {isExportingPptx ? (
-                      <Loader2 size={16} className="shrink-0 animate-spin" />
-                    ) : (
-                      <FileDown size={16} className="shrink-0 opacity-70" />
-                    )}
-                    Exportar PowerPoint
+                    <span className="flex items-center gap-2">
+                      {isExportingPptx ? (
+                        <Loader2 size={16} className="shrink-0 animate-spin" />
+                      ) : (
+                        <FileDown size={16} className="shrink-0 opacity-70" />
+                      )}
+                      Exportar PowerPoint
+                    </span>
+                    {isExportingPptx && pptxExportHint ? (
+                      <span className="pl-[22px] text-[10px] font-normal leading-tight text-stone-500 dark:text-stone-400">
+                        {pptxExportHint}
+                      </span>
+                    ) : null}
                   </button>
                 )}
               </div>
@@ -434,6 +466,15 @@ export function Header(props: HeaderProps) {
         </nav>
         <AvatarMenu onOpenConfig={onOpenConfig} className="ml-0 shrink-0" />
       </div>
+      {isExportingPptx && pptxExportHint ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-full z-[60] border-b border-amber-200/90 bg-amber-50/98 px-2 py-1.5 text-center text-[11px] leading-snug text-amber-950 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/95 dark:text-amber-50"
+          role="status"
+          aria-live="polite"
+        >
+          {pptxExportHint}
+        </div>
+      ) : null}
     </header>
   );
 }

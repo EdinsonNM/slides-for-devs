@@ -12,8 +12,35 @@ import {
 } from "../domain/panelContent";
 import { PreviewSlideContent } from "../components/preview/PreviewSlideContent";
 
-const CAPTURE_W = 1600;
-const CAPTURE_H = 900;
+/** 720p: mucho más rápido que 1600×900 en `html-to-image` con lienzos pesados. */
+const DEFAULT_CAPTURE_W = 1280;
+const DEFAULT_CAPTURE_H = 720;
+
+/** Si `toPng` no termina (DOM enorme / bug), seguir con la siguiente diapositiva. */
+const DEFAULT_SLIDE_TIMEOUT_MS = 90_000;
+
+export type PptxRasterProgressInfo =
+  | {
+      phase: "capture_start";
+      slideIndex: number;
+      totalSlides: number;
+      slideId: string;
+    }
+  | {
+      phase: "capture_done";
+      slideIndex: number;
+      totalSlides: number;
+      slideId: string;
+      success: boolean;
+    };
+
+export type CaptureSlidesRasterOptions = {
+  captureWidth?: number;
+  captureHeight?: number;
+  /** Tiempo máximo por diapositiva para `toPng` (ms). */
+  slideTimeoutMs?: number;
+  onProgress?: (info: PptxRasterProgressInfo) => void;
+};
 
 function settleAnimationFrames(count: number): Promise<void> {
   return new Promise((resolve) => {
@@ -30,22 +57,50 @@ function settleAnimationFrames(count: number): Promise<void> {
 }
 
 function extraPaintDelayMs(slide: Slide): number {
-  if (slide.type === SLIDE_TYPE.DIAGRAM) return 950;
-  if (slide.type === SLIDE_TYPE.ISOMETRIC) return 850;
-  if (slide.type === SLIDE_TYPE.MATRIX) return 400;
-  if (slide.type === SLIDE_TYPE.CHAPTER) return 250;
-  if (slide.type !== SLIDE_TYPE.CONTENT) return 350;
+  if (slide.type === SLIDE_TYPE.DIAGRAM) return 450;
+  if (slide.type === SLIDE_TYPE.ISOMETRIC) return 400;
+  if (slide.type === SLIDE_TYPE.MATRIX) return 180;
+  if (slide.type === SLIDE_TYPE.CHAPTER) return 120;
+  if (slide.type !== SLIDE_TYPE.CONTENT) return 200;
   const kind = resolveMediaPanelDescriptor(slide).kind;
   if (kind === PANEL_CONTENT_KIND.CANVAS_3D && slide.canvas3dGlbUrl?.trim()) {
-    return 1400;
+    return 700;
   }
-  if (kind === PANEL_CONTENT_KIND.PRESENTER_3D) return 1100;
-  if (kind === PANEL_CONTENT_KIND.VIDEO && slide.videoUrl?.trim()) return 500;
-  return 450;
+  if (kind === PANEL_CONTENT_KIND.PRESENTER_3D) return 550;
+  if (kind === PANEL_CONTENT_KIND.VIDEO && slide.videoUrl?.trim()) return 280;
+  return 220;
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Deja que React pinte el indicador de progreso antes del trabajo pesado. */
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+async function withTimeout<T>(
+  task: Promise<T>,
+  ms: number,
+  onTimeout: () => void,
+): Promise<T | "timeout"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => {
+      onTimeout();
+      resolve("timeout");
+    }, ms);
+  });
+  try {
+    return await Promise.race([task, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /**
@@ -56,8 +111,16 @@ export async function captureSlideAsPngBase64(
   slide: Slide,
   slideIndex: number,
   deckVisualTheme: DeckVisualTheme,
+  captureOptions?: Pick<
+    CaptureSlidesRasterOptions,
+    "captureWidth" | "captureHeight" | "slideTimeoutMs"
+  >,
 ): Promise<string | null> {
   if (typeof document === "undefined") return null;
+
+  const CAPTURE_W = captureOptions?.captureWidth ?? DEFAULT_CAPTURE_W;
+  const CAPTURE_H = captureOptions?.captureHeight ?? DEFAULT_CAPTURE_H;
+  const slideTimeoutMs = captureOptions?.slideTimeoutMs ?? DEFAULT_SLIDE_TIMEOUT_MS;
 
   const host = document.createElement("div");
   host.setAttribute("data-pptx-slide-capture", slide.id);
@@ -97,24 +160,37 @@ export async function captureSlideAsPngBase64(
 
     if (typeof document.fonts?.ready !== "undefined") {
       try {
-        await document.fonts.ready;
+        await Promise.race([
+          document.fonts.ready,
+          delay(8000),
+        ]);
       } catch {
         /* ignore */
       }
     }
 
-    await settleAnimationFrames(4);
+    await settleAnimationFrames(3);
     await delay(extraPaintDelayMs(slide));
 
-    const dataUrl = await toPng(host, {
+    const toPngTask = toPng(host, {
       cacheBust: true,
       pixelRatio: 1,
       width: CAPTURE_W,
       height: CAPTURE_H,
-      /** Evita leer CSS de Google Fonts u otros orígenes (SecurityError en embed-webfonts). */
       skipFonts: true,
     });
 
+    const result = await withTimeout(toPngTask, slideTimeoutMs, () => {
+      console.warn(
+        `[pptx] captura superó ${slideTimeoutMs}ms (slide ${slide.id}); se omite la imagen de esta diapositiva.`,
+      );
+    });
+
+    if (result === "timeout") {
+      return null;
+    }
+
+    const dataUrl = result;
     const m = dataUrl.match(/^data:image\/png;base64,(.+)$/);
     return m ? m[1]! : null;
   } catch (e) {
@@ -130,16 +206,41 @@ export async function captureSlideAsPngBase64(
 export async function captureAllSlidesAsPngBase64(
   slides: Slide[],
   deckVisualTheme: DeckVisualTheme | undefined,
-  onProgress?: (done: number, total: number) => void,
+  options?: CaptureSlidesRasterOptions,
 ): Promise<Record<string, string>> {
   const theme = deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME;
   const out: Record<string, string> = {};
   const total = slides.length;
+  const captureW = options?.captureWidth ?? DEFAULT_CAPTURE_W;
+  const captureH = options?.captureHeight ?? DEFAULT_CAPTURE_H;
+  const slideTimeoutMs = options?.slideTimeoutMs ?? DEFAULT_SLIDE_TIMEOUT_MS;
+  const onProgress = options?.onProgress;
+
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i]!;
-    const b64 = await captureSlideAsPngBase64(slide, i, theme);
+    onProgress?.({
+      phase: "capture_start",
+      slideIndex: i,
+      totalSlides: total,
+      slideId: slide.id,
+    });
+    await nextPaint();
+
+    const b64 = await captureSlideAsPngBase64(slide, i, theme, {
+      captureWidth: captureW,
+      captureHeight: captureH,
+      slideTimeoutMs,
+    });
     if (b64) out[slide.id] = b64;
-    onProgress?.(i + 1, total);
+
+    onProgress?.({
+      phase: "capture_done",
+      slideIndex: i,
+      totalSlides: total,
+      slideId: slide.id,
+      success: Boolean(b64),
+    });
+    await delay(0);
   }
   return out;
 }

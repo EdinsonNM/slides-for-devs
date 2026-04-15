@@ -38,8 +38,7 @@ export function SlideContentDefault() {
     panelHeightPercent,
     isResizingPanelHeight,
     setIsResizingPanelHeight,
-    setVideoUrlInput,
-    setShowVideoModal,
+    openVideoModal,
   } = usePresentation();
 
   const [activeBlock, setActiveBlock] = useState<EditBlock | null>(null);
@@ -215,8 +214,9 @@ export function SlideContentDefault() {
                 <button
                   type="button"
                   onClick={() => {
-                    setVideoUrlInput(currentSlide.videoUrl || "");
-                    setShowVideoModal(true);
+                    openVideoModal({
+                      initialVideoUrl: currentSlide.videoUrl || "",
+                    });
                   }}
                   className={cn(iaToolbarBtnClass, "hover:text-sky-600 dark:hover:text-sky-400")}
                   title={
@@ -455,8 +455,9 @@ export function SlideContentDefault() {
               <button
                 type="button"
                 onClick={() => {
-                  setVideoUrlInput(currentSlide.videoUrl || "");
-                  setShowVideoModal(true);
+                  openVideoModal({
+                    initialVideoUrl: currentSlide.videoUrl || "",
+                  });
                 }}
                 className={cn(iaToolbarBtnClass, "hover:text-sky-600 dark:hover:text-sky-400")}
                 title={

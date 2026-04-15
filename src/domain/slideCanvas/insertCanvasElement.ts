@@ -14,16 +14,26 @@ import {
 } from "../entities/SlideCanvas";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 
+/**
+ * Payload inicial de un **nuevo** Presentador 3D en el lienzo: solo claves canónicas,
+ * sin `imageUrl` / `videoUrl` / `presenter3dViewState` ni mezcla con la raíz del slide.
+ * Cada instancia nueva parte de cero; las texturas se añaden solo vía parche del bloque.
+ */
+export function createFreshPresenter3dMediaPayload(): SlideCanvasMediaPayload {
+  return {
+    type: "media",
+    contentType: PANEL_CONTENT_KIND.PRESENTER_3D,
+    presenter3dDeviceId: DEFAULT_DEVICE_3D_ID,
+    presenter3dScreenMedia: "image",
+  };
+}
+
 function mediaPayloadForNewPanel(
   contentType: PanelContentKind,
 ): SlideCanvasMediaPayload {
   const base: SlideCanvasMediaPayload = { type: "media", contentType };
   if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
-    return {
-      ...base,
-      presenter3dDeviceId: DEFAULT_DEVICE_3D_ID,
-      presenter3dScreenMedia: "image",
-    };
+    return createFreshPresenter3dMediaPayload();
   }
   return base;
 }
@@ -157,13 +167,25 @@ export function createCanvasElementForInsert(
       options?.mediaContentType ??
       options?.mediaPanelPayloadOverrides?.contentType ??
       PANEL_CONTENT_KIND.IMAGE;
-    const baseMedia = mediaPayloadForNewPanel(contentType);
-    const payload: SlideCanvasMediaPayload = {
-      ...baseMedia,
-      ...options?.mediaPanelPayloadOverrides,
-      type: "media",
-      contentType,
-    };
+    const ov = options?.mediaPanelPayloadOverrides;
+    let payload: SlideCanvasMediaPayload;
+    if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
+      payload = { ...createFreshPresenter3dMediaPayload() };
+      if (ov?.presenter3dDeviceId != null && ov.presenter3dDeviceId !== "") {
+        payload.presenter3dDeviceId = ov.presenter3dDeviceId;
+      }
+      if (ov?.presenter3dScreenMedia === "image" || ov?.presenter3dScreenMedia === "video") {
+        payload.presenter3dScreenMedia = ov.presenter3dScreenMedia;
+      }
+    } else {
+      const baseMedia = mediaPayloadForNewPanel(contentType);
+      payload = {
+        ...baseMedia,
+        ...ov,
+        type: "media",
+        contentType,
+      };
+    }
     return {
       ...base,
       payload,
@@ -173,13 +195,22 @@ export function createCanvasElementForInsert(
   return null;
 }
 
+export type AppendCanvasElementResult = {
+  elements: SlideCanvasElement[];
+  /** Elemento recién insertado (mismo id que en `elements`). */
+  created: SlideCanvasElement;
+};
+
 export function appendCanvasElementToScene(
   slide: Slide,
   elements: SlideCanvasElement[],
   kind: SlideCanvasElementKind,
   options?: AppendCanvasElementOptions,
-): SlideCanvasElement[] | null {
+): AppendCanvasElementResult | null {
   const el = createCanvasElementForInsert(slide, elements, kind, options);
   if (!el) return null;
-  return normalizeCanvasElementsZOrder([...elements, el]);
+  return {
+    elements: normalizeCanvasElementsZOrder([...elements, el]),
+    created: el,
+  };
 }

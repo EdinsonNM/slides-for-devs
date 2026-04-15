@@ -78,6 +78,7 @@ export function SlideRightPanel({
         <Presenter3DPanel
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
+          canvasMediaElementId={canvasMediaElementId}
         />
       ) : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ? (
         <Canvas3DPanel

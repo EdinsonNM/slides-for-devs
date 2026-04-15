@@ -16,7 +16,16 @@ import {
 } from "../domain/panelContent";
 import { markdownToPlainText } from "../utils/markdownPlainText";
 import { isTauri } from "./updater";
-import { captureAllSlidesAsPngBase64 } from "./pptxSlideRasterCapture";
+import {
+  captureAllSlidesAsPngBase64,
+  type PptxRasterProgressInfo,
+} from "./pptxSlideRasterCapture";
+
+export type PowerPointExportProgress =
+  | PptxRasterProgressInfo
+  | { phase: "pptx_packaging" };
+
+export type { PptxRasterProgressInfo };
 
 /**
  * Extrae base64 y tipo de un data URL (data:image/png;base64,...).
@@ -26,6 +35,27 @@ function parseDataUrl(dataUrl: string): { data: string; type: string } | null {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return null;
   return { data: match[2]!, type: match[1]! };
+}
+
+/**
+ * pptxgenjs 4.x exige que `addImage({ data })` incluya el fragmento `base64,`
+ * (p. ej. `image/png;base64,iVBOR…`), no solo el payload en base64.
+ */
+function inferImageMimeFromRawBase64(b64: string): string {
+  const s = b64.trimStart();
+  if (s.startsWith("/9j/")) return "image/jpeg";
+  if (s.startsWith("iVBOR")) return "image/png";
+  if (s.startsWith("R0lGOD")) return "image/gif";
+  if (s.startsWith("UklGR")) return "image/webp";
+  return "image/png";
+}
+
+function ensurePptxImageDataField(raw: string, mimeHint?: string): string {
+  const v = raw.trim();
+  if (!v) return v;
+  if (v.toLowerCase().includes("base64,")) return v;
+  const mime = mimeHint?.trim() || inferImageMimeFromRawBase64(v);
+  return `${mime};base64,${v}`;
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
@@ -90,7 +120,13 @@ export type PowerPointExportOptions = {
    * Desactivar solo para depuración o entornos sin DOM.
    */
   rasterizeSlides?: boolean;
-  onRasterProgress?: (done: number, total: number) => void;
+  /** Captura y empaquetado del .pptx (para UI de progreso). */
+  onExportProgress?: (info: PowerPointExportProgress) => void;
+  /** Ancho/alto de la captura raster (16:9 recomendado). Por defecto 1280×720. */
+  rasterCaptureWidth?: number;
+  rasterCaptureHeight?: number;
+  /** Tiempo máximo por diapositiva en la captura `toPng` (ms). Por defecto 90000. */
+  rasterSlideTimeoutMs?: number;
 };
 
 /**
@@ -115,7 +151,14 @@ export async function buildPresentationPptx(
     slideRasterPngBase64 = await captureAllSlidesAsPngBase64(
       slides,
       themeForCapture,
-      options?.onRasterProgress,
+      {
+        captureWidth: options?.rasterCaptureWidth,
+        captureHeight: options?.rasterCaptureHeight,
+        slideTimeoutMs: options?.rasterSlideTimeoutMs,
+        onProgress: options?.onExportProgress
+          ? (info) => options.onExportProgress!(info)
+          : undefined,
+      },
     );
   }
 
@@ -162,6 +205,11 @@ export async function buildPresentationPptx(
       fullSlideRasterBase64: slideRasterPngBase64[slide.id],
       getImageBase64: getCachedImage,
     });
+  }
+
+  options?.onExportProgress?.({ phase: "pptx_packaging" });
+  if (typeof requestAnimationFrame !== "undefined") {
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
   }
 
   const base64 = await pptx.write({ outputType: "base64" });
@@ -226,7 +274,7 @@ async function addSlideToPptx(
   if (opts.fullSlideRasterBase64) {
     const s = pptx.addSlide();
     s.addImage({
-      data: opts.fullSlideRasterBase64,
+      data: ensurePptxImageDataField(opts.fullSlideRasterBase64, "image/png"),
       x: 0,
       y: 0,
       w: "100%",
@@ -468,10 +516,14 @@ async function addSlideToPptx(
         slide.presenter3dScreenMedia !== "video")
     ) {
       const parsed = parseDataUrl(slide.imageUrl);
-      const imgData = parsed?.data ?? (await opts.getImageBase64(slide.imageUrl));
-      if (imgData) {
+      const imgRaw = parsed?.data ?? (await opts.getImageBase64(slide.imageUrl));
+      if (imgRaw) {
+        const mime =
+          parsed?.type && parsed.type.startsWith("image/")
+            ? parsed.type
+            : inferImageMimeFromRawBase64(imgRaw);
         s.addImage({
-          data: imgData,
+          data: ensurePptxImageDataField(imgRaw, mime),
           x: xRight,
           y: bodyY,
           w: imgW,

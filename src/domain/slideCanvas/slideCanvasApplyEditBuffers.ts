@@ -6,6 +6,7 @@ import type {
   SlideCanvasScene,
 } from "../entities/SlideCanvas";
 import {
+  compareCanvasElementsByZThenId,
   patchElementPayload,
   readMediaPayloadFromElement,
   textPayloadForElementKind,
@@ -22,7 +23,7 @@ export type CanvasTextEditTargets = {
 
 function sortedElements(slide: Slide) {
   const els = slide.canvasScene?.elements ?? [];
-  return [...els].sort((a, b) => a.z - b.z);
+  return [...els].sort(compareCanvasElementsByZThenId);
 }
 
 export function defaultCanvasTextEditTargets(slide: Slide): CanvasTextEditTargets {

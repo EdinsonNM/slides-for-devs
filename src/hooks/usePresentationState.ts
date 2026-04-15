@@ -78,6 +78,7 @@ import {
   readMediaPayloadFromElement,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
+  type SlideCanvasMediaPayload,
 } from "../domain/slideCanvas/slideCanvasPayload";
 import { syncSlideRootFromCanvas } from "../domain/slideCanvas/syncSlideRootFromCanvas";
 import {
@@ -150,7 +151,6 @@ import {
   PANEL_CONTENT_TOGGLE_ORDER,
   normalizePanelContentKind,
   resolveMediaPanelDescriptor,
-  Presenter3dMediaPanelDescriptor,
   Canvas3dMediaPanelDescriptor,
 } from "../domain/panelContent";
 
@@ -163,6 +163,63 @@ function cloneSlideDeck(slides: Slide[]): Slide[] {
     return structuredClone(slides) as Slide[];
   }
   return JSON.parse(JSON.stringify(slides)) as Slide[];
+}
+
+function applyImageDataUrlToMediaPanelPayload(
+  m: SlideCanvasMediaPayload,
+  dataUrl: string,
+): SlideCanvasMediaPayload {
+  if (normalizePanelContentKind(m.contentType) === PANEL_CONTENT_KIND.PRESENTER_3D) {
+    return {
+      ...m,
+      imageUrl: dataUrl,
+      presenter3dScreenMedia: "image",
+    };
+  }
+  return {
+    ...m,
+    imageUrl: dataUrl,
+    contentType: PANEL_CONTENT_KIND.IMAGE,
+  };
+}
+
+function applyVideoUrlToMediaPanelPayload(
+  m: SlideCanvasMediaPayload,
+  videoUrl: string,
+): SlideCanvasMediaPayload {
+  if (normalizePanelContentKind(m.contentType) === PANEL_CONTENT_KIND.PRESENTER_3D) {
+    return {
+      ...m,
+      videoUrl,
+      presenter3dScreenMedia: "video",
+    };
+  }
+  return {
+    ...m,
+    videoUrl,
+    contentType: PANEL_CONTENT_KIND.VIDEO,
+  };
+}
+
+function applyGeneratedImageToMediaPanelPayload(
+  m: SlideCanvasMediaPayload,
+  imageUrl: string,
+  imagePrompt: string,
+): SlideCanvasMediaPayload {
+  if (normalizePanelContentKind(m.contentType) === PANEL_CONTENT_KIND.PRESENTER_3D) {
+    return {
+      ...m,
+      imageUrl,
+      imagePrompt,
+      presenter3dScreenMedia: "image",
+    };
+  }
+  return {
+    ...m,
+    imageUrl,
+    imagePrompt,
+    contentType: PANEL_CONTENT_KIND.IMAGE,
+  };
 }
 
 /** Clave para persistir el id de la última presentación abierta (restaurar al refrescar en /editor). */
@@ -276,6 +333,10 @@ export function usePresentationState() {
   const [canvasMediaPanelElementId, setCanvasMediaPanelElementId] = useState<
     string | null
   >(null);
+  /** Panel `mediaPanel` objetivo mientras el modal de subida/generación está abierto (el ref puede quedar stale tras el file picker). */
+  const pendingImageUploadMediaPanelIdRef = useRef<string | null>(null);
+  const pendingImageGenerateMediaPanelIdRef = useRef<string | null>(null);
+  const pendingVideoUrlMediaPanelIdRef = useRef<string | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
@@ -575,6 +636,31 @@ export function usePresentationState() {
       );
     },
     [hydrateCodeEditFromSlide],
+  );
+
+  /** Id del `mediaPanel` Presentador 3D a parchear: `explicit` (p. ej. lienzo) o ref del panel activo. */
+  const resolvePresenter3dMediaPatchElementId = useCallback(
+    (slide: Slide, explicitMediaPanelElementId?: string | null) => {
+      if (slide.type !== SLIDE_TYPE.CONTENT) return null;
+      const candidateId =
+        explicitMediaPanelElementId != null &&
+        explicitMediaPanelElementId !== ""
+          ? explicitMediaPanelElementId
+          : canvasTextTargetsRef.current.mediaPanelElementId;
+      if (!candidateId) return null;
+      const ensured = ensureSlideCanvasScene(slide);
+      const el = ensured.canvasScene?.elements.find((e) => e.id === candidateId);
+      if (!el || el.kind !== "mediaPanel") return null;
+      const media = readMediaPayloadFromElement(ensured, el);
+      if (
+        normalizePanelContentKind(media.contentType) !==
+        PANEL_CONTENT_KIND.PRESENTER_3D
+      ) {
+        return null;
+      }
+      return candidateId;
+    },
+    [],
   );
 
   const flushEditsToSlideIndex = useCallback(
@@ -1191,6 +1277,7 @@ export function usePresentationState() {
       kind: SlideCanvasElementKind,
       options?: AppendCanvasElementOptions,
     ) => {
+      let newMediaPanelId: string | null = null;
       setSlides((prev) => {
         const idx = currentIndexRef.current;
         const raw = prev[idx];
@@ -1198,13 +1285,17 @@ export function usePresentationState() {
         const cur = ensureSlideCanvasScene(raw);
         const scene = cur.canvasScene;
         if (!scene) return prev;
-        const nextElements = appendCanvasElementToScene(
+        const appended = appendCanvasElementToScene(
           cur,
           scene.elements,
           kind,
           options,
         );
-        if (!nextElements) return prev;
+        if (!appended) return prev;
+        const { elements: nextElements, created } = appended;
+        if (created.kind === "mediaPanel") {
+          newMediaPanelId = created.id;
+        }
         const nextSlide = syncSlideRootFromCanvas({
           ...cur,
           canvasScene: { ...scene, elements: nextElements },
@@ -1213,8 +1304,15 @@ export function usePresentationState() {
         out[idx] = nextSlide;
         return out;
       });
+      if (newMediaPanelId != null) {
+        window.setTimeout(() => {
+          setCanvasMediaPanelEditTarget(newMediaPanelId, {
+            rehydrateCodeBuffers: true,
+          });
+        }, 0);
+      }
     },
-    [],
+    [setCanvasMediaPanelEditTarget],
   );
 
   /** Actualiza los datos del diagrama Excalidraw de la diapositiva actual. Solo para type "diagram". */
@@ -1282,20 +1380,24 @@ export function usePresentationState() {
     });
   };
 
-  const setCurrentSlidePresenter3dDeviceId = (presenter3dDeviceId: string) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (
-      !(resolveMediaPanelDescriptor(currentSlide) instanceof Presenter3dMediaPanelDescriptor)
-    ) {
-      return;
-    }
+  const setCurrentSlidePresenter3dDeviceId = (
+    presenter3dDeviceId: string,
+    explicitMediaPanelElementId?: string | null,
+  ) => {
+    const cur = slidesRef.current[currentIndexRef.current];
+    if (!cur || cur.type !== SLIDE_TYPE.CONTENT) return;
+    const targetId = resolvePresenter3dMediaPatchElementId(
+      cur,
+      explicitMediaPanelElementId,
+    );
+    if (!targetId) return;
     setSlides((prev) => {
       const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
+      const slide = updated[currentIndexRef.current];
+      if (!slide) return prev;
+      updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
+        slide,
+        targetId,
         (m) => ({ ...m, presenter3dDeviceId }),
       );
       return updated;
@@ -1304,20 +1406,22 @@ export function usePresentationState() {
 
   const setCurrentSlidePresenter3dScreenMedia = (
     presenter3dScreenMedia: "image" | "video",
+    explicitMediaPanelElementId?: string | null,
   ) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (
-      !(resolveMediaPanelDescriptor(currentSlide) instanceof Presenter3dMediaPanelDescriptor)
-    ) {
-      return;
-    }
+    const cur = slidesRef.current[currentIndexRef.current];
+    if (!cur || cur.type !== SLIDE_TYPE.CONTENT) return;
+    const targetId = resolvePresenter3dMediaPatchElementId(
+      cur,
+      explicitMediaPanelElementId,
+    );
+    if (!targetId) return;
     setSlides((prev) => {
       const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
+      const slide = updated[currentIndexRef.current];
+      if (!slide) return prev;
+      updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
+        slide,
+        targetId,
         (m) => ({ ...m, presenter3dScreenMedia }),
       );
       return updated;
@@ -1326,20 +1430,22 @@ export function usePresentationState() {
 
   const setCurrentSlidePresenter3dViewState = (
     presenter3dViewState: Presenter3dViewState,
+    explicitMediaPanelElementId?: string | null,
   ) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (
-      !(resolveMediaPanelDescriptor(currentSlide) instanceof Presenter3dMediaPanelDescriptor)
-    ) {
-      return;
-    }
+    const cur = slidesRef.current[currentIndexRef.current];
+    if (!cur || cur.type !== SLIDE_TYPE.CONTENT) return;
+    const targetId = resolvePresenter3dMediaPatchElementId(
+      cur,
+      explicitMediaPanelElementId,
+    );
+    if (!targetId) return;
     setSlides((prev) => {
       const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
+      const slide = updated[currentIndexRef.current];
+      if (!slide) return prev;
+      updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
+        slide,
+        targetId,
         (m) => ({ ...m, presenter3dViewState }),
       );
       return updated;
@@ -1511,6 +1617,10 @@ export function usePresentationState() {
 
   const handleImageGenerate = async () => {
     if (!imagePrompt.trim() || !currentSlide) return;
+    const patchMediaPanelElementId =
+      pendingImageGenerateMediaPanelIdRef.current ??
+      canvasTextTargetsRef.current.mediaPanelElementId;
+    pendingImageGenerateMediaPanelIdRef.current = null;
     setIsGeneratingImage(true);
     const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
     const character = selectedCharacterId
@@ -1547,13 +1657,8 @@ export function usePresentationState() {
           if (!cur) return prev;
           updated[currentIndex] = patchSlideMediaPanelByElementId(
             cur,
-            canvasTextTargetsRef.current.mediaPanelElementId,
-            (m) => ({
-              ...m,
-              imageUrl,
-              imagePrompt: promptUsed,
-              contentType: PANEL_CONTENT_KIND.IMAGE,
-            }),
+            patchMediaPanelElementId,
+            (m) => applyGeneratedImageToMediaPanelPayload(m, imageUrl, promptUsed),
           );
           return updated;
         });
@@ -1812,18 +1917,18 @@ export function usePresentationState() {
 
   const handleSaveVideoUrl = () => {
     if (!videoUrlInput.trim() || !currentSlide) return;
+    const patchId =
+      pendingVideoUrlMediaPanelIdRef.current ??
+      canvasTextTargetsRef.current.mediaPanelElementId;
+    pendingVideoUrlMediaPanelIdRef.current = null;
     setSlides((prev) => {
       const updated = [...prev];
       const cur = updated[currentIndex];
       if (!cur) return prev;
       updated[currentIndex] = patchSlideMediaPanelByElementId(
         cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({
-          ...m,
-          videoUrl: videoUrlInput.trim(),
-          contentType: PANEL_CONTENT_KIND.VIDEO,
-        }),
+        patchId,
+        (m) => applyVideoUrlToMediaPanelPayload(m, videoUrlInput.trim()),
       );
       return updated;
     });
@@ -3274,14 +3379,45 @@ export function usePresentationState() {
     if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
   };
 
-  const openImageModal = () => {
-    setImagePrompt(currentSlide?.imagePrompt || "");
-    setShowImageModal(true);
-  };
+  const openImageModal = useCallback(
+    (options?: { mediaPanelElementId?: string | null }) => {
+      const explicit = options?.mediaPanelElementId;
+      pendingImageGenerateMediaPanelIdRef.current =
+        explicit != null && explicit !== ""
+          ? explicit
+          : canvasTextTargetsRef.current.mediaPanelElementId;
+      const slide = slidesRef.current[currentIndexRef.current];
+      setImagePrompt(slide?.imagePrompt || "");
+      setShowImageModal(true);
+    },
+    [],
+  );
 
-  const openImageUploadModal = () => {
-    setShowImageUploadModal(true);
-  };
+  const openImageUploadModal = useCallback(
+    (options?: { mediaPanelElementId?: string | null }) => {
+      const explicit = options?.mediaPanelElementId;
+      pendingImageUploadMediaPanelIdRef.current =
+        explicit != null && explicit !== ""
+          ? explicit
+          : canvasTextTargetsRef.current.mediaPanelElementId;
+      setShowImageUploadModal(true);
+    },
+    [],
+  );
+
+  const openVideoModal = useCallback(
+    (options?: { mediaPanelElementId?: string | null; initialVideoUrl?: string }) => {
+      const explicit = options?.mediaPanelElementId;
+      pendingVideoUrlMediaPanelIdRef.current =
+        explicit != null && explicit !== ""
+          ? explicit
+          : canvasTextTargetsRef.current.mediaPanelElementId;
+      const slide = slidesRef.current[currentIndexRef.current];
+      setVideoUrlInput(options?.initialVideoUrl ?? slide?.videoUrl ?? "");
+      setShowVideoModal(true);
+    },
+    [],
+  );
 
   /**
    * Incrusta una imagen en el slide de contenido actual: actualiza el panel de media
@@ -3330,18 +3466,26 @@ export function usePresentationState() {
               if (newPanelRect) {
                 appendOpts.insertRectOverride = newPanelRect;
               }
-              const nextElements = appendCanvasElementToScene(
+              const appended = appendCanvasElementToScene(
                 cur,
                 scene.elements,
                 "mediaPanel",
                 appendOpts,
               );
-              if (!nextElements) return prev;
+              if (!appended) return prev;
+              const { elements: nextElements, created } = appended;
               const updated = [...prev];
               updated[index] = syncSlideRootFromCanvas({
                 ...cur,
                 canvasScene: { ...scene, elements: nextElements },
               });
+              if (created.kind === "mediaPanel") {
+                window.setTimeout(() => {
+                  setCanvasMediaPanelEditTarget(created.id, {
+                    rehydrateCodeBuffers: true,
+                  });
+                }, 0);
+              }
               return updated;
             }
 
@@ -3353,11 +3497,7 @@ export function usePresentationState() {
                 updated[index] = patchSlideMediaPanelByElementId(
                   cur,
                   explicitPatchId,
-                  (m) => ({
-                    ...m,
-                    imageUrl: dataUrl,
-                    contentType: PANEL_CONTENT_KIND.IMAGE,
-                  }),
+                  (m) => applyImageDataUrlToMediaPanelPayload(m, dataUrl),
                 );
                 return updated;
               }
@@ -3372,16 +3512,12 @@ export function usePresentationState() {
               updated[index] = patchSlideMediaPanelByElementId(
                 cur,
                 targetId,
-                (m) => ({
-                  ...m,
-                  imageUrl: dataUrl,
-                  contentType: PANEL_CONTENT_KIND.IMAGE,
-                }),
+                (m) => applyImageDataUrlToMediaPanelPayload(m, dataUrl),
               );
               return updated;
             }
 
-            const nextElements = appendCanvasElementToScene(
+            const appended = appendCanvasElementToScene(
               cur,
               scene.elements,
               "mediaPanel",
@@ -3393,11 +3529,19 @@ export function usePresentationState() {
                 },
               },
             );
-            if (!nextElements) return prev;
+            if (!appended) return prev;
+            const { elements: nextElements, created } = appended;
             updated[index] = syncSlideRootFromCanvas({
               ...cur,
               canvasScene: { ...scene, elements: nextElements },
             });
+            if (created.kind === "mediaPanel") {
+              window.setTimeout(() => {
+                setCanvasMediaPanelEditTarget(created.id, {
+                  rehydrateCodeBuffers: true,
+                });
+              }, 0);
+            }
             return updated;
           });
           callbacks?.onAfterApply?.();
@@ -3405,13 +3549,16 @@ export function usePresentationState() {
       };
       reader.readAsDataURL(file);
     },
-    [],
+    [setCanvasMediaPanelEditTarget],
   );
 
   const handleImageUpload = (file: File) => {
     if (!currentSlide) return;
+    const patchId = pendingImageUploadMediaPanelIdRef.current;
+    pendingImageUploadMediaPanelIdRef.current = null;
     ingestImageFileOnCurrentSlide(file, "patchTargetPanel", undefined, {
       onAfterApply: () => setShowImageUploadModal(false),
+      patchMediaPanelElementId: patchId ?? undefined,
     });
   };
 
@@ -3595,6 +3742,7 @@ export function usePresentationState() {
     setShowRewriteModal,
     showVideoModal,
     setShowVideoModal,
+    openVideoModal,
     showExportDeckVideoModal,
     setShowExportDeckVideoModal,
     openExportDeckVideoModal,

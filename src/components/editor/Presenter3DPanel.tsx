@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   ChevronDown,
   Image as ImageIcon,
@@ -18,24 +18,27 @@ import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
 import type { Slide } from "../../types";
+import { presenter3dDisplayPropsFromCanvasElement } from "../../domain/slideCanvas/slideCanvasPayload";
 
 const CANVAS_MEDIA_BOUNDS_MARGIN = 1.08;
 
 export interface Presenter3DPanelProps {
   embeddedInCanvas?: boolean;
   canvasPanelSlide?: Slide;
+  /** Id del bloque `mediaPanel` en el lienzo (varios presentadores en un mismo slide). */
+  canvasMediaElementId?: string;
 }
 
 export function Presenter3DPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
+  canvasMediaElementId,
 }: Presenter3DPanelProps = {}) {
   const {
     currentSlide,
     openImageModal,
     openImageUploadModal,
-    setVideoUrlInput,
-    setShowVideoModal,
+    openVideoModal,
     setCurrentSlidePresenter3dDeviceId,
     setCurrentSlidePresenter3dScreenMedia,
     setCurrentSlidePresenter3dViewState,
@@ -45,11 +48,13 @@ export function Presenter3DPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const patchTargetElementId = canvasMediaElementId ?? undefined;
+
   const handleViewCommit = useCallback(
     (s: Presenter3dViewState) => {
-      setCurrentSlidePresenter3dViewState(s);
+      setCurrentSlidePresenter3dViewState(s, patchTargetElementId);
     },
-    [setCurrentSlidePresenter3dViewState],
+    [setCurrentSlidePresenter3dViewState, patchTargetElementId],
   );
 
   useEffect(() => {
@@ -65,14 +70,46 @@ export function Presenter3DPanel({
 
   if (!currentSlide) return null;
 
-  const slide = canvasPanelSlide ?? currentSlide;
+  const deckSlide = canvasPanelSlide ?? currentSlide;
 
-  const deviceId =
-    (slide.presenter3dDeviceId as Device3dId) ?? DEFAULT_DEVICE_3D_ID;
-  const screenMedia = slide.presenter3dScreenMedia ?? "image";
+  const blockEl = useMemo(() => {
+    if (!canvasMediaElementId || !currentSlide.canvasScene?.elements) {
+      return undefined;
+    }
+    return currentSlide.canvasScene.elements.find(
+      (e) => e.id === canvasMediaElementId,
+    );
+  }, [canvasMediaElementId, currentSlide]);
+
+  const fromBlock =
+    blockEl?.kind === "mediaPanel"
+      ? presenter3dDisplayPropsFromCanvasElement(currentSlide, blockEl)
+      : null;
+
+  const canvasPresenterBlock = fromBlock != null;
+
+  const deviceId = (
+    canvasPresenterBlock
+      ? fromBlock.deviceId
+      : ((deckSlide.presenter3dDeviceId as Device3dId | undefined) ??
+        DEFAULT_DEVICE_3D_ID)
+  ) as Device3dId;
+  const screenMedia = canvasPresenterBlock
+    ? fromBlock.screenMedia
+    : (deckSlide.presenter3dScreenMedia ?? "image");
+  const textureVideoUrl = canvasPresenterBlock
+    ? fromBlock.videoUrl
+    : deckSlide.videoUrl;
+  const textureImageUrl = canvasPresenterBlock
+    ? fromBlock.imageUrl
+    : deckSlide.imageUrl;
+  const orbitViewState = canvasPresenterBlock
+    ? fromBlock.viewState
+    : deckSlide.presenter3dViewState;
+
   const videoOk =
-    Boolean(slide.videoUrl?.trim()) &&
-    isDirectVideoTextureUrl(slide.videoUrl!.trim());
+    Boolean(textureVideoUrl?.trim()) &&
+    isDirectVideoTextureUrl(textureVideoUrl!.trim());
 
   const toolbar = !isLgUp && (
     <div className="shrink-0 flex flex-wrap items-center gap-2 border-b border-stone-200 dark:border-border px-4 py-2 bg-stone-50/80 dark:bg-stone-900/40">
@@ -81,7 +118,10 @@ export function Presenter3DPanel({
         <select
           value={deviceId}
           onChange={(e) =>
-            setCurrentSlidePresenter3dDeviceId(e.target.value as Device3dId)
+            setCurrentSlidePresenter3dDeviceId(
+              e.target.value as Device3dId,
+              patchTargetElementId,
+            )
           }
           className="rounded-lg border border-stone-200 dark:border-border bg-white dark:bg-surface px-2 py-1 text-xs"
         >
@@ -95,7 +135,9 @@ export function Presenter3DPanel({
       <div className="flex rounded-lg border border-stone-200 dark:border-border overflow-hidden text-xs">
         <button
           type="button"
-          onClick={() => setCurrentSlidePresenter3dScreenMedia("image")}
+          onClick={() =>
+            setCurrentSlidePresenter3dScreenMedia("image", patchTargetElementId)
+          }
           className={cn(
             "px-2.5 py-1.5 font-medium transition-colors",
             screenMedia === "image"
@@ -107,7 +149,9 @@ export function Presenter3DPanel({
         </button>
         <button
           type="button"
-          onClick={() => setCurrentSlidePresenter3dScreenMedia("video")}
+          onClick={() =>
+            setCurrentSlidePresenter3dScreenMedia("video", patchTargetElementId)
+          }
           className={cn(
             "px-2.5 py-1.5 font-medium transition-colors border-l border-stone-200 dark:border-border",
             screenMedia === "video"
@@ -126,7 +170,7 @@ export function Presenter3DPanel({
             className="flex items-center gap-1 rounded-lg border border-stone-200 dark:border-border bg-white dark:bg-surface px-2.5 py-1.5 text-xs font-medium text-stone-700 dark:text-foreground hover:border-emerald-300"
           >
             <ImageIcon size={14} />
-            {slide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
+            {textureImageUrl ? "Cambiar imagen" : "Añadir imagen"}
             <ChevronDown size={14} />
           </button>
           {menuOpen && (
@@ -136,7 +180,11 @@ export function Presenter3DPanel({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 onClick={() => {
                   setMenuOpen(false);
-                  openImageModal();
+                  openImageModal(
+                    canvasMediaElementId
+                      ? { mediaPanelElementId: canvasMediaElementId }
+                      : undefined,
+                  );
                 }}
               >
                 <Sparkles size={16} className="text-emerald-500" />
@@ -147,7 +195,11 @@ export function Presenter3DPanel({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 onClick={() => {
                   setMenuOpen(false);
-                  openImageUploadModal();
+                  openImageUploadModal(
+                    canvasMediaElementId
+                      ? { mediaPanelElementId: canvasMediaElementId }
+                      : undefined,
+                  );
                 }}
               >
                 <Upload size={16} />
@@ -160,20 +212,26 @@ export function Presenter3DPanel({
         <button
           type="button"
           onClick={() => {
-            setVideoUrlInput(slide.videoUrl || "");
-            setShowVideoModal(true);
+            openVideoModal(
+              canvasMediaElementId
+                ? {
+                    mediaPanelElementId: canvasMediaElementId,
+                    initialVideoUrl: textureVideoUrl || "",
+                  }
+                : { initialVideoUrl: textureVideoUrl || "" },
+            );
           }}
           className="flex items-center gap-1 rounded-lg border border-stone-200 dark:border-border bg-white dark:bg-surface px-2.5 py-1.5 text-xs font-medium text-stone-700 dark:text-foreground hover:border-emerald-300"
         >
           <Video size={14} />
-          {slide.videoUrl ? "Cambiar video" : "Añadir video (URL directa)"}
+          {textureVideoUrl ? "Cambiar video" : "Añadir video (URL directa)"}
         </button>
       )}
     </div>
   );
 
   const warnMobile =
-    !isLgUp && screenMedia === "video" && slide.videoUrl && !videoOk ? (
+    !isLgUp && screenMedia === "video" && textureVideoUrl && !videoOk ? (
       <p className="shrink-0 px-4 py-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900">
         Para la pantalla 3D hace falta una URL directa a vídeo (p. ej.
         MP4/WebM). Los enlaces de YouTube o Vimeo siguen funcionando en el modo
@@ -192,12 +250,13 @@ export function Presenter3DPanel({
         )}
       >
         <Device3DViewport
-          slideId={currentSlide.id}
+          slideId={deckSlide.id}
+          orbitScopeSuffix={canvasMediaElementId}
           deviceId={deviceId}
           screenMedia={screenMedia}
-          imageUrl={slide.imageUrl}
-          videoUrl={slide.videoUrl}
-          viewState={slide.presenter3dViewState}
+          imageUrl={textureImageUrl}
+          videoUrl={textureVideoUrl}
+          viewState={orbitViewState}
           onViewStateCommit={handleViewCommit}
           boundsMargin={
             embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined

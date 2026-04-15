@@ -186,6 +186,8 @@ export function SlideCanvasSlide() {
     openCodeGenModal,
     setVideoUrlInput,
     setShowVideoModal,
+    openVideoModal: queueVideoUrlModal,
+    setCurrentSlidePresenter3dScreenMedia,
     deckVisualTheme,
     setCanvasTextEditTarget,
     setCanvasMediaPanelEditTarget,
@@ -717,8 +719,9 @@ export function SlideCanvasSlide() {
               <button
                 type="button"
                 onClick={() => {
-                  setVideoUrlInput(slide.videoUrl || "");
-                  setShowVideoModal(true);
+                  queueVideoUrlModal({
+                    initialVideoUrl: slide.videoUrl || "",
+                  });
                 }}
                 className={cn(
                   deckIaToolbarBtnClass(deckVisualTheme.contentTone),
@@ -801,9 +804,12 @@ export function SlideCanvasSlide() {
           openImageUploadModal={openImageUploadModal}
           openVideoModal={() => {
             const panelSlide = slideAppearanceForMediaElement(slide, el);
-            setVideoUrlInput(panelSlide.videoUrl || "");
-            setShowVideoModal(true);
+            queueVideoUrlModal({
+              mediaPanelElementId: el.id,
+              initialVideoUrl: panelSlide.videoUrl || "",
+            });
           }}
+          setCurrentSlidePresenter3dScreenMedia={setCurrentSlidePresenter3dScreenMedia}
           setCanvasTextEditTarget={setCanvasTextEditTarget}
           editLanguage={editLanguage}
           setEditLanguage={setEditLanguage}
@@ -860,6 +866,7 @@ function CanvasElementEditor({
   openImageModal,
   openImageUploadModal,
   openVideoModal,
+  setCurrentSlidePresenter3dScreenMedia,
   editLanguage,
   setEditLanguage,
   editFontSize,
@@ -930,9 +937,18 @@ function CanvasElementEditor({
   diagramRemountToken: number;
   onPatchRect: (id: string, r: SlideCanvasRect) => void;
   slideContainerRef: RefObject<HTMLDivElement | null>;
-  openImageModal: () => void;
-  openImageUploadModal: () => void;
-  openVideoModal: () => void;
+  openImageModal: (options?: { mediaPanelElementId?: string | null }) => void;
+  openImageUploadModal: (options?: {
+    mediaPanelElementId?: string | null;
+  }) => void;
+  openVideoModal: (options?: {
+    mediaPanelElementId?: string | null;
+    initialVideoUrl?: string;
+  }) => void;
+  setCurrentSlidePresenter3dScreenMedia: (
+    m: "image" | "video",
+    explicitMediaPanelElementId?: string | null,
+  ) => void;
   editLanguage: string;
   setEditLanguage: (v: string) => void;
   editFontSize: number;
@@ -1102,6 +1118,8 @@ function CanvasElementEditor({
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarVideoModal();
   const showMediaPanelCanvas3dActions =
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCanvas3dActions();
+  const showPresenter3dTextureLoads =
+    kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarPresenter3dTextureLoads();
 
   const effectiveCanvasCodeTheme =
     kind === "mediaPanel" && mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE
@@ -1118,14 +1136,26 @@ function CanvasElementEditor({
         onRotatePointerDown={(e) => startRotate(id, e, rect, rotation)}
         toolbar={{
           onGenerateImage: showMediaPanelImageActions
-            ? () => openImageModal()
+            ? () => openImageModal({ mediaPanelElementId: id })
             : undefined,
-          onUseImage: showMediaPanelImageActions
-            ? () => openImageUploadModal()
-            : undefined,
-          onOpenVideoModal: showMediaPanelVideoActions
-            ? () => openVideoModal()
-            : undefined,
+          onUseImage:
+            showMediaPanelImageActions || showPresenter3dTextureLoads
+              ? () => {
+                  if (showPresenter3dTextureLoads) {
+                    setCurrentSlidePresenter3dScreenMedia("image", id);
+                  }
+                  openImageUploadModal({ mediaPanelElementId: id });
+                }
+              : undefined,
+          onOpenVideoModal:
+            showMediaPanelVideoActions || showPresenter3dTextureLoads
+              ? () => {
+                  if (showPresenter3dTextureLoads) {
+                    setCurrentSlidePresenter3dScreenMedia("video", id);
+                  }
+                  openVideoModal();
+                }
+              : undefined,
           codeActions: showMediaPanelCodeActions
             ? {
                 fontSize:
@@ -1160,7 +1190,8 @@ function CanvasElementEditor({
             showMediaPanelImageActions ||
             showMediaPanelCodeActions ||
             showMediaPanelVideoActions ||
-            showMediaPanelCanvas3dActions
+            showMediaPanelCanvas3dActions ||
+            showPresenter3dTextureLoads
             ? undefined
             : () => {
                 setIsEditing(true);

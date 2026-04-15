@@ -43,6 +43,11 @@ export abstract class MediaPanelDescriptor {
     return false;
   }
 
+  /** Lienzo flotante: subir imagen / URL de vídeo como textura del Presentador 3D. */
+  showCanvasToolbarPresenter3dTextureLoads(): boolean {
+    return false;
+  }
+
   /** PPTX: el cuerpo del slide usa layout de dos columnas (panel derecho). */
   splitPanelOccupied(slide: Slide): boolean {
     void slide;
@@ -126,6 +131,10 @@ export class VideoMediaPanelDescriptor extends MediaPanelDescriptor {
 
 export class Presenter3dMediaPanelDescriptor extends MediaPanelDescriptor {
   readonly kind = PANEL_CONTENT_KIND.PRESENTER_3D;
+
+  override showCanvasToolbarPresenter3dTextureLoads(): boolean {
+    return true;
+  }
 
   override usesOrbitInteractionChrome(): boolean {
     return true;

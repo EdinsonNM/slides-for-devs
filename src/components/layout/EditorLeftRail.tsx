@@ -45,6 +45,7 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
   } = usePresentation();
 
   const [exporting, setExporting] = useState(false);
+  const [pptxExportDetail, setPptxExportDetail] = useState<string | null>(null);
 
   const goPanels = (which: "characters" | "template" | "notes") => {
     if (which === "characters") {
@@ -66,18 +67,38 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
   const exportPptx = async () => {
     if (slides.length === 0) return;
     setExporting(true);
+    setPptxExportDetail("Preparando exportación…");
     try {
       const snap = flushSync(() => captureWorkspaceSnapshot());
-      await exportPresentationToPowerPoint({
-        topic: snap.topic || "Presentación",
-        slides: snap.slides,
-        deckVisualTheme: snap.deckVisualTheme,
-      });
+      await exportPresentationToPowerPoint(
+        {
+          topic: snap.topic || "Presentación",
+          slides: snap.slides,
+          deckVisualTheme: snap.deckVisualTheme,
+        },
+        undefined,
+        {
+          onExportProgress: (info) => {
+            flushSync(() => {
+              if (info.phase === "capture_start") {
+                setPptxExportDetail(
+                  `Capturando diapositiva ${info.slideIndex + 1} de ${info.totalSlides}…`,
+                );
+              } else if (info.phase === "pptx_packaging") {
+                setPptxExportDetail(
+                  "Generando archivo PowerPoint (puede tardar con muchas imágenes)…",
+                );
+              }
+            });
+          },
+        },
+      );
     } catch (e) {
       console.error(e);
       alert("Error al exportar a PowerPoint.");
     } finally {
       setExporting(false);
+      setPptxExportDetail(null);
     }
   };
 
@@ -161,7 +182,11 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
         </RailTooltip>
         <RailTooltip
           label={exporting ? "Exportando…" : "Exportar a PowerPoint"}
-          detail={exporting ? "Generando archivo .pptx" : "Descarga compatible con Microsoft PowerPoint."}
+          detail={
+            exporting
+              ? pptxExportDetail ?? "Generando archivo .pptx"
+              : "Descarga compatible con Microsoft PowerPoint."
+          }
         >
           <button
             type="button"

@@ -4,13 +4,14 @@ import {
   type SlideCanvasElement,
 } from "../entities/SlideCanvas";
 import {
+  compareCanvasElementsByZThenId,
   readMediaPayloadFromElement,
   readTextMarkdownFromElement,
 } from "./slideCanvasPayload";
 
 function sortedElements(slide: Slide): SlideCanvasElement[] {
   const els = slide.canvasScene?.elements ?? [];
-  return [...els].sort((a, b) => a.z - b.z);
+  return [...els].sort(compareCanvasElementsByZThenId);
 }
 
 /**

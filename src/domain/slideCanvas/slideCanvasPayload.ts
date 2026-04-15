@@ -1,6 +1,12 @@
 import type { Slide } from "../entities";
 import { SLIDE_TYPE } from "../entities";
-import { PANEL_CONTENT_KIND } from "../panelContent/panelContentKind";
+import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
+import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import {
+  PANEL_CONTENT_KIND,
+  normalizePanelContentKind,
+  type PanelContentKind,
+} from "../panelContent/panelContentKind";
 import type {
   SlideCanvasElement,
   SlideCanvasElementKind,
@@ -42,6 +48,15 @@ export function canvasElementKindNeedsMediaPayload(
   return kind === "mediaPanel";
 }
 
+/** Orden estable por z y desempate por id (evita “primer panel” ambiguo si hay empate en z). */
+export function compareCanvasElementsByZThenId(
+  a: SlideCanvasElement,
+  b: SlideCanvasElement,
+): number {
+  if (a.z !== b.z) return a.z - b.z;
+  return a.id.localeCompare(b.id);
+}
+
 export function textPayloadForElementKind(
   slide: Slide,
   kind: SlideCanvasElementKind,
@@ -72,6 +87,52 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     canvas3dGlbUrl: slide.canvas3dGlbUrl,
     canvas3dViewState: slide.canvas3dViewState,
   };
+}
+
+/**
+ * Campos de la raíz del slide que el **primer** `mediaPanel` puede heredar solo si
+ * no están definidos en su propio `payload` (`Object.hasOwn`).
+ *
+ * Evita que `{ ...root, ...p }` rellene p. ej. `imageUrl` del slide en un Presentador 3D
+ * cuyo payload no declara imagen (la raíz sigue espejando otro panel u orden previo).
+ */
+const ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND: Record<
+  PanelContentKind,
+  readonly (keyof SlideCanvasMediaPayload)[]
+> = {
+  [PANEL_CONTENT_KIND.IMAGE]: ["imageUrl", "imagePrompt"],
+  [PANEL_CONTENT_KIND.CODE]: [
+    "code",
+    "language",
+    "fontSize",
+    "editorHeight",
+    "codeEditorTheme",
+  ],
+  [PANEL_CONTENT_KIND.VIDEO]: ["videoUrl"],
+  [PANEL_CONTENT_KIND.PRESENTER_3D]: [
+    "presenter3dDeviceId",
+    "presenter3dScreenMedia",
+    "presenter3dViewState",
+  ],
+  [PANEL_CONTENT_KIND.CANVAS_3D]: ["canvas3dGlbUrl", "canvas3dViewState"],
+};
+
+function mergeFirstMediaPanelPayloadFromRoot(
+  slide: Slide,
+  p: SlideCanvasMediaPayload,
+): SlideCanvasMediaPayload {
+  const root = mediaPayloadFromSlideRoot(slide);
+  const kind = normalizePanelContentKind(p.contentType);
+  const inheritable = ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND[kind];
+  const out: SlideCanvasMediaPayload = { ...p, type: "media" };
+  for (const key of inheritable) {
+    if (Object.prototype.hasOwnProperty.call(p, key)) continue;
+    const v = root[key];
+    if (v !== undefined) {
+      (out as Record<string, unknown>)[key] = v;
+    }
+  }
+  return out;
 }
 
 /**
@@ -113,28 +174,29 @@ export function mergeMediaPayloadIntoSlide(
 
 /** Quita de la copia del slide los campos que el panel de media refleja en la raíz (evita “fantasma” del primer panel al mostrar otro `mediaPanel`). */
 function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
-  const next: Slide = { ...slide };
-  const o = next as unknown as Record<string, unknown>;
-  delete o.imageUrl;
-  delete o.imagePrompt;
-  delete o.code;
-  delete o.language;
-  delete o.fontSize;
-  delete o.editorHeight;
-  delete o.videoUrl;
-  delete o.presenter3dDeviceId;
-  delete o.presenter3dScreenMedia;
-  delete o.presenter3dViewState;
-  delete o.canvas3dGlbUrl;
-  delete o.canvas3dViewState;
-  delete o.codeEditorTheme;
-  return next;
+  const {
+    imageUrl: _iu,
+    imagePrompt: _ip,
+    code: _c,
+    language: _l,
+    fontSize: _fs,
+    editorHeight: _eh,
+    videoUrl: _vu,
+    presenter3dDeviceId: _p3d,
+    presenter3dScreenMedia: _p3sm,
+    presenter3dViewState: _p3vs,
+    canvas3dGlbUrl: _c3g,
+    canvas3dViewState: _c3vs,
+    codeEditorTheme: _cet,
+    ...rest
+  } = slide as Slide;
+  return rest as Slide;
 }
 
 /** Primer `mediaPanel` en orden z (misma convención que `syncSlideRootFromCanvas`). */
 export function canvasFirstMediaPanelElementId(slide: Slide): string | null {
   const els = slide.canvasScene?.elements ?? [];
-  const sorted = [...els].sort((a, b) => a.z - b.z);
+  const sorted = [...els].sort(compareCanvasElementsByZThenId);
   return sorted.find((e) => e.kind === "mediaPanel")?.id ?? null;
 }
 
@@ -168,8 +230,10 @@ function normalizeCodeMediaPayload(
 }
 
 /**
- * Lee el payload de un `mediaPanel`. Solo el **primer** panel sin payload hereda la raíz del slide;
- * el resto obtiene un payload aislado para no espejar el mismo `code` entre paneles.
+ * Lee el payload de un `mediaPanel`. El **primer** panel (orden z) fusiona su `payload` con la raíz
+ * del slide solo en campos permitidos por su `contentType` y que no declara el propio payload
+ * (`Object.hasOwn`), para no colar p. ej. `imageUrl` de otro panel vía la raíz.
+ * El resto usa solo su payload aislado.
  */
 export function readMediaPayloadFromElement(
   slide: Slide,
@@ -188,14 +252,15 @@ export function readMediaPayloadFromElement(
   if (isSlideCanvasMediaPayload(p)) {
     base =
       firstId === el.id
-        ? { ...mediaPayloadFromSlideRoot(slide), ...p }
+        ? mergeFirstMediaPanelPayloadFromRoot(slide, p)
         : { ...p };
   } else if (firstId === el.id) {
     base = mediaPayloadFromSlideRoot(slide);
   } else {
+    /* No heredar slide.contentType: en la raíz refleja solo el primer mediaPanel. */
     base = {
       type: "media",
-      contentType: slide.contentType ?? PANEL_CONTENT_KIND.IMAGE,
+      contentType: PANEL_CONTENT_KIND.IMAGE,
     };
   }
 
@@ -203,16 +268,80 @@ export function readMediaPayloadFromElement(
 }
 
 /** Slide “vista” con campos de panel tomados de un `mediaPanel` concreto. */
+/**
+ * Lectura **solo del payload** del `mediaPanel` para Presentador 3D (sin fusionar raíz del slide).
+ * Cada bloque del lienzo es una instancia independiente para vista previa / presentador.
+ */
+export type Presenter3dCanvasBlockDisplay = {
+  deviceId: string;
+  screenMedia: "image" | "video";
+  imageUrl?: string;
+  videoUrl?: string;
+  viewState?: Presenter3dViewState | null;
+};
+
+export function presenter3dDisplayPropsFromCanvasElement(
+  slide: Slide,
+  el: SlideCanvasElement,
+): Presenter3dCanvasBlockDisplay | null {
+  if (slide.type !== SLIDE_TYPE.CONTENT || el.kind !== "mediaPanel") {
+    return null;
+  }
+  const p = el.payload;
+  if (!isSlideCanvasMediaPayload(p)) return null;
+  if (
+    normalizePanelContentKind(p.contentType) !== PANEL_CONTENT_KIND.PRESENTER_3D
+  ) {
+    return null;
+  }
+  const imageUrl = Object.prototype.hasOwnProperty.call(p, "imageUrl")
+    ? p.imageUrl
+    : undefined;
+  const videoUrl = Object.prototype.hasOwnProperty.call(p, "videoUrl")
+    ? p.videoUrl
+    : undefined;
+  return {
+    deviceId: p.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
+    screenMedia: p.presenter3dScreenMedia ?? "image",
+    imageUrl,
+    videoUrl,
+    viewState: p.presenter3dViewState,
+  };
+}
+
 export function slideAppearanceForMediaElement(
   slide: Slide,
   el: SlideCanvasElement,
 ): Slide {
   if (el.kind !== "mediaPanel") return slide;
   const cleared = slideWithoutMirroredPanelRootForView(slide);
-  return mergeMediaPayloadIntoSlide(
-    cleared,
-    readMediaPayloadFromElement(slide, el),
-  );
+  const media = readMediaPayloadFromElement(slide, el);
+  const merged = mergeMediaPayloadIntoSlide(cleared, media);
+
+  /**
+   * Presentador 3D: la textura solo debe existir si el **payload persistido** del bloque
+   * declara `imageUrl` / `videoUrl` (hasOwn). Así vista previa / presentador no heredan
+   * residuos de la raíz del slide u otros paneles aunque el merge dejara campos colados.
+   */
+  if (
+    slide.type === SLIDE_TYPE.CONTENT &&
+    normalizePanelContentKind(media.contentType) ===
+      PANEL_CONTENT_KIND.PRESENTER_3D
+  ) {
+    const raw = el.payload;
+    const payloadOwns = (key: "imageUrl" | "videoUrl") =>
+      raw !== null &&
+      typeof raw === "object" &&
+      Object.prototype.hasOwnProperty.call(raw, key);
+    if (!payloadOwns("imageUrl")) {
+      delete (merged as { imageUrl?: unknown }).imageUrl;
+    }
+    if (!payloadOwns("videoUrl")) {
+      delete (merged as { videoUrl?: unknown }).videoUrl;
+    }
+  }
+
+  return merged;
 }
 
 export function patchElementPayload(

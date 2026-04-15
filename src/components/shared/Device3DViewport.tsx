@@ -1,10 +1,12 @@
 import React, {
+  Fragment,
   Suspense,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
@@ -53,16 +55,23 @@ function applyScreenMap(root: THREE.Object3D, map: THREE.Texture | null) {
         mat.map = map;
         mat.map.needsUpdate = true;
         mat.color?.setHex(0xffffff);
+      } else {
+        mat.map = null;
       }
       mat.needsUpdate = true;
     }
   });
 }
 
-function disposeClonedGeometries(root: THREE.Object3D) {
+function disposeClonedResources(root: THREE.Object3D) {
   root.traverse((obj) => {
     if (obj instanceof THREE.Mesh) {
       obj.geometry?.dispose();
+      if (Array.isArray(obj.material)) {
+        for (const m of obj.material) m.dispose();
+      } else {
+        obj.material?.dispose();
+      }
     }
   });
 }
@@ -80,21 +89,72 @@ function BoundsAutoRefresh({ refreshKey }: { refreshKey: string }) {
   return null;
 }
 
+const _pivotBox = new THREE.Box3();
+const _pivotCenter = new THREE.Vector3();
+
+/**
+ * Mantiene el `target` de OrbitControls en el centro del modelo (AABB mundial).
+ * OrbitControls de @react-three/drei ejecuta `update()` en useFrame con prioridad -1;
+ * usamos una prioridad menor para corregir el pivote después y evitar que la órbita
+ * “arrastre” el modelo respecto a su centro de rotación.
+ */
+function SyncOrbitPivotToModelRoot({
+  modelRef,
+}: {
+  modelRef: RefObject<THREE.Group | null>;
+}) {
+  const { controls, invalidate } = useThree();
+
+  useFrame(() => {
+    const c = controls as unknown as {
+      target: THREE.Vector3;
+      update: () => void;
+    } | null;
+    const root = modelRef.current;
+    if (!c || !root) return;
+
+    _pivotBox.setFromObject(root);
+    if (_pivotBox.isEmpty()) return;
+    _pivotBox.getCenter(_pivotCenter);
+
+    if (c.target.distanceToSquared(_pivotCenter) > 1e-10) {
+      c.target.copy(_pivotCenter);
+      c.update();
+      invalidate();
+    }
+  }, -2);
+
+  return null;
+}
+
 interface GLTFDeviceProps {
   glbUrl: string;
   screenMap: THREE.Texture | null;
 }
 
+function cloneWithOwnMaterials(scene: THREE.Object3D): THREE.Object3D {
+  const root = scene.clone(true);
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    if (Array.isArray(child.material)) {
+      child.material = child.material.map((m: THREE.Material) => m.clone());
+    } else {
+      child.material = child.material.clone();
+    }
+  });
+  return root;
+}
+
 function GLTFDevice({ glbUrl, screenMap }: GLTFDeviceProps) {
   const { scene } = useGLTF(glbUrl);
-  const root = useMemo(() => scene.clone(true), [scene, glbUrl]);
+  const root = useMemo(() => cloneWithOwnMaterials(scene), [scene, glbUrl]);
 
   useEffect(() => {
     applyScreenMap(root, screenMap);
   }, [root, screenMap]);
 
   useEffect(() => {
-    return () => disposeClonedGeometries(root);
+    return () => disposeClonedResources(root);
   }, [root]);
 
   return (
@@ -219,6 +279,11 @@ function PersistedOrbitControls({
 export interface Device3DViewportProps {
   /** Identificador estable de la diapositiva (para restaurar la órbita al cambiar de slide). */
   slideId: string;
+  /**
+   * Cuando hay varios presentadores 3D en el mismo slide (lienzo), p. ej. el id del `mediaPanel`,
+   * para no compartir estado de órbita / refresco de Bounds entre instancias.
+   */
+  orbitScopeSuffix?: string;
   deviceId: string | undefined;
   screenMedia: "image" | "video";
   imageUrl?: string;
@@ -237,6 +302,7 @@ export interface Device3DViewportProps {
 
 export function Device3DViewport({
   slideId,
+  orbitScopeSuffix,
   deviceId,
   screenMedia,
   imageUrl,
@@ -248,6 +314,7 @@ export function Device3DViewport({
   className,
   boundsMargin = 1.42,
 }: Device3DViewportProps) {
+  const orbitScopeKey = `${slideId}:${orbitScopeSuffix ?? "main"}`;
   const glbUrl = resolveDevice3dGlbUrl(deviceId);
 
   const resolvedViewState =
@@ -279,77 +346,82 @@ export function Device3DViewport({
     );
   }
 
-  const boundsRefreshKey = `${slideId}|${glbUrl}|${imageUrl ?? ""}|${videoUrl ?? ""}|${screenMedia}`;
+  const boundsRefreshKey = `${orbitScopeKey}|${glbUrl}|${imageUrl ?? ""}|${videoUrl ?? ""}|${screenMedia}`;
+  const modelRootRef = useRef<THREE.Group>(null);
+
   const sceneBody =
     resolvedViewState == null ? (
       <Bounds margin={boundsMargin} clip>
-        {body}
+        <group ref={modelRootRef}>{body}</group>
         <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
+        <SyncOrbitPivotToModelRoot modelRef={modelRootRef} />
       </Bounds>
     ) : (
-      body
+      <group ref={modelRootRef}>{body}</group>
     );
 
   return (
     <div
-      key={slideId}
+      key={orbitScopeKey}
       className={cn(
         "relative min-h-[200px] h-full w-full bg-transparent",
         className,
       )}
     >
-      <Canvas
-        className="absolute inset-0 h-full w-full touch-none select-none"
-        camera={{
-          position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
-            number,
-            number,
-            number,
-          ],
-          fov: 42,
-        }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          premultipliedAlpha: false,
-          preserveDrawingBuffer: true,
-        }}
-        onCreated={({ gl, scene }) => {
-          scene.background = null;
-          gl.setClearColor(0x000000, 0);
-          gl.outputColorSpace = THREE.SRGBColorSpace;
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.6;
-        }}
-      >
-        <PersistedOrbitControls
-          slideId={slideId}
-          viewState={resolvedViewState ?? null}
-          onViewCommit={onViewStateCommit}
-          disableControls={disableControls}
-          useAutoframing={resolvedViewState == null}
-        />
-        <ambientLight intensity={0.22} />
-        <directionalLight
-          position={[5.5, 7, 5]}
-          intensity={1.15}
-          color="#fff6ef"
-        />
-        <directionalLight
-          position={[-5.5, 3.5, -3.5]}
-          intensity={0.45}
-          color="#e8eefc"
-        />
-        <directionalLight
-          position={[0, 3.5, -7]}
-          intensity={0.32}
-          color="#ffffff"
-        />
-        <Suspense fallback={null}>
-          <Environment preset="studio" environmentIntensity={0.92} />
-          {sceneBody}
-        </Suspense>
-      </Canvas>
+      <Fragment key={orbitScopeKey}>
+        <Canvas
+          className="absolute inset-0 h-full w-full touch-none select-none"
+          camera={{
+            position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
+              number,
+              number,
+              number,
+            ],
+            fov: 42,
+          }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            premultipliedAlpha: false,
+            preserveDrawingBuffer: true,
+          }}
+          onCreated={({ gl, scene }) => {
+            scene.background = null;
+            gl.setClearColor(0x000000, 0);
+            gl.outputColorSpace = THREE.SRGBColorSpace;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 0.6;
+          }}
+        >
+          <PersistedOrbitControls
+            slideId={orbitScopeKey}
+            viewState={resolvedViewState ?? null}
+            onViewCommit={onViewStateCommit}
+            disableControls={disableControls}
+            useAutoframing={resolvedViewState == null}
+          />
+          <ambientLight intensity={0.22} />
+          <directionalLight
+            position={[5.5, 7, 5]}
+            intensity={1.15}
+            color="#fff6ef"
+          />
+          <directionalLight
+            position={[-5.5, 3.5, -3.5]}
+            intensity={0.45}
+            color="#e8eefc"
+          />
+          <directionalLight
+            position={[0, 3.5, -7]}
+            intensity={0.32}
+            color="#ffffff"
+          />
+          <Suspense fallback={null}>
+            <Environment preset="studio" environmentIntensity={0.92} />
+            {sceneBody}
+          </Suspense>
+        </Canvas>
+      </Fragment>
       {!disableControls && showInteractionHint && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
           Clic + arrastre o trackpad para girar · rueda o pellizco para zoom ·

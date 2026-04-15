@@ -1,16 +1,10 @@
 import { motion, AnimatePresence } from "motion/react";
-import { X, Image as ImageIcon, Code2, Video, Smartphone, Cuboid } from "lucide-react";
+import { X } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
-import { ContentPanelProperties } from "./ContentPanelProperties";
 import { SLIDE_LAYOUT_TEMPLATE_REGISTRY } from "../../domain/slideTemplates/slideLayoutTemplates.registry";
 import { inferSlideLayoutTemplateId } from "../../domain/slideTemplates/inferSlideLayoutTemplateId";
 import { applySlideLayoutTemplate } from "../../domain/slideTemplates/slideLayoutTemplateApply";
-import { SLIDE_TYPE } from "../../domain/entities";
-import {
-  PANEL_CONTENT_KIND,
-  normalizePanelContentKind,
-} from "../../domain/panelContent";
 import { DECK_THEME_PRESETS } from "../../constants/deckVisualThemes";
 
 interface SlideStylePanelProps {
@@ -27,13 +21,10 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
     setShowSlideStylePanel,
     setCurrentSlideType,
     setCurrentSlideContentLayout,
-    setCurrentSlideContentType,
   } = usePresentation();
 
   const visible = variant === "inspector" || showSlideStylePanel;
   if (!visible || !currentSlide || slides.length === 0) return null;
-
-  const contentType = normalizePanelContentKind(currentSlide.contentType);
 
   const selectedId = inferSlideLayoutTemplateId(currentSlide);
 
@@ -198,45 +189,12 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
     </div>
   );
 
-  const isContentSlide = currentSlide.type === SLIDE_TYPE.CONTENT;
-
-  const panelTypes =
-    isContentSlide && (
-      <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 px-3 pb-3 pt-2 dark:border-border">
-        <span className="text-xs font-medium text-stone-500 dark:text-muted-foreground">Panel:</span>
-        {[
-          { id: PANEL_CONTENT_KIND.IMAGE, label: "Imagen", icon: ImageIcon },
-          { id: PANEL_CONTENT_KIND.CODE, label: "Código", icon: Code2 },
-          { id: PANEL_CONTENT_KIND.VIDEO, label: "Video", icon: Video },
-          { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", icon: Smartphone },
-          { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", icon: Cuboid },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setCurrentSlideContentType(id)}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all",
-              contentType === id
-                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
-                : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-500 dark:bg-stone-800/60 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:bg-stone-800",
-            )}
-          >
-            <Icon size={14} />
-            {label}
-          </button>
-        ))}
-      </div>
-    );
-
   if (variant === "inspector") {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-surface-elevated">
         {header}
         {deckThemesRow}
         {templatesRow}
-        {panelTypes}
-        {isContentSlide && <ContentPanelProperties />}
       </div>
     );
   }
@@ -253,8 +211,6 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {header}
         {deckThemesRow}
         {templatesRow}
-        {panelTypes}
-        {isContentSlide && <ContentPanelProperties />}
       </motion.div>
     </AnimatePresence>
   );

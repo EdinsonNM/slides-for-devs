@@ -17,9 +17,11 @@ import {
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
+  presenter3dDisplayPropsFromCanvasElement,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
 } from "../../domain/slideCanvas/slideCanvasPayload";
+import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { CodeDisplay } from "../shared/CodeDisplay";
 import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
@@ -41,27 +43,32 @@ export interface SlideCanvasViewProps {
   deckContentTone?: DeckContentTone;
 }
 
-function mediaBlock(slide: Slide, tone: DeckContentTone) {
-  const panel = resolveMediaPanelDescriptor(slide);
+function mediaBlock(
+  deckSlide: Slide,
+  tone: DeckContentTone,
+  /** Presentador 3D: slide + elemento para leer solo el `payload` del bloque (sin espejo raíz). */
+  presenterCanvas?: { slide: Slide; element: SlideCanvasElement },
+) {
+  const panel = resolveMediaPanelDescriptor(deckSlide);
   switch (panel.kind) {
     case PANEL_CONTENT_KIND.CODE:
       return (
         <CodeDisplay
-          code={slide.code ?? ""}
-          language={slide.language}
-          fontSize={slide.fontSize ?? 14}
+          code={deckSlide.code ?? ""}
+          language={deckSlide.language}
+          fontSize={deckSlide.fontSize ?? 14}
           showChrome
           responsiveFontSize
-          codeEditorTheme={slide.codeEditorTheme}
+          codeEditorTheme={deckSlide.codeEditorTheme}
           className="h-full min-h-0 w-full"
         />
       );
     case PANEL_CONTENT_KIND.VIDEO:
       return (
         <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
-          {slide.videoUrl ? (
+          {deckSlide.videoUrl ? (
             <iframe
-              src={getEmbedUrl(slide.videoUrl)}
+              src={getEmbedUrl(deckSlide.videoUrl)}
               className="h-full w-full"
               allowFullScreen
               title="Video"
@@ -73,39 +80,65 @@ function mediaBlock(slide: Slide, tone: DeckContentTone) {
           )}
         </div>
       );
-    case PANEL_CONTENT_KIND.PRESENTER_3D:
+    case PANEL_CONTENT_KIND.PRESENTER_3D: {
+      const fullSlide = presenterCanvas?.slide ?? deckSlide;
+      const el = presenterCanvas?.element;
+      const fromPayload =
+        el != null
+          ? presenter3dDisplayPropsFromCanvasElement(fullSlide, el)
+          : null;
+      const canvasBlock = el != null && fromPayload != null;
       return (
         <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
           <Device3DViewport
-            slideId={slide.id}
-            deviceId={slide.presenter3dDeviceId}
-            screenMedia={slide.presenter3dScreenMedia ?? "image"}
-            imageUrl={slide.imageUrl}
-            videoUrl={slide.videoUrl}
-            viewState={slide.presenter3dViewState}
+            slideId={fullSlide.id}
+            orbitScopeSuffix={el?.id}
+            deviceId={
+              canvasBlock
+                ? fromPayload.deviceId
+                : ((deckSlide.presenter3dDeviceId as string | undefined) ??
+                  DEFAULT_DEVICE_3D_ID)
+            }
+            screenMedia={
+              canvasBlock
+                ? fromPayload.screenMedia
+                : (deckSlide.presenter3dScreenMedia ?? "image")
+            }
+            imageUrl={
+              canvasBlock ? fromPayload.imageUrl : deckSlide.imageUrl
+            }
+            videoUrl={
+              canvasBlock ? fromPayload.videoUrl : deckSlide.videoUrl
+            }
+            viewState={
+              canvasBlock
+                ? fromPayload.viewState
+                : deckSlide.presenter3dViewState
+            }
             showInteractionHint={false}
             className="h-full min-h-[120px]"
           />
         </div>
       );
+    }
     case PANEL_CONTENT_KIND.CANVAS_3D:
       return (
         <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
           <Canvas3DViewport
-            slideId={slide.id}
-            glbUrl={slide.canvas3dGlbUrl}
-            viewState={slide.canvas3dViewState}
+            slideId={deckSlide.id}
+            glbUrl={deckSlide.canvas3dGlbUrl}
+            viewState={deckSlide.canvas3dViewState}
             showInteractionHint
             className="h-full min-h-[120px]"
           />
         </div>
       );
     case PANEL_CONTENT_KIND.IMAGE:
-      if (slide.imageUrl) {
+      if (deckSlide.imageUrl) {
         return (
           <img
-            src={slide.imageUrl}
-            alt={slide.title}
+            src={deckSlide.imageUrl}
+            alt={deckSlide.title}
             className="h-full w-full object-cover select-none"
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
@@ -262,7 +295,10 @@ function CanvasElementReadOnly({
       if (slide.type !== SLIDE_TYPE.CONTENT) return null;
       return (
         <div style={box} className={shell}>
-          {rotated("h-full p-1 md:p-2", mediaBlock(panelSlide, tone))}
+          {rotated(
+            "h-full p-1 md:p-2",
+            mediaBlock(panelSlide, tone, { slide, element }),
+          )}
         </div>
       );
     case "matrix":
