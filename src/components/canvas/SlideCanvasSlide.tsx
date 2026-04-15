@@ -10,7 +10,6 @@ import {
 import { flushSync } from "react-dom";
 import {
   GripVertical,
-  Pencil,
   RefreshCw,
   Sparkles,
   Split,
@@ -714,30 +713,6 @@ export function SlideCanvasSlide() {
           ) : null}
         </div>
       )}
-
-      {(slide.type === SLIDE_TYPE.CHAPTER ||
-        slide.type === SLIDE_TYPE.MATRIX ||
-        slide.type === SLIDE_TYPE.DIAGRAM ||
-        slide.type === SLIDE_TYPE.ISOMETRIC) &&
-        !showIaToolbar &&
-        !isEditing && (
-          <div
-            className="absolute right-3 top-3 md:right-4 md:top-4"
-            style={{ zIndex: SLIDE_CANVAS_UI_Z }}
-          >
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className={cn(
-                deckIaToolbarBtnClass(deckVisualTheme.contentTone),
-                deckIaToolbarHoverClass(deckVisualTheme.contentTone, "emerald"),
-              )}
-              title="Editar"
-            >
-              <Pencil size={16} />
-            </button>
-          </div>
-        )}
 
       {sorted
         .filter((el) => el.kind !== "sectionLabel")

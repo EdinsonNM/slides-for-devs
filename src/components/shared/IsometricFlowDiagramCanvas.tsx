@@ -820,6 +820,38 @@ function labelPillWidth(text: string): number {
   return Math.max(72, Math.min(200, w));
 }
 
+/** Caja alineada a ejes para intersección con el rectángulo de selección. */
+type IsoMarqueeBBox = { minX: number; minY: number; maxX: number; maxY: number };
+
+function rectsIntersect(a: IsoMarqueeBBox, b: IsoMarqueeBBox): boolean {
+  return !(a.maxX < b.minX || b.maxX < a.minX || a.maxY < b.minY || b.maxY < a.minY);
+}
+
+/**
+ * Envoltura conservadora del bloque (icono + etiqueta) en coords SVG,
+ * coherente con el layout del lienzo.
+ */
+function isoNodeMarqueeBounds(n: IsometricFlowNode): IsoMarqueeBBox {
+  const foot = nodeFoot(n.gx, n.gy, CELL, ORIGIN_X, ORIGIN_Y);
+  const cx = foot.x;
+  const cy = foot.y;
+  const topPt = nodeSlabTop(n.gx, n.gy, CELL, ORIGIN_X, ORIGIN_Y, SLAB_TOP_RISE);
+  const pillW = labelPillWidth(n.label.slice(0, 24));
+  const pillLeft = cx - pillW / 2;
+  const pillTop = cy - LABEL_STACK - LABEL_PILL_H;
+  const padX = CELL * 0.62;
+  const padTop = CELL * 0.48;
+  const padBot = CELL * 0.22;
+  return {
+    minX: Math.min(pillLeft, cx - padX),
+    minY: Math.min(pillTop - 4, topPt.y - padTop),
+    maxX: Math.max(pillLeft + pillW, cx + padX),
+    maxY: Math.max(pillTop + LABEL_PILL_H + 6, cy + padBot),
+  };
+}
+
+const MARQUEE_ACTIVATE_PX = 5;
+
 function clientToSvg(
   svg: SVGSVGElement,
   clientX: number,
@@ -1026,7 +1058,8 @@ export function IsometricFlowDiagramCanvas({
   const shadowId = `${uid}-sh`;
   const flowDashAnimName = `${uid}-flow-dash`;
   const flowDashReverseAnimName = `${uid}-flow-dash-reverse`;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Orden de selección: el último es el nodo “principal” (barra de herramientas, conectar, icono). */
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
@@ -1043,15 +1076,44 @@ export function IsometricFlowDiagramCanvas({
   const [iconPickerGroupByCategory, setIconPickerGroupByCategory] = useState(false);
   const [iconPickerVisibleLimit, setIconPickerVisibleLimit] = useState(ICON_PICKER_PAGE_SIZE);
   const [drag, setDrag] = useState<{
-    id: string;
+    /** Nodo bajo el puntero; la rejilla se calcula respecto a su pie. */
+    primaryId: string;
     offsetX: number;
     offsetY: number;
+    /** Posición en rejilla al inicio del gesto para cada nodo arrastrado (selección al pointerdown). */
+    startById: Record<string, { gx: number; gy: number }>;
   } | null>(null);
   const [linkSegDrag, setLinkSegDrag] = useState<{
     linkId: string;
     /** Índice del tramo en orden canónico (id menor → id mayor), fijado al pulsar. */
     canonicalSegIndex: number;
   } | null>(null);
+
+  /** Selección tipo explorador: arrastrar en vacío para encuadrar bloques (ref + listeners globales). */
+  const marqueeSessionRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    x0: number;
+    y0: number;
+    extend: boolean;
+    active: boolean;
+  } | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<{
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } | null>(null);
+
+  const primarySelectedId =
+    selectedNodeIds.length > 0
+      ? selectedNodeIds[selectedNodeIds.length - 1]!
+      : null;
+  const selectedNodeIdSet = useMemo(
+    () => new Set(selectedNodeIds),
+    [selectedNodeIds],
+  );
 
   const emit = useCallback(
     (next: IsometricFlowDiagram) => {
@@ -1066,6 +1128,89 @@ export function IsometricFlowDiagramCanvas({
   }
   const emitRef = useRef(emit);
   emitRef.current = emit;
+
+  useEffect(() => {
+    if (readOnly) return;
+    const onMove = (ev: PointerEvent) => {
+      const m = marqueeSessionRef.current;
+      if (!m || ev.pointerId !== m.pointerId) return;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const { x, y } = clientToSvg(svg, ev.clientX, ev.clientY);
+      if (!m.active) {
+        if (
+          Math.hypot(ev.clientX - m.startClientX, ev.clientY - m.startClientY) <
+          MARQUEE_ACTIVATE_PX
+        ) {
+          return;
+        }
+        m.active = true;
+      }
+      setMarqueeRect({ x0: m.x0, y0: m.y0, x1: x, y1: y });
+    };
+    const finish = (ev: PointerEvent) => {
+      const m = marqueeSessionRef.current;
+      if (!m || ev.pointerId !== m.pointerId) return;
+      const svg = svgRef.current;
+      marqueeSessionRef.current = null;
+      setMarqueeRect(null);
+      if (svg) {
+        try {
+          svg.releasePointerCapture(ev.pointerId);
+        } catch {
+          /* noop */
+        }
+      }
+      const { x: x1, y: y1 } = svg
+        ? clientToSvg(svg, ev.clientX, ev.clientY)
+        : { x: m.x0, y: m.y0 };
+      if (!m.active) {
+        if (!m.extend) {
+          setSelectedNodeIds([]);
+        }
+        return;
+      }
+      const dx = Math.abs(x1 - m.x0);
+      const dy = Math.abs(y1 - m.y0);
+      if (dx < 2 && dy < 2) {
+        if (!m.extend) {
+          setSelectedNodeIds([]);
+        }
+        return;
+      }
+      const r: IsoMarqueeBBox = {
+        minX: Math.min(m.x0, x1),
+        maxX: Math.max(m.x0, x1),
+        minY: Math.min(m.y0, y1),
+        maxY: Math.max(m.y0, y1),
+      };
+      const nodes = dataRef.current.nodes;
+      const hits = nodes
+        .filter((n) => rectsIntersect(isoNodeMarqueeBounds(n), r))
+        .sort((a, b) => a.gx + a.gy - (b.gx + b.gy))
+        .map((n) => n.id);
+      setSelectedNodeIds((prev) => {
+        if (!m.extend) return hits;
+        const seen = new Set(prev);
+        const out = [...prev];
+        for (const id of hits) {
+          if (!seen.has(id)) {
+            seen.add(id);
+            out.push(id);
+          }
+        }
+        return out;
+      });
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+  }, [readOnly]);
 
   useEffect(() => {
     let alive = true;
@@ -1320,16 +1465,30 @@ export function IsometricFlowDiagramCanvas({
   }, [panDrag]);
 
   useEffect(() => {
-    if (!selectedId) {
+    if (selectedNodeIds.length === 0) {
       setIconPickerOpen(false);
       setIconSearchQuery("");
     }
-  }, [data.nodes, selectedId]);
+  }, [data.nodes, selectedNodeIds.length]);
 
   const selectedNode = useMemo(
-    () => data.nodes.find((n) => n.id === selectedId) ?? null,
-    [data.nodes, selectedId],
+    () =>
+      primarySelectedId
+        ? (data.nodes.find((n) => n.id === primarySelectedId) ?? null)
+        : null,
+    [data.nodes, primarySelectedId],
   );
+
+  useEffect(() => {
+    const valid = new Set(data.nodes.map((n) => n.id));
+    setSelectedNodeIds((prev) => {
+      const next = prev.filter((id) => valid.has(id));
+      if (next.length === prev.length && next.every((id, i) => id === prev[i])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [data.nodes]);
 
   const bidirectionalLinkIds = useMemo(() => {
     const directionPairs = new Set(
@@ -1449,7 +1608,7 @@ export function IsometricFlowDiagramCanvas({
             ],
           };
           emit(next);
-          setSelectedId(next.nodes[next.nodes.length - 1]!.id);
+          setSelectedNodeIds([next.nodes[next.nodes.length - 1]!.id]);
           setSelectedLinkId(null);
           return;
         }
@@ -1466,28 +1625,29 @@ export function IsometricFlowDiagramCanvas({
     setSelectedLinkId(null);
   }, [data, emit, selectedLinkId]);
 
-  const removeSelectedNode = useCallback(() => {
-    if (!selectedId) return;
+  const removeSelectedNodes = useCallback(() => {
+    if (selectedNodeIds.length === 0) return;
+    const removeSet = new Set(selectedNodeIds);
     const next: IsometricFlowDiagram = {
       ...data,
-      nodes: data.nodes.filter((n) => n.id !== selectedId),
+      nodes: data.nodes.filter((n) => !removeSet.has(n.id)),
       links: data.links.filter(
-        (l) => l.from !== selectedId && l.to !== selectedId,
+        (l) => !removeSet.has(l.from) && !removeSet.has(l.to),
       ),
     };
     emit(next);
-    setSelectedId(null);
+    setSelectedNodeIds([]);
     setConnectFrom(null);
     setSelectedLinkId(null);
-  }, [data, emit, selectedId]);
+  }, [data, emit, selectedNodeIds]);
 
   const removeSelection = useCallback(() => {
     if (selectedLinkId) {
       removeSelectedLink();
       return;
     }
-    removeSelectedNode();
-  }, [removeSelectedLink, removeSelectedNode, selectedLinkId]);
+    removeSelectedNodes();
+  }, [removeSelectedLink, removeSelectedNodes, selectedLinkId]);
 
   const onSvgPointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
@@ -1542,6 +1702,8 @@ export function IsometricFlowDiagramCanvas({
       const hit = pickNodeAt(x, y);
 
       if (connectFrom) {
+        marqueeSessionRef.current = null;
+        setMarqueeRect(null);
         if (hit && hit.id !== connectFrom) {
           const exists = data.links.some(
             (l) => {
@@ -1568,32 +1730,83 @@ export function IsometricFlowDiagramCanvas({
       }
 
       if (hit) {
+        marqueeSessionRef.current = null;
+        setMarqueeRect(null);
         setSelectedLinkId(null);
-        setSelectedId(hit.id);
-        const { x: nx, y: ny } = nodeFoot(hit.gx, hit.gy, CELL, ORIGIN_X, ORIGIN_Y);
-        setDrag({
-          id: hit.id,
-          offsetX: x - nx,
-          offsetY: y - ny,
-        });
+        const extend =
+          e.shiftKey || e.metaKey || e.ctrlKey;
+        let nextSelection: string[];
+        if (extend) {
+          if (selectedNodeIds.includes(hit.id)) {
+            nextSelection = selectedNodeIds.filter((id) => id !== hit.id);
+          } else {
+            nextSelection = [...selectedNodeIds, hit.id];
+          }
+        } else if (selectedNodeIds.includes(hit.id)) {
+          /** Clic en un nodo ya seleccionado: conservar el grupo (p. ej. tras marquee) para arrastrar todos. */
+          nextSelection = selectedNodeIds;
+        } else {
+          nextSelection = [hit.id];
+        }
+        setSelectedNodeIds(nextSelection);
+        if (nextSelection.includes(hit.id)) {
+          const startById: Record<string, { gx: number; gy: number }> = {};
+          for (const id of nextSelection) {
+            const node = data.nodes.find((nn) => nn.id === id);
+            if (node) startById[id] = { gx: node.gx, gy: node.gy };
+          }
+          const { x: nx, y: ny } = nodeFoot(hit.gx, hit.gy, CELL, ORIGIN_X, ORIGIN_Y);
+          setDrag({
+            primaryId: hit.id,
+            offsetX: x - nx,
+            offsetY: y - ny,
+            startById,
+          });
+        }
         e.preventDefault();
         return;
       }
 
       const linkHit = pickLinkAt(x, y);
       if (linkHit) {
-        setSelectedId(null);
+        marqueeSessionRef.current = null;
+        setMarqueeRect(null);
+        setSelectedNodeIds([]);
         setConnectFrom(null);
         setSelectedLinkId(linkHit.id);
         e.preventDefault();
         return;
       }
 
-      setSelectedId(null);
       setSelectedLinkId(null);
       setConnectFrom(null);
+      marqueeSessionRef.current = {
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        x0: x,
+        y0: y,
+        extend: e.shiftKey || e.metaKey || e.ctrlKey,
+        active: false,
+      };
+      setMarqueeRect(null);
+      try {
+        svg.setPointerCapture(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      e.preventDefault();
     },
-    [readOnly, connectFrom, data, emit, onEditorSurfacePointerDown, pickLinkAt, pickNodeAt],
+    [
+      readOnly,
+      connectFrom,
+      data,
+      emit,
+      onEditorSurfacePointerDown,
+      pickLinkAt,
+      pickNodeAt,
+      selectedNodeIds,
+    ],
   );
 
   const resetIsoView = useCallback(() => {
@@ -1611,11 +1824,23 @@ export function IsometricFlowDiagramCanvas({
       const { x, y } = clientToSvg(svg, ev.clientX, ev.clientY);
       const adjX = x - drag.offsetX;
       const adjY = y - drag.offsetY;
-      const { gx, gy } = canvasToIsoGrid(adjX, adjY, CELL, ORIGIN_X, ORIGIN_Y);
-      const d = dataRef.current;
-      const nextNodes = d.nodes.map((n) =>
-        n.id === drag.id ? { ...n, gx, gy } : n,
+      const { gx: newPrimaryGx, gy: newPrimaryGy } = canvasToIsoGrid(
+        adjX,
+        adjY,
+        CELL,
+        ORIGIN_X,
+        ORIGIN_Y,
       );
+      const d = dataRef.current;
+      const primaryStart = drag.startById[drag.primaryId];
+      if (!primaryStart) return;
+      const dgx = newPrimaryGx - primaryStart.gx;
+      const dgy = newPrimaryGy - primaryStart.gy;
+      const nextNodes = d.nodes.map((n) => {
+        const s = drag.startById[n.id];
+        if (!s) return n;
+        return { ...n, gx: s.gx + dgx, gy: s.gy + dgy };
+      });
       emitRef.current({ ...d, nodes: nextNodes });
     };
 
@@ -1721,7 +1946,7 @@ export function IsometricFlowDiagramCanvas({
           },
         ],
       });
-      setSelectedId(id);
+      setSelectedNodeIds([id]);
       setSelectedLinkId(null);
     },
     [readOnly, editingId, data, emit, pickNodeAt],
@@ -1873,25 +2098,25 @@ export function IsometricFlowDiagramCanvas({
 
   const setSelectedNodeShape = useCallback(
     (shape: IsometricFlowNodeShape) => {
-      if (!selectedId) return;
+      if (!primarySelectedId) return;
       emit({
         ...data,
         nodes: data.nodes.map((nn) =>
-          nn.id === selectedId ? { ...nn, shape } : nn,
+          nn.id === primarySelectedId ? { ...nn, shape } : nn,
         ),
       });
     },
-    [data, emit, selectedId],
+    [data, emit, primarySelectedId],
   );
 
   const setSelectedNodeIconSlug = useCallback(
     (slug: string) => {
-      if (!selectedId) return;
+      if (!primarySelectedId) return;
       const clean = slug.trim().toLowerCase();
       emit({
         ...data,
         nodes: data.nodes.map((nn) =>
-          nn.id === selectedId
+          nn.id === primarySelectedId
             ? {
                 ...nn,
                 ...(clean ? { iconSlug: clean } : {}),
@@ -1901,17 +2126,17 @@ export function IsometricFlowDiagramCanvas({
         ),
       });
     },
-    [data, emit, selectedId],
+    [data, emit, primarySelectedId],
   );
 
   const setSelectedNodeBrandIcon = useCallback(
     (slug: string) => {
-      if (!selectedId) return;
+      if (!primarySelectedId) return;
       const clean = slug.trim().toLowerCase();
       emit({
         ...data,
         nodes: data.nodes.map((nn) =>
-          nn.id === selectedId
+          nn.id === primarySelectedId
             ? {
                 ...nn,
                 shape: "brand",
@@ -1922,17 +2147,17 @@ export function IsometricFlowDiagramCanvas({
         ),
       });
     },
-    [data, emit, selectedId],
+    [data, emit, primarySelectedId],
   );
 
   const setSelectedNodeBrandIconColor = useCallback(
     (cssColor: string | null) => {
-      if (!selectedId) return;
+      if (!primarySelectedId) return;
       const sanitized = cssColor != null ? sanitizeBrandIconColor(cssColor) : undefined;
       emit({
         ...data,
         nodes: data.nodes.map((nn) => {
-          if (nn.id !== selectedId) return nn;
+          if (nn.id !== primarySelectedId) return nn;
           if (!sanitized) {
             const { brandIconColor: _c, ...rest } = nn;
             return rest;
@@ -1941,21 +2166,32 @@ export function IsometricFlowDiagramCanvas({
         }),
       });
     },
-    [data, emit, selectedId],
+    [data, emit, primarySelectedId],
   );
 
   useEffect(() => {
     if (readOnly) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        const ms = marqueeSessionRef.current;
+        if (ms && svgRef.current) {
+          try {
+            svgRef.current.releasePointerCapture(ms.pointerId);
+          } catch {
+            /* noop */
+          }
+        }
+        marqueeSessionRef.current = null;
+        setMarqueeRect(null);
         setConnectFrom(null);
         setEditingId(null);
         setSelectedLinkId(null);
         setLinkSegDrag(null);
+        setSelectedNodeIds([]);
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
-        (selectedId || selectedLinkId) &&
+        (selectedNodeIds.length > 0 || selectedLinkId) &&
         document.activeElement?.tagName !== "INPUT" &&
         document.activeElement?.tagName !== "TEXTAREA"
       ) {
@@ -1965,7 +2201,7 @@ export function IsometricFlowDiagramCanvas({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [readOnly, removeSelection, selectedId, selectedLinkId]);
+  }, [readOnly, removeSelection, selectedNodeIds.length, selectedLinkId]);
 
   const toolbar = !readOnly && (
     <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1.5 rounded-lg border border-stone-200/90 bg-white/95 px-2 py-1.5 shadow-sm dark:border-border dark:bg-stone-900/95">
@@ -1982,15 +2218,15 @@ export function IsometricFlowDiagramCanvas({
         type="button"
         onClick={() => {
           setSelectedLinkId(null);
-          setConnectFrom((c) => (c ? null : selectedId));
+          setConnectFrom((c) => (c ? null : primarySelectedId));
         }}
-        disabled={!selectedId}
+        disabled={!primarySelectedId}
         className={cn(
           "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
           connectFrom
             ? "border-sky-500 bg-sky-50 text-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
             : "border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200",
-          !selectedId && "pointer-events-none opacity-40",
+          !primarySelectedId && "pointer-events-none opacity-40",
         )}
         aria-label="Modo conexión: elige dos bloques"
         title="Conectar: origen y destino"
@@ -2001,10 +2237,14 @@ export function IsometricFlowDiagramCanvas({
       <button
         type="button"
         onClick={removeSelection}
-        disabled={!selectedId && !selectedLinkId}
+        disabled={selectedNodeIds.length === 0 && !selectedLinkId}
         className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-red-950/40"
         aria-label={
-          selectedLinkId ? "Eliminar conector seleccionado" : "Eliminar bloque seleccionado"
+          selectedLinkId
+            ? "Eliminar conector seleccionado"
+            : selectedNodeIds.length > 1
+              ? "Eliminar bloques seleccionados"
+              : "Eliminar bloque seleccionado"
         }
       >
         <Trash2 size={14} />
@@ -2052,7 +2292,7 @@ export function IsometricFlowDiagramCanvas({
           </button>
         </div>
       ) : null}
-      {selectedId && !selectedLinkId && (
+      {primarySelectedId && !selectedLinkId && (
         <div
           className="flex flex-wrap items-center gap-0.5 border-l border-stone-200 pl-1.5 dark:border-stone-600"
           role="group"
@@ -2060,7 +2300,8 @@ export function IsometricFlowDiagramCanvas({
         >
           <span className="sr-only">Tipo de icono</span>
           {NODE_SHAPE_TOOLBAR.map(({ value, label, Icon }) => {
-            const current = data.nodes.find((x) => x.id === selectedId)?.shape ?? "slab";
+            const current =
+              data.nodes.find((x) => x.id === primarySelectedId)?.shape ?? "slab";
             const active = current === value;
             return (
               <button
@@ -2083,7 +2324,7 @@ export function IsometricFlowDiagramCanvas({
           })}
         </div>
       )}
-      {selectedId && !selectedLinkId ? (
+      {primarySelectedId && !selectedLinkId ? (
         <div className="flex flex-wrap items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600">
           <button
             type="button"
@@ -2226,7 +2467,7 @@ export function IsometricFlowDiagramCanvas({
           </button>
         </div>
         <p className="hidden text-right text-[10px] leading-snug text-stone-500 dark:text-stone-400 sm:block">
-          Rueda del ratón: zoom · Botón central o Alt y arrastrar: mover la vista
+          Vacío: arrastrar rectángulo de selección · Mayús/Cmd/Ctrl: añadir a la selección o varios bloques · Rueda: zoom · Centro o Alt+arrastrar: mover la vista
         </p>
       </div>
       {iconPickerOpen && selectedNode ? (
@@ -2395,11 +2636,11 @@ export function IsometricFlowDiagramCanvas({
       <svg
         ref={svgRef}
         role="img"
-        aria-label="Diagrama isométrico. Rueda del ratón para ampliar o reducir. Botón central o tecla Alt y arrastrar para desplazar la vista."
+        aria-label="Diagrama isométrico. Rueda del ratón para ampliar o reducir. Botón central o tecla Alt y arrastrar para desplazar la vista. En el fondo vacío, arrastra para seleccionar varios bloques en un rectángulo."
         viewBox={`${viewRect.x} ${viewRect.y} ${viewRect.w} ${viewRect.h}`}
         className={cn(
           "h-full w-full touch-none select-none text-slate-900 dark:text-slate-100",
-          panDrag ? "cursor-grabbing" : "cursor-default",
+          panDrag ? "cursor-grabbing" : marqueeRect ? "cursor-crosshair" : "cursor-default",
         )}
         preserveAspectRatio="xMidYMid meet"
         onPointerDown={onSvgPointerDown}
@@ -2622,7 +2863,7 @@ export function IsometricFlowDiagramCanvas({
                 ? (glyphExtent.yTop + glyphExtent.yBot) / 2
                 : cy - SLAB_TOP_RISE * 0.42;
             const orbStroke = "rgba(30, 64, 175, 0.28)";
-            const sel = selectedId === n.id;
+            const sel = selectedNodeIdSet.has(n.id);
             const hov = hoveredNodeId === n.id;
             const conn = connectFrom === n.id;
             const selDiamond = polygonPath(
@@ -3092,7 +3333,7 @@ export function IsometricFlowDiagramCanvas({
                       if (readOnly) return;
                       e.stopPropagation();
                       setEditingId(n.id);
-                      setSelectedId(n.id);
+                      setSelectedNodeIds([n.id]);
                     }}
                   >
                     <rect
@@ -3120,6 +3361,22 @@ export function IsometricFlowDiagramCanvas({
               </g>
             );
           })}
+        {!readOnly && marqueeRect ? (
+          <rect
+            key="iso-marquee"
+            x={Math.min(marqueeRect.x0, marqueeRect.x1)}
+            y={Math.min(marqueeRect.y0, marqueeRect.y1)}
+            width={Math.max(0.001, Math.abs(marqueeRect.x1 - marqueeRect.x0))}
+            height={Math.max(0.001, Math.abs(marqueeRect.y1 - marqueeRect.y0))}
+            fill="rgba(59, 130, 246, 0.1)"
+            stroke="rgb(59 130 246)"
+            strokeWidth={1}
+            strokeDasharray="5 4"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+            aria-hidden
+          />
+        ) : null}
         {!readOnly && selectedLinkId
           ? (() => {
               const sl = data.links.find((x) => x.id === selectedLinkId);
@@ -3152,7 +3409,7 @@ export function IsometricFlowDiagramCanvas({
                           } catch {
                             /* noop */
                           }
-                          setSelectedId(null);
+                          setSelectedNodeIds([]);
                           setConnectFrom(null);
                           const flat =
                             sl.bendOffset &&
