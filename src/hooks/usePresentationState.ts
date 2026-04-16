@@ -2196,17 +2196,10 @@ export function usePresentationState() {
       const fb = await initFirebase();
       if (!fb?.firestore) return;
       void enqueuePresentationCloudPush(localId, async () => {
-        let meta: SavedPresentationMeta | undefined;
         try {
           const list = await listPresentations(localAccountScope);
-          meta = list.find((p) => p.id === localId);
-          if (
-            !meta ||
-            meta.slideCount === 0 ||
-            meta.localBodyCleared
-          ) {
-            return;
-          }
+          const meta = list.find((p) => p.id === localId);
+          if (!meta || meta.slideCount === 0 || meta.localBodyCleared) return;
           const saved = await loadPresentation(localId, localAccountScope);
           const existingCloudId = meta?.cloudId ?? null;
           const { cloudId, syncedAt, newRevision } =
@@ -2214,24 +2207,26 @@ export function usePresentationState() {
               localExpectedRevision:
                 existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
             });
-          await setPresentationCloudState(
-            localId,
-            cloudId,
-            syncedAt,
-            newRevision,
-            localAccountScope,
-          );
+          await setPresentationCloudState(localId, cloudId, syncedAt, newRevision, localAccountScope);
           await refreshSavedList();
         } catch (e) {
           if (e instanceof CloudSyncConflictError) {
-            setCloudSyncConflict({
-              localId,
-              cloudId: meta?.cloudId ?? "",
-              expectedRevision: e.expectedRevision,
-              remoteRevision: e.remoteRevision,
-              localSlideCount: meta?.slideCount,
-              remoteSlideCount: e.remoteSlideCount,
-            });
+            try {
+              const list2 = await listPresentations(localAccountScope);
+              const meta2 = list2.find((p) => p.id === localId);
+              const cid = meta2?.cloudId;
+              if (!cid) return;
+              const saved = await loadPresentation(localId, localAccountScope);
+              const { cloudId, syncedAt, newRevision } =
+                await pushPresentationToCloud(user.uid, saved, cid, {
+                  localExpectedRevision: 0,
+                  force: true,
+                });
+              await setPresentationCloudState(localId, cloudId, syncedAt, newRevision, localAccountScope);
+              await refreshSavedList();
+            } catch (retryErr) {
+              console.error("Auto-sync retry tras conflicto:", retryErr);
+            }
           } else {
             console.error("Auto-sync nube:", e);
           }

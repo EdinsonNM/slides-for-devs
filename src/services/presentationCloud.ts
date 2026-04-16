@@ -12,6 +12,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   where,
   writeBatch,
   type DocumentReference,
@@ -44,8 +45,7 @@ import {
 
 const SCHEMA_VERSION = 2;
 const FIRESTORE_BATCH_LIMIT = 500;
-/** Firestore limita el payload de un batch/transacción a ~10MB; dejamos margen. */
-const BATCH_PAYLOAD_BUDGET = 8 * 1024 * 1024;
+const SLIDE_WRITE_MAX_RETRIES = 3;
 
 /** La nube tiene una revisión distinta a la esperada (otro dispositivo subió cambios). */
 export class CloudSyncConflictError extends Error {
@@ -294,6 +294,37 @@ function slidesSubcollection(db: Firestore, uid: string, cloudId: string) {
   return collection(db, "users", uid, "presentations", cloudId, "slides");
 }
 
+async function setDocWithRetry(
+  ref: DocumentReference,
+  data: Record<string, unknown>,
+  retries = SLIDE_WRITE_MAX_RETRIES
+): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await setDoc(ref, data);
+      return;
+    } catch (e) {
+      if (attempt >= retries) throw e;
+      await new Promise((r) => globalThis.setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
+async function deleteDocWithRetry(
+  ref: DocumentReference,
+  retries = SLIDE_WRITE_MAX_RETRIES
+): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await deleteDoc(ref);
+      return;
+    } catch (e) {
+      if (attempt >= retries) throw e;
+      await new Promise((r) => globalThis.setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
 /** Borra solo rutas conocidas en Firestore (evita listAll → CORS en localhost/navegador). */
 async function deleteKnownPresentationFiles(
   st: FirebaseStorage,
@@ -476,7 +507,13 @@ async function listSharedPresentationsFromEmailIndex(
 }
 
 /**
- * Sube la presentación a la nube. Devuelve cloudId y momento de sincronización (ISO).
+ * Sube la presentación a la nube.
+ *
+ * Flujo diseñado para robustez:
+ *  1. Pre-check de revisión (falla temprano si hay conflicto).
+ *  2. Subida de medios a Storage + escritura individual de cada slide (con retry).
+ *  3. Solo si TODOS los slides se escribieron: transacción para actualizar el doc principal.
+ *  4. Limpieza best-effort (slides sobrantes, Storage viejo, grants).
  */
 export async function pushPresentationToCloud(
   uid: string,
@@ -500,32 +537,23 @@ export async function pushPresentationToCloud(
   const prefix = storagePrefix(uid, cloudId);
   const docRef = presentationDoc(db, uid, cloudId);
 
+  /* ── 1. Pre-check revisión ── */
   const preSnap = await getDoc(docRef);
-  const preRemoteRev = preSnap.exists()
-    ? Number((preSnap.data() as Record<string, unknown>).revision ?? 0)
-    : 0;
-
-  if (preSnap.exists()) {
-    if (!force) {
-      const expected = localExpectedRevision ?? 0;
-      if (preRemoteRev !== expected) {
-        const pd = preSnap.data() as Record<string, unknown>;
-        const remoteCount = Number(pd.slideCount ?? (Array.isArray(pd.slides) ? (pd.slides as unknown[]).length : 0));
-        throw new CloudSyncConflictError(expected, preRemoteRev, remoteCount);
-      }
+  if (preSnap.exists() && !force) {
+    const preRemoteRev = Number((preSnap.data() as Record<string, unknown>).revision ?? 0);
+    const expected = localExpectedRevision ?? 0;
+    if (preRemoteRev !== expected) {
+      const pd = preSnap.data() as Record<string, unknown>;
+      const remoteCount = Number(pd.slideCount ?? (Array.isArray(pd.slides) ? (pd.slides as unknown[]).length : 0));
+      throw new CloudSyncConflictError(expected, preRemoteRev, remoteCount);
     }
-    const pd = preSnap.data() as Record<string, unknown>;
-    await deleteKnownPresentationFiles(
-      st,
-      prefix,
-      (pd.slideImagePaths as Record<string, string>) ?? {},
-      (pd.excalidrawPaths as Record<string, string>) ?? {}
-    );
   }
 
+  /* ── 2. Subida de medios + escritura individual de cada slide ── */
   const slideImagePaths: Record<string, string> = {};
   const excalidrawPaths: Record<string, string> = {};
-  const cloudSlides: Record<string, unknown>[] = [];
+  const slidesCol = slidesSubcollection(db, uid, cloudId);
+  let slidesWritten = 0;
 
   for (let i = 0; i < saved.slides.length; i++) {
     const slide = saved.slides[i]!;
@@ -537,19 +565,12 @@ export async function pushPresentationToCloud(
       if (!payload) {
         const parsed = dataUrlToBytes(slide.imageUrl);
         if (parsed) {
-          payload = {
-            bytes: parsed.bytes,
-            contentType: parsed.contentType,
-            ext: parsed.ext,
-          };
+          payload = { bytes: parsed.bytes, contentType: parsed.contentType, ext: parsed.ext };
         }
       }
       if (payload) {
         const name = `slide_${i}.${payload.ext}`;
-        const path = `${prefix}/${name}`;
-        await uploadBytes(ref(st, path), payload.bytes, {
-          contentType: payload.contentType,
-        });
+        await uploadBytes(ref(st, `${prefix}/${name}`), payload.bytes, { contentType: payload.contentType });
         slideImagePaths[String(i)] = name;
         imageUrl = undefined;
       }
@@ -557,43 +578,37 @@ export async function pushPresentationToCloud(
       const fetched = await fetchUrlAsBytes(slide.imageUrl);
       if (fetched) {
         const opt = await optimizeRasterBytesForCloud(fetched.bytes, fetched.contentType);
-        const use = opt ?? {
-          bytes: fetched.bytes,
-          contentType: fetched.contentType,
-          ext: fetched.ext,
-        };
+        const use = opt ?? { bytes: fetched.bytes, contentType: fetched.contentType, ext: fetched.ext };
         const name = `slide_${i}.${use.ext}`;
-        const path = `${prefix}/${name}`;
-        await uploadBytes(ref(st, path), use.bytes, { contentType: use.contentType });
+        await uploadBytes(ref(st, `${prefix}/${name}`), use.bytes, { contentType: use.contentType });
         slideImagePaths[String(i)] = name;
         imageUrl = undefined;
       }
     }
 
     let excalidrawData: string | undefined = slide.excalidrawData;
-    if (
-      slide.excalidrawData &&
-      slide.excalidrawData.length > EXCALIDRAW_STORAGE_THRESHOLD
-    ) {
+    if (slide.excalidrawData && slide.excalidrawData.length > EXCALIDRAW_STORAGE_THRESHOLD) {
       const name = `excalidraw_${i}.json`;
-      const path = `${prefix}/${name}`;
-      const enc = new TextEncoder().encode(slide.excalidrawData);
-      await uploadBytes(ref(st, path), enc, { contentType: "application/json" });
+      await uploadBytes(ref(st, `${prefix}/${name}`), new TextEncoder().encode(slide.excalidrawData), { contentType: "application/json" });
       excalidrawPaths[String(i)] = name;
       excalidrawData = undefined;
     }
 
-    cloudSlides.push({
+    const slideData: Record<string, unknown> = {
+      order: i,
       ...plain,
       imageUrl: imageUrl ?? null,
       excalidrawData: excalidrawData ?? null,
       isometricFlowData: slide.isometricFlowData ?? null,
-    });
+    };
+
+    await setDocWithRetry(doc(slidesCol, String(i)), slideData);
+    slidesWritten += 1;
   }
 
+  /* ── 3. Todos los slides escritos → actualizar doc principal vía transacción ── */
   const syncedAt = new Date().toISOString();
-
-  const payload = {
+  const mainPayload = {
     schemaVersion: SCHEMA_VERSION,
     topic: saved.topic,
     savedAt: saved.savedAt,
@@ -601,7 +616,7 @@ export async function pushPresentationToCloud(
     deckVisualTheme: saved.deckVisualTheme ?? null,
     slideImagePaths,
     excalidrawPaths,
-    slideCount: cloudSlides.length,
+    slideCount: slidesWritten,
     cloudSyncedAtClient: syncedAt,
   };
 
@@ -637,86 +652,34 @@ export async function pushPresentationToCloud(
 
     const nextRev = snap.exists() ? remoteRev + 1 : 1;
     transaction.set(docRef, {
-      ...payload,
+      ...mainPayload,
       sharedWith: preservedSharedWith,
       shareInviteEmails: preservedShareInviteEmails,
       revision: nextRev,
       updatedAt: serverTimestamp(),
     });
-    return {
-      newRevision: nextRev,
-      preservedShareInviteEmails,
-      preservedSharedWith,
-    };
+    return { newRevision: nextRev, preservedShareInviteEmails, preservedSharedWith };
   });
 
+  /* ── 4. Limpieza best-effort ── */
   const oldSlideCount = preSnap.exists()
     ? Number((preSnap.data() as Record<string, unknown>).slideCount ?? 0)
     : 0;
-  const slidesCol = slidesSubcollection(db, uid, cloudId);
 
-  type BatchOp =
-    | { type: "set"; ref: DocumentReference; data: Record<string, unknown> }
-    | { type: "delete"; ref: DocumentReference };
-
-  const slideOps: BatchOp[] = [];
-  for (let i = 0; i < cloudSlides.length; i++) {
-    const slideData = { order: i, ...cloudSlides[i]! };
-    const sizeKB = (JSON.stringify(slideData).length / 1024).toFixed(1);
-    console.log(`[cloud] Push ${cloudId}: slide ${i} → ~${sizeKB} KB`);
-    slideOps.push({
-      type: "set",
-      ref: doc(slidesCol, String(i)),
-      data: slideData,
-    });
-  }
-  for (let i = cloudSlides.length; i < oldSlideCount; i++) {
-    slideOps.push({ type: "delete", ref: doc(slidesCol, String(i)) });
+  for (let i = saved.slides.length; i < oldSlideCount; i++) {
+    try { await deleteDocWithRetry(doc(slidesCol, String(i))); } catch { /* best-effort */ }
   }
 
-  {
-    let currentBatch = writeBatch(db);
-    let opsInBatch = 0;
-    let batchBytes = 0;
-    let batchIndex = 0;
-    let slidesCommitted = 0;
-
-    for (const op of slideOps) {
-      const estimatedBytes =
-        op.type === "set" ? JSON.stringify(op.data).length * 2 : 200;
-
-      if (
-        opsInBatch > 0 &&
-        (opsInBatch >= FIRESTORE_BATCH_LIMIT ||
-          batchBytes + estimatedBytes > BATCH_PAYLOAD_BUDGET)
-      ) {
-        console.log(
-          `[cloud] Push ${cloudId}: batch ${batchIndex} commit (${opsInBatch} ops, ~${(batchBytes / 1024).toFixed(0)} KB)`
-        );
-        await currentBatch.commit();
-        slidesCommitted += opsInBatch;
-        currentBatch = writeBatch(db);
-        opsInBatch = 0;
-        batchBytes = 0;
-        batchIndex += 1;
-      }
-
-      if (op.type === "set") currentBatch.set(op.ref, op.data);
-      else currentBatch.delete(op.ref);
-      opsInBatch += 1;
-      batchBytes += estimatedBytes;
-    }
-
-    if (opsInBatch > 0) {
-      console.log(
-        `[cloud] Push ${cloudId}: batch ${batchIndex} commit (${opsInBatch} ops, ~${(batchBytes / 1024).toFixed(0)} KB)`
-      );
-      await currentBatch.commit();
-      slidesCommitted += opsInBatch;
-    }
-    console.log(
-      `[cloud] Push ${cloudId}: ${slidesCommitted} slide ops en ${batchIndex + 1} batches, rev=${newRevision}`
-    );
+  if (preSnap.exists()) {
+    const pd = preSnap.data() as Record<string, unknown>;
+    const oldImgPaths = (pd.slideImagePaths as Record<string, string>) ?? {};
+    const oldExcPaths = (pd.excalidrawPaths as Record<string, string>) ?? {};
+    const staleImgs = Object.entries(oldImgPaths).filter(([k]) => !(k in slideImagePaths));
+    const staleExc = Object.entries(oldExcPaths).filter(([k]) => !(k in excalidrawPaths));
+    await Promise.all([
+      ...staleImgs.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
+      ...staleExc.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
+    ]);
   }
 
   try {
@@ -727,22 +690,8 @@ export async function pushPresentationToCloud(
       savedAt: String(pda.savedAt ?? saved.savedAt),
       updatedAt: timestampToIso(pda.updatedAt) ?? syncedAt,
     };
-    await replacePresentationShareGrants(
-      db,
-      uid,
-      cloudId,
-      meta,
-      sharedWithAfterPush,
-      inviteEmailsAfterPush
-    );
-    await syncPresentationShareEmailIndex(
-      db,
-      uid,
-      cloudId,
-      meta,
-      inviteEmailsAfterPush,
-      inviteEmailsAfterPush
-    );
+    await replacePresentationShareGrants(db, uid, cloudId, meta, sharedWithAfterPush, inviteEmailsAfterPush);
+    await syncPresentationShareEmailIndex(db, uid, cloudId, meta, inviteEmailsAfterPush, inviteEmailsAfterPush);
   } catch (indexErr) {
     console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
   }
@@ -1121,14 +1070,11 @@ export async function pullPresentationFromCloud(
 
   const inlineSlides = data.slides;
   const isV1 = Array.isArray(inlineSlides) && inlineSlides.length > 0;
-  const remoteSchema = Number(data.schemaVersion ?? 1);
+  const expectedSlideCount = Number(data.slideCount ?? 0);
 
   let rawSlides: Record<string, unknown>[];
   if (isV1) {
     rawSlides = inlineSlides as Record<string, unknown>[];
-    console.log(
-      `[cloud] Pull ${cloudId}: usando slides inline (v1), ${rawSlides.length} slides`
-    );
   } else {
     const slidesCol = slidesSubcollection(db, ownerUid, cloudId);
     const slidesSnap = await getDocs(slidesCol);
@@ -1139,9 +1085,13 @@ export async function pullPresentationFromCloud(
         return Number(dataA.order ?? a.id) - Number(dataB.order ?? b.id);
       })
       .map((d) => d.data() as Record<string, unknown>);
-    console.log(
-      `[cloud] Pull ${cloudId}: subcolección (schema=${remoteSchema}), slideCount=${data.slideCount ?? "?"}, docs leídos=${rawSlides.length}`
-    );
+
+    if (expectedSlideCount > 0 && rawSlides.length < expectedSlideCount) {
+      throw new Error(
+        `Descarga incompleta: se esperaban ${expectedSlideCount} slides pero solo se encontraron ${rawSlides.length}. ` +
+        `Puede que la subida no haya terminado. Reintenta en unos segundos.`
+      );
+    }
   }
 
   /** Imágenes: solo URL firmada de Storage (no se bajan bytes aquí; el navegador carga bajo demanda). */
