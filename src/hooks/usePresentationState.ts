@@ -23,6 +23,14 @@ import {
   DEFAULT_DECK_NARRATIVE_PRESET_ID,
   buildDeckNarrativeContextForPrompts,
 } from "../constants/presentationNarrativePresets";
+import {
+  DECK_COVER_IMAGE_PROMPT,
+  DECK_COVER_STYLE_PROMPT,
+  buildDeckCoverImageUserPrompt,
+  firstSlideDeckCoverImageUrl,
+  loadSlaimMascotCoverReferenceDataUrl,
+  SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
+} from "../constants/deckCover";
 import { resolveGeneratedPresentationTitle } from "../utils/presentationTitle";
 
 const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
@@ -2222,9 +2230,9 @@ export function usePresentationState() {
           if (cancelled) return;
           if (saved.savedAt !== meta.savedAt) continue;
           coverPrefetchSavedAtRef.current[meta.id] = saved.savedAt;
-          const firstImage = saved.slides[0]?.imageUrl;
-          if (firstImage) {
-            setCoverImageCache((prev) => ({ ...prev, [meta.id]: firstImage }));
+          const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
+          if (coverUrl) {
+            setCoverImageCache((prev) => ({ ...prev, [meta.id]: coverUrl }));
           }
         } catch {
           /* listado ya mostró la tarjeta; fallo al leer portada no bloquea */
@@ -2710,9 +2718,9 @@ export function usePresentationState() {
         // ignore
       }
       coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
-      const firstImage = saved.slides[0]?.imageUrl;
-      if (firstImage) {
-        setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
+      const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
+      if (coverUrl) {
+        setCoverImageCache((prev) => ({ ...prev, [saved.id]: coverUrl }));
       }
       trackEvent(ANALYTICS_EVENTS.PRESENTATION_OPENED);
     } catch (e) {
@@ -2852,9 +2860,9 @@ export function usePresentationState() {
         );
         setNarrativeNotes(saved.narrativeNotes ?? "");
         coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
-        const firstImage = saved.slides[0]?.imageUrl;
-        if (firstImage) {
-          setCoverImageCache((prev) => ({ ...prev, [saved.id]: firstImage }));
+        const coverUrlRestore = firstSlideDeckCoverImageUrl(saved.slides[0]);
+        if (coverUrlRestore) {
+          setCoverImageCache((prev) => ({ ...prev, [saved.id]: coverUrlRestore }));
         }
         return true;
       } catch {
@@ -3004,43 +3012,31 @@ export function usePresentationState() {
       }
       const firstSlide = saved.slides[0];
       const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
-      const coverPrompt =
-        "Portada profesional y moderna para esta presentación, estilo minimalista y atractivo, sin texto.";
-      const coverCharacter = saved.characterId
-        ? savedCharacters.find((c) => c.id === saved.characterId)
-        : undefined;
-      const characterPrompt = coverCharacter?.description;
-      const characterReferenceImageDataUrl =
-        imageProvider === "gemini"
-          ? coverCharacter?.referenceImageDataUrl
-          : undefined;
-      const coverCharacterImageForOpenAI =
-        imageProvider === "openai"
-          ? coverCharacter?.referenceImageDataUrl
-          : undefined;
-      const imageModelId =
-        imageProvider === "gemini"
-          ? geminiImageModelId
-          : DEFAULT_OPENAI_IMAGE_MODEL_ID;
+      if (!getGeminiApiKey()?.trim()) {
+        alert(
+          "La portada Slaim se genera con Gemini. Configura tu API key de Gemini en Ajustes de la app.",
+        );
+        return;
+      }
+      const mascotReferenceImageDataUrl =
+        await loadSlaimMascotCoverReferenceDataUrl();
       const imageUrl = await generateImageUseCase.run({
-        providerId: imageProvider,
+        providerId: "gemini",
         slideContext,
-        userPrompt: coverPrompt,
-        stylePrompt: selectedStyle.prompt,
-        includeBackground,
-        modelId: imageModelId,
-        characterPrompt,
-        characterReferenceImageDataUrl:
-          imageProvider === "openai"
-            ? coverCharacterImageForOpenAI
-            : characterReferenceImageDataUrl,
+        userPrompt: buildDeckCoverImageUserPrompt(),
+        stylePrompt: DECK_COVER_STYLE_PROMPT,
+        includeBackground: true,
+        modelId: geminiImageModelId,
+        characterPrompt: SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
+        characterReferenceImageDataUrl: mascotReferenceImageDataUrl,
+        aspectRatio: "16:9",
       });
       if (imageUrl) {
         const updatedSlides = [...saved.slides];
         updatedSlides[0] = {
           ...firstSlide,
           imageUrl,
-          imagePrompt: coverPrompt,
+          imagePrompt: DECK_COVER_IMAGE_PROMPT,
         };
         await updatePresentation(
           id,
@@ -3066,7 +3062,7 @@ export function usePresentationState() {
         trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
       } else {
         alert(
-          "No se pudo generar la imagen. Comprueba tu API key de Gemini o OpenAI.",
+          "No se pudo generar la portada con Gemini. Comprueba tu API key y el modelo de imagen en Ajustes.",
         );
       }
     } catch (e) {

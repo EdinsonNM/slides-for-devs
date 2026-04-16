@@ -334,6 +334,7 @@ export class OpenAIAdapter
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
     characterPreviewOnly?: boolean;
+    aspectRatio?: "9:16" | "16:9";
   }): Promise<string | undefined> {
     const hasRef =
       !!params.characterReferenceImageDataUrl?.trim() &&
@@ -394,11 +395,13 @@ export class OpenAIAdapter
 
     const modelId = params.modelId || "gpt-image-1.5";
     const isGptImage = modelId.startsWith("gpt-image");
+    const rasterSize =
+      params.aspectRatio === "16:9" ? "1792x1024" : "1024x1536";
     const body: Record<string, unknown> = {
       model: modelId,
       prompt: textOnlyPrompt,
       n: 1,
-      size: "1024x1536", // 2:3 portrait; formato vertical cercano a 9:16
+      size: rasterSize,
     };
     if (isGptImage) {
       body.quality = "medium";

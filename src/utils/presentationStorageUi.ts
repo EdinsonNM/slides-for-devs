@@ -5,17 +5,15 @@ type CardStorageMeta = Pick<
   "cloudId" | "localBodyCleared"
 >;
 
-/** Tarjetas con fondo oscuro / gradiente (home). */
+/** Home hero: borde fino y sombra suave; el estado de almacenamiento se ve sobre todo en la insignia. */
 export function presentationHeroCardBorderClass(meta: CardStorageMeta): string {
-  const cloud = !!meta.cloudId;
-  const cloudStub = !!meta.localBodyCleared && cloud;
+  const cloudStub = !!meta.localBodyCleared && !!meta.cloudId;
+  const shadow =
+    "shadow-sm shadow-stone-900/6 dark:shadow-black/25";
   if (cloudStub) {
-    return "border-2 border-solid border-sky-300/85 shadow-lg shadow-sky-950/25 ring-1 ring-sky-400/35";
+    return `border border-dashed border-sky-300/75 dark:border-sky-600/45 ${shadow}`;
   }
-  if (cloud) {
-    return "border-2 border-solid border-white/45 shadow-lg shadow-black/30 ring-1 ring-black/15 dark:ring-white/15";
-  }
-  return "border-2 border-dashed border-white/55 shadow-lg";
+  return `border border-solid border-stone-200/90 dark:border-stone-600/55 ${shadow}`;
 }
 
 /** Tarjetas en modales con fondo claro. */

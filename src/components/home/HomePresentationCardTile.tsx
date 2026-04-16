@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   ImagePlus,
   Trash2,
@@ -30,17 +30,21 @@ const CLOUD_ONLY_GRADIENT =
 const SHARED_ONLY_GRADIENT =
   "from-violet-900/55 via-slate-800/80 to-slate-900/90";
 
-const CARD_EASE = [0.25, 0.46, 0.45, 0.94] as const;
-
-function cardEntranceTransition(index: number) {
+/** Entrada de tarjeta: spring suave; con “reducir movimiento” solo un fundido breve. */
+function cardEntranceTransition(index: number, reducedMotion: boolean | null) {
+  if (reducedMotion) {
+    return { duration: 0.2, ease: "easeOut" as const };
+  }
   return {
-    duration: 0.35,
-    delay: index * 0.04,
-    ease: CARD_EASE,
+    type: "spring" as const,
+    stiffness: 380,
+    damping: 30,
+    mass: 0.78,
+    delay: Math.min(index * 0.038, 0.32),
   };
 }
 
-/** Capa de fondo (portada o gradiente) con zoom al hover; el card escala por motion. */
+/** Capa de fondo (portada o gradiente) a pantalla completa, sin animación al hover. */
 function HeroCardMediaLayer({
   coverUrl,
   gradientClass,
@@ -48,13 +52,11 @@ function HeroCardMediaLayer({
   coverUrl?: string;
   gradientClass?: string;
 }) {
-  const zoomClass =
-    "absolute inset-0 size-full origin-center transition-transform duration-[420ms] ease-out motion-safe:group-hover:scale-[1.07]";
   if (coverUrl) {
     return (
       <div className="absolute inset-0 overflow-hidden" aria-hidden>
         <div
-          className={cn(zoomClass, "bg-cover bg-center")}
+          className="absolute inset-0 size-full bg-cover bg-center"
           style={{ backgroundImage: `url(${coverUrl})` }}
         />
       </div>
@@ -63,7 +65,12 @@ function HeroCardMediaLayer({
   if (gradientClass) {
     return (
       <div className="absolute inset-0 overflow-hidden" aria-hidden>
-        <div className={cn(zoomClass, "bg-linear-to-br", gradientClass)} />
+        <div
+          className={cn(
+            "absolute inset-0 size-full bg-linear-to-br",
+            gradientClass,
+          )}
+        />
       </div>
     );
   }
@@ -84,7 +91,6 @@ export interface HomePresentationCardTileProps {
   onSharePresentation?: (id: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid: string) => void;
   downloadingCloudKey: string | null;
-  /** En carrusel grande se desactiva el hover de escala para no competir con el gesto de arrastre. */
   listLayout?: "grid" | "carousel";
   frameClassName?: string;
   style?: React.CSSProperties;
@@ -108,10 +114,7 @@ export function HomePresentationCardTile({
   frameClassName,
   style,
 }: HomePresentationCardTileProps) {
-  const hoverTap =
-    listLayout === "grid"
-      ? { whileHover: { scale: 1.025, zIndex: 12 } as const, whileTap: { scale: 0.985 } as const }
-      : {};
+  const reduceMotion = useReducedMotion();
 
   const carouselFrameClass =
     listLayout === "carousel"
@@ -131,15 +134,18 @@ export function HomePresentationCardTile({
 
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={cardEntranceTransition(index)}
-        {...hoverTap}
+        initial={
+          reduceMotion
+            ? { opacity: 1, scale: 1, y: 0 }
+            : { opacity: 0, scale: 0.965, y: 14 }
+        }
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={cardEntranceTransition(index, reduceMotion)}
         className={cn(
           "group overflow-hidden text-left relative z-0",
           listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
-          "border-2 border-solid border-sky-400/65 dark:border-sky-500/55",
-          "shadow-lg shadow-sky-950/20 ring-1 ring-sky-400/30",
+          "border border-solid border-sky-400/50 dark:border-sky-500/40",
+          "shadow-md shadow-sky-950/12",
           carouselFrameClass,
           frameClassName,
         )}
@@ -193,15 +199,18 @@ export function HomePresentationCardTile({
 
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={cardEntranceTransition(index)}
-        {...hoverTap}
+        initial={
+          reduceMotion
+            ? { opacity: 1, scale: 1, y: 0 }
+            : { opacity: 0, scale: 0.965, y: 14 }
+        }
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={cardEntranceTransition(index, reduceMotion)}
         className={cn(
           "group overflow-hidden text-left relative z-0",
           listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
-          "border-2 border-solid border-violet-400/70 dark:border-violet-500/55",
-          "shadow-lg shadow-violet-950/25 ring-1 ring-violet-400/35",
+          "border border-solid border-violet-400/50 dark:border-violet-500/40",
+          "shadow-md shadow-violet-950/12",
           carouselFrameClass,
           frameClassName,
         )}
@@ -251,15 +260,28 @@ export function HomePresentationCardTile({
   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
   const isGeneratingCover = generatingCoverId === p.id;
   const isSyncingCloud = syncingToCloudId === p.id;
+  const slaimCoverUrl = coverImageCache[p.id];
+  const hasSlaimCover = !!slaimCoverUrl;
+
+  const actionBtnClass = hasSlaimCover
+    ? "p-2 rounded-lg bg-black/35 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-black/45 transition-colors"
+    : "p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors";
+  const actionDeleteClass = hasSlaimCover
+    ? "p-2 rounded-lg bg-black/35 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-red-600/90 hover:ring-red-300/40 transition-colors"
+    : "p-2 rounded-lg bg-white/20 hover:bg-red-500/80 text-white transition-colors";
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={cardEntranceTransition(index)}
-      {...hoverTap}
+      initial={
+        reduceMotion
+          ? { opacity: 1, scale: 1, y: 0 }
+          : { opacity: 0, scale: 0.965, y: 14 }
+      }
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={cardEntranceTransition(index, reduceMotion)}
       className={cn(
         "group overflow-hidden text-left relative z-0",
+        "bg-white",
         listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
         presentationHeroCardBorderClass(p),
         carouselFrameClass,
@@ -267,25 +289,42 @@ export function HomePresentationCardTile({
       )}
       style={mergedFrameStyle}
     >
-      <HeroCardMediaLayer
-        coverUrl={coverImageCache[p.id]}
-        gradientClass={!coverImageCache[p.id] ? gradient : undefined}
-      />
-      <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+      {hasSlaimCover ? (
+        <HeroCardMediaLayer coverUrl={slaimCoverUrl} />
+      ) : (
+        <HeroCardMediaLayer coverUrl={undefined} gradientClass={gradient} />
+      )}
+      {hasSlaimCover ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+          aria-hidden
+        />
+      ) : (
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-linear-to-t from-black/70 via-transparent to-transparent" />
+      )}
       <button
         type="button"
         onClick={() => onOpenSaved(p.id)}
-        className="absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-inset z-0"
+        className={cn(
+          "absolute inset-0 z-[2] flex h-full w-full flex-col p-6 pt-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset text-white",
+          hasSlaimCover
+            ? "focus-visible:ring-white/40"
+            : "focus-visible:ring-white/35",
+        )}
       >
         <div className="flex-1" />
-        <div className="text-white text-left">
-          <h3 className="text-lg font-bold leading-snug line-clamp-2">
+        <div className="text-left">
+          <h3
+            className={cn(
+              "text-lg font-bold leading-snug line-clamp-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]",
+            )}
+          >
             {p.topic}
           </h3>
-          <p className="text-sm text-white/85 mt-1">
+          <p className="mt-1 text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.35)]">
             {p.slideCount} diapositivas
           </p>
-          <p className="text-xs text-white/70 mt-0.5">
+          <p className="mt-0.5 text-xs text-white/80 drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)]">
             {new Date(p.savedAt).toLocaleDateString()}
           </p>
         </div>
@@ -307,7 +346,7 @@ export function HomePresentationCardTile({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={isGeneratingCover || isSyncingCloud}
-            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors disabled:opacity-60"
+            className={cn(actionBtnClass, "disabled:opacity-60")}
             title={
               p.cloudId
                 ? "Actualizar copia en la nube"
@@ -333,7 +372,7 @@ export function HomePresentationCardTile({
                 onSharePresentation(p.id);
               }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
+              className={actionBtnClass}
               title="Compartir (correo o UID)"
             >
               <Share2 size={18} />
@@ -353,7 +392,7 @@ export function HomePresentationCardTile({
               ? "Recupera la presentación desde la nube primero"
               : "Generar imagen de portada"
           }
-          className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors disabled:opacity-60"
+          className={cn(actionBtnClass, "disabled:opacity-60")}
         >
           <ImagePlus size={18} />
         </button>
@@ -365,7 +404,7 @@ export function HomePresentationCardTile({
             onDeleteSaved(p.id);
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg bg-white/20 hover:bg-red-500/80 text-white transition-colors"
+          className={actionDeleteClass}
           title={
             p.localBodyCleared && p.cloudId
               ? "Opciones: quitar de la nube o cancelar"
@@ -378,8 +417,13 @@ export function HomePresentationCardTile({
         </button>
       </div>
       {(isGeneratingCover || isSyncingCloud) && (
-        <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center z-20">
-          <Loader2 className="w-10 h-10 text-white animate-spin" />
+        <div
+          className={cn(
+            "absolute inset-0 z-20 flex items-center justify-center bg-black/45",
+            listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
+          )}
+        >
+          <Loader2 className="h-10 w-10 animate-spin text-white" />
         </div>
       )}
     </motion.div>

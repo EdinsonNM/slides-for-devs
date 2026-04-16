@@ -373,6 +373,7 @@ export class GeminiAdapter
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
     characterPreviewOnly?: boolean;
+    aspectRatio?: "9:16" | "16:9";
   }): Promise<string | undefined> {
     const ref = params.characterReferenceImageDataUrl?.trim()
       ? parseDataUrl(params.characterReferenceImageDataUrl)
@@ -398,10 +399,11 @@ export class GeminiAdapter
             },
           ]
         : { parts: [{ text: fullPrompt }] };
+    const aspectRatio = params.aspectRatio ?? "9:16";
     const res = await client().models.generateContent({
       model: params.modelId || DEFAULT_IMAGE,
       contents,
-      config: { imageConfig: { aspectRatio: "9:16" } },
+      config: { imageConfig: { aspectRatio } },
     });
     for (const part of res.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;

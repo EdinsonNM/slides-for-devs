@@ -139,15 +139,16 @@ export function HomeWithCarousel({
                   </div>
                 )}
                 <div className="mb-2 sm:mb-3">
-                  <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-                    Mis presentaciones
+                  <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400 dark:text-stone-500">
+                    Tus presentaciones
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold leading-snug tracking-tight text-stone-900 dark:text-stone-50 sm:text-2xl">
+                    Lo que imaginas merece salir al mundo
                   </h2>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-stone-500 dark:text-stone-400 sm:line-clamp-none">
-                    Rueda del ratón, arrastre o teclado para cambiar de
-                    presentación; los puntos sirven de acceso directo. Borde
-                    continuo: local y nube. Punteado claro: solo este equipo.
-                    Punteado azul: solo en tu nube. Punteado violeta: compartida
-                    (toca para copiar aquí).
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+                    Esa primera idea —un curso, un producto, una charla que solo tú
+                    sabes dar— empieza aquí. Crea, comparte lo que sabes y deja
+                    que otros sueñen contigo.
                   </p>
                 </div>
               </div>

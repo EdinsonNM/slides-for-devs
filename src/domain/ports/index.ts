@@ -7,4 +7,4 @@ export type {
   SlideOperationsPort,
   DeckNarrativeSlideOptions,
 } from "./SlideOperations.port";
-export type { ImageGeneratorPort } from "./Image.port";
+export type { ImageGeneratorPort, GeneratedImageAspectRatio } from "./Image.port";

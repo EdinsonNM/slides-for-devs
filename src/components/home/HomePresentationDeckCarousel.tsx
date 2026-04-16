@@ -27,16 +27,22 @@ const CARD_WIDTH_RATIO = 0.58;
 
 const TRACK_SPRING = {
   type: "spring" as const,
-  stiffness: 380,
-  damping: 34,
-  mass: 0.85,
+  stiffness: 400,
+  damping: 32,
+  mass: 0.8,
 };
 
 const SLIDE_SPRING = {
   type: "spring" as const,
-  stiffness: 340,
-  damping: 26,
-  mass: 0.82,
+  stiffness: 360,
+  damping: 28,
+  mass: 0.78,
+};
+
+const DOT_SPRING = {
+  type: "spring" as const,
+  stiffness: 420,
+  damping: 24,
 };
 
 /** Velo muy fino en el borde del layout (solo suaviza el recorte, no tapa vecinos). */
@@ -215,7 +221,7 @@ export function HomePresentationDeckCarousel({
       className={cn(
         "flex min-h-0 w-full min-w-0 flex-1 flex-col outline-none",
         "pl-[max(0px,env(safe-area-inset-left,0px))] pr-[max(0px,env(safe-area-inset-right,0px))]",
-        "focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 dark:focus-visible:ring-offset-stone-900",
+        "focus-visible:ring-2 focus-visible:ring-stone-400/35 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 dark:focus-visible:ring-stone-500/30 dark:focus-visible:ring-offset-stone-900",
       )}
     >
       <div
@@ -266,18 +272,16 @@ export function HomePresentationDeckCarousel({
                         }
                       : isActive
                         ? {
-                            scale: 1.04,
+                            scale: 1.02,
                             opacity: 1,
                             rotateY: 0,
                             z: 40,
-                            filter: "brightness(1.03)",
                           }
                         : {
                             scale: 0.9,
-                            opacity: 0.9,
+                            opacity: 0.82,
                             rotateY: side === "left" ? 5 : -5,
                             z: -12,
-                            filter: "brightness(0.97)",
                           }
                   }
                   transition={
@@ -285,8 +289,7 @@ export function HomePresentationDeckCarousel({
                       ? { duration: 0 }
                       : {
                           ...SLIDE_SPRING,
-                          filter: { duration: 0.35, ease: "easeOut" },
-                          opacity: { duration: 0.28, ease: "easeOut" },
+                          opacity: { type: "spring", stiffness: 280, damping: 22 },
                         }
                   }
                 >
@@ -305,7 +308,7 @@ export function HomePresentationDeckCarousel({
                     onDownloadFromCloud={onDownloadFromCloud}
                     downloadingCloudKey={downloadingCloudKey}
                     listLayout="carousel"
-                    frameClassName="flex w-full min-h-0 flex-col shadow-xl shadow-stone-900/15 ring-1 ring-stone-900/5 dark:shadow-black/40 dark:ring-white/10"
+                    frameClassName="flex w-full min-h-0 flex-col shadow-md shadow-stone-900/10 dark:shadow-black/35"
                   />
                 </motion.div>
               );
@@ -342,22 +345,27 @@ export function HomePresentationDeckCarousel({
           role="tablist"
           aria-label="Índice de presentaciones"
         >
-          {homePresentationCards.map((card, i) => (
-            <button
-              key={homePresentationCardKey(card)}
-              type="button"
-              role="tab"
-              aria-selected={i === activeIndex}
-              aria-label={`Ir a la presentación ${i + 1} de ${count}`}
-              onClick={() => moveTo(i)}
-              className={cn(
-                "h-2 rounded-full transition-all duration-200",
-                i === activeIndex
-                  ? "w-7 bg-emerald-600 dark:bg-emerald-400"
-                  : "w-2 bg-stone-300 hover:bg-stone-400 dark:bg-stone-600 dark:hover:bg-stone-500",
-              )}
-            />
-          ))}
+          {homePresentationCards.map((card, i) => {
+            const active = i === activeIndex;
+            return (
+              <motion.button
+                key={homePresentationCardKey(card)}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-label={`Ir a la presentación ${i + 1} de ${count}`}
+                onClick={() => moveTo(i)}
+                layout
+                transition={reduceMotion ? { duration: 0.15 } : DOT_SPRING}
+                className={cn(
+                  "h-2 rounded-full",
+                  active
+                    ? "w-7 bg-stone-800 dark:bg-stone-200"
+                    : "w-2 bg-stone-300 hover:bg-stone-400 dark:bg-stone-600 dark:hover:bg-stone-500",
+                )}
+              />
+            );
+          })}
         </div>
       )}
     </div>
