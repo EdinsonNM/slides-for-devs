@@ -84,6 +84,8 @@ export interface HomePresentationCardTileProps {
   onSharePresentation?: (id: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid: string) => void;
   downloadingCloudKey: string | null;
+  /** En carrusel grande se desactiva el hover de escala para no competir con el gesto de arrastre. */
+  listLayout?: "grid" | "carousel";
   frameClassName?: string;
   style?: React.CSSProperties;
 }
@@ -102,9 +104,23 @@ export function HomePresentationCardTile({
   onSharePresentation,
   onDownloadFromCloud,
   downloadingCloudKey,
+  listLayout = "grid",
   frameClassName,
   style,
 }: HomePresentationCardTileProps) {
+  const hoverTap =
+    listLayout === "grid"
+      ? { whileHover: { scale: 1.025, zIndex: 12 } as const, whileTap: { scale: 0.985 } as const }
+      : {};
+
+  const carouselFrameClass =
+    listLayout === "carousel"
+      ? "aspect-video w-full min-h-0 max-w-full"
+      : "";
+
+  const mergedFrameStyle =
+    listLayout === "carousel" ? { ...style } : { minHeight: 280, ...style };
+
   if (card.kind === "cloud_only_mine") {
     const dlKey = `${card.ownerUid}::${card.cloudId}`;
     const isBusy = downloadingCloudKey === dlKey;
@@ -118,15 +134,16 @@ export function HomePresentationCardTile({
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={cardEntranceTransition(index)}
-        whileHover={{ scale: 1.025, zIndex: 12 }}
-        whileTap={{ scale: 0.985 }}
+        {...hoverTap}
         className={cn(
-          "group rounded-2xl overflow-hidden text-left relative z-0",
-          "border-2 border-dashed border-sky-400/65 dark:border-sky-500/55",
+          "group overflow-hidden text-left relative z-0",
+          listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
+          "border-2 border-solid border-sky-400/65 dark:border-sky-500/55",
           "shadow-lg shadow-sky-950/20 ring-1 ring-sky-400/30",
+          carouselFrameClass,
           frameClassName,
         )}
-        style={{ minHeight: 280, ...style }}
+        style={mergedFrameStyle}
       >
         <HeroCardMediaLayer gradientClass={CLOUD_ONLY_GRADIENT} />
         <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
@@ -179,15 +196,16 @@ export function HomePresentationCardTile({
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={cardEntranceTransition(index)}
-        whileHover={{ scale: 1.025, zIndex: 12 }}
-        whileTap={{ scale: 0.985 }}
+        {...hoverTap}
         className={cn(
-          "group rounded-2xl overflow-hidden text-left relative z-0",
-          "border-2 border-dashed border-violet-400/70 dark:border-violet-500/55",
+          "group overflow-hidden text-left relative z-0",
+          listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
+          "border-2 border-solid border-violet-400/70 dark:border-violet-500/55",
           "shadow-lg shadow-violet-950/25 ring-1 ring-violet-400/35",
+          carouselFrameClass,
           frameClassName,
         )}
-        style={{ minHeight: 280, ...style }}
+        style={mergedFrameStyle}
       >
         <HeroCardMediaLayer gradientClass={SHARED_ONLY_GRADIENT} />
         <div className="absolute inset-0 bg-linear-to-t from-black/78 via-black/25 to-transparent pointer-events-none" />
@@ -239,14 +257,15 @@ export function HomePresentationCardTile({
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={cardEntranceTransition(index)}
-      whileHover={{ scale: 1.025, zIndex: 12 }}
-      whileTap={{ scale: 0.985 }}
+      {...hoverTap}
       className={cn(
-        "group rounded-2xl overflow-hidden text-left relative z-0",
+        "group overflow-hidden text-left relative z-0",
+        listLayout === "carousel" ? "rounded-3xl" : "rounded-2xl",
         presentationHeroCardBorderClass(p),
+        carouselFrameClass,
         frameClassName,
       )}
-      style={{ minHeight: 280, ...style }}
+      style={mergedFrameStyle}
     >
       <HeroCardMediaLayer
         coverUrl={coverImageCache[p.id]}

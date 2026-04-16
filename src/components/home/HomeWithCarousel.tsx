@@ -2,17 +2,16 @@ import { motion } from "motion/react";
 import { FilePlus } from "lucide-react";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
-import { HomePresentationCardTile } from "./HomePresentationCardTile";
+import { HomePresentationDeckCarousel } from "./HomePresentationDeckCarousel";
 import type { PresentationModel } from "./PromptInput";
 import type { HomePresentationCard } from "../../types";
-import { homePresentationCardKey } from "../../types";
 import type { PromptAttachment } from "../../utils/promptAttachments";
 
-/** Velo inferior: mitad inferior casi opaca + suavizado (alineado con PromptInput bg-white / stone-900). */
+/** Velo inferior: base opaca junto al prompt + rampa larga con paradas suaves (evita saltos bruscos). */
 const HOME_LIST_BOTTOM_VEIL_LIGHT =
-  "linear-gradient(to top, #ffffff 0%, #ffffff 52%, rgba(255,255,255,0.97) 66%, rgba(250,250,249,0.42) 84%, rgba(255,255,255,0) 100%)";
+  "linear-gradient(to top, #ffffff 0%, #ffffff 22%, rgba(255,255,255,0.98) 34%, rgba(252,252,251,0.9) 48%, rgba(248,250,249,0.68) 60%, rgba(245,245,244,0.42) 74%, rgba(250,250,249,0.2) 86%, rgba(255,255,255,0.06) 94%, rgba(255,255,255,0) 100%)";
 const HOME_LIST_BOTTOM_VEIL_DARK =
-  "linear-gradient(to top, rgb(28 25 23) 0%, rgb(28 25 23) 50%, rgba(28,25,23,0.93) 65%, rgba(28,25,23,0.38) 83%, rgba(28,25,23,0) 100%)";
+  "linear-gradient(to top, rgb(28 25 23) 0%, rgb(28 25 23) 20%, rgba(28,25,23,0.96) 32%, rgba(28,25,23,0.85) 46%, rgba(28,25,23,0.62) 60%, rgba(28,25,23,0.38) 74%, rgba(28,25,23,0.18) 86%, rgba(28,25,23,0.05) 94%, rgba(28,25,23,0) 100%)";
 
 export interface HomeWithCarouselProps {
   onOpenConfig?: () => void;
@@ -50,7 +49,7 @@ export interface HomeWithCarouselProps {
 
 /**
  * Pantalla principal cuando ya hay presentaciones guardadas.
- * Parrilla de tarjetas; el prompt compacto flota en la parte inferior.
+ * Carrusel de vista previa grande; el prompt compacto flota en la parte inferior.
  */
 export function HomeWithCarousel({
   onOpenConfig,
@@ -99,7 +98,8 @@ export function HomeWithCarousel({
             />
           </div>
           <span className="truncate font-serif text-xl font-semibold italic text-stone-900 dark:text-stone-100">
-            Sl<span className="text-emerald-600 dark:text-emerald-400">ai</span>m
+            Sl<span className="text-emerald-600 dark:text-emerald-400">ai</span>
+            m
           </span>
         </div>
 
@@ -120,68 +120,61 @@ export function HomeWithCarousel({
         </div>
       </header>
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <main className="relative z-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-44 lg:px-8">
-          <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-visible">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-              className="flex min-h-0 flex-1 flex-col overflow-visible"
-            >
-              {homeCloudSharedListWarning && (
-                <div
-                  role="status"
-                  className="mb-3 w-full rounded-xl border border-amber-200/80 bg-amber-50/95 px-2 py-2.5 text-center text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
-                >
-                  {homeCloudSharedListWarning}
-                </div>
-              )}
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-                  Mis presentaciones
-                </h2>
-                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                  Borde continuo claro: copia local y nube. Punteado claro: solo
-                  este equipo. Punteado azul: tu nube sin copia local. Punteado
-                  violeta e icono de personas: compartida contigo (toca para
-                  copiar aquí).
-                </p>
-              </div>
-              <div className="isolate grid grid-cols-2 gap-5 overflow-visible px-1 py-3 sm:grid-cols-3 sm:gap-6 sm:px-2 lg:grid-cols-4">
-                {homePresentationCards.map((card, index) => (
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-36 pt-4 sm:pb-40 sm:pt-5">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+          >
+            <div className="shrink-0 px-3 sm:px-5 lg:px-7">
+              <div className="mx-auto w-full min-w-0 max-w-6xl">
+                {homeCloudSharedListWarning && (
                   <div
-                    key={homePresentationCardKey(card)}
-                    className="relative z-0 flex min-h-[280px] p-1.5 sm:p-2"
+                    role="status"
+                    className="mb-2 w-full rounded-xl border border-amber-200/80 bg-amber-50/95 px-2 py-2 text-center text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
                   >
-                    <HomePresentationCardTile
-                      card={card}
-                      index={index}
-                      coverImageCache={coverImageCache}
-                      generatingCoverId={generatingCoverId}
-                      syncingToCloudId={syncingToCloudId}
-                      onOpenSaved={onOpenSaved}
-                      onDeleteSaved={onDeleteSaved}
-                      onGenerateCover={onGenerateCover}
-                      cloudSyncAvailable={cloudSyncAvailable}
-                      onSyncToCloud={onSyncToCloud}
-                      onSharePresentation={onSharePresentation}
-                      onDownloadFromCloud={onDownloadFromCloud}
-                      downloadingCloudKey={downloadingCloudKey}
-                      frameClassName="w-full min-w-0"
-                    />
+                    {homeCloudSharedListWarning}
                   </div>
-                ))}
+                )}
+                <div className="mb-2 sm:mb-3">
+                  <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                    Mis presentaciones
+                  </h2>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-stone-500 dark:text-stone-400 sm:line-clamp-none">
+                    Rueda del ratón, arrastre o teclado para cambiar de
+                    presentación; los puntos sirven de acceso directo. Borde
+                    continuo: local y nube. Punteado claro: solo este equipo.
+                    Punteado azul: solo en tu nube. Punteado violeta: compartida
+                    (toca para copiar aquí).
+                  </p>
+                </div>
               </div>
-              <div className="pb-6 sm:pb-8" />
-            </motion.div>
-          </div>
+            </div>
+            <div className="isolate flex min-h-0 w-full min-w-0 flex-1 flex-col py-1 sm:py-2">
+              <HomePresentationDeckCarousel
+                homePresentationCards={homePresentationCards}
+                coverImageCache={coverImageCache}
+                generatingCoverId={generatingCoverId}
+                syncingToCloudId={syncingToCloudId}
+                onOpenSaved={onOpenSaved}
+                onDeleteSaved={onDeleteSaved}
+                onGenerateCover={onGenerateCover}
+                cloudSyncAvailable={cloudSyncAvailable}
+                onSyncToCloud={onSyncToCloud}
+                onSharePresentation={onSharePresentation}
+                onDownloadFromCloud={onDownloadFromCloud}
+                downloadingCloudKey={downloadingCloudKey}
+              />
+            </div>
+          </motion.div>
         </main>
       </div>
 
       {/*
-        `fixed` + z por debajo del footer: en WebKit a veces el scroll de `main` compone
-        por encima de un hermano `absolute`, y las cards con hover z-30 quedaban encima del velo.
+        `fixed` + z por debajo del footer: el velo evita que el prompt quede tapado visualmente
+        por el contenido del home (WebKit a veces compone capas raras con overflow).
       */}
       <div
         aria-hidden
