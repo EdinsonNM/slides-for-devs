@@ -44,7 +44,9 @@ service cloud.firestore {
         && request.auth.uid in resource.data.sharedWith;
       allow get: if /* dueño, sharedWith o shareInviteEmails */;
     }
-    match /users/{userId}/presentations/{presId} { /* … */ }
+    match /users/{userId}/presentations/{presId} { /* … */ 
+      match /slides/{slideId} { /* hereda permisos del padre; write solo dueño */ }
+    }
     match /users/{userId}/characters/{charId} { /* … */ }
   }
 }

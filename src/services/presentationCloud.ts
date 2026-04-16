@@ -42,7 +42,10 @@ import {
   optimizeRasterBytesForCloud,
 } from "../utils/imageOptimize";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+const FIRESTORE_BATCH_LIMIT = 500;
+/** Firestore limita el payload de un batch/transacción a ~10MB; dejamos margen. */
+const BATCH_PAYLOAD_BUDGET = 8 * 1024 * 1024;
 
 /** La nube tiene una revisión distinta a la esperada (otro dispositivo subió cambios). */
 export class CloudSyncConflictError extends Error {
@@ -284,6 +287,10 @@ function presentationDoc(
 
 function storagePrefix(uid: string, cloudId: string) {
   return `users/${uid}/presentations/${cloudId}`;
+}
+
+function slidesSubcollection(db: Firestore, uid: string, cloudId: string) {
+  return collection(db, "users", uid, "presentations", cloudId, "slides");
 }
 
 /** Borra solo rutas conocidas en Firestore (evita listAll → CORS en localhost/navegador). */
@@ -591,7 +598,7 @@ export async function pushPresentationToCloud(
     deckVisualTheme: saved.deckVisualTheme ?? null,
     slideImagePaths,
     excalidrawPaths,
-    slides: cloudSlides,
+    slideCount: cloudSlides.length,
     cloudSyncedAtClient: syncedAt,
   };
 
@@ -637,6 +644,56 @@ export async function pushPresentationToCloud(
       preservedSharedWith,
     };
   });
+
+  const oldSlideCount = preSnap.exists()
+    ? Number((preSnap.data() as Record<string, unknown>).slideCount ?? 0)
+    : 0;
+  const slidesCol = slidesSubcollection(db, uid, cloudId);
+
+  type BatchOp =
+    | { type: "set"; ref: DocumentReference; data: Record<string, unknown> }
+    | { type: "delete"; ref: DocumentReference };
+
+  const slideOps: BatchOp[] = [];
+  for (let i = 0; i < cloudSlides.length; i++) {
+    slideOps.push({
+      type: "set",
+      ref: doc(slidesCol, String(i)),
+      data: { order: i, ...cloudSlides[i]! },
+    });
+  }
+  for (let i = cloudSlides.length; i < oldSlideCount; i++) {
+    slideOps.push({ type: "delete", ref: doc(slidesCol, String(i)) });
+  }
+
+  {
+    let currentBatch = writeBatch(db);
+    let opsInBatch = 0;
+    let batchBytes = 0;
+
+    for (const op of slideOps) {
+      const estimatedBytes =
+        op.type === "set" ? JSON.stringify(op.data).length * 2 : 200;
+
+      if (
+        opsInBatch > 0 &&
+        (opsInBatch >= FIRESTORE_BATCH_LIMIT ||
+          batchBytes + estimatedBytes > BATCH_PAYLOAD_BUDGET)
+      ) {
+        await currentBatch.commit();
+        currentBatch = writeBatch(db);
+        opsInBatch = 0;
+        batchBytes = 0;
+      }
+
+      if (op.type === "set") currentBatch.set(op.ref, op.data);
+      else currentBatch.delete(op.ref);
+      opsInBatch += 1;
+      batchBytes += estimatedBytes;
+    }
+
+    if (opsInBatch > 0) await currentBatch.commit();
+  }
 
   try {
     const postSnap = await getDoc(docRef);
@@ -707,6 +764,17 @@ export async function deleteOwnerPresentationFromCloud(
     (data.slideImagePaths as Record<string, string>) ?? {},
     (data.excalidrawPaths as Record<string, string>) ?? {}
   );
+
+  const slidesCol = slidesSubcollection(db, uid, cloudId.trim());
+  const slidesSnap = await getDocs(slidesCol);
+  if (!slidesSnap.empty) {
+    for (let start = 0; start < slidesSnap.docs.length; start += FIRESTORE_BATCH_LIMIT) {
+      const chunk = slidesSnap.docs.slice(start, start + FIRESTORE_BATCH_LIMIT);
+      const delBatch = writeBatch(db);
+      for (const d of chunk) delBatch.delete(d.ref);
+      await delBatch.commit();
+    }
+  }
 
   await deleteDoc(docRef);
 }
@@ -1026,7 +1094,24 @@ export async function pullPresentationFromCloud(
   const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (data.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (data.excalidrawPaths as Record<string, string>) ?? {};
-  const rawSlides = (data.slides as Record<string, unknown>[]) ?? [];
+
+  const inlineSlides = data.slides;
+  const isV1 = Array.isArray(inlineSlides) && inlineSlides.length > 0;
+
+  let rawSlides: Record<string, unknown>[];
+  if (isV1) {
+    rawSlides = inlineSlides as Record<string, unknown>[];
+  } else {
+    const slidesCol = slidesSubcollection(db, ownerUid, cloudId);
+    const slidesSnap = await getDocs(slidesCol);
+    rawSlides = slidesSnap.docs
+      .sort((a, b) => {
+        const dataA = a.data() as Record<string, unknown>;
+        const dataB = b.data() as Record<string, unknown>;
+        return Number(dataA.order ?? a.id) - Number(dataB.order ?? b.id);
+      })
+      .map((d) => d.data() as Record<string, unknown>);
+  }
 
   /** Imágenes: solo URL firmada de Storage (no se bajan bytes aquí; el navegador carga bajo demanda). */
   const slides: Slide[] = await Promise.all(
