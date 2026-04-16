@@ -38,8 +38,8 @@ function parseDataUrl(dataUrl: string): { data: string; type: string } | null {
 }
 
 /**
- * pptxgenjs 4.x exige que `addImage({ data })` incluya el fragmento `base64,`
- * (p. ej. `image/png;base64,iVBOR…`), no solo el payload en base64.
+ * pptxgenjs valida que `data` contenga `base64,` y al empaquetar hace `split(',').pop()`.
+ * Lo más fiable es pasar `data:image/<mime>;base64,<payload>` (ver `createChartMediaRels` en pptxgen).
  */
 function inferImageMimeFromRawBase64(b64: string): string {
   const s = b64.trimStart();
@@ -51,11 +51,24 @@ function inferImageMimeFromRawBase64(b64: string): string {
 }
 
 function ensurePptxImageDataField(raw: string, mimeHint?: string): string {
-  const v = raw.trim();
+  const v = raw.replace(/\s+/g, "").trim();
   if (!v) return v;
-  if (v.toLowerCase().includes("base64,")) return v;
+  const low = v.toLowerCase();
+  if (low.startsWith("data:image/") && low.includes(";base64,")) return v;
+  if (/^image\/[\w+.-]+;base64,/i.test(low)) {
+    return low.startsWith("data:") ? v : `data:${v}`;
+  }
   const mime = mimeHint?.trim() || inferImageMimeFromRawBase64(v);
-  return `${mime};base64,${v}`;
+  return `data:${mime};base64,${v}`;
+}
+
+/** Evita incrustar PNG vacío o inválido (PowerPoint muestra marco en blanco). */
+function isUsableSlideRasterData(s: string | undefined | null): s is string {
+  if (!s?.trim()) return false;
+  const t = s.replace(/\s+/g, "").trim();
+  const i = t.toLowerCase().lastIndexOf("base64,");
+  if (i >= 0) return t.length - i - "base64,".length >= 48;
+  return /^[0-9a-z+/=_-]+$/i.test(t) && t.length >= 120;
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
@@ -271,7 +284,7 @@ async function addSlideToPptx(
   slide: Slide,
   opts: AddSlideOpts,
 ): Promise<void> {
-  if (opts.fullSlideRasterBase64) {
+  if (isUsableSlideRasterData(opts.fullSlideRasterBase64)) {
     const s = pptx.addSlide();
     s.addImage({
       data: ensurePptxImageDataField(opts.fullSlideRasterBase64, "image/png"),

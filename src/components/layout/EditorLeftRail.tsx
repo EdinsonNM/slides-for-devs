@@ -5,6 +5,7 @@ import {
   Home,
   Clapperboard,
   FileDown,
+  Image as ImageIcon,
   Loader2,
   UserPlus,
   LayoutTemplate,
@@ -15,6 +16,7 @@ import {
 import { PRESENTATION_MODELS } from "../../constants/presentationModels";
 import { usePresentation } from "../../context/PresentationContext";
 import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
+import { exportCurrentSlideAsImage } from "../../services/exportSlideAsImage";
 import { RailPresentationModelPicker } from "../shared/RailPresentationModelPicker";
 import { RailTooltip } from "../shared/RailTooltip";
 
@@ -31,6 +33,8 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
   const {
     goHome,
     slides,
+    currentIndex,
+    deckVisualTheme,
     topic,
     openGenerateFullDeckModal,
     openExportDeckVideoModal,
@@ -46,6 +50,7 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
 
   const [exporting, setExporting] = useState(false);
   const [pptxExportDetail, setPptxExportDetail] = useState<string | null>(null);
+  const [exportingSlideImage, setExportingSlideImage] = useState(false);
 
   const goPanels = (which: "characters" | "template" | "notes") => {
     if (which === "characters") {
@@ -99,6 +104,27 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     } finally {
       setExporting(false);
       setPptxExportDetail(null);
+    }
+  };
+
+  const exportSlideImage = async () => {
+    const currentSlide = slides[currentIndex];
+    if (!currentSlide) return;
+    setExportingSlideImage(true);
+    try {
+      const snap = flushSync(() => captureWorkspaceSnapshot());
+      const slide = snap.slides[snap.currentIndex];
+      if (!slide) throw new Error("No se encontró la diapositiva actual.");
+      await exportCurrentSlideAsImage(slide, snap.currentIndex, snap.deckVisualTheme);
+    } catch (e) {
+      console.error(e);
+      alert(
+        e instanceof Error
+          ? e.message
+          : "Error al exportar la diapositiva como imagen.",
+      );
+    } finally {
+      setExportingSlideImage(false);
     }
   };
 
@@ -199,6 +225,28 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
               <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden />
             ) : (
               <FileDown size={18} strokeWidth={2} />
+            )}
+          </button>
+        </RailTooltip>
+        <RailTooltip
+          label={exportingSlideImage ? "Exportando imagen…" : "Exportar diapositiva"}
+          detail={
+            exportingSlideImage
+              ? "Capturando diapositiva como PNG…"
+              : "Exportar la diapositiva actual como imagen PNG (1920×1080)."
+          }
+        >
+          <button
+            type="button"
+            className={railIconBtnClass}
+            aria-label="Exportar diapositiva como imagen"
+            disabled={!hasSlides || exportingSlideImage || exporting}
+            onClick={() => void exportSlideImage()}
+          >
+            {exportingSlideImage ? (
+              <Loader2 size={18} strokeWidth={2} className="animate-spin" aria-hidden />
+            ) : (
+              <ImageIcon size={18} strokeWidth={2} />
             )}
           </button>
         </RailTooltip>

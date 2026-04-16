@@ -12,6 +12,7 @@ import {
   StickyNote,
   UserPlus,
   FileDown,
+  Image as ImageIcon,
   Sparkles,
   MoreHorizontal,
   Clapperboard,
@@ -22,6 +23,7 @@ import { IconButton } from "../shared/IconButton";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { HeaderToolbarGroup } from "./HeaderToolbarGroup";
 import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
+import { exportCurrentSlideAsImage } from "../../services/exportSlideAsImage";
 
 interface HeaderProps {
   onOpenConfig?: () => void;
@@ -40,6 +42,8 @@ export function Header(props: HeaderProps) {
     goHome,
     openSavedListModal,
     slides,
+    currentIndex,
+    deckVisualTheme,
     handleSave,
     isSaving,
     saveMessage,
@@ -66,6 +70,33 @@ export function Header(props: HeaderProps) {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [isExportingSlideImage, setIsExportingSlideImage] = useState(false);
+
+  const handleExportSlideAsImage = async () => {
+    const currentSlide = slides[currentIndex];
+    if (!currentSlide) return;
+    setIsExportingSlideImage(true);
+    setMoreMenuOpen(false);
+    try {
+      const snap = flushSync(() => captureWorkspaceSnapshot());
+      const slide = snap.slides[snap.currentIndex];
+      if (!slide) throw new Error("No se encontró la diapositiva actual.");
+      await exportCurrentSlideAsImage(
+        slide,
+        snap.currentIndex,
+        snap.deckVisualTheme,
+      );
+    } catch (e) {
+      console.error(e);
+      alert(
+        e instanceof Error
+          ? e.message
+          : "Error al exportar la diapositiva como imagen.",
+      );
+    } finally {
+      setIsExportingSlideImage(false);
+    }
+  };
 
   const handleExportPowerPoint = async () => {
     if (slides.length === 0) return;
@@ -219,6 +250,28 @@ export function Header(props: HeaderProps) {
     </>
   );
 
+  const exportSlideImageButton = slides.length > 0 && (
+    <IconButton
+      variant="default"
+      icon={
+        isExportingSlideImage ? (
+          <Loader2 size={18} className="animate-spin" />
+        ) : (
+          <ImageIcon size={18} />
+        )
+      }
+      aria-label="Exportar diapositiva como imagen"
+      title={
+        isExportingSlideImage
+          ? "Exportando diapositiva…"
+          : "Exportar diapositiva actual como imagen PNG"
+      }
+      onClick={handleExportSlideAsImage}
+      disabled={isExportingSlideImage || isExportingPptx}
+      className="hidden xl:inline-flex"
+    />
+  );
+
   const exportButton = slides.length > 0 && (
     <IconButton
       variant="default"
@@ -319,6 +372,7 @@ export function Header(props: HeaderProps) {
             {fileCloudInline}
           </HeaderToolbarGroup>
           <HeaderToolbarGroup className="items-center">
+            {exportSlideImageButton}
             {exportVideoButton}
             {exportButton}
             {slides.length > 0 && (
@@ -458,6 +512,22 @@ export function Header(props: HeaderProps) {
                         {pptxExportHint}
                       </span>
                     ) : null}
+                  </button>
+                )}
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface disabled:opacity-50"
+                    onClick={handleExportSlideAsImage}
+                    disabled={isExportingSlideImage || isExportingPptx}
+                  >
+                    {isExportingSlideImage ? (
+                      <Loader2 size={16} className="shrink-0 animate-spin" />
+                    ) : (
+                      <ImageIcon size={16} className="shrink-0 opacity-70" />
+                    )}
+                    Exportar diapositiva como imagen
                   </button>
                 )}
               </div>

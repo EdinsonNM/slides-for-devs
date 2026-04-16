@@ -34,6 +34,11 @@ export interface PreviewSlideContentProps {
   disableEntryMotion?: boolean;
   /** Ancho completo del contenedor (p. ej. export PPTX offscreen sin tope `max-w-7xl`). */
   fillExportContainer?: boolean;
+  /**
+   * Marco fijo para captura PPTX: oculta «Sección n» y evita `aspect-video` para que el lienzo
+   * llene el contenedor (los diagramas isométricos en SVG no queden con alto 0).
+   */
+  pptxExportFrame?: boolean;
 }
 
 /**
@@ -48,6 +53,7 @@ export function PreviewSlideContent({
   layout = "default",
   disableEntryMotion = false,
   fillExportContainer = false,
+  pptxExportFrame = false,
 }: PreviewSlideContentProps) {
   const ctx = usePresentationOptional();
   const deckVisualTheme =
@@ -70,7 +76,7 @@ export function PreviewSlideContent({
   if (disableEntryMotion) {
     return (
       <div key={slide.id} className={outerClass}>
-        {!isFullscreen && (
+        {!isFullscreen && !pptxExportFrame && (
           <div className="shrink-0 self-start px-0.5">
             <span
               className={cn("font-bold uppercase tracking-[0.2em]", sectionLabelClass)}
@@ -85,7 +91,9 @@ export function PreviewSlideContent({
             "preview-slide relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent",
             isFullscreen
               ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
-              : "aspect-video max-h-full flex-1",
+              : pptxExportFrame
+                ? "h-full w-full min-h-0 flex-1"
+                : "aspect-video max-h-full flex-1",
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
             isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
           )}
