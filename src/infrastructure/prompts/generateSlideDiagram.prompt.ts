@@ -18,10 +18,15 @@ export const generateSlideDiagramPrompt: PromptDefinition<GenerateSlideDiagramIn
   outputSchema:
     '{ title, content, mermaid } — mermaid debe ser sintaxis Mermaid válida (sin ``` ni prefijo "mermaid").',
   buildUserMessage(input) {
-    const { presentationTopic, slideTitle, slideContent, userPrompt } = input;
+    const { presentationTopic, slideTitle, slideContent, userPrompt, deckNarrativeContext } =
+      input;
+    const narrative =
+      deckNarrativeContext && deckNarrativeContext.trim().length > 0
+        ? `Objetivo/tono narrativo del deck: ${deckNarrativeContext.trim()}\n\n`
+        : "";
     const theme = presentationTopic.trim()
-      ? `Tema general de la presentación: ${presentationTopic.trim()}`
-      : "No hay tema global definido: infiere un enfoque coherente a partir de la instrucción.";
+      ? `${narrative}Tema general de la presentación: ${presentationTopic.trim()}`
+      : `${narrative}No hay tema global definido: infiere un enfoque coherente a partir de la instrucción.`;
 
     return `${theme}
 

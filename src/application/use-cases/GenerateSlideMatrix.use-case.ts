@@ -1,5 +1,5 @@
 import type { Slide } from "../../domain/entities";
-import type { SlideOperationsPort } from "../../domain/ports";
+import type { DeckNarrativeSlideOptions, SlideOperationsPort } from "../../domain/ports";
 
 export class GenerateSlideMatrixUseCase {
   constructor(
@@ -11,7 +11,8 @@ export class GenerateSlideMatrixUseCase {
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    options?: DeckNarrativeSlideOptions,
   ): Promise<{
     title: string;
     subtitle: string;
@@ -20,6 +21,12 @@ export class GenerateSlideMatrixUseCase {
     rows: string[][];
   }> {
     const operations = this.resolveOperations(modelId) ?? this.fallback;
-    return operations.generateSlideMatrix(presentationTopic, slide, userPrompt, modelId);
+    return operations.generateSlideMatrix(
+      presentationTopic,
+      slide,
+      userPrompt,
+      modelId,
+      options,
+    );
   }
 }

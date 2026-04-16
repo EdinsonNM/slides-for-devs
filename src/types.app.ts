@@ -22,6 +22,10 @@ export interface Presentation {
   characterId?: string;
   /** Tema visual del lienzo 16:9 (independiente del tema claro/oscuro de la app). */
   deckVisualTheme?: DeckVisualTheme;
+  /** Objetivo narrativo para IA (enseñanza, pitch, storytelling, etc.). */
+  deckNarrativePresetId?: string;
+  /** Notas libres de tono/objetivo; se concatenan al preset en los prompts. */
+  narrativeNotes?: string;
 }
 
 export interface SavedPresentation extends Presentation {

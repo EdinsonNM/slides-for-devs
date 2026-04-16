@@ -55,6 +55,10 @@ export function HomeScreen(props: HomeScreenProps) {
     homePromptAttachments,
     addHomePromptAttachment,
     removeHomePromptAttachment,
+    deckNarrativePresetId,
+    setDeckNarrativePresetId,
+    narrativeNotes,
+    setNarrativeNotes,
   } = usePresentation();
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
@@ -64,7 +68,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
   if (!hasItems) {
     return (
-      <>
+      <div className="flex min-h-dvh flex-col">
         <SignInInviteBar onBackToWelcome={onBackToWelcome} />
         <HomeEmptyState
         onOpenConfig={onOpenConfig}
@@ -80,8 +84,12 @@ export function HomeScreen(props: HomeScreenProps) {
         promptAttachments={homePromptAttachments}
         onAddPromptAttachment={addHomePromptAttachment}
         onRemovePromptAttachment={removeHomePromptAttachment}
+        deckNarrativePresetId={deckNarrativePresetId}
+        onDeckNarrativePresetIdChange={setDeckNarrativePresetId}
+        narrativeNotes={narrativeNotes}
+        onNarrativeNotesChange={setNarrativeNotes}
       />
-      </>
+      </div>
     );
   }
 
@@ -114,6 +122,10 @@ export function HomeScreen(props: HomeScreenProps) {
         promptAttachments={homePromptAttachments}
         onAddPromptAttachment={addHomePromptAttachment}
         onRemovePromptAttachment={removeHomePromptAttachment}
+        deckNarrativePresetId={deckNarrativePresetId}
+        onDeckNarrativePresetIdChange={setDeckNarrativePresetId}
+        narrativeNotes={narrativeNotes}
+        onNarrativeNotesChange={setNarrativeNotes}
       />
     </div>
   );

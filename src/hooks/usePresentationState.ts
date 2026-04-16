@@ -19,6 +19,11 @@ import {
   normalizeDeckVisualTheme,
   type DeckVisualTheme,
 } from "../domain/entities";
+import {
+  DEFAULT_DECK_NARRATIVE_PRESET_ID,
+  buildDeckNarrativeContextForPrompts,
+} from "../constants/presentationNarrativePresets";
+import { resolveGeneratedPresentationTitle } from "../utils/presentationTitle";
 
 const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
 import { formatMarkdown } from "../utils/markdown";
@@ -237,6 +242,8 @@ export type EditorWorkspaceSnapshot = {
   currentSavedId: string | null;
   selectedCharacterId: string | null;
   deckVisualTheme: DeckVisualTheme;
+  deckNarrativePresetId?: string;
+  narrativeNotes?: string;
 };
 
 export type EditorTab = {
@@ -264,6 +271,19 @@ export function usePresentationState() {
   slidesRef.current = slides;
   const [deckVisualTheme, setDeckVisualThemeState] = useState<DeckVisualTheme>(
     DEFAULT_DECK_VISUAL_THEME,
+  );
+  const [deckNarrativePresetId, setDeckNarrativePresetId] = useState(
+    DEFAULT_DECK_NARRATIVE_PRESET_ID,
+  );
+  const [narrativeNotes, setNarrativeNotes] = useState("");
+  const deckNarrativeSlideOptions = useMemo(
+    () => ({
+      deckNarrativeContext: buildDeckNarrativeContextForPrompts(
+        deckNarrativePresetId,
+        narrativeNotes,
+      ),
+    }),
+    [deckNarrativePresetId, narrativeNotes],
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -436,6 +456,8 @@ export function usePresentationState() {
     modelId: string;
     /** Si viene del editor con presentación ya guardada, actualizar este id en lugar de crear otra fila. */
     reuseSavedId?: string | null;
+    deckNarrativePresetId: string;
+    narrativeNotes?: string;
   } | null>(null);
   /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
   const [apiKeysVersion, setApiKeysVersion] = useState(0);
@@ -888,27 +910,41 @@ export function usePresentationState() {
     const run = async () => {
       try {
         const promptForApi = pending.modelInput ?? pending.topic;
-        const generatedSlides = await generatePresentation.run(
+        const generated = await generatePresentation.run(
           promptForApi,
           pending.modelId,
+          {
+            narrativePresetId: pending.deckNarrativePresetId,
+            narrativeNotes: pending.narrativeNotes,
+          },
         );
         if (cancelled) return;
         const cleanedSlides = normalizeSlidesCanvasScenes(
-          generatedSlides.map((slide) => ({
+          generated.slides.map((slide) => ({
             ...slide,
             id: crypto.randomUUID(),
             content: formatMarkdown(slide.content),
           })),
         );
+        const resolvedTopic = resolveGeneratedPresentationTitle({
+          presentationTitle: generated.presentationTitle,
+          slides: cleanedSlides,
+          fallbackBrief: pending.topic,
+        });
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
         setSlides(cleanedSlides);
         setCurrentIndex(0);
+        setTopic(resolvedTopic);
+        setDeckNarrativePresetId(pending.deckNarrativePresetId);
+        setNarrativeNotes(pending.narrativeNotes ?? "");
         const presentation: Presentation = {
-          topic: pending.topic,
+          topic: resolvedTopic,
           slides: cleanedSlides,
           characterId: selectedCharacterId ?? undefined,
           deckVisualTheme,
+          deckNarrativePresetId: pending.deckNarrativePresetId,
+          narrativeNotes: pending.narrativeNotes?.trim() || undefined,
         };
         let id: string;
         if (pending.reuseSavedId) {
@@ -1526,6 +1562,8 @@ export function usePresentationState() {
         modelInput?: string;
         errorRestore?: { slides: Slide[]; topic: string };
         reuseSavedId?: string | null;
+        deckNarrativePresetId?: string;
+        narrativeNotes?: string;
       },
     ) => {
       const saved = displayTopic.trim();
@@ -1546,9 +1584,15 @@ export function usePresentationState() {
         modelInput: fullInput !== saved ? fullInput : undefined,
         modelId: presentationModelId,
         reuseSavedId: options?.reuseSavedId ?? undefined,
+        deckNarrativePresetId:
+          options?.deckNarrativePresetId ?? deckNarrativePresetId,
+        narrativeNotes:
+          options?.narrativeNotes !== undefined
+            ? options.narrativeNotes
+            : narrativeNotes.trim() || undefined,
       });
     },
-    [presentationModelId],
+    [presentationModelId, deckNarrativePresetId, narrativeNotes],
   );
 
   const handleGenerate = (e: React.FormEvent) => {
@@ -1765,6 +1809,7 @@ export function usePresentationState() {
         currentSlide,
         rewritePrompt,
         modelId,
+        deckNarrativeSlideOptions,
       );
       const formattedContent = formatMarkdown(result.content);
       setSlides((prev) => {
@@ -1809,6 +1854,7 @@ export function usePresentationState() {
           currentSlide,
           instr,
           modelId,
+          deckNarrativeSlideOptions,
         );
         const formattedContent = formatMarkdown(result.content);
         const matrixData = normalizeSlideMatrixData({
@@ -1851,6 +1897,7 @@ export function usePresentationState() {
           currentSlide,
           instr,
           modelId,
+          deckNarrativeSlideOptions,
         );
         const notesText = result.content.trim();
         const formattedNotes = notesText ? formatMarkdown(notesText) : "";
@@ -1895,6 +1942,7 @@ export function usePresentationState() {
         currentSlide,
         instr,
         modelId,
+        deckNarrativeSlideOptions,
       );
       const formattedContent = formatMarkdown(result.content);
       setSlides((prev) => {
@@ -2008,6 +2056,8 @@ export function usePresentationState() {
       currentSavedId,
       selectedCharacterId,
       deckVisualTheme,
+      deckNarrativePresetId,
+      narrativeNotes,
     };
   }, [
     flushDiagramPending,
@@ -2018,6 +2068,8 @@ export function usePresentationState() {
     currentSavedId,
     selectedCharacterId,
     deckVisualTheme,
+    deckNarrativePresetId,
+    narrativeNotes,
     cloneSlidesForTab,
   ]);
 
@@ -2040,6 +2092,10 @@ export function usePresentationState() {
       setCurrentSavedId(snap.currentSavedId);
       setSelectedCharacterId(snap.selectedCharacterId);
       setDeckVisualThemeState(snap.deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME);
+      setDeckNarrativePresetId(
+        snap.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
+      );
+      setNarrativeNotes(snap.narrativeNotes ?? "");
     },
     [cloneSlidesForTab],
   );
@@ -2253,6 +2309,8 @@ export function usePresentationState() {
       slides: Slide[];
       characterId?: string;
       deckVisualTheme?: DeckVisualTheme;
+      deckNarrativePresetId?: string;
+      narrativeNotes?: string;
     }): Promise<string | null> => {
       if (presentation.slides.length === 0) return null;
       const full: Presentation = {
@@ -2261,6 +2319,12 @@ export function usePresentationState() {
         characterId: presentation.characterId,
         deckVisualTheme:
           presentation.deckVisualTheme ?? deckVisualTheme,
+        deckNarrativePresetId:
+          presentation.deckNarrativePresetId ?? deckNarrativePresetId,
+        narrativeNotes:
+          presentation.narrativeNotes !== undefined
+            ? presentation.narrativeNotes?.trim() || undefined
+            : narrativeNotes.trim() || undefined,
       };
       let savedId: string | null = null;
       try {
@@ -2314,6 +2378,8 @@ export function usePresentationState() {
       localAccountScope,
       lastOpenedSessionKey,
       deckVisualTheme,
+      deckNarrativePresetId,
+      narrativeNotes,
     ],
   );
 
@@ -2355,11 +2421,15 @@ export function usePresentationState() {
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
+    setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
+    setNarrativeNotes("");
     await savePresentationNow({
       topic: "",
       slides: deck,
       characterId: undefined,
       deckVisualTheme: DEFAULT_DECK_VISUAL_THEME,
+      deckNarrativePresetId: DEFAULT_DECK_NARRATIVE_PRESET_ID,
+      narrativeNotes: undefined,
     });
     await refreshSavedList();
   }, [savePresentationNow, refreshSavedList]);
@@ -2629,6 +2699,10 @@ export function usePresentationState() {
       setDeckVisualThemeState(
         normalizeDeckVisualTheme(saved.deckVisualTheme),
       );
+      setDeckNarrativePresetId(
+        saved.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
+      );
+      setNarrativeNotes(saved.narrativeNotes ?? "");
       setShowSavedListModal(false);
       try {
         sessionStorage.setItem(lastOpenedSessionKey, id);
@@ -2773,6 +2847,10 @@ export function usePresentationState() {
         setDeckVisualThemeState(
           normalizeDeckVisualTheme(saved.deckVisualTheme),
         );
+        setDeckNarrativePresetId(
+          saved.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
+        );
+        setNarrativeNotes(saved.narrativeNotes ?? "");
         coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
         const firstImage = saved.slides[0]?.imageUrl;
         if (firstImage) {
@@ -2971,6 +3049,8 @@ export function usePresentationState() {
             slides: updatedSlides,
             characterId: saved.characterId,
             deckVisualTheme: normalizeDeckVisualTheme(saved.deckVisualTheme),
+            deckNarrativePresetId: saved.deckNarrativePresetId,
+            narrativeNotes: saved.narrativeNotes,
           },
           localAccountScope,
         );
@@ -3026,6 +3106,8 @@ export function usePresentationState() {
           deckVisualTheme: normalizeDeckVisualTheme(
             presentation.deckVisualTheme,
           ),
+          deckNarrativePresetId: presentation.deckNarrativePresetId,
+          narrativeNotes: presentation.narrativeNotes,
         },
         localAccountScope,
       );
@@ -3053,6 +3135,11 @@ export function usePresentationState() {
         setDeckVisualThemeState(
           normalizeDeckVisualTheme(presentation.deckVisualTheme),
         );
+        setDeckNarrativePresetId(
+          presentation.deckNarrativePresetId ??
+            DEFAULT_DECK_NARRATIVE_PRESET_ID,
+        );
+        setNarrativeNotes(presentation.narrativeNotes ?? "");
       }
       await refreshSavedList();
     } catch (e) {
@@ -3153,6 +3240,8 @@ export function usePresentationState() {
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
+    setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
+    setNarrativeNotes("");
     setEditorTabs((tabs) => [...tabs, { id: newId, title: "Sin título" }]);
     setActiveEditorTabId(newId);
   }, [activeEditorTabId, captureWorkspaceSnapshot]);
@@ -3187,6 +3276,8 @@ export function usePresentationState() {
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
+    setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
+    setNarrativeNotes("");
     setEditorTabs([]);
     setActiveEditorTabId(null);
     tabSnapshotsRef.current = {};
@@ -3790,6 +3881,10 @@ export function usePresentationState() {
     setTopic,
     deckVisualTheme,
     applyDeckVisualTheme,
+    deckNarrativePresetId,
+    setDeckNarrativePresetId,
+    narrativeNotes,
+    setNarrativeNotes,
     setPresentationTitleDraft,
     presentationModelId,
     setPresentationModelId,

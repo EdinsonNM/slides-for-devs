@@ -118,7 +118,7 @@ export function HomePresentationCardTile({
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={cardEntranceTransition(index)}
-        whileHover={{ scale: 1.025, zIndex: 30 }}
+        whileHover={{ scale: 1.025, zIndex: 12 }}
         whileTap={{ scale: 0.985 }}
         className={cn(
           "group rounded-2xl overflow-hidden text-left relative z-0",
@@ -179,7 +179,7 @@ export function HomePresentationCardTile({
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={cardEntranceTransition(index)}
-        whileHover={{ scale: 1.025, zIndex: 30 }}
+        whileHover={{ scale: 1.025, zIndex: 12 }}
         whileTap={{ scale: 0.985 }}
         className={cn(
           "group rounded-2xl overflow-hidden text-left relative z-0",
@@ -239,7 +239,7 @@ export function HomePresentationCardTile({
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={cardEntranceTransition(index)}
-      whileHover={{ scale: 1.025, zIndex: 30 }}
+      whileHover={{ scale: 1.025, zIndex: 12 }}
       whileTap={{ scale: 0.985 }}
       className={cn(
         "group rounded-2xl overflow-hidden text-left relative z-0",

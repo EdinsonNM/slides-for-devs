@@ -3,6 +3,9 @@ import type {
   PresentationGeneratorPort,
   SlideOperationsPort,
   ImageGeneratorPort,
+  GeneratePresentationOptions,
+  GeneratedPresentationResult,
+  DeckNarrativeSlideOptions,
 } from "../../domain/ports";
 import {
   type Slide,
@@ -25,7 +28,7 @@ import {
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
-import { parseSlidesFromResponse } from "../schemas";
+import { parseGeneratedDeckFromResponse, parseSlidesFromResponse } from "../schemas";
 import { getGeminiApiKey } from "../../services/apiConfig";
 
 const DEFAULT_TEXT = "gemini-2.5-flash";
@@ -58,29 +61,39 @@ async function resolveSlideCount(topic: string, model: string): Promise<number> 
   return Math.min(max, Math.max(min, num));
 }
 
-const presentationSchema = {
+const geminiDeckSlideItemSchema = {
+  type: Type.OBJECT,
+  properties: {
+    id: { type: Type.STRING },
+    type: { type: Type.STRING, enum: [SLIDE_TYPE.CONTENT, SLIDE_TYPE.CHAPTER] },
+    title: { type: Type.STRING },
+    subtitle: { type: Type.STRING },
+    content: { type: Type.STRING },
+    imagePrompt: { type: Type.STRING },
+  },
+  required: ["id", "type", "title", "content"],
+};
+
+const fullDeckGenerationSchema = {
   responseMimeType: "application/json" as const,
   responseSchema: {
-    type: Type.ARRAY,
-    items: {
-      type: Type.OBJECT,
-      properties: {
-        id: { type: Type.STRING },
-        type: { type: Type.STRING, enum: [SLIDE_TYPE.CONTENT, SLIDE_TYPE.CHAPTER] },
-        title: { type: Type.STRING },
-        subtitle: { type: Type.STRING },
-        content: { type: Type.STRING },
-        imagePrompt: { type: Type.STRING },
-      },
-      required: ["id", "type", "title", "content"],
+    type: Type.OBJECT,
+    properties: {
+      presentationTitle: { type: Type.STRING },
+      slides: { type: Type.ARRAY, items: geminiDeckSlideItemSchema },
     },
+    required: ["presentationTitle", "slides"],
   },
 };
 
 export class GeminiAdapter
   implements PresentationGeneratorPort, SlideOperationsPort, ImageGeneratorPort
 {
-  async generatePresentation(topic: string, modelId: string): Promise<Slide[]> {
+  async generatePresentation(
+    topic: string,
+    modelId: string,
+    options?: GeneratePresentationOptions,
+  ): Promise<GeneratedPresentationResult> {
     const model = modelId || DEFAULT_TEXT;
     const fromTopic = parseSlideCountFromTopic(topic);
     const requestedCount = fromTopic ?? await resolveSlideCount(topic, model);
@@ -88,14 +101,15 @@ export class GeminiAdapter
       topic,
       slideCount: requestedCount,
       strictCount: requestedCount !== def,
+      narrativeInstructions: options?.narrativeInstructions,
     });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
       model,
       contents: content,
-      config: presentationSchema,
+      config: fullDeckGenerationSchema,
     });
-    return parseSlidesFromResponse(res.text || "[]");
+    return parseGeneratedDeckFromResponse(res.text || "{}");
   }
 
   async splitSlide(slide: Slide, prompt: string, modelId: string): Promise<Slide[]> {
@@ -128,9 +142,14 @@ export class GeminiAdapter
   async rewriteSlide(
     slide: Slide,
     prompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
-    const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const { system, user } = buildPrompt(rewriteSlidePrompt, {
+      slide,
+      userPrompt: prompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
       model: modelId || DEFAULT_TEXT,
@@ -156,13 +175,15 @@ export class GeminiAdapter
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
     const { system, user } = buildPrompt(generateSlideContentPrompt, {
       presentationTopic,
       slideTitle: slide.title,
       slideContent: slide.content,
       userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
     });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
@@ -189,7 +210,8 @@ export class GeminiAdapter
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{
     title: string;
     subtitle: string;
@@ -211,6 +233,7 @@ export class GeminiAdapter
       slideSubtitle: slide.subtitle ?? "",
       matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
       userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
     });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
@@ -265,7 +288,8 @@ export class GeminiAdapter
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string; mermaid: string }> {
     const fallback = {
       title: slide.title,
@@ -277,6 +301,7 @@ export class GeminiAdapter
       slideTitle: slide.title,
       slideContent: slide.content,
       userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
     });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({

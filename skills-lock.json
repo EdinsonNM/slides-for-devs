@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "framer-motion-animator": {
+      "source": "patricio0312rev/skills",
+      "sourceType": "github",
+      "computedHash": "d0137ba04049bf8926bc80f6a5e2b82d94b5633b6445a85dbfb26ab4f1b104c6"
+    },
     "react-refactor": {
       "source": "pproenca/dot-skills",
       "sourceType": "github",

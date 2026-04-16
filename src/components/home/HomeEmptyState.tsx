@@ -19,11 +19,15 @@ export interface HomeEmptyStateProps {
   promptAttachments?: PromptAttachment[];
   onAddPromptAttachment?: (a: PromptAttachment) => void;
   onRemovePromptAttachment?: (id: string) => void;
+  deckNarrativePresetId?: string;
+  onDeckNarrativePresetIdChange?: (id: string) => void;
+  narrativeNotes?: string;
+  onNarrativeNotesChange?: (v: string) => void;
 }
 
 /**
  * Pantalla inicial cuando no hay presentaciones guardadas.
- * Muestra el logo centrado, mensaje de bienvenida y el input para generar la primera.
+ * Contenido centrado; el prompt queda en un footer fijo.
  */
 export function HomeEmptyState({
   onOpenConfig,
@@ -39,61 +43,49 @@ export function HomeEmptyState({
   promptAttachments,
   onAddPromptAttachment,
   onRemovePromptAttachment,
+  deckNarrativePresetId,
+  onDeckNarrativePresetIdChange,
+  narrativeNotes,
+  onNarrativeNotesChange,
 }: HomeEmptyStateProps) {
   return (
-    <div className="min-h-screen flex flex-col font-sans relative bg-gradient-to-br from-emerald-200/80 via-green-100 to-teal-200/80 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
-      <div className="absolute top-4 right-4 z-10">
+    <div className="relative flex min-h-dvh flex-col bg-linear-to-br from-emerald-200/80 via-green-100 to-teal-200/80 font-sans dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
+      <div className="absolute right-4 top-4 z-20">
         <AvatarMenu onOpenConfig={onOpenConfig} variant="home" />
       </div>
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-52 pt-10 sm:pb-56 sm:pt-12">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="max-w-2xl w-full text-center space-y-8"
+          className="max-w-2xl space-y-8 text-center"
         >
           <div className="space-y-4">
-            <div className="inline-flex items-center justify-center w-64 h-64 rounded-3xl overflow-hidden mb-4 bg-transparent">
+            <div className="mb-4 inline-flex h-64 w-64 items-center justify-center overflow-hidden rounded-3xl bg-transparent">
               <video
                 src="./video-logo.webm"
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-contain"
+                className="h-full w-full object-contain"
                 aria-hidden
               />
             </div>
-            <h1 className="text-5xl font-medium tracking-tight text-stone-800 dark:text-stone-100 font-serif italic">
+            <h1 className="font-serif text-5xl font-medium italic tracking-tight text-stone-800 dark:text-stone-100">
               Sl<span className="text-emerald-600 dark:text-emerald-400">ai</span>m
             </h1>
-            <p className="text-stone-600 dark:text-stone-400 text-lg max-w-md mx-auto">
+            <p className="mx-auto max-w-md text-lg text-stone-600 dark:text-stone-400">
               Transforma tus ideas en presentaciones profesionales con el poder
               de la Inteligencia Artificial.
             </p>
           </div>
-          <PromptInput
-            onSubmit={onGenerate}
-            value={topic}
-            onChange={setTopic}
-            disabled={isLoading}
-            placeholder="¿Sobre qué quieres hablar hoy? Si pegas un texto muy largo, se añade como documento."
-            minRows={3}
-            maxRows={6}
-            showPlan={true}
-            presentationModelId={presentationModelId}
-            setPresentationModelId={setPresentationModelId}
-            presentationModels={presentationModels}
-            attachments={promptAttachments}
-            onAddAttachment={onAddPromptAttachment}
-            onRemoveAttachment={onRemovePromptAttachment}
-          />
           {onCreateBlank && (
             <button
               type="button"
               onClick={() => void onCreateBlank()}
               disabled={isLoading}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-200 bg-white/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-600 shadow-sm hover:bg-white dark:hover:bg-stone-800 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white/90 px-4 py-2.5 text-sm font-medium text-stone-700 shadow-sm hover:bg-white disabled:opacity-50 dark:border-stone-600 dark:bg-stone-800/90 dark:text-stone-200 dark:hover:bg-stone-800"
             >
               <FilePlus size={18} />
               Presentación en blanco
@@ -101,6 +93,37 @@ export function HomeEmptyState({
           )}
         </motion.div>
       </div>
+
+      <footer
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30"
+        style={{
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 drop-shadow-xl sm:px-5">
+          <PromptInput
+            onSubmit={onGenerate}
+            value={topic}
+            onChange={setTopic}
+            disabled={isLoading}
+            placeholder="¿Sobre qué quieres hablar hoy? Si pegas un texto muy largo, se añade como documento."
+            minRows={2}
+            maxRows={6}
+            showPlan={true}
+            className="w-full"
+            presentationModelId={presentationModelId}
+            setPresentationModelId={setPresentationModelId}
+            presentationModels={presentationModels}
+            attachments={promptAttachments}
+            onAddAttachment={onAddPromptAttachment}
+            onRemoveAttachment={onRemovePromptAttachment}
+            deckNarrativePresetId={deckNarrativePresetId}
+            onDeckNarrativePresetIdChange={onDeckNarrativePresetIdChange}
+            narrativeNotes={narrativeNotes}
+            onNarrativeNotesChange={onNarrativeNotesChange}
+          />
+        </div>
+      </footer>
     </div>
   );
 }

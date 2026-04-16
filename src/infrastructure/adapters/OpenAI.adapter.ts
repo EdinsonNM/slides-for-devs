@@ -2,6 +2,9 @@ import type {
   PresentationGeneratorPort,
   SlideOperationsPort,
   ImageGeneratorPort,
+  GeneratePresentationOptions,
+  GeneratedPresentationResult,
+  DeckNarrativeSlideOptions,
 } from "../../domain/ports";
 import {
   type Slide,
@@ -23,7 +26,7 @@ import {
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
-import { parseSlidesFromResponse } from "../schemas";
+import { parseGeneratedDeckFromResponse, parseSlidesFromResponse } from "../schemas";
 import { getOpenAIApiKey } from "../../services/apiConfig";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -60,7 +63,11 @@ async function resolveSlideCount(topic: string, model: string): Promise<number> 
 export class OpenAIAdapter
   implements PresentationGeneratorPort, SlideOperationsPort, ImageGeneratorPort
 {
-  async generatePresentation(topic: string, modelId: string): Promise<Slide[]> {
+  async generatePresentation(
+    topic: string,
+    modelId: string,
+    options?: GeneratePresentationOptions,
+  ): Promise<GeneratedPresentationResult> {
     const model = modelId || DEFAULT_CHAT;
     const requestedCount =
       parseSlideCountFromTopic(topic) ?? await resolveSlideCount(topic, model);
@@ -68,6 +75,7 @@ export class OpenAIAdapter
       topic,
       slideCount: requestedCount,
       strictCount: requestedCount !== def,
+      narrativeInstructions: options?.narrativeInstructions,
     });
     const res = await fetch(CHAT_URL, {
       method: "POST",
@@ -84,7 +92,9 @@ export class OpenAIAdapter
     }
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
-    return content && typeof content === "string" ? parseSlidesFromResponse(content) : [];
+    return content && typeof content === "string"
+      ? parseGeneratedDeckFromResponse(content)
+      : { slides: [] };
   }
 
   async splitSlide(slide: Slide, prompt: string, modelId: string): Promise<Slide[]> {
@@ -106,9 +116,14 @@ export class OpenAIAdapter
   async rewriteSlide(
     slide: Slide,
     prompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
-    const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const { system, user } = buildPrompt(rewriteSlidePrompt, {
+      slide,
+      userPrompt: prompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
     const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
@@ -134,13 +149,15 @@ export class OpenAIAdapter
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
     const { system, user } = buildPrompt(generateSlideContentPrompt, {
       presentationTopic,
       slideTitle: slide.title,
       slideContent: slide.content,
       userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
     });
     const res = await fetch(CHAT_URL, {
       method: "POST",
@@ -167,7 +184,8 @@ export class OpenAIAdapter
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{
     title: string;
     subtitle: string;
@@ -189,6 +207,7 @@ export class OpenAIAdapter
       slideSubtitle: slide.subtitle ?? "",
       matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
       userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
     });
     const res = await fetch(CHAT_URL, {
       method: "POST",
@@ -230,7 +249,8 @@ export class OpenAIAdapter
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string; mermaid: string }> {
     const fallback = {
       title: slide.title,
@@ -242,6 +262,7 @@ export class OpenAIAdapter
       slideTitle: slide.title,
       slideContent: slide.content,
       userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
     });
     const res = await fetch(CHAT_URL, {
       method: "POST",

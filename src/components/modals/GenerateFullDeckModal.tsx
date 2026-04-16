@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Loader2, Plus } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -8,6 +8,13 @@ import {
   createPromptAttachment,
   nextPastedDocumentName,
 } from "../../utils/promptAttachments";
+import { NarrativeCustomObjectiveModal } from "./NarrativeCustomObjectiveModal";
+import { ModelSelect } from "../shared/ModelSelect";
+import {
+  DEFAULT_DECK_NARRATIVE_PRESET_ID,
+  DECK_NARRATIVE_CUSTOM_PRESET_ID,
+  NARRATIVE_PRESET_COMBO_OPTIONS,
+} from "../../constants/presentationNarrativePresets";
 
 export function GenerateFullDeckModal() {
   const {
@@ -20,10 +27,45 @@ export function GenerateFullDeckModal() {
     removeGenerateFullDeckAttachment,
     handleConfirmGenerateFullDeck,
     pendingGeneration: pending,
+    deckNarrativePresetId,
+    setDeckNarrativePresetId,
+    narrativeNotes,
+    setNarrativeNotes,
   } = usePresentation();
 
   const busy = pending !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [customObjectiveOpen, setCustomObjectiveOpen] = useState(false);
+  const narrativeBeforeCustomRef = useRef({
+    preset: DEFAULT_DECK_NARRATIVE_PRESET_ID,
+    notes: "",
+  });
+
+  const handleNarrativePresetChange = (id: string) => {
+    if (id === DECK_NARRATIVE_CUSTOM_PRESET_ID) {
+      narrativeBeforeCustomRef.current = {
+        preset: deckNarrativePresetId,
+        notes: narrativeNotes,
+      };
+      setDeckNarrativePresetId(id);
+      setCustomObjectiveOpen(true);
+      return;
+    }
+    setDeckNarrativePresetId(id);
+  };
+
+  const cancelCustomObjective = () => {
+    const snap = narrativeBeforeCustomRef.current;
+    setDeckNarrativePresetId(snap.preset);
+    setNarrativeNotes(snap.notes);
+    setCustomObjectiveOpen(false);
+  };
+
+  const saveCustomObjective = (text: string) => {
+    setNarrativeNotes(text);
+    setDeckNarrativePresetId(DECK_NARRATIVE_CUSTOM_PRESET_ID);
+    setCustomObjectiveOpen(false);
+  };
 
   const canConfirm =
     Boolean(generateFullDeckTopic.trim()) ||
@@ -31,6 +73,9 @@ export function GenerateFullDeckModal() {
 
   const closeModal = () => {
     if (busy) return;
+    if (customObjectiveOpen) {
+      cancelCustomObjective();
+    }
     setShowGenerateFullDeckModal(false);
   };
 
@@ -60,6 +105,7 @@ export function GenerateFullDeckModal() {
   };
 
   return (
+    <>
     <AnimatePresence>
       {showGenerateFullDeckModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
@@ -133,6 +179,21 @@ export function GenerateFullDeckModal() {
                   disabled={busy}
                 />
               </div>
+              <div className="space-y-2 rounded-xl bg-stone-50/80 dark:bg-stone-900/30 px-3 py-3 border border-stone-100/80 dark:border-stone-800/50">
+                <p className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                  Objetivo del contenido
+                </p>
+                <ModelSelect
+                  value={deckNarrativePresetId}
+                  options={NARRATIVE_PRESET_COMBO_OPTIONS}
+                  onChange={handleNarrativePresetChange}
+                  disabled={busy}
+                  size="sm"
+                  appearance="field"
+                  className="w-full max-w-sm"
+                  aria-label="Objetivo del contenido"
+                />
+              </div>
               <div className="flex justify-start">
                 <button
                   type="button"
@@ -167,5 +228,13 @@ export function GenerateFullDeckModal() {
         </div>
       )}
     </AnimatePresence>
+    <NarrativeCustomObjectiveModal
+      isOpen={customObjectiveOpen}
+      onCancel={cancelCustomObjective}
+      onSave={saveCustomObjective}
+      initialText={narrativeNotes}
+      disabled={busy}
+    />
+    </>
   );
 }

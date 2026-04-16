@@ -16,8 +16,12 @@ export const rewriteSlidePrompt: PromptDefinition<RewriteSlideInput> = {
   rules,
   outputSchema: "Objeto JSON con propiedades 'title' y 'content'.",
   buildUserMessage(input) {
-    const { slide, userPrompt } = input;
-    return `Reescribe el contenido de esta diapositiva según la instrucción del usuario.
+    const { slide, userPrompt, deckNarrativeContext } = input;
+    const globalTone =
+      deckNarrativeContext && deckNarrativeContext.trim().length > 0
+        ? `Contexto de objetivo/tono de la presentación completa:\n${deckNarrativeContext.trim()}\n\n`
+        : "";
+    return `${globalTone}Reescribe el contenido de esta diapositiva según la instrucción del usuario.
 Diapositiva original:
 Título: ${slide.title}
 Contenido: ${slide.content}

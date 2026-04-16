@@ -18,10 +18,15 @@ export const generateSlideContentPrompt: PromptDefinition<GenerateSlideContentIn
   rules,
   outputSchema: "Objeto JSON con propiedades 'title' y 'content'.",
   buildUserMessage(input) {
-    const { presentationTopic, slideTitle, slideContent, userPrompt } = input;
+    const { presentationTopic, slideTitle, slideContent, userPrompt, deckNarrativeContext } =
+      input;
+    const narrative =
+      deckNarrativeContext && deckNarrativeContext.trim().length > 0
+        ? `Objetivo/tono narrativo del deck: ${deckNarrativeContext.trim()}\n\n`
+        : "";
     const theme = presentationTopic.trim()
-      ? `Tema general de la presentación: ${presentationTopic.trim()}`
-      : "No hay tema global definido aún: infiere un enfoque coherente a partir de la instrucción.";
+      ? `${narrative}Tema general de la presentación: ${presentationTopic.trim()}`
+      : `${narrative}No hay tema global definido aún: infiere un enfoque coherente a partir de la instrucción.`;
     const draft =
       slideTitle.trim() || slideContent.trim()
         ? `Borrador o notas actuales en la diapositiva:\nTítulo actual: ${slideTitle || "(vacío)"}\nContenido o notas: ${slideContent || "(vacío)"}`

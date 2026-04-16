@@ -1,5 +1,5 @@
 import type { Slide } from "../../domain/entities";
-import type { SlideOperationsPort } from "../../domain/ports";
+import type { DeckNarrativeSlideOptions, SlideOperationsPort } from "../../domain/ports";
 import { buildExcalidrawJsonFromMermaid } from "../../utils/excalidrawMermaid";
 
 export class GenerateSlideDiagramUseCase {
@@ -12,14 +12,16 @@ export class GenerateSlideDiagramUseCase {
     presentationTopic: string,
     slide: Slide,
     userPrompt: string,
-    modelId: string
+    modelId: string,
+    options?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string; excalidrawData: string }> {
     const operations = this.resolveOperations(modelId) ?? this.fallback;
     const { title, content, mermaid } = await operations.generateSlideDiagram(
       presentationTopic,
       slide,
       userPrompt,
-      modelId
+      modelId,
+      options,
     );
     const excalidrawData = await buildExcalidrawJsonFromMermaid(mermaid);
     return {

@@ -18,10 +18,21 @@ export const generateSlideMatrixPrompt: PromptDefinition<GenerateSlideMatrixInpu
   outputSchema:
     "{ title, subtitle, content, columnHeaders: string[], rows: string[][] } — sin celdas nulas; usa \"\" si falta texto.",
   buildUserMessage(input) {
-    const { presentationTopic, slideTitle, slideSubtitle, matrixJson, userPrompt } = input;
+    const {
+      presentationTopic,
+      slideTitle,
+      slideSubtitle,
+      matrixJson,
+      userPrompt,
+      deckNarrativeContext,
+    } = input;
+    const narrative =
+      deckNarrativeContext && deckNarrativeContext.trim().length > 0
+        ? `Objetivo/tono narrativo del deck: ${deckNarrativeContext.trim()}\n\n`
+        : "";
     const theme = presentationTopic.trim()
-      ? `Tema general de la presentación: ${presentationTopic.trim()}`
-      : "No hay tema global definido: infiere un enfoque coherente a partir de la instrucción.";
+      ? `${narrative}Tema general de la presentación: ${presentationTopic.trim()}`
+      : `${narrative}No hay tema global definido: infiere un enfoque coherente a partir de la instrucción.`;
     const ctx = `Título actual del slide: ${slideTitle || "(vacío)"}
 Subtítulo actual: ${slideSubtitle || "(vacío)"}
 Tabla o matriz actual (JSON, puede estar vacía o incompleta): ${matrixJson}`;

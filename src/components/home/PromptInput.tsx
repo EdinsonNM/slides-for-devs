@@ -1,16 +1,22 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Loader2, Plus, Mic, ArrowUp } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { ModelSelect } from "../shared/ModelSelect";
 import { PromptAttachmentsRow } from "../shared/PromptAttachmentsRow";
+import { NarrativeCustomObjectiveModal } from "../modals/NarrativeCustomObjectiveModal";
+import type { PresentationModelOption } from "../../constants/presentationModels";
+import {
+  DEFAULT_DECK_NARRATIVE_PRESET_ID,
+  DECK_NARRATIVE_CUSTOM_PRESET_ID,
+  NARRATIVE_PRESET_COMBO_OPTIONS,
+} from "../../constants/presentationNarrativePresets";
 import {
   LARGE_PASTE_CHAR_THRESHOLD,
   createPromptAttachment,
   nextPastedDocumentName,
   type PromptAttachment,
 } from "../../utils/promptAttachments";
-
-export type PresentationModel = { id: string; label: string };
+export type PresentationModel = PresentationModelOption;
 
 export interface PromptInputProps {
   onSubmit: (e: React.FormEvent) => void;
@@ -29,6 +35,10 @@ export interface PromptInputProps {
   attachments?: PromptAttachment[];
   onAddAttachment?: (attachment: PromptAttachment) => void;
   onRemoveAttachment?: (id: string) => void;
+  deckNarrativePresetId?: string;
+  onDeckNarrativePresetIdChange?: (id: string) => void;
+  narrativeNotes?: string;
+  onNarrativeNotesChange?: (v: string) => void;
 }
 
 /**
@@ -51,16 +61,67 @@ export function PromptInput({
   attachments = [],
   onAddAttachment,
   onRemoveAttachment,
+  deckNarrativePresetId,
+  onDeckNarrativePresetIdChange,
+  narrativeNotes = "",
+  onNarrativeNotesChange,
 }: PromptInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [customObjectiveOpen, setCustomObjectiveOpen] = useState(false);
+  const narrativeBeforeCustomRef = useRef({
+    preset: DEFAULT_DECK_NARRATIVE_PRESET_ID,
+    notes: "",
+  });
+
   const showModel =
     presentationModelId != null &&
     setPresentationModelId != null &&
     presentationModels != null &&
     presentationModels.length > 0;
 
+  const showNarrativeCombo =
+    onDeckNarrativePresetIdChange != null && deckNarrativePresetId != null;
+
   const canSubmit =
     Boolean(value.trim()) || (attachments.length > 0 && Boolean(onAddAttachment));
+
+  const handleNarrativePresetChange = (id: string) => {
+    if (!onDeckNarrativePresetIdChange) return;
+    if (id === DECK_NARRATIVE_CUSTOM_PRESET_ID && onNarrativeNotesChange) {
+      narrativeBeforeCustomRef.current = {
+        preset: deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
+        notes: narrativeNotes,
+      };
+      onDeckNarrativePresetIdChange(id);
+      setCustomObjectiveOpen(true);
+      return;
+    }
+    onDeckNarrativePresetIdChange(id);
+  };
+
+  const cancelCustomObjective = () => {
+    const snap = narrativeBeforeCustomRef.current;
+    onDeckNarrativePresetIdChange?.(snap.preset);
+    onNarrativeNotesChange?.(snap.notes);
+    setCustomObjectiveOpen(false);
+  };
+
+  const saveCustomObjective = (text: string) => {
+    onNarrativeNotesChange?.(text);
+    onDeckNarrativePresetIdChange?.(DECK_NARRATIVE_CUSTOM_PRESET_ID);
+    setCustomObjectiveOpen(false);
+  };
+
+  const narrativeObjectiveModal =
+    onDeckNarrativePresetIdChange != null && onNarrativeNotesChange != null ? (
+      <NarrativeCustomObjectiveModal
+        isOpen={customObjectiveOpen}
+        onCancel={cancelCustomObjective}
+        onSave={saveCustomObjective}
+        initialText={narrativeNotes}
+        disabled={disabled}
+      />
+    ) : null;
 
   const handlePaste: React.ClipboardEventHandler<HTMLTextAreaElement> = (e) => {
     if (!onAddAttachment) return;
@@ -99,6 +160,134 @@ export function PromptInput({
 
   if (compact) {
     return (
+      <>
+        <form onSubmit={onSubmit} className={cn("w-full", className)}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,.markdown,text/plain"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={handleFileChange}
+          />
+          <div
+            className={cn(
+              "group w-full overflow-hidden rounded-[28px] border border-stone-200 bg-white transition-shadow duration-200 ease-out dark:border-stone-600 dark:bg-stone-900",
+              "shadow-md focus-within:shadow-lg focus-within:ring-2 focus-within:ring-emerald-500/30 dark:focus-within:ring-emerald-500/40",
+            )}
+            style={{ boxShadow: "0 2px 8px 0 rgba(0,0,0,0.06)" }}
+          >
+            {attachmentRow}
+            <div className="flex min-w-0 flex-col">
+              <div className="px-4 pt-3 pb-2">
+                <textarea
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  onPaste={handlePaste}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                  placeholder={placeholder}
+                  rows={2}
+                  className="min-h-[52px] w-full max-h-32 resize-none bg-white py-0 text-[15px] leading-snug text-stone-800 placeholder:text-stone-400 focus:outline-none dark:bg-stone-900 dark:text-foreground dark:placeholder:text-stone-500"
+                  disabled={disabled}
+                />
+              </div>
+              <div className="flex flex-col gap-2 border-t border-stone-200 px-4 pb-3 pt-2 dark:border-stone-700">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="rounded-full p-2 text-stone-600 transition-colors hover:bg-stone-200 dark:text-stone-400 dark:hover:bg-stone-700"
+                      title={
+                        onAddAttachment
+                          ? "Adjuntar archivo de texto"
+                          : "Añadir"
+                      }
+                      aria-label={
+                        onAddAttachment
+                          ? "Adjuntar archivo de texto"
+                          : "Añadir"
+                      }
+                      disabled={disabled || !onAddAttachment}
+                      onClick={() =>
+                        onAddAttachment && fileInputRef.current?.click()
+                      }
+                    >
+                      <Plus size={20} />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="rounded-full p-2 text-stone-600 transition-colors hover:bg-stone-200 dark:text-stone-400 dark:hover:bg-stone-700"
+                      title="Entrada de voz"
+                      aria-label="Micrófono"
+                    >
+                      <Mic size={20} />
+                    </button>
+                    {showNarrativeCombo && (
+                      <ModelSelect
+                        value={deckNarrativePresetId}
+                        options={NARRATIVE_PRESET_COMBO_OPTIONS}
+                        onChange={handleNarrativePresetChange}
+                        disabled={disabled}
+                        size="xs"
+                        appearance="ghost"
+                        className="min-w-0 max-w-[8.5rem] sm:max-w-[9.5rem]"
+                        aria-label="Objetivo del contenido"
+                      />
+                    )}
+                    {showModel && (
+                      <ModelSelect
+                        value={presentationModelId}
+                        options={presentationModels}
+                        onChange={setPresentationModelId}
+                        disabled={disabled}
+                        size="xs"
+                        appearance="ghost"
+                        className="min-w-0 max-w-[9.5rem] sm:max-w-[11rem]"
+                        aria-label="Modelo para generar la presentación"
+                      />
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={disabled || !canSubmit}
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",
+                      disabled &&
+                        "cursor-wait bg-emerald-500 text-white",
+                      !disabled &&
+                        !canSubmit &&
+                        "cursor-not-allowed bg-stone-200 text-stone-400 dark:bg-stone-700 dark:text-stone-500",
+                      !disabled &&
+                        canSubmit &&
+                        "bg-emerald-500 text-white hover:bg-emerald-600",
+                    )}
+                    aria-label="Enviar"
+                  >
+                    {disabled ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      <ArrowUp size={18} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+        {narrativeObjectiveModal}
+      </>
+    );
+  }
+
+  return (
+    <>
       <form onSubmit={onSubmit} className={cn("w-full", className)}>
         <input
           ref={fileInputRef}
@@ -110,15 +299,13 @@ export function PromptInput({
           onChange={handleFileChange}
         />
         <div
-          className={cn(
-            "group w-full rounded-[28px] border border-stone-200 dark:border-border bg-white dark:bg-surface overflow-hidden transition-all duration-200 ease-out",
-            "min-h-[52px] focus-within:min-h-[120px]",
-            "shadow-md focus-within:shadow-xl focus-within:ring-2 focus-within:ring-emerald-500/20 dark:focus-within:ring-emerald-500/30",
-          )}
-          style={{ boxShadow: "0 2px 8px 0 rgba(0,0,0,0.06)" }}
+          className="flex min-h-[132px] w-full flex-col overflow-hidden rounded-[32px] border border-stone-200 bg-white shadow-md dark:border-stone-600 dark:bg-stone-900"
+          style={{
+            boxShadow: "0 2px 12px 0 rgba(0,0,0,0.05)",
+          }}
         >
           {attachmentRow}
-          <div className="flex flex-row items-center gap-2 px-4 py-2.5 focus-within:flex-col focus-within:items-stretch focus-within:py-4 transition-all duration-200">
+          <div className="flex-1 flex flex-col px-5 pt-5 pb-2 min-h-0">
             <textarea
               value={value}
               onChange={(e) => onChange(e.target.value)}
@@ -130,24 +317,22 @@ export function PromptInput({
                 }
               }}
               placeholder={placeholder}
-              rows={1}
-              className="w-full min-h-[28px] max-h-32 resize-none bg-transparent text-stone-800 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 text-base focus:outline-none py-0 min-w-0 group-focus-within:min-h-[72px]"
+              rows={minRows}
+              className="min-h-[80px] w-full max-h-40 resize-none bg-white py-0 text-[15px] leading-relaxed text-stone-800 placeholder:text-stone-400 focus:outline-none dark:bg-stone-900 dark:text-foreground dark:placeholder:text-stone-500"
               disabled={disabled}
             />
-            <div className="flex items-center justify-between gap-2 shrink-0 focus-within:w-full focus-within:pt-1">
-              <div className="flex items-center gap-3 flex-wrap">
+          </div>
+          <div className="flex flex-col gap-2.5 border-t border-stone-200 px-4 pb-4 pt-1 dark:border-stone-700">
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
+                  className="rounded-full p-2 text-stone-600 transition-colors hover:bg-stone-200 dark:text-stone-400 dark:hover:bg-stone-700"
                   title={
-                    onAddAttachment
-                      ? "Adjuntar archivo de texto"
-                      : "Añadir"
+                    onAddAttachment ? "Adjuntar archivo de texto" : "Añadir"
                   }
                   aria-label={
-                    onAddAttachment
-                      ? "Adjuntar archivo de texto"
-                      : "Añadir"
+                    onAddAttachment ? "Adjuntar archivo de texto" : "Añadir"
                   }
                   disabled={disabled || !onAddAttachment}
                   onClick={() => onAddAttachment && fileInputRef.current?.click()}
@@ -157,12 +342,24 @@ export function PromptInput({
 
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
+                  className="rounded-full p-2 text-stone-600 transition-colors hover:bg-stone-200 dark:text-stone-400 dark:hover:bg-stone-700"
                   title="Entrada de voz"
                   aria-label="Micrófono"
                 >
                   <Mic size={20} />
                 </button>
+                {showNarrativeCombo && (
+                  <ModelSelect
+                    value={deckNarrativePresetId}
+                    options={NARRATIVE_PRESET_COMBO_OPTIONS}
+                    onChange={handleNarrativePresetChange}
+                    disabled={disabled}
+                    size="xs"
+                    appearance="ghost"
+                    className="min-w-0 max-w-[8.5rem] sm:max-w-[9.5rem]"
+                    aria-label="Objetivo del contenido"
+                  />
+                )}
                 {showModel && (
                   <ModelSelect
                     value={presentationModelId}
@@ -170,7 +367,8 @@ export function PromptInput({
                     onChange={setPresentationModelId}
                     disabled={disabled}
                     size="xs"
-                    className="min-w-0 max-w-[180px]"
+                    appearance="ghost"
+                    className="min-w-0 max-w-[9.5rem] sm:max-w-[11rem]"
                     aria-label="Modelo para generar la presentación"
                   />
                 )}
@@ -178,7 +376,17 @@ export function PromptInput({
               <button
                 type="submit"
                 disabled={disabled || !canSubmit}
-                className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                  disabled &&
+                    "cursor-wait bg-emerald-500 text-white",
+                  !disabled &&
+                    !canSubmit &&
+                    "cursor-not-allowed bg-stone-200 text-stone-400 dark:bg-stone-700 dark:text-stone-500",
+                  !disabled &&
+                    canSubmit &&
+                    "bg-emerald-500 text-white hover:bg-emerald-600",
+                )}
                 aria-label="Enviar"
               >
                 {disabled ? (
@@ -191,96 +399,7 @@ export function PromptInput({
           </div>
         </div>
       </form>
-    );
-  }
-
-  return (
-    <form onSubmit={onSubmit} className={cn("w-full", className)}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".txt,.md,.markdown,text/plain"
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden
-        onChange={handleFileChange}
-      />
-      <div
-        className="w-full rounded-[28px] border border-stone-200 dark:border-border bg-white dark:bg-surface shadow-md overflow-hidden flex flex-col min-h-[120px]"
-        style={{
-          boxShadow:
-            "0 2px 8px 0 rgba(0,0,0,0.06), inset 0 1px 0 0 rgba(255,255,255,0.8)",
-        }}
-      >
-        {attachmentRow}
-        <div className="flex-1 flex flex-col px-4 pt-4 pb-1">
-          <textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onPaste={handlePaste}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
-            placeholder={placeholder}
-            rows={minRows}
-            className="w-full min-h-[72px] max-h-32 resize-none bg-transparent text-stone-800 dark:text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-500 text-base focus:outline-none py-0"
-            disabled={disabled}
-          />
-        </div>
-        <div className="flex items-center justify-between px-4 pb-3 pt-1 gap-2">
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
-              title={
-                onAddAttachment ? "Adjuntar archivo de texto" : "Añadir"
-              }
-              aria-label={
-                onAddAttachment ? "Adjuntar archivo de texto" : "Añadir"
-              }
-              disabled={disabled || !onAddAttachment}
-              onClick={() => onAddAttachment && fileInputRef.current?.click()}
-            >
-              <Plus size={20} />
-            </button>
-
-            <button
-              type="button"
-              className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-700 transition-colors"
-              title="Entrada de voz"
-              aria-label="Micrófono"
-            >
-              <Mic size={20} />
-            </button>
-            {showModel && (
-              <ModelSelect
-                value={presentationModelId}
-                options={presentationModels}
-                onChange={setPresentationModelId}
-                disabled={disabled}
-                size="xs"
-                className="min-w-0 max-w-[180px]"
-                aria-label="Modelo para generar la presentación"
-              />
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={disabled || !canSubmit}
-            className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-            aria-label="Enviar"
-          >
-            {disabled ? (
-              <Loader2 className="animate-spin" size={18} />
-            ) : (
-              <ArrowUp size={18} />
-            )}
-          </button>
-        </div>
-      </div>
-    </form>
+      {narrativeObjectiveModal}
+    </>
   );
 }

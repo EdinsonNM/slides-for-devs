@@ -43,7 +43,7 @@ import {
   optimizeRasterBytesForCloud,
 } from "../utils/imageOptimize";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const FIRESTORE_BATCH_LIMIT = 500;
 const SLIDE_WRITE_MAX_RETRIES = 3;
 
@@ -614,6 +614,8 @@ export async function pushPresentationToCloud(
     savedAt: saved.savedAt,
     characterId: saved.characterId ?? null,
     deckVisualTheme: saved.deckVisualTheme ?? null,
+    deckNarrativePresetId: saved.deckNarrativePresetId ?? null,
+    narrativeNotes: saved.narrativeNotes ?? null,
     slideImagePaths,
     excalidrawPaths,
     slideCount: slidesWritten,
@@ -1189,6 +1191,17 @@ export async function pullPresentationFromCloud(
       ? normalizeDeckVisualTheme(deckRaw)
       : undefined;
 
+  const presetRaw = data.deckNarrativePresetId;
+  const deckNarrativePresetId =
+    presetRaw != null && String(presetRaw).trim() !== ""
+      ? String(presetRaw).trim()
+      : undefined;
+  const notesRaw = data.narrativeNotes;
+  const narrativeNotes =
+    notesRaw != null && String(notesRaw).trim() !== ""
+      ? String(notesRaw).trim()
+      : undefined;
+
   return {
     presentation: {
       topic: String(data.topic ?? ""),
@@ -1198,6 +1211,8 @@ export async function pullPresentationFromCloud(
           ? String(data.characterId)
           : undefined,
       ...(deckVisualTheme ? { deckVisualTheme } : {}),
+      ...(deckNarrativePresetId ? { deckNarrativePresetId } : {}),
+      ...(narrativeNotes ? { narrativeNotes } : {}),
       slides,
     },
     cloudRevision: Number.isFinite(cloudRevision) ? cloudRevision : 0,
