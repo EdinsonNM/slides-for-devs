@@ -694,6 +694,9 @@ export async function pushPresentationToCloud(
 
     if (opsInBatch > 0) await currentBatch.commit();
   }
+  console.log(
+    `[cloud] Push ${cloudId}: ${cloudSlides.length} slides escritos en subcolección, rev=${newRevision}`
+  );
 
   try {
     const postSnap = await getDoc(docRef);
@@ -1097,10 +1100,14 @@ export async function pullPresentationFromCloud(
 
   const inlineSlides = data.slides;
   const isV1 = Array.isArray(inlineSlides) && inlineSlides.length > 0;
+  const remoteSchema = Number(data.schemaVersion ?? 1);
 
   let rawSlides: Record<string, unknown>[];
   if (isV1) {
     rawSlides = inlineSlides as Record<string, unknown>[];
+    console.log(
+      `[cloud] Pull ${cloudId}: usando slides inline (v1), ${rawSlides.length} slides`
+    );
   } else {
     const slidesCol = slidesSubcollection(db, ownerUid, cloudId);
     const slidesSnap = await getDocs(slidesCol);
@@ -1111,6 +1118,9 @@ export async function pullPresentationFromCloud(
         return Number(dataA.order ?? a.id) - Number(dataB.order ?? b.id);
       })
       .map((d) => d.data() as Record<string, unknown>);
+    console.log(
+      `[cloud] Pull ${cloudId}: subcolección (schema=${remoteSchema}), slideCount=${data.slideCount ?? "?"}, docs leídos=${rawSlides.length}`
+    );
   }
 
   /** Imágenes: solo URL firmada de Storage (no se bajan bytes aquí; el navegador carga bajo demanda). */

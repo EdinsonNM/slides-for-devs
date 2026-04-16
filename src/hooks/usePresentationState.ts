@@ -2599,16 +2599,14 @@ export function usePresentationState() {
       const existing =
         !isSharedFromOther && savedList.find((p) => p.cloudId === cloudId);
       if (existing) {
-        if (existing.localBodyCleared && user) {
-          try {
-            await rehydratePresentationFromMyCloud(existing.id, cloudId);
-          } catch (e) {
-            console.error(e);
-            alert(
-              `No se pudo recuperar: ${formatCloudSyncUserMessage(e)}`,
-            );
-            return;
-          }
+        try {
+          await rehydratePresentationFromMyCloud(existing.id, cloudId);
+        } catch (e) {
+          console.error(e);
+          alert(
+            `No se pudo recuperar: ${formatCloudSyncUserMessage(e)}`,
+          );
+          return;
         }
         await handleOpenSaved(existing.id);
         return;
