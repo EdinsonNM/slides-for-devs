@@ -52,7 +52,8 @@ export class CloudSyncConflictError extends Error {
   readonly code = "CLOUD_SYNC_CONFLICT" as const;
   constructor(
     public readonly expectedRevision: number,
-    public readonly remoteRevision: number
+    public readonly remoteRevision: number,
+    public readonly remoteSlideCount?: number
   ) {
     super(
       `Conflicto: la nube está en revisión ${remoteRevision} y tu copia esperaba ${expectedRevision}.`
@@ -508,7 +509,9 @@ export async function pushPresentationToCloud(
     if (!force) {
       const expected = localExpectedRevision ?? 0;
       if (preRemoteRev !== expected) {
-        throw new CloudSyncConflictError(expected, preRemoteRev);
+        const pd = preSnap.data() as Record<string, unknown>;
+        const remoteCount = Number(pd.slideCount ?? (Array.isArray(pd.slides) ? (pd.slides as unknown[]).length : 0));
+        throw new CloudSyncConflictError(expected, preRemoteRev, remoteCount);
       }
     }
     const pd = preSnap.data() as Record<string, unknown>;
@@ -626,7 +629,9 @@ export async function pushPresentationToCloud(
     if (!force && snap.exists()) {
       const expected = localExpectedRevision ?? 0;
       if (remoteRev !== expected) {
-        throw new CloudSyncConflictError(expected, remoteRev);
+        const td = snap.data() as Record<string, unknown>;
+        const rc = Number(td.slideCount ?? (Array.isArray(td.slides) ? (td.slides as unknown[]).length : 0));
+        throw new CloudSyncConflictError(expected, remoteRev, rc);
       }
     }
 
@@ -656,10 +661,13 @@ export async function pushPresentationToCloud(
 
   const slideOps: BatchOp[] = [];
   for (let i = 0; i < cloudSlides.length; i++) {
+    const slideData = { order: i, ...cloudSlides[i]! };
+    const sizeKB = (JSON.stringify(slideData).length / 1024).toFixed(1);
+    console.log(`[cloud] Push ${cloudId}: slide ${i} → ~${sizeKB} KB`);
     slideOps.push({
       type: "set",
       ref: doc(slidesCol, String(i)),
-      data: { order: i, ...cloudSlides[i]! },
+      data: slideData,
     });
   }
   for (let i = cloudSlides.length; i < oldSlideCount; i++) {
@@ -670,6 +678,8 @@ export async function pushPresentationToCloud(
     let currentBatch = writeBatch(db);
     let opsInBatch = 0;
     let batchBytes = 0;
+    let batchIndex = 0;
+    let slidesCommitted = 0;
 
     for (const op of slideOps) {
       const estimatedBytes =
@@ -680,10 +690,15 @@ export async function pushPresentationToCloud(
         (opsInBatch >= FIRESTORE_BATCH_LIMIT ||
           batchBytes + estimatedBytes > BATCH_PAYLOAD_BUDGET)
       ) {
+        console.log(
+          `[cloud] Push ${cloudId}: batch ${batchIndex} commit (${opsInBatch} ops, ~${(batchBytes / 1024).toFixed(0)} KB)`
+        );
         await currentBatch.commit();
+        slidesCommitted += opsInBatch;
         currentBatch = writeBatch(db);
         opsInBatch = 0;
         batchBytes = 0;
+        batchIndex += 1;
       }
 
       if (op.type === "set") currentBatch.set(op.ref, op.data);
@@ -692,11 +707,17 @@ export async function pushPresentationToCloud(
       batchBytes += estimatedBytes;
     }
 
-    if (opsInBatch > 0) await currentBatch.commit();
+    if (opsInBatch > 0) {
+      console.log(
+        `[cloud] Push ${cloudId}: batch ${batchIndex} commit (${opsInBatch} ops, ~${(batchBytes / 1024).toFixed(0)} KB)`
+      );
+      await currentBatch.commit();
+      slidesCommitted += opsInBatch;
+    }
+    console.log(
+      `[cloud] Push ${cloudId}: ${slidesCommitted} slide ops en ${batchIndex + 1} batches, rev=${newRevision}`
+    );
   }
-  console.log(
-    `[cloud] Push ${cloudId}: ${cloudSlides.length} slides escritos en subcolección, rev=${newRevision}`
-  );
 
   try {
     const postSnap = await getDoc(docRef);

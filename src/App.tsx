@@ -274,6 +274,8 @@ export default function App() {
         open={cloudSyncConflict !== null}
         expectedRevision={cloudSyncConflict?.expectedRevision ?? 0}
         remoteRevision={cloudSyncConflict?.remoteRevision ?? 0}
+        localSlideCount={cloudSyncConflict?.localSlideCount}
+        remoteSlideCount={cloudSyncConflict?.remoteSlideCount}
         onDismiss={dismissCloudSyncConflict}
         onUseRemote={resolveCloudConflictUseRemote}
         onForceLocal={resolveCloudConflictForceLocal}

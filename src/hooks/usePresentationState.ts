@@ -395,6 +395,8 @@ export function usePresentationState() {
     cloudId: string;
     expectedRevision: number;
     remoteRevision: number;
+    localSlideCount?: number;
+    remoteSlideCount?: number;
   } | null>(null);
   /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
   const diagramFlushRef = useRef<(() => string | null) | null>(null);
@@ -438,6 +440,8 @@ export function usePresentationState() {
   const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
     async () => {},
   );
+  /** Suprime auto-sync mientras se resuelve un conflicto para evitar re-conflicto por race condition. */
+  const conflictResolvingRef = useRef(false);
 
   /**
    * Serializa subidas por id local. Sin esto, dos autosync o un autosync + manual
@@ -2183,6 +2187,7 @@ export function usePresentationState() {
   const maybeAutoSyncAfterLocalSave = useCallback(
     async (localId: string) => {
       if (!autoCloudSyncOnSave || !user) return;
+      if (conflictResolvingRef.current) return;
       if (
         typeof window === "undefined" ||
         (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
@@ -2224,6 +2229,8 @@ export function usePresentationState() {
               cloudId: meta?.cloudId ?? "",
               expectedRevision: e.expectedRevision,
               remoteRevision: e.remoteRevision,
+              localSlideCount: meta?.slideCount,
+              remoteSlideCount: e.remoteSlideCount,
             });
           } else {
             console.error("Auto-sync nube:", e);
@@ -2474,6 +2481,8 @@ export function usePresentationState() {
                 cloudId: meta?.cloudId ?? "",
                 expectedRevision: e.expectedRevision,
                 remoteRevision: e.remoteRevision,
+                localSlideCount: meta?.slideCount,
+                remoteSlideCount: e.remoteSlideCount,
               });
             } else {
               console.error(e);
@@ -2937,11 +2946,10 @@ export function usePresentationState() {
       return;
     }
     setCloudSyncConflict(null);
+    conflictResolvingRef.current = true;
     try {
-      const { presentation, cloudRevision } = await pullPresentationFromCloud(
-        user.uid,
-        cloudId,
-      );
+      const { presentation, cloudRevision } =
+        await pullPresentationFromCloud(user.uid, cloudId);
       await updatePresentation(
         localId,
         {
@@ -2985,6 +2993,8 @@ export function usePresentationState() {
       alert(
         `No se pudo traer la versión de la nube: ${formatCloudSyncUserMessage(e)}`,
       );
+    } finally {
+      conflictResolvingRef.current = false;
     }
   }, [
     cloudSyncConflict,
@@ -2999,6 +3009,7 @@ export function usePresentationState() {
     if (!cloudSyncConflict || !user) return;
     const { localId, cloudId } = cloudSyncConflict;
     setCloudSyncConflict(null);
+    conflictResolvingRef.current = true;
     try {
       const saved = await loadPresentation(localId, localAccountScope);
       const cid =
@@ -3029,6 +3040,8 @@ export function usePresentationState() {
     } catch (e) {
       console.error(e);
       alert(`No se pudo forzar la subida: ${formatCloudSyncUserMessage(e)}`);
+    } finally {
+      conflictResolvingRef.current = false;
     }
   }, [cloudSyncConflict, user, refreshSavedList, localAccountScope]);
 
