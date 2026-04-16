@@ -1046,6 +1046,45 @@ export async function setPresentationShareAccess(
  */
 export type PulledPresentation = Omit<SavedPresentation, "id">;
 
+/**
+ * Resuelve `ownerUid` + `cloudId` del documento Firestore a partir de metadatos locales.
+ * Presentación propia: `cloudId` en meta; compartida importada: `sharedCloudSource` = `ownerUid::cloudId`.
+ */
+export function resolvePresentationCloudRef(
+  meta: { cloudId?: string; sharedCloudSource?: string },
+  myUid: string
+): { ownerUid: string; cloudId: string } | null {
+  const cid = meta.cloudId?.trim();
+  if (cid) return { ownerUid: myUid, cloudId: cid };
+  const raw = meta.sharedCloudSource?.trim();
+  if (!raw) return null;
+  const sep = "::";
+  const i = raw.indexOf(sep);
+  if (i <= 0) return null;
+  const ownerUid = raw.slice(0, i).trim();
+  const cloudId = raw.slice(i + sep.length).trim();
+  if (!ownerUid || !cloudId) return null;
+  return { ownerUid, cloudId };
+}
+
+/** Solo lee el doc principal (barato) para comparar con `cloudRevision` local. */
+export async function getCloudPresentationRevision(
+  ownerUid: string,
+  cloudId: string
+): Promise<number> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser) {
+    throw new Error("Inicia sesión para consultar la nube.");
+  }
+  const snap = await getDoc(presentationDoc(db, ownerUid, cloudId.trim()));
+  if (!snap.exists()) return 0;
+  const data = snap.data() as Record<string, unknown>;
+  const rev = Number(data.revision ?? 0);
+  return Number.isFinite(rev) ? rev : 0;
+}
+
 export async function pullPresentationFromCloud(
   ownerUid: string,
   cloudId: string

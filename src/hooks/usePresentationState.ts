@@ -124,6 +124,8 @@ import {
   pullPresentationFromCloud,
   deleteOwnerPresentationFromCloud,
   CloudSyncConflictError,
+  getCloudPresentationRevision,
+  resolvePresentationCloudRef,
   type CloudPresentationListItem,
 } from "../services/presentationCloud";
 import { getFirebaseConfig, initFirebase } from "../services/firebase";
@@ -2508,12 +2510,13 @@ export function usePresentationState() {
   };
 
   const rehydratePresentationFromMyCloud = useCallback(
-    async (localId: string, cloudId: string) => {
+    async (localId: string, cloudId: string, presentationOwnerUid?: string) => {
       if (!user) {
         throw new Error("Inicia sesión para recuperar desde la nube.");
       }
+      const owner = presentationOwnerUid ?? user.uid;
       const { presentation: pulled, cloudRevision } =
-        await pullPresentationFromCloud(user.uid, cloudId);
+        await pullPresentationFromCloud(owner, cloudId);
       await importSavedPresentation(
         {
           ...pulled,
@@ -2521,16 +2524,65 @@ export function usePresentationState() {
         },
         localAccountScope,
       );
-      await setPresentationCloudState(
-        localId,
-        cloudId,
-        new Date().toISOString(),
-        cloudRevision,
-        localAccountScope,
-      );
+      if (owner !== user.uid) {
+        await setPresentationCloudState(
+          localId,
+          null,
+          new Date().toISOString(),
+          cloudRevision,
+          localAccountScope,
+        );
+        await setPresentationSharedCloudSource(
+          localId,
+          `${owner}::${cloudId}`,
+          localAccountScope,
+        );
+      } else {
+        await setPresentationCloudState(
+          localId,
+          cloudId,
+          new Date().toISOString(),
+          cloudRevision,
+          localAccountScope,
+        );
+      }
       await refreshSavedList();
     },
     [user, localAccountScope, refreshSavedList],
+  );
+
+  const maybePullCloudPresentationBeforeLoad = useCallback(
+    async (localId: string, meta: SavedPresentationMeta | undefined) => {
+      if (!user || !meta) return;
+      const ref = resolvePresentationCloudRef(meta, user.uid);
+      if (!ref) return;
+      try {
+        if (meta.localBodyCleared) {
+          await rehydratePresentationFromMyCloud(
+            localId,
+            ref.cloudId,
+            ref.ownerUid === user.uid ? undefined : ref.ownerUid,
+          );
+          return;
+        }
+        const remoteRev = await getCloudPresentationRevision(
+          ref.ownerUid,
+          ref.cloudId,
+        );
+        const localRev = meta.cloudRevision ?? 0;
+        if (remoteRev > localRev) {
+          await rehydratePresentationFromMyCloud(
+            localId,
+            ref.cloudId,
+            ref.ownerUid === user.uid ? undefined : ref.ownerUid,
+          );
+        }
+      } catch (e) {
+        if (meta.localBodyCleared) throw e;
+        console.warn("No se pudo comprobar o bajar la versión en la nube al abrir:", e);
+      }
+    },
+    [user, rehydratePresentationFromMyCloud],
   );
 
   const handleOpenSaved = async (id: string) => {
@@ -2543,14 +2595,14 @@ export function usePresentationState() {
       } catch {
         metaOpen = savedList.find((p) => p.id === id);
       }
-      if (metaOpen?.localBodyCleared && metaOpen.cloudId) {
-        if (!user) {
-          alert("Inicia sesión para recuperar la copia desde la nube.");
-          return;
-        }
-        try {
-          await rehydratePresentationFromMyCloud(id, metaOpen.cloudId);
-        } catch (e) {
+      if (metaOpen?.localBodyCleared && !user) {
+        alert("Inicia sesión para recuperar la copia desde la nube.");
+        return;
+      }
+      try {
+        await maybePullCloudPresentationBeforeLoad(id, metaOpen);
+      } catch (e) {
+        if (metaOpen?.localBodyCleared) {
           console.error(e);
           alert(
             `No se pudo recuperar desde la nube: ${formatCloudSyncUserMessage(e)}`,
@@ -2688,6 +2740,20 @@ export function usePresentationState() {
       }
       if (!id) return false;
       try {
+        if (user) {
+          let metaRestore: SavedPresentationMeta | undefined;
+          try {
+            const list = await listPresentations(localAccountScope);
+            metaRestore = list.find((p) => p.id === id);
+          } catch {
+            metaRestore = undefined;
+          }
+          try {
+            await maybePullCloudPresentationBeforeLoad(id, metaRestore);
+          } catch {
+            /* cuerpo vacío: sin sesión o fallo de red; se sigue con copia local si existe */
+          }
+        }
         const saved = await loadPresentation(id, localAccountScope);
         slidesUndoRef.current = [];
         slidesRedoRef.current = [];
@@ -2721,7 +2787,13 @@ export function usePresentationState() {
         }
         return false;
       }
-    }, [formatMarkdown, lastOpenedSessionKey, localAccountScope]);
+    }, [
+      formatMarkdown,
+      lastOpenedSessionKey,
+      localAccountScope,
+      user,
+      maybePullCloudPresentationBeforeLoad,
+    ]);
 
   const requestDeletePresentation = useCallback((id: string) => {
     setDeletePresentationId(id);
