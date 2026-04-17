@@ -188,6 +188,51 @@
   font-size: var(--slide-body);
 }
 
+/**
+ * Miniaturas del listado de diapositivas (~80–280px de ancho): las variables de `.slide-content`
+ * arrastran pisos en `rem` del editor; aquí la escala sigue el ancho del propio thumb (cqw) con techos en px.
+ */
+.sidebar-slide-canvas-mini {
+  container-type: inline-size;
+  container-name: sidebar-thumb;
+  --slide-title-chapter: clamp(7px, 4.6cqw, 13px);
+  --slide-title: clamp(6.5px, 3.35cqw, 12px);
+  --slide-subtitle: clamp(6px, 2.35cqw, 9.5px);
+  --slide-label: clamp(5px, 1.15cqw, 7px);
+  --slide-body: clamp(4.5px, 2.05cqw, 8.5px);
+}
+
+@supports not (font-size: 1cqw) {
+  .sidebar-slide-canvas-mini {
+    --slide-title-chapter: clamp(7px, 2.1vw, 13px);
+    --slide-title: clamp(6.5px, 1.55vw, 12px);
+    --slide-subtitle: clamp(6px, 1.1vw, 9.5px);
+    --slide-label: clamp(5px, 0.85vw, 7px);
+    --slide-body: clamp(4.5px, 0.95vw, 8.5px);
+  }
+}
+
+.sidebar-slide-canvas-mini .prose,
+.sidebar-slide-canvas-mini .prose p,
+.sidebar-slide-canvas-mini .prose li {
+  font-size: var(--slide-body);
+}
+
+.sidebar-slide-canvas-mini .prose h1 {
+  font-size: clamp(5.5px, 1.85em, 9px);
+}
+.sidebar-slide-canvas-mini .prose h2 {
+  font-size: clamp(5.25px, 1.65em, 8.5px);
+}
+.sidebar-slide-canvas-mini .prose h3 {
+  font-size: clamp(5px, 1.45em, 8px);
+}
+
+.sidebar-slide-canvas-mini :is(h1, h2, h3) {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
 /* Preferir cortes entre palabras en títulos editables (evita troceos tipo "Introdu|cción") */
 .slide-content :is(h1, h2),
 .slide-content textarea[data-slide-edit-field="true"],

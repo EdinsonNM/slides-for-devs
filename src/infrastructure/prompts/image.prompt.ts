@@ -89,7 +89,11 @@ export const imageGenerationPrompt: PromptDefinition<ImageGenerationInput> = {
         : input.slideContext;
     const noText =
       "La imagen NO debe contener texto, leyendas ni etiquetas (evitar que aparezcan caracteres o palabras; solo formas e iconos).";
-    const background = includeBackground ? "" : " Fondo blanco puro; solo el sujeto principal, sin escenario.";
+    const background = characterPreviewOnly
+      ? " Fondo blanco puro y uniforme (#FFFFFF) en todo el lienzo, plano y sin textura ni sombra de contacto sobre el suelo. PROHIBIDO: patrón de cuadros gris/blanco, rejilla tipo «transparencia» de Photoshop, damero, mosaico de transparencia, simulación de canal alpha, pictograma de PNG transparente o cualquier dibujo que imite fondo transparente. Fuera del personaje solo blanco liso; sin escenario, degradado ni vignette."
+      : includeBackground
+        ? ""
+        : " Fondo blanco puro; solo el sujeto principal, sin escenario.";
     const hasCharacter = hasReferenceImage || (characterPrompt?.trim()?.length ?? 0) > 0;
 
     const userWants3D = /3D|tridimensional|isométric|isometric|isométrico|volumen|HD-2D|hd2d|hd\s*2d|octopath|voxel|pixel\s+art\s+3d|sprites?\s*3d|sprites?\s+tridimensional/i.test(
@@ -139,8 +143,9 @@ Ilustra los conceptos clave.${contextRule}
 Escena a ilustrar: ${userPrompt}.`;
 
     const reminderCharacterPreview =
-      "\n\nAVATAR / PERSONAJE (vista previa): Un solo personaje centrado. Fondo neutro y limpio (gris suave o degradado muy sutil), sin iconos decorativos ni marcos salvo que el usuario lo pida. Sin texto.\n" +
-      "Si la descripción pide 3D, «pixel art 3D», HD-2D, isométrico o volumen: respétalo con perspectiva (tres cuartos o isométrica), sombras que den relieve y lectura espacial; NO sustituir por sprite 2D frontal plano. " +
+      "\n\nAVATAR / PERSONAJE (vista previa de referencia): Un solo personaje centrado sobre fondo BLANCO LISO (no rejilla ni cuadritos). Sin iconos decorativos ni marcos salvo que el usuario lo pida en su texto. Sin texto.\n" +
+      "Nunca dibujes patrón de transparencia (cuadros grises y blancos): es un error; el fondo es color sólido blanco.\n" +
+      "Si la descripción pide 3D, «pixel art 3D», HD-2D, isométrico o volumen: respétalo con perspectiva (tres cuartos o isométrica), sombras que den relieve sobre el propio personaje; el resto del lienzo sigue siendo blanco uniforme, sin suelo texturizado ni habitación. " +
       "Si pide pixel art: mantén píxeles visibles y paleta acotada, pero con la dimensionalidad pedida.";
 
     const reminderHasCharacter = userWants3D
@@ -183,6 +188,7 @@ La descripción debe:
 - Incluir forma del cuerpo y cabeza, colores, rasgos faciales, accesorios (mochila, ropa, etc.), estilo visual (cartoon, vectorial, 3D, pixel art 2D vs 3D/HD-2D/isométrico, etc.). Si el usuario pide «3D» o «pixel art 3D», explicita perspectiva (tres cuartos o isométrica), sombras y volumen; no lo conviertas en sprite 2D plano.
 - Ser reutilizable: al usarla en distintos contextos el resultado debe ser el mismo personaje.
 - NO pedir texto ni palabras en la imagen.
+- NO mencionar ni pedir fondo, degradado, escenario, rejilla de transparencia, cuadros gris/blanco, «fondo PNG transparente» ni simulación de canal alpha: la imagen de referencia del personaje se genera sobre blanco liso; limita el texto a la apariencia del personaje.
 - Ser concisa pero completa (2-5 frases).
 
 Responde ÚNICAMENTE la descripción refinada, sin comillas ni explicaciones.`;

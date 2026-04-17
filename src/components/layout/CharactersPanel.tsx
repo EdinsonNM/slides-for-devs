@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, UserPlus, User, Trash2, Info } from "lucide-react";
+import { X, UserPlus, User, Trash2, Info, RefreshCw, Loader2 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { CharacterDetailModal } from "../modals/CharacterDetailModal";
 import { cn } from "../../utils/cn";
@@ -16,10 +16,18 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
     savedCharacters,
     deleteCharacter,
     setShowCharacterCreatorModal,
+    saveCharacter,
+    refreshSavedCharacters,
+    generateCharacterPreview,
+    hasGemini,
+    hasOpenAI,
   } = usePresentation();
 
   const [detailCharacter, setDetailCharacter] = useState<typeof savedCharacters[0] | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+
+  const canRegenerateImage = hasGemini || hasOpenAI;
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -33,6 +41,27 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
 
   const openCreator = () => {
     setShowCharacterCreatorModal(true);
+  };
+
+  const handleRegenerateImage = async (c: (typeof savedCharacters)[0]) => {
+    if (!canRegenerateImage || !c.description?.trim()) return;
+    setRegeneratingId(c.id);
+    try {
+      const url = await generateCharacterPreview(c.description.trim());
+      if (!url?.trim()) {
+        alert("No se pudo regenerar la imagen. Comprueba tu API key de Gemini u OpenAI.");
+        return;
+      }
+      const updated = { ...c, referenceImageDataUrl: url };
+      await saveCharacter(updated);
+      refreshSavedCharacters();
+      if (detailCharacter?.id === c.id) setDetailCharacter(updated);
+    } catch (e) {
+      console.error(e);
+      alert("Error al regenerar la imagen del personaje.");
+    } finally {
+      setRegeneratingId(null);
+    }
   };
 
   const visible = variant === "inspector" || showCharactersPanel;
@@ -133,18 +162,41 @@ export function CharactersPanel({ variant = "toolbar" }: CharactersPanelProps) {
                     </span>
                   </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(c.id);
-                  }}
-                  disabled={deletingId === c.id}
-                  className="p-1.5 flex items-center justify-center text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50 border-t border-stone-100 dark:border-border"
-                  title="Eliminar"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex border-t border-stone-100 dark:border-border">
+                  {canRegenerateImage && c.description?.trim() ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleRegenerateImage(c);
+                      }}
+                      disabled={regeneratingId === c.id || deletingId === c.id}
+                      className="flex-1 p-1.5 flex items-center justify-center text-stone-400 dark:text-stone-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-50 border-r border-stone-100 dark:border-border"
+                      title="Regenerar imagen"
+                    >
+                      {regeneratingId === c.id ? (
+                        <Loader2 size={14} className="animate-spin text-violet-600" />
+                      ) : (
+                        <RefreshCw size={14} />
+                      )}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(c.id);
+                    }}
+                    disabled={deletingId === c.id || regeneratingId === c.id}
+                    className={cn(
+                      "p-1.5 flex items-center justify-center text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50",
+                      canRegenerateImage && c.description?.trim() ? "flex-1" : "w-full",
+                    )}
+                    title="Eliminar"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

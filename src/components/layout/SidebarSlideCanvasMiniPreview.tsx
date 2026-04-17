@@ -1,10 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   Box,
   Code2,
   Image as ImageIcon,
-  MonitorPlay,
   PencilRuler,
+  Smartphone,
   Video,
 } from "lucide-react";
 import type { Slide } from "../../types";
@@ -12,7 +13,6 @@ import {
   SLIDE_TYPE,
   type DeckContentTone,
   type SlideCanvasElement,
-  type SlideCanvasElementKind,
 } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
@@ -24,7 +24,11 @@ import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
-import { deckChapterSubtitleHintClass } from "../../utils/deckSlideChrome";
+import {
+  deckChapterSubtitleHintClass,
+  deckPrimaryTextClass,
+} from "../../utils/deckSlideChrome";
+import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { cn } from "../../utils/cn";
 import { IsoStyleThreeDBadge } from "../shared/IsoStyleThreeDBadge";
 
@@ -35,42 +39,14 @@ import { IsoStyleThreeDBadge } from "../shared/IsoStyleThreeDBadge";
  */
 const SIDEBAR_THUMB_TEXT_TONE: DeckContentTone = "dark";
 
-/**
- * En el listado lateral priorizamos leer título/subtítulo/cuerpo aunque en el lienzo
- * un `mediaPanel` u otro bloque tenga mayor `z` y los tape en la miniatura.
- */
-const THUMB_TEXT_KINDS: ReadonlySet<SlideCanvasElementKind> = new Set([
-  "title",
-  "subtitle",
-  "chapterTitle",
-  "chapterSubtitle",
-  "markdown",
-  "matrixNotes",
-]);
-const THUMB_TEXT_Z_BOOST = 50_000;
-
-function stripMarkdownOneLine(s: string, maxLen: number): string {
-  const t = s
-    .replace(/#{1,6}\s/g, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-  return t.length > maxLen ? `${t.slice(0, maxLen)}…` : t;
-}
-
-/** `fillMinHeight: auto` evita que `min-h-0` en flex recorte glifos (títulos cortados por abajo). */
 function rotated(
   rotation: number | undefined,
   className: string,
   children: ReactNode,
-  opts?: { fillMinHeight?: "zero" | "auto" },
 ) {
-  const fillMin =
-    opts?.fillMinHeight === "auto" ? "min-h-auto" : "min-h-0";
   return (
     <div
-      className={cn("h-full w-full min-w-0", fillMin, className)}
+      className={cn("h-full w-full min-h-0 min-w-0", className)}
       style={
         rotation
           ? {
@@ -81,6 +57,38 @@ function rotated(
       }
     >
       {children}
+    </div>
+  );
+}
+
+/**
+ * Bloques de panel / diagrama (no isométrico): icono reconocible sobre fondo suave.
+ * Las tres barras sesgadas quedan reservadas a `IsoStyleThreeDBadge` (diagrama isométrico en miniatura).
+ */
+function SidebarCanvasBlockIconThumb({
+  Icon,
+  surfaceClassName,
+  iconClassName,
+}: {
+  Icon: LucideIcon;
+  surfaceClassName: string;
+  iconClassName: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden rounded border border-dashed border-stone-300/85 bg-linear-to-br dark:border-stone-600",
+        surfaceClassName,
+      )}
+    >
+      <Icon
+        className={cn(
+          "pointer-events-none h-3 w-3 max-h-[42%] max-w-[42%] min-h-2 min-w-2 shrink-0 drop-shadow-sm",
+          iconClassName,
+        )}
+        strokeWidth={1.75}
+        aria-hidden
+      />
     </div>
   );
 }
@@ -98,33 +106,55 @@ function SidebarMiniMediaBlock({ panelSlide }: { panelSlide: Slide }) {
           className="h-full w-full object-cover"
         />
       ) : (
-        <IsoStyleThreeDBadge Icon={ImageIcon} compact />
+        <SidebarCanvasBlockIconThumb
+          Icon={ImageIcon}
+          surfaceClassName="from-stone-100 to-stone-50 dark:from-stone-800 dark:to-stone-900/85"
+          iconClassName="text-stone-500 dark:text-stone-400"
+        />
       );
     case PANEL_CONTENT_KIND.CODE:
-      return <IsoStyleThreeDBadge Icon={Code2} compact />;
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={Code2}
+          surfaceClassName="from-amber-50 to-amber-100/90 dark:from-amber-950/35 dark:to-amber-900/25"
+          iconClassName="text-amber-800 dark:text-amber-200"
+        />
+      );
     case PANEL_CONTENT_KIND.VIDEO:
-      return <IsoStyleThreeDBadge Icon={Video} compact />;
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={Video}
+          surfaceClassName="from-sky-50 to-sky-100/90 dark:from-sky-950/35 dark:to-sky-900/25"
+          iconClassName="text-sky-800 dark:text-sky-200"
+        />
+      );
     case PANEL_CONTENT_KIND.PRESENTER_3D:
-      if (panelSlide.imageUrl) {
-        return (
-          <img
-            src={panelSlide.imageUrl}
-            alt=""
-            draggable={false}
-            referrerPolicy="no-referrer"
-            className="h-full w-full object-cover"
-          />
-        );
-      }
-      return <IsoStyleThreeDBadge Icon={MonitorPlay} compact />;
+      /* No mostrar la textura de pantalla: la miniatura representa el bloque de panel 3D, no el contenido cargado. */
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={Smartphone}
+          surfaceClassName="from-violet-50 to-violet-100/90 dark:from-violet-950/40 dark:to-violet-900/30"
+          iconClassName="text-violet-800 dark:text-violet-200"
+        />
+      );
     case PANEL_CONTENT_KIND.CANVAS_3D:
-      return <IsoStyleThreeDBadge Icon={Box} compact />;
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={Box}
+          surfaceClassName="from-teal-50 to-teal-100/90 dark:from-teal-950/40 dark:to-teal-900/30"
+          iconClassName="text-teal-800 dark:text-teal-200"
+        />
+      );
     default: {
       const _e: never = kind;
       return _e;
     }
   }
 }
+
+/** Márgenes de prose más apretados en el área minúscula de la miniatura (misma escala tipográfica que el lienzo). */
+const THUMB_MARKDOWN_COMPACT =
+  "[&_p]:mb-1 [&_p]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-px";
 
 function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode {
   const tone = SIDEBAR_THUMB_TEXT_TONE;
@@ -134,88 +164,97 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
     top: `${rect.y}%`,
     width: `${rect.w}%`,
     height: `${rect.h}%`,
-    zIndex: THUMB_TEXT_KINDS.has(kind) ? z + THUMB_TEXT_Z_BOOST : z,
+    zIndex: z,
   };
   const shell = "absolute min-h-0 min-w-0 overflow-hidden";
-  /**
-   * Texto: sin `overflow-y-hidden` en el bloque (recortaba la parte inferior de las letras con flex+min-h-0).
-   * `container-type: size` sigue en este nodo para `cqh` en `font-size`.
-   */
-  const textBlockShell = cn(
-    "absolute min-h-0 min-w-0 overflow-x-clip overflow-y-visible [container-type:size]",
-  );
 
   switch (kind) {
     case "sectionLabel":
       return null;
     case "title":
       return (
-        <div key={el.id} style={boxStyle} className={textBlockShell}>
+        <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            "flex h-full w-full min-h-0 flex-col justify-start overflow-visible px-[3%] py-[4%]",
+            "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-1",
             <>
-              <p
+              <h2
                 className={cn(
-                  /* Misma familia/estilo que la miniatura isométrica del sidebar (`SlideSidebar`): sans, medium, sin itálica */
-                  "line-clamp-4 min-w-0 max-w-full shrink-0 break-words py-px text-left font-sans font-medium leading-normal text-stone-900 dark:text-foreground",
+                  "min-h-0 min-w-0 w-full max-w-full shrink font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
+                  deckPrimaryTextClass(tone),
                 )}
-                style={{
-                  fontSize:
-                    "clamp(9px, min(5.5cqw, 48cqh), 14px)",
-                  lineHeight: 1.45,
-                }}
+                style={{ fontSize: "var(--slide-title)" }}
               >
-                {readTextMarkdownFromElement(slide, el).trim() || "—"}
-              </p>
-              <div className="mt-[3%] h-[2px] min-h-[2px] w-[min(42%,2.5rem)] max-w-[90%] shrink-0 rounded-full bg-emerald-600" />
+                {readTextMarkdownFromElement(slide, el)}
+              </h2>
+              <div className="mt-2 h-1.5 w-20 shrink-0 rounded-full bg-emerald-600" />
             </>,
-            { fillMinHeight: "auto" },
           )}
         </div>
       );
     case "subtitle":
+      if (!readTextMarkdownFromElement(slide, el).trim()) return null;
+      return (
+        <div key={el.id} style={boxStyle} className={shell}>
+          {rotated(
+            rotation,
+            "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-0.5",
+            <SlideMarkdown
+              contentTone={tone}
+              className={cn(
+                "prose-sm max-w-none min-w-0 w-full",
+                THUMB_MARKDOWN_COMPACT,
+              )}
+              style={{ fontSize: "var(--slide-subtitle)" }}
+            >
+              {readTextMarkdownFromElement(slide, el)}
+            </SlideMarkdown>,
+          )}
+        </div>
+      );
     case "chapterSubtitle": {
       const raw = readTextMarkdownFromElement(slide, el).trim();
       if (!raw) return null;
       return (
-        <div key={el.id} style={boxStyle} className={textBlockShell}>
+        <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            "flex h-full w-full min-h-0 flex-col justify-start overflow-visible px-[3%] py-[4%]",
-            <p
+            cn(
+              "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center",
+              deckChapterSubtitleHintClass(tone),
+            ),
+            <SlideMarkdown
+              contentTone={tone}
               className={cn(
-                "line-clamp-4 min-w-0 max-w-full shrink-0 break-words py-px text-left font-sans font-medium leading-normal text-stone-900 dark:text-foreground",
-                kind === "chapterSubtitle" && deckChapterSubtitleHintClass(tone),
+                "prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide",
+                THUMB_MARKDOWN_COMPACT,
               )}
-              style={{
-                fontSize: "clamp(8px, min(4.5cqw, 40cqh), 13px)",
-                lineHeight: 1.45,
-              }}
+              style={{ fontSize: "var(--slide-subtitle)" }}
             >
-              {stripMarkdownOneLine(raw, 120)}
-            </p>,
-            { fillMinHeight: "auto" },
+              {readTextMarkdownFromElement(slide, el)}
+            </SlideMarkdown>,
           )}
         </div>
       );
     }
     case "chapterTitle":
       return (
-        <div key={el.id} style={boxStyle} className={textBlockShell}>
+        <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            "flex h-full w-full min-h-0 flex-col items-center justify-center overflow-visible px-[4%] py-[4%] text-center",
-            <p
-              className="line-clamp-4 min-w-0 max-w-full shrink-0 break-words py-px text-center font-sans font-medium leading-normal text-stone-900 dark:text-foreground"
-              style={{
-                fontSize: "clamp(9px, min(5.5cqw, 44cqh), 14px)",
-                lineHeight: 1.45,
-              }}
-            >
-              {readTextMarkdownFromElement(slide, el).trim() || "—"}
-            </p>,
-            { fillMinHeight: "auto" },
+            "flex h-full min-h-0 w-full flex-col items-center justify-start overflow-hidden px-3 text-center",
+            <>
+              <div className="mb-3 h-1 w-14 shrink-0 rounded-full bg-emerald-600 md:mb-4" />
+              <h1
+                className={cn(
+                  "min-h-0 min-w-0 w-full max-w-full shrink font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
+                  deckPrimaryTextClass(tone),
+                )}
+                style={{ fontSize: "var(--slide-title-chapter)" }}
+              >
+                {readTextMarkdownFromElement(slide, el)}
+              </h1>
+            </>,
           )}
         </div>
       );
@@ -223,20 +262,16 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
       const raw = readTextMarkdownFromElement(slide, el).trim();
       if (!raw) return null;
       return (
-        <div key={el.id} style={boxStyle} className={textBlockShell}>
+        <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            "flex h-full w-full min-h-0 flex-col justify-start overflow-visible px-[3%] py-[4%]",
-            <p
-              className="line-clamp-4 min-w-0 max-w-full shrink-0 break-words py-px text-left font-sans font-normal leading-normal text-stone-700 dark:text-stone-300"
-              style={{
-                fontSize: "clamp(7px, min(3.8cqw, 32cqh), 11px)",
-                lineHeight: 1.45,
-              }}
+            "h-full min-h-0 overflow-y-auto px-2 py-1 scrollbar-on-hover",
+            <SlideMarkdown
+              contentTone={tone}
+              className={cn("max-w-none min-w-0", THUMB_MARKDOWN_COMPACT)}
             >
-              {stripMarkdownOneLine(raw, 200)}
-            </p>,
-            { fillMinHeight: "auto" },
+              {readTextMarkdownFromElement(slide, el)}
+            </SlideMarkdown>,
           )}
         </div>
       );
@@ -247,7 +282,7 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
         <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            "box-border h-full min-h-0 w-full min-w-0 p-px",
+            "box-border h-full min-h-0 w-full min-w-0 p-1",
             <SidebarMiniMediaBlock
               panelSlide={slideAppearanceForMediaElement(slide, el)}
             />,
@@ -276,20 +311,21 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
       const raw = readTextMarkdownFromElement(slide, el).trim();
       if (!raw || slide.type !== SLIDE_TYPE.MATRIX) return null;
       return (
-        <div key={el.id} style={boxStyle} className={textBlockShell}>
+        <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            "flex h-full w-full min-h-0 flex-col justify-start overflow-visible border-t border-stone-300/60 px-[3%] py-[4%] dark:border-stone-600",
-            <p
-              className="line-clamp-4 min-w-0 max-w-full shrink-0 break-words py-px text-left font-sans font-normal leading-normal text-stone-600 dark:text-stone-400"
-              style={{
-                fontSize: "clamp(7px, min(3.5cqw, 30cqh), 10px)",
-                lineHeight: 1.45,
-              }}
+            cn(
+              "h-full min-h-0 overflow-y-auto border-t px-2 py-1 scrollbar-on-hover",
+              tone === "light"
+                ? "border-slate-600/60"
+                : "border-stone-100 dark:border-border",
+            ),
+            <SlideMarkdown
+              contentTone={tone}
+              className={cn("max-w-none min-w-0", THUMB_MARKDOWN_COMPACT)}
             >
-              {stripMarkdownOneLine(raw, 100)}
-            </p>,
-            { fillMinHeight: "auto" },
+              {readTextMarkdownFromElement(slide, el)}
+            </SlideMarkdown>,
           )}
         </div>
       );
@@ -300,7 +336,11 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
           {rotated(
             rotation,
             "h-full w-full min-h-0 min-w-0",
-            <IsoStyleThreeDBadge Icon={PencilRuler} compact />,
+            <SidebarCanvasBlockIconThumb
+              Icon={PencilRuler}
+              surfaceClassName="from-indigo-50 to-violet-100/90 dark:from-indigo-950/40 dark:to-violet-950/35"
+              iconClassName="text-indigo-800 dark:text-indigo-200"
+            />,
           )}
         </div>
       );
@@ -329,7 +369,7 @@ export function SidebarSlideCanvasMiniPreview({ slide }: { slide: Slide }) {
   const scene = ensured.canvasScene;
   if (!scene?.elements?.length) {
     return (
-      <div className="flex h-full min-h-0 w-full items-center justify-center rounded border border-dashed border-stone-300 bg-stone-50 text-[8px] text-stone-400 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-500">
+      <div className="relative isolate flex h-full min-h-0 w-full items-center justify-center rounded bg-stone-100/90 text-left text-[8px] text-stone-400 dark:bg-stone-800/90 dark:text-stone-500">
         Vacío
       </div>
     );
@@ -337,7 +377,7 @@ export function SidebarSlideCanvasMiniPreview({ slide }: { slide: Slide }) {
   const sorted = [...scene.elements].sort(compareCanvasElementsByZThenId);
 
   return (
-    <div className="relative h-full min-h-0 w-full overflow-hidden rounded border border-stone-200 bg-white [container-type:inline-size] dark:border-stone-600 dark:bg-surface-elevated">
+    <div className="sidebar-slide-canvas-mini relative isolate h-full min-h-0 w-full overflow-hidden rounded bg-white text-left dark:bg-surface-elevated">
       {sorted.map((el) => miniPreviewForElement(ensured, el))}
     </div>
   );

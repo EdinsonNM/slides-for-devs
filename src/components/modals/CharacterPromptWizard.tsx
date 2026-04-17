@@ -142,7 +142,7 @@ function buildDescription(params: {
     art.fragment,
     core,
     extra || undefined,
-    "Un solo personaje centrado, cuerpo entero o busto según encaje mejor; fondo neutro y limpio; sin texto, letreros ni interfaz.",
+    "Un solo personaje centrado, cuerpo entero o busto según encaje mejor; sin pedir escenario ni rejilla de transparencia (la referencia se genera sobre blanco liso); sin texto, letreros ni interfaz.",
   ];
   return parts.filter(Boolean).join(" ");
 }

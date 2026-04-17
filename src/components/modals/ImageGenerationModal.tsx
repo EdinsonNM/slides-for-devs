@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Send, Loader2, Wand2, Users, User } from "lucide-react";
+import type { SavedCharacter } from "../../types";
 import { usePresentation } from "../../context/PresentationContext";
 import { IMAGE_STYLES } from "../../constants/imageStyles";
 import { CharacterManagerModal } from "./CharacterManagerModal";
@@ -37,11 +38,26 @@ export function ImageGenerationModal() {
     handlePushAllCharactersToCloud,
     handlePullCharactersFromCloud,
     isSyncingCharactersCloud,
+    generateCharacterPreview,
+    refreshSavedCharacters,
   } = usePresentation();
 
   const [showCharacterManager, setShowCharacterManager] = useState(false);
 
   const canGenerateWithAI = hasGemini || hasOpenAI;
+
+  const handleRegenerateCharacterReference = async (character: SavedCharacter) => {
+    const url = await generateCharacterPreview(character.description.trim());
+    if (!url?.trim()) {
+      alert("No se pudo regenerar la imagen. Comprueba tu API key de Gemini u OpenAI.");
+      return;
+    }
+    await saveCharacter({
+      ...character,
+      referenceImageDataUrl: url,
+    });
+    refreshSavedCharacters();
+  };
 
   return (
     <AnimatePresence>
@@ -328,6 +344,9 @@ export function ImageGenerationModal() {
         onPushCharactersToCloud={handlePushAllCharactersToCloud}
         onPullCharactersFromCloud={handlePullCharactersFromCloud}
         isSyncingCharactersCloud={isSyncingCharactersCloud}
+        onRegenerateCharacterReference={
+          canGenerateWithAI ? handleRegenerateCharacterReference : undefined
+        }
       />
     </AnimatePresence>
   );

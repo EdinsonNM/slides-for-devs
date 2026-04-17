@@ -8,6 +8,7 @@ import {
   CloudUpload,
   CloudDownload,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import type { SavedCharacter } from "../../types";
 import { cn } from "../../utils/cn";
@@ -23,6 +24,8 @@ interface CharacterManagerModalProps {
   onPushCharactersToCloud?: () => void | Promise<void>;
   onPullCharactersFromCloud?: () => void | Promise<void>;
   isSyncingCharactersCloud?: boolean;
+  /** Regenera la imagen de referencia desde la descripción (Gemini por defecto en el estado). */
+  onRegenerateCharacterReference?: (character: SavedCharacter) => Promise<void>;
 }
 
 export function CharacterManagerModal({
@@ -35,11 +38,13 @@ export function CharacterManagerModal({
   onPushCharactersToCloud,
   onPullCharactersFromCloud,
   isSyncingCharactersCloud = false,
+  onRegenerateCharacterReference,
 }: CharacterManagerModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const handleSaveNew = async () => {
     const trimmedName = name.trim();
@@ -65,6 +70,21 @@ export function CharacterManagerModal({
       await onDeleteCharacter(id);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRegenerate = async (c: SavedCharacter) => {
+    if (!onRegenerateCharacterReference || !c.description?.trim()) return;
+    setRegeneratingId(c.id);
+    try {
+      await onRegenerateCharacterReference(c);
+    } catch (e) {
+      console.error(e);
+      alert(
+        `Error al regenerar la imagen: ${e instanceof Error ? e.message : "error desconocido"}`,
+      );
+    } finally {
+      setRegeneratingId(null);
     }
   };
 
@@ -208,15 +228,32 @@ export function CharacterManagerModal({
                         {c.description}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(c.id)}
-                      disabled={deletingId === c.id}
-                      className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 shrink-0"
-                      title="Eliminar personaje"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {onRegenerateCharacterReference && c.description?.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleRegenerate(c)}
+                          disabled={regeneratingId === c.id || deletingId === c.id}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-violet-600 hover:bg-violet-50 disabled:opacity-50"
+                          title="Regenerar imagen de referencia"
+                        >
+                          {regeneratingId === c.id ? (
+                            <Loader2 size={16} className="animate-spin text-violet-600" />
+                          ) : (
+                            <RefreshCw size={16} />
+                          )}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(c.id)}
+                        disabled={deletingId === c.id || regeneratingId === c.id}
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        title="Eliminar personaje"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </li>
                 ))}
                 {savedCharacters.length === 0 && (

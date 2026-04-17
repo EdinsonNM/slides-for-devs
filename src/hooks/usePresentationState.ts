@@ -3470,13 +3470,14 @@ export function usePresentationState() {
     setIsGeneratingCharacterPreview(true);
     try {
       const context =
-        "Personaje aislado (avatar) para presentaciones: un solo diseño coherente en todas las escenas. Fondo neutro; sin texto ni elementos decorativos de interfaz alrededor.";
+        "Personaje aislado (avatar de referencia) para presentaciones: un solo diseño coherente en todas las escenas. Imagen sobre fondo blanco liso (sin rejilla de transparencia ni cuadritos); sin texto ni elementos decorativos de interfaz alrededor.";
+      const providerId = hasGemini ? "gemini" : imageProvider;
       const imageModelId =
-        imageProvider === "gemini"
+        providerId === "gemini"
           ? geminiImageModelId
           : DEFAULT_OPENAI_IMAGE_MODEL_ID;
       return generateImageUseCase.run({
-        providerId: imageProvider,
+        providerId,
         slideContext: context,
         userPrompt: characterDescription.trim(),
         stylePrompt: selectedStyle.prompt,
