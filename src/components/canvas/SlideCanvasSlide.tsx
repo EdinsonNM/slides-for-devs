@@ -120,6 +120,17 @@ const SLIDE_CANVAS_UI_Z = 10_000;
  */
 const DRAG_THRESHOLD_PX = 6;
 
+/**
+ * `pointerdown` / `dblclick` pueden tener `target` en un nodo `#text`;
+ * `Element.prototype.closest` no existe ahí y rompe los handlers.
+ */
+function eventTargetElement(ev: { target: EventTarget | null }): HTMLElement | null {
+  const raw = ev.target;
+  if (!raw || !(raw instanceof Node)) return null;
+  if (raw.nodeType === Node.ELEMENT_NODE) return raw as HTMLElement;
+  return raw.parentElement;
+}
+
 type TextField = "title" | "subtitle" | "content";
 
 /** Ajusta `rect.h` al alto real del texto (WYSIWYG) para títulos/subtítulos en el lienzo. */
@@ -232,6 +243,7 @@ export function SlideCanvasSlide() {
     setEditSubtitle,
     editContent,
     setEditContent,
+    applyEditContentRichDraft,
     editContentRichHtml,
     setEditContentRichHtml,
     editContentBodyFontScale,
@@ -260,6 +272,7 @@ export function SlideCanvasSlide() {
     setCurrentSlidePresenter3dScreenMedia,
     deckVisualTheme,
     setCanvasTextEditTarget,
+    syncCanvasTextEditTargetsFromSelection,
     setCanvasMediaPanelEditTarget,
     canvasMediaPanelElementId,
     ingestImageFileOnCurrentSlide,
@@ -323,6 +336,38 @@ export function SlideCanvasSlide() {
       }));
     },
     [patchCurrentSlideCanvasScene],
+  );
+
+  type CanvasAlignmentGuidesState = NonNullable<typeof alignmentGuides>;
+  const rectPatchRafRef = useRef<number | null>(null);
+  const rectPatchPendingRef = useRef<{
+    elementId: string;
+    rect: SlideCanvasRect;
+    guides: CanvasAlignmentGuidesState | null;
+  } | null>(null);
+
+  const flushPendingRectPatch = useCallback(() => {
+    rectPatchRafRef.current = null;
+    const p = rectPatchPendingRef.current;
+    rectPatchPendingRef.current = null;
+    if (!p) return;
+    onPatchRect(p.elementId, p.rect);
+    setAlignmentGuides(p.guides);
+  }, [onPatchRect, setAlignmentGuides]);
+
+  const scheduleRectPatch = useCallback(
+    (
+      elementId: string,
+      rect: SlideCanvasRect,
+      guides: CanvasAlignmentGuidesState | null,
+    ) => {
+      rectPatchPendingRef.current = { elementId, rect, guides };
+      if (rectPatchRafRef.current != null) return;
+      rectPatchRafRef.current = requestAnimationFrame(() => {
+        flushPendingRectPatch();
+      });
+    },
+    [flushPendingRectPatch],
   );
 
   const patchElementRotation = useCallback(
@@ -452,6 +497,15 @@ export function SlideCanvasSlide() {
       const cleanupDrag = () => {
         if (!dragPhaseActive) return;
         dragPhaseActive = false;
+        if (rectPatchRafRef.current != null) {
+          cancelAnimationFrame(rectPatchRafRef.current);
+          rectPatchRafRef.current = null;
+        }
+        const pend = rectPatchPendingRef.current;
+        rectPatchPendingRef.current = null;
+        if (pend) {
+          onPatchRect(pend.elementId, pend.rect);
+        }
         setAlignmentGuides(null);
         window.removeEventListener("pointermove", onDrag, {
           passive: false,
@@ -499,8 +553,7 @@ export function SlideCanvasSlide() {
         );
         const hasGuides =
           guides.vertical.length > 0 || guides.horizontal.length > 0;
-        setAlignmentGuides(hasGuides ? guides : null);
-        onPatchRect(elementId, rect);
+        scheduleRectPatch(elementId, rect, hasGuides ? guides : null);
       };
 
       const onUpDrag = (e2: PointerEvent) => {
@@ -550,7 +603,7 @@ export function SlideCanvasSlide() {
       window.addEventListener("pointerup", onUpWatch);
       window.addEventListener("pointercancel", onUpWatch);
     },
-    [onPatchRect, setAlignmentGuides],
+    [onPatchRect, scheduleRectPatch],
   );
 
   const startResizeCorner = useCallback(
@@ -582,10 +635,18 @@ export function SlideCanvasSlide() {
         );
         const hasGuides =
           guides.vertical.length > 0 || guides.horizontal.length > 0;
-        setAlignmentGuides(hasGuides ? guides : null);
-        onPatchRect(elementId, next);
+        scheduleRectPatch(elementId, next, hasGuides ? guides : null);
       };
       const onUp = () => {
+        if (rectPatchRafRef.current != null) {
+          cancelAnimationFrame(rectPatchRafRef.current);
+          rectPatchRafRef.current = null;
+        }
+        const pend = rectPatchPendingRef.current;
+        rectPatchPendingRef.current = null;
+        if (pend) {
+          onPatchRect(pend.elementId, pend.rect);
+        }
         setAlignmentGuides(null);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
@@ -595,7 +656,7 @@ export function SlideCanvasSlide() {
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [onPatchRect, setAlignmentGuides],
+    [onPatchRect, scheduleRectPatch],
   );
 
   const startResizeEdge = useCallback(
@@ -626,10 +687,18 @@ export function SlideCanvasSlide() {
         );
         const hasGuides =
           guides.vertical.length > 0 || guides.horizontal.length > 0;
-        setAlignmentGuides(hasGuides ? guides : null);
-        onPatchRect(elementId, next);
+        scheduleRectPatch(elementId, next, hasGuides ? guides : null);
       };
       const onUp = () => {
+        if (rectPatchRafRef.current != null) {
+          cancelAnimationFrame(rectPatchRafRef.current);
+          rectPatchRafRef.current = null;
+        }
+        const pend = rectPatchPendingRef.current;
+        rectPatchPendingRef.current = null;
+        if (pend) {
+          onPatchRect(pend.elementId, pend.rect);
+        }
         setAlignmentGuides(null);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
@@ -639,7 +708,7 @@ export function SlideCanvasSlide() {
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [onPatchRect, setAlignmentGuides],
+    [onPatchRect, scheduleRectPatch],
   );
 
   const startRotate = useCallback(
@@ -705,7 +774,8 @@ export function SlideCanvasSlide() {
   );
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
-    const t = e.target as HTMLElement;
+    const t = eventTargetElement(e);
+    if (!t) return;
     const canvasHit = t.closest("[data-slide-canvas-el]");
     if (canvasHit) {
       const k = canvasHit.getAttribute("data-slide-canvas-kind");
@@ -835,6 +905,7 @@ export function SlideCanvasSlide() {
               /* Evita que pegar/subir imagen siga yendo al último `mediaPanel` cliqueado. */
               setCanvasMediaPanelEditTarget(null);
             }
+            syncCanvasTextEditTargetsFromSelection(slide, el);
           }}
           isEditing={isEditing}
           setIsEditing={setIsEditing}
@@ -846,6 +917,7 @@ export function SlideCanvasSlide() {
           setEditSubtitle={setEditSubtitle}
           editContent={editContent}
           setEditContent={setEditContent}
+          applyEditContentRichDraft={applyEditContentRichDraft}
           editContentRichHtml={editContentRichHtml}
           setEditContentRichHtml={setEditContentRichHtml}
           editContentBodyFontScale={editContentBodyFontScale}
@@ -914,6 +986,7 @@ function CanvasElementEditor({
   setEditSubtitle,
   editContent,
   setEditContent,
+  applyEditContentRichDraft,
   editContentRichHtml,
   setEditContentRichHtml,
   editContentBodyFontScale,
@@ -970,6 +1043,7 @@ function CanvasElementEditor({
   setEditSubtitle: (v: string) => void;
   editContent: string;
   setEditContent: (v: string) => void;
+  applyEditContentRichDraft: (plain: string, richHtml: string) => void;
   editContentRichHtml: string;
   setEditContentRichHtml: (v: string) => void;
   editContentBodyFontScale: number;
@@ -1201,7 +1275,8 @@ function CanvasElementEditor({
 
   const onShellPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    const t = e.target as HTMLElement;
+    const t = eventTargetElement(e);
+    if (!t) return;
     if (t.closest(`[${EDIT_FIELD_ATTR}="true"]`)) return;
     if (t.closest("[data-slide-canvas-chrome]")) return;
     if (t.closest("[data-canvas-resize]")) return;
@@ -1227,13 +1302,6 @@ function CanvasElementEditor({
       t.closest(
         "input, textarea, select, button, [contenteditable='true']",
       )
-    ) {
-      return;
-    }
-    /* Markdown en vista: el arrastre del bloque competía con selección de texto y doble clic. */
-    if (
-      kind === "markdown" &&
-      (t.closest(".slide-rich-root") || t.closest(".slide-rich-wrap"))
     ) {
       return;
     }
@@ -1690,7 +1758,7 @@ function CanvasElementEditor({
                     }
                   >
                     {(
-                      isEditing
+                      showTitleEdit
                         ? editTitle
                         : readTextMarkdownFromElement(slide, element)
                     ).trim() || "Sin título"}
@@ -1854,17 +1922,6 @@ function CanvasElementEditor({
           data-slide-canvas-el
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
-          onDoubleClickCapture={(e: React.MouseEvent) => {
-            if (e.button !== 0) return;
-            if (isEditing && isSelected && activeField === "content") return;
-            const t = e.target as HTMLElement;
-            if (t.closest(`[${EDIT_FIELD_ATTR}="true"]`)) return;
-            if (t.closest("[data-slide-canvas-chrome]")) return;
-            if (t.closest("[data-canvas-resize]")) return;
-            e.preventDefault();
-            e.stopPropagation();
-            openMarkdownContentEdit();
-          }}
           {...shellHoverProps}
         >
           {rotatedInner(
@@ -1877,10 +1934,6 @@ function CanvasElementEditor({
                 <div
                   data-slide-markdown-scroll-measure=""
                   className="min-h-0 flex-1 select-none overflow-y-auto"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    openMarkdownContentEdit();
-                  }}
                   tabIndex={0}
                   title="Doble clic para editar"
                   onKeyDown={(e) => {
@@ -1922,8 +1975,7 @@ function CanvasElementEditor({
                     richHtmlBuffer={editContentRichHtml}
                     fontScale={editContentBodyFontScale}
                     onPlainAndRichChange={(plain, rich) => {
-                      setEditContent(plain);
-                      setEditContentRichHtml(rich);
+                      applyEditContentRichDraft(plain, rich);
                     }}
                     onBlurCommit={() =>
                       commitSlideEdits({ keepEditing: true })
@@ -1956,7 +2008,8 @@ function CanvasElementEditor({
         captureEl: HTMLElement | null,
       ) => {
         if (e.button !== 0) return;
-        const t = e.target as HTMLElement;
+        const t = eventTargetElement(e);
+        if (!t) return;
         if (t.closest("[data-slide-canvas-chrome]")) return;
         onSelect();
         if (
@@ -2033,11 +2086,8 @@ function CanvasElementEditor({
                   className="flex min-h-0 flex-1 flex-col"
                   onPointerDown={(e) => {
                     if (e.button !== 0) return;
-                    if (
-                      (e.target as HTMLElement).closest(
-                        "[data-slide-canvas-chrome]",
-                      )
-                    ) {
+                    const hit = eventTargetElement(e);
+                    if (hit?.closest("[data-slide-canvas-chrome]")) {
                       return;
                     }
                     onSelect();

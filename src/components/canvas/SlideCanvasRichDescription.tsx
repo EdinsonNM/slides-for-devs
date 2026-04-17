@@ -35,7 +35,7 @@ export type SlideCanvasRichDescriptionHandle = {
   selectAllAndColor: (hex: string) => void;
 };
 
-type SlideCanvasRichDescriptionProps = {
+export type SlideCanvasRichDescriptionProps = {
   elementId: string;
   tone: DeckContentTone;
   display: CanvasMarkdownBodyDisplay;
@@ -43,11 +43,16 @@ type SlideCanvasRichDescriptionProps = {
   plainBuffer: string;
   richHtmlBuffer: string;
   fontScale: number;
-  onPlainAndRichChange: (plain: string, richSanitized: string) => void;
+  /** `richHtml` es el HTML crudo del contentEditable; quien persiste debe sanitizar (p. ej. `applyEditBuffersToSlide`). */
+  onPlainAndRichChange: (plain: string, richHtml: string) => void;
   onBlurCommit: () => void;
   shellClassName?: string;
-  /** Vista solo lectura: doble clic sobre el texto/HTML (incl. nodos de `dangerouslySetInnerHTML`). */
   onRequestEdit?: () => void;
+  /**
+   * Sustituye el tamaño base en vista (y en el editor) cuando el contenedor ya define escala
+   * (p. ej. miniatura del sidebar: `var(--slide-body)`).
+   */
+  viewTypographySize?: string;
 };
 
 function SelectionMiniToolbar({
@@ -149,11 +154,12 @@ export const SlideCanvasRichDescription = forwardRef<
     onBlurCommit,
     shellClassName,
     onRequestEdit,
+    viewTypographySize,
   },
   ref,
 ) {
-  const edRef = useRef<HTMLDivElement>(null);
-  const viewDblCaptureRootRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const viewRootRef = useRef<HTMLDivElement>(null);
   const onRequestEditRef = useRef(onRequestEdit);
   onRequestEditRef.current = onRequestEdit;
   const prevEditingRef = useRef(false);
@@ -163,16 +169,30 @@ export const SlideCanvasRichDescription = forwardRef<
     left: number;
   } | null>(null);
 
+  const wrapClass = cn(
+    "slide-rich-wrap min-h-0 min-w-0 max-w-none font-sans leading-relaxed",
+    deckPrimaryTextClass(tone),
+  );
+
+  const editorFontSize =
+    viewTypographySize ?? `calc(1rem * ${fontScale})`;
+
+  const viewFontSize =
+    viewTypographySize ??
+    (display.kind === "html"
+      ? `calc(1rem * ${display.scale})`
+      : `calc(1rem * ${fontScale})`);
+
   const syncFromEditor = useCallback(() => {
-    const el = edRef.current;
+    const el = editorRef.current;
     if (!el) return;
     const raw = el.innerHTML;
     const plain = el.innerText.replace(/\u00a0/g, " ");
-    onPlainAndRichChange(plain, sanitizeSlideRichHtml(raw));
+    onPlainAndRichChange(plain, raw);
   }, [onPlainAndRichChange]);
 
   const selectAllInEditor = useCallback(() => {
-    const el = edRef.current;
+    const el = editorRef.current;
     if (!el || !isEditing) return;
     const r = document.createRange();
     r.selectNodeContents(el);
@@ -181,9 +201,8 @@ export const SlideCanvasRichDescription = forwardRef<
     sel?.addRange(r);
   }, [isEditing]);
 
-  /** Tras negrita/cursiva/color en todo el bloque, quita el resaltado azul y deja el cursor al final. */
   const collapseCaretToEndOfEditor = useCallback(() => {
-    const el = edRef.current;
+    const el = editorRef.current;
     if (!el || !isEditing) return;
     const sel = window.getSelection();
     if (!sel) return;
@@ -198,7 +217,7 @@ export const SlideCanvasRichDescription = forwardRef<
     ref,
     () => ({
       selectAllAndBold: () => {
-        const el = edRef.current;
+        const el = editorRef.current;
         if (!el || !isEditing) return;
         el.focus({ preventScroll: true });
         selectAllInEditor();
@@ -207,7 +226,7 @@ export const SlideCanvasRichDescription = forwardRef<
         collapseCaretToEndOfEditor();
       },
       selectAllAndItalic: () => {
-        const el = edRef.current;
+        const el = editorRef.current;
         if (!el || !isEditing) return;
         el.focus({ preventScroll: true });
         selectAllInEditor();
@@ -216,7 +235,7 @@ export const SlideCanvasRichDescription = forwardRef<
         collapseCaretToEndOfEditor();
       },
       selectAllAndColor: (hex: string) => {
-        const el = edRef.current;
+        const el = editorRef.current;
         if (!el || !isEditing) return;
         el.focus({ preventScroll: true });
         selectAllInEditor();
@@ -233,24 +252,61 @@ export const SlideCanvasRichDescription = forwardRef<
     ],
   );
 
+  useLayoutEffect(() => {
+    if (!isEditing) {
+      prevEditingRef.current = false;
+      return;
+    }
+    const el = editorRef.current;
+    if (!el) return;
+    const becameEditing = !prevEditingRef.current;
+    const idChanged = prevElementIdRef.current !== elementId;
+    if (becameEditing || idChanged) {
+      const html = richHtmlBuffer.trim()
+        ? richHtmlBuffer
+        : markdownBodyToRichHtmlForEditor(plainBuffer);
+      el.innerHTML = html;
+      prevElementIdRef.current = elementId;
+      prevEditingRef.current = true;
+    }
+    // Solo rehidratar al entrar en edición o al cambiar de bloque; no depender de los
+    // buffers en cada tecla (evita `useLayoutEffect` por pulsación y mantiene el caret estable).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plainBuffer/richHtmlBuffer solo para becameEditing/idChanged
+  }, [isEditing, elementId]);
+
   useEffect(() => {
     if (isEditing) return;
-    const el = viewDblCaptureRootRef.current;
-    if (!el || !onRequestEditRef.current) return;
-    const onDbl = (ev: MouseEvent) => {
-      if (!onRequestEditRef.current) return;
+    const root = viewRootRef.current;
+    if (!root || !onRequestEditRef.current) return;
+
+    let lastFire = 0;
+    const fire = (ev: MouseEvent) => {
+      if (ev.button !== 0 || !onRequestEditRef.current) return;
+      const now = performance.now();
+      if (now - lastFire < 320) return;
+      lastFire = now;
+      ev.preventDefault();
       ev.stopPropagation();
       onRequestEditRef.current();
     };
-    el.addEventListener("dblclick", onDbl, true);
-    return () => el.removeEventListener("dblclick", onDbl, true);
-  }, [isEditing, display.kind]);
 
-  /** Al volver a vista, quitar rangos del documento que sigan apuntando a este nodo (evita azul “fantasma”). */
+    const onDblClick = (ev: MouseEvent) => fire(ev);
+    const onClickCapture = (ev: MouseEvent) => {
+      if (ev.detail === 2) fire(ev);
+    };
+
+    root.addEventListener("dblclick", onDblClick, true);
+    root.addEventListener("click", onClickCapture, true);
+    return () => {
+      root.removeEventListener("dblclick", onDblClick, true);
+      root.removeEventListener("click", onClickCapture, true);
+    };
+  }, [isEditing, display.kind, onRequestEdit]);
+
   useEffect(() => {
     if (isEditing) return;
     const run = () => {
-      const root = viewDblCaptureRootRef.current;
+      const root = viewRootRef.current;
       const sel = window.getSelection();
       if (!root || !sel || sel.rangeCount === 0) return;
       const node = sel.anchorNode ?? sel.focusNode;
@@ -264,25 +320,6 @@ export const SlideCanvasRichDescription = forwardRef<
     requestAnimationFrame(run);
   }, [isEditing, elementId, display.kind, plainBuffer, richHtmlBuffer]);
 
-  useLayoutEffect(() => {
-    if (!isEditing) {
-      prevEditingRef.current = false;
-      return;
-    }
-    const el = edRef.current;
-    if (!el) return;
-    const becameEditing = !prevEditingRef.current;
-    const idChanged = prevElementIdRef.current !== elementId;
-    if (becameEditing || idChanged) {
-      const html = richHtmlBuffer.trim()
-        ? richHtmlBuffer
-        : markdownBodyToRichHtmlForEditor(plainBuffer);
-      el.innerHTML = html;
-      prevElementIdRef.current = elementId;
-      prevEditingRef.current = true;
-    }
-  }, [isEditing, elementId, plainBuffer, richHtmlBuffer]);
-
   const updateToolbarFromSelection = useCallback(() => {
     if (!isEditing) {
       setToolbarPos(null);
@@ -293,7 +330,7 @@ export const SlideCanvasRichDescription = forwardRef<
       setToolbarPos(null);
       return;
     }
-    const root = edRef.current;
+    const root = editorRef.current;
     if (!root || !sel.focusNode || !root.contains(sel.focusNode)) {
       setToolbarPos(null);
       return;
@@ -322,7 +359,7 @@ export const SlideCanvasRichDescription = forwardRef<
 
   const canApplyInlineToSelection = useCallback(() => {
     const sel = window.getSelection();
-    const root = edRef.current;
+    const root = editorRef.current;
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
     if (!root || !sel.focusNode || !root.contains(sel.focusNode)) return false;
     return true;
@@ -376,22 +413,15 @@ export const SlideCanvasRichDescription = forwardRef<
     [canApplyInlineToSelection, syncFromEditor, updateToolbarFromSelection],
   );
 
-  const wrapClass = cn(
-    "slide-rich-wrap min-h-0 min-w-0 max-w-none font-sans leading-relaxed",
-    deckPrimaryTextClass(tone),
-  );
-
   if (!isEditing) {
-    /* Vista: `select-none` evita resaltado azul “fantasma” al mover el ratón con el bloque
-       seleccionado; el doble clic no requiere selección de texto (captura en el shell / div). */
     if (display.kind === "html") {
       return (
         <div
+          ref={viewRootRef}
           className={cn(wrapClass, "select-none", shellClassName)}
-          style={{ fontSize: `calc(1rem * ${display.scale})` }}
+          style={{ fontSize: viewFontSize }}
         >
           <div
-            ref={viewDblCaptureRootRef}
             className="slide-rich-root select-none [&_a]:underline"
             dangerouslySetInnerHTML={{
               __html: sanitizeSlideRichHtml(display.html),
@@ -400,12 +430,14 @@ export const SlideCanvasRichDescription = forwardRef<
         </div>
       );
     }
-    const src = display.source.trim() ? display.source : plainBuffer;
+
+    /** Solo `display` (payload del elemento en el slide); no mezclar con `plainBuffer` (buffer global). */
+    const src = display.source;
     return (
       <div
-        ref={viewDblCaptureRootRef}
+        ref={viewRootRef}
         className={cn(wrapClass, "select-none", shellClassName)}
-        style={{ fontSize: `calc(1rem * ${fontScale})` }}
+        style={{ fontSize: viewFontSize }}
       >
         {src.trim() ? (
           <SlideMarkdown contentTone={tone}>{src}</SlideMarkdown>
@@ -447,7 +479,7 @@ export const SlideCanvasRichDescription = forwardRef<
           )
         : null}
       <div
-        ref={edRef}
+        ref={editorRef}
         {...{ [EDIT_FIELD_ATTR]: "true" }}
         contentEditable
         suppressContentEditableWarning
@@ -455,7 +487,6 @@ export const SlideCanvasRichDescription = forwardRef<
         className={cn(
           wrapClass,
           "slide-rich-root relative z-10 max-h-[min(70vh,520px)] min-h-0 flex-1 overflow-y-auto bg-transparent px-2 py-2 outline-none",
-          /* Tono claro: el texto es casi blanco; sin ::selection explícito el resaltaje casi no se ve. */
           tone === "light"
             ? "[&::selection]:bg-sky-300/70 [&::selection]:text-slate-950"
             : "[&::selection]:bg-sky-500/35 [&::selection]:text-stone-900 dark:[&::selection]:bg-sky-400/40 dark:[&::selection]:text-stone-950",
@@ -463,7 +494,7 @@ export const SlideCanvasRichDescription = forwardRef<
             ? "caret-sky-600"
             : "caret-emerald-600 dark:caret-emerald-400",
         )}
-        style={{ fontSize: `calc(1rem * ${fontScale})` }}
+        style={{ fontSize: editorFontSize }}
         onInput={() => {
           syncFromEditor();
           updateToolbarFromSelection();

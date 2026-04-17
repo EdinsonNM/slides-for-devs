@@ -225,6 +225,41 @@ export function getCanvasMarkdownBodyDisplay(
   return { kind: "markdown", source: readTextMarkdownFromElement(slide, el) };
 }
 
+/**
+ * La raíz del slide (`title`, `subtitle`, `content`) espeja solo el **primer** bloque
+ * relevante en orden z. Los demás bloques del mismo tipo con markdown vacío no deben
+ * reutilizar ese espejo (evita duplicar texto al añadir un segundo título/subtítulo/etc.).
+ */
+function isFirstCanvasTitleElement(slide: Slide, el: SlideCanvasElement): boolean {
+  const els = slide.canvasScene?.elements ?? [];
+  if (els.length === 0) return false;
+  const sorted = [...els].sort(compareCanvasElementsByZThenId);
+  const first = sorted.find(
+    (e) => e.kind === "title" || e.kind === "chapterTitle",
+  );
+  return first != null && first.id === el.id;
+}
+
+function isFirstCanvasSubtitleElement(slide: Slide, el: SlideCanvasElement): boolean {
+  const els = slide.canvasScene?.elements ?? [];
+  if (els.length === 0) return false;
+  const sorted = [...els].sort(compareCanvasElementsByZThenId);
+  const first = sorted.find(
+    (e) => e.kind === "subtitle" || e.kind === "chapterSubtitle",
+  );
+  return first != null && first.id === el.id;
+}
+
+function isFirstCanvasBodyElement(slide: Slide, el: SlideCanvasElement): boolean {
+  const els = slide.canvasScene?.elements ?? [];
+  if (els.length === 0) return false;
+  const sorted = [...els].sort(compareCanvasElementsByZThenId);
+  const first = sorted.find(
+    (e) => e.kind === "markdown" || e.kind === "matrixNotes",
+  );
+  return first != null && first.id === el.id;
+}
+
 export function readTextMarkdownFromElement(
   slide: Slide,
   el: SlideCanvasElement,
@@ -234,29 +269,34 @@ export function readTextMarkdownFromElement(
     const md = p.markdown;
     if (el.kind === "title" || el.kind === "chapterTitle") {
       const t = md.trim();
-      return t || slide.title;
+      return t || (isFirstCanvasTitleElement(slide, el) ? slide.title : "");
     }
     if (el.kind === "subtitle" || el.kind === "chapterSubtitle") {
       const t = md.trim();
-      return t || (slide.subtitle ?? "");
+      return t ||
+        (isFirstCanvasSubtitleElement(slide, el) ? (slide.subtitle ?? "") : "");
     }
     if (el.kind === "markdown" || el.kind === "matrixNotes") {
       if (el.kind === "markdown" && p.richHtml?.trim()) {
         const plain = md.trim();
         if (plain) return md;
-        return plainTextFromRichHtml(p.richHtml) || (slide.content ?? "");
+        const fromRich = plainTextFromRichHtml(p.richHtml);
+        if (fromRich.trim()) return fromRich;
+        return isFirstCanvasBodyElement(slide, el) ? (slide.content ?? "") : "";
       }
       const t = md.trim();
-      return t || (slide.content ?? "");
+      return t || (isFirstCanvasBodyElement(slide, el) ? (slide.content ?? "") : "");
     }
     return md;
   }
-  if (el.kind === "title" || el.kind === "chapterTitle") return slide.title;
+  if (el.kind === "title" || el.kind === "chapterTitle") {
+    return isFirstCanvasTitleElement(slide, el) ? slide.title : "";
+  }
   if (el.kind === "subtitle" || el.kind === "chapterSubtitle") {
-    return slide.subtitle ?? "";
+    return isFirstCanvasSubtitleElement(slide, el) ? (slide.subtitle ?? "") : "";
   }
   if (el.kind === "markdown" || el.kind === "matrixNotes") {
-    return slide.content ?? "";
+    return isFirstCanvasBodyElement(slide, el) ? (slide.content ?? "") : "";
   }
   return "";
 }

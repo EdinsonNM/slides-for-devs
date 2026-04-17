@@ -283,6 +283,7 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
               fontScale={disp.kind === "html" ? disp.scale : 1}
               onPlainAndRichChange={() => {}}
               onBlurCommit={() => {}}
+              viewTypographySize="var(--slide-body)"
               shellClassName={cn("max-w-none min-w-0", THUMB_MARKDOWN_COMPACT)}
             />,
           )}

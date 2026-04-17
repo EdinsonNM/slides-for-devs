@@ -65,6 +65,7 @@ import {
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
   SLIDE_TYPE,
+  type SlideCanvasElement,
   type SlideCanvasElementKind,
   type SlideCanvasRect,
   type SlideCanvasScene,
@@ -339,8 +340,8 @@ export function usePresentationState() {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editSubtitle, setEditSubtitle] = useState("");
-  const [editContent, setEditContent] = useState("");
-  const [editContentRichHtml, setEditContentRichHtml] = useState("");
+  const [editContent, setEditContentState] = useState("");
+  const [editContentRichHtml, setEditContentRichHtmlState] = useState("");
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
   const [editCode, setEditCode] = useState("");
   const [editLanguage, setEditLanguage] = useState("javascript");
@@ -356,6 +357,11 @@ export function usePresentationState() {
   const editContentRef = useRef("");
   const editContentRichHtmlRef = useRef("");
   const editContentBodyFontScaleRef = useRef(1);
+  /**
+   * Mientras se escribe en el WYSIWYG del lienzo, los buffers viven en refs (`applyEditContentRichDraft`)
+   * para no disparar un re-render global por tecla. `commitSlideEdits` vuelca a estado antes de persistir.
+   */
+  const editContentDraftDirtyRef = useRef(false);
   const editCodeRef = useRef("");
   const editLanguageRef = useRef("javascript");
   const editFontSizeRef = useRef(14);
@@ -574,6 +580,29 @@ export function usePresentationState() {
       ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
       : DEFAULT_PANEL_HEIGHT_PERCENT;
 
+  /** Actualiza solo refs: sin re-render por tecla en el WYSIWYG del cuerpo enriquecido. */
+  const applyEditContentRichDraft = useCallback((plain: string, richHtml: string) => {
+    editContentDraftDirtyRef.current = true;
+    editContentRef.current = plain;
+    editContentRichHtmlRef.current = richHtml;
+  }, []);
+
+  const setEditContent = useCallback(
+    (value: string | ((prev: string) => string)) => {
+      editContentDraftDirtyRef.current = false;
+      setEditContentState(value);
+    },
+    [],
+  );
+
+  const setEditContentRichHtml = useCallback(
+    (value: string | ((prev: string) => string)) => {
+      editContentDraftDirtyRef.current = false;
+      setEditContentRichHtmlState(value);
+    },
+    [],
+  );
+
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
@@ -585,8 +614,10 @@ export function usePresentationState() {
   useEffect(() => {
     editTitleRef.current = editTitle;
     editSubtitleRef.current = editSubtitle;
-    editContentRef.current = editContent;
-    editContentRichHtmlRef.current = editContentRichHtml;
+    if (!editContentDraftDirtyRef.current) {
+      editContentRef.current = editContent;
+      editContentRichHtmlRef.current = editContentRichHtml;
+    }
     editContentBodyFontScaleRef.current = editContentBodyFontScale;
     editCodeRef.current = editCode;
     editLanguageRef.current = editLanguage;
@@ -717,6 +748,10 @@ export function usePresentationState() {
 
   const flushEditsToSlideIndex = useCallback(
     (slideIndex: number) => {
+      if (editContentDraftDirtyRef.current) {
+        setEditContent(editContentRef.current);
+        setEditContentRichHtml(editContentRichHtmlRef.current);
+      }
       setSlides((prevSlides) => {
         if (slideIndex < 0 || slideIndex >= prevSlides.length) {
           return prevSlides;
@@ -748,11 +783,15 @@ export function usePresentationState() {
       });
       setIsEditing(false);
     },
-    [pushSlidesUndo],
+    [pushSlidesUndo, setEditContent, setEditContentRichHtml],
   );
 
   const commitSlideEdits = useCallback(
     (options?: { keepEditing?: boolean }) => {
+      if (editContentDraftDirtyRef.current) {
+        setEditContent(editContentRef.current);
+        setEditContentRichHtml(editContentRichHtmlRef.current);
+      }
       setSlides((prevSlides) => {
         const slideIndex = currentIndexRef.current;
         if (slideIndex < 0 || slideIndex >= prevSlides.length) {
@@ -787,7 +826,7 @@ export function usePresentationState() {
         setIsEditing(false);
       }
     },
-    [pushSlidesUndo],
+    [pushSlidesUndo, setEditContent, setEditContentRichHtml],
   );
 
   const syncEditFieldsFromSlide = useCallback((s: Slide) => {
@@ -820,10 +859,13 @@ export function usePresentationState() {
         setEditContentBodyFontScale(
           Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
         );
+        const fromRichSync = plainTextFromRichHtml(p.richHtml);
         setEditContent(
           p.markdown.trim()
             ? p.markdown
-            : plainTextFromRichHtml(p.richHtml) || (s2.content ?? ""),
+            : fromRichSync.trim()
+              ? fromRichSync
+              : readTextMarkdownFromElement(s2, contentEl),
         );
       } else {
         setEditContentRichHtml("");
@@ -850,6 +892,107 @@ export function usePresentationState() {
     setEditFontSizeState(s2.fontSize || 14);
     setEditEditorHeight(s2.editorHeight ?? 280);
   }, []);
+
+  /**
+   * Alinea `titleElementId`, `subtitleElementId`, `contentElementId` y los buffers de edición
+   * al bloque del lienzo seleccionado. Si el tipo no coincide, cada id vuelve al “primero en z”
+   * de `defaultCanvasTextEditTargets` (misma convención que `syncSlideRootFromCanvas`).
+   */
+  const syncCanvasTextEditTargetsFromSelection = useCallback(
+    (slide: Slide, selectedElement: SlideCanvasElement) => {
+      const s2 = ensureSlideCanvasScene(slide);
+      const defaults = defaultCanvasTextEditTargets(s2);
+      const scene = s2.canvasScene!;
+
+      const isTitle =
+        selectedElement.kind === "title" ||
+        selectedElement.kind === "chapterTitle";
+      const isSubtitle =
+        selectedElement.kind === "subtitle" ||
+        selectedElement.kind === "chapterSubtitle";
+      const isBody =
+        selectedElement.kind === "markdown" ||
+        selectedElement.kind === "matrixNotes";
+
+      const titleElementId = isTitle
+        ? selectedElement.id
+        : defaults.titleElementId;
+      const subtitleElementId = isSubtitle
+        ? selectedElement.id
+        : defaults.subtitleElementId;
+      const contentElementId = isBody
+        ? selectedElement.id
+        : defaults.contentElementId;
+
+      canvasTextTargetsRef.current = {
+        ...canvasTextTargetsRef.current,
+        titleElementId,
+        subtitleElementId,
+        contentElementId,
+      };
+
+      const titleEl = titleElementId
+        ? scene.elements.find((e) => e.id === titleElementId)
+        : undefined;
+      setEditTitle(
+        titleEl &&
+          (titleEl.kind === "title" || titleEl.kind === "chapterTitle")
+          ? readTextMarkdownFromElement(s2, titleEl)
+          : s2.title,
+      );
+
+      const subtitleEl = subtitleElementId
+        ? scene.elements.find((e) => e.id === subtitleElementId)
+        : undefined;
+      setEditSubtitle(
+        subtitleEl &&
+          (subtitleEl.kind === "subtitle" ||
+            subtitleEl.kind === "chapterSubtitle")
+          ? readTextMarkdownFromElement(s2, subtitleEl)
+          : (s2.subtitle ?? ""),
+      );
+
+      const contentEl =
+        contentElementId != null && contentElementId !== ""
+          ? scene.elements.find((e) => e.id === contentElementId)
+          : undefined;
+
+      if (contentEl?.kind === "markdown") {
+        const p = contentEl.payload;
+        if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
+          setEditContentRichHtml(p.richHtml);
+          setEditContentBodyFontScale(
+            Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
+          );
+          const fromRich = plainTextFromRichHtml(p.richHtml);
+          setEditContent(
+            p.markdown.trim()
+              ? p.markdown
+              : fromRich.trim()
+                ? fromRich
+                : readTextMarkdownFromElement(s2, contentEl),
+          );
+        } else {
+          setEditContentRichHtml("");
+          setEditContentBodyFontScale(1);
+          setEditContent(
+            formatMarkdown(readTextMarkdownFromElement(s2, contentEl)),
+          );
+        }
+      } else if (contentEl?.kind === "matrixNotes") {
+        setEditContentRichHtml("");
+        setEditContentBodyFontScale(1);
+        setEditContent(
+          formatMarkdown(readTextMarkdownFromElement(s2, contentEl)),
+        );
+      } else {
+        setEditContentRichHtml("");
+        setEditContentBodyFontScale(1);
+        setEditContent(formatMarkdown(s2.content ?? ""));
+      }
+    },
+    [formatMarkdown],
+  );
 
   const applySlidesUndo = useCallback(() => {
     const stack = slidesUndoRef.current;
@@ -4040,6 +4183,7 @@ export function usePresentationState() {
     setEditSubtitle,
     editContent,
     setEditContent,
+    applyEditContentRichDraft,
     editContentRichHtml,
     setEditContentRichHtml,
     editContentBodyFontScale,
@@ -4068,6 +4212,7 @@ export function usePresentationState() {
     handleSaveManualEdit,
     commitSlideEdits,
     setCanvasTextEditTarget,
+    syncCanvasTextEditTargetsFromSelection,
     setCanvasMediaPanelEditTarget,
     hydrateCodeEditFromSlide,
     canvasMediaPanelElementId,

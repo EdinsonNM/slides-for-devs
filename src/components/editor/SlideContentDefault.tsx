@@ -53,6 +53,7 @@ export function SlideContentDefault() {
     setEditSubtitle,
     editContent,
     setEditContent,
+    applyEditContentRichDraft,
     commitSlideEdits,
     setSlides,
     setShowRewriteModal,
@@ -783,8 +784,7 @@ export function SlideContentDefault() {
                       richHtmlBuffer={editContentRichHtml}
                       fontScale={editContentBodyFontScale}
                       onPlainAndRichChange={(plain, rich) => {
-                        setEditContent(plain);
-                        setEditContentRichHtml(rich);
+                        applyEditContentRichDraft(plain, rich);
                       }}
                       onBlurCommit={() => {
                         scheduleCommitAfterBlur();
