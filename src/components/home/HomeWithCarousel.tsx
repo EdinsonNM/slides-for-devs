@@ -82,13 +82,13 @@ export function HomeWithCarousel({
       <header className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-stone-200/70 bg-stone-50/90 px-4 py-3 backdrop-blur-md dark:border-stone-700/60 dark:bg-stone-900/90 sm:gap-4 sm:px-6 sm:py-4">
         <div className="flex min-w-0 shrink-0 items-center gap-3 pt-0.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/80 dark:bg-stone-800/80">
-            <video
-              src="./video-logo.webm"
-              autoPlay
-              loop
-              muted
-              playsInline
+            <img
+              src="./logo.png"
+              alt=""
+              width={40}
+              height={40}
               className="h-full w-full object-contain"
+              draggable={false}
               aria-hidden
             />
           </div>

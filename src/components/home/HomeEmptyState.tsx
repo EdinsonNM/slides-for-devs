@@ -62,13 +62,13 @@ export function HomeEmptyState({
         >
           <div className="space-y-4">
             <div className="mb-4 inline-flex h-64 w-64 items-center justify-center overflow-hidden rounded-3xl bg-transparent">
-              <video
-                src="./video-logo.webm"
-                autoPlay
-                loop
-                muted
-                playsInline
+              <img
+                src="./logo.png"
+                alt=""
+                width={256}
+                height={256}
                 className="h-full w-full object-contain"
+                draggable={false}
                 aria-hidden
               />
             </div>
