@@ -24,6 +24,13 @@ const GAP_PX = 12;
  * ~0,58 ≈ tamaño “correcto” previo con buen peek lateral.
  */
 const CARD_WIDTH_RATIO = 0.58;
+/** 16:9 — la tarjeta usa `aspect-video` (alto = ancho × 9/16). */
+const CARD_VIDEO_ASPECT_H_OVER_W = 9 / 16;
+/**
+ * Padding vertical aproximado del carril (`py-3` / `py-5`) + margen para escala activa.
+ * Evita que el ancho objetivo exija más alto del que cabe (UI ancha y baja).
+ */
+const TRACK_PAD_Y_PX = 56;
 
 const TRACK_SPRING = {
   type: "spring" as const,
@@ -84,6 +91,7 @@ export function HomePresentationDeckCarousel({
   const reduceMotion = useReducedMotion();
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportW, setViewportW] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const x = useMotionValue(0);
 
@@ -92,9 +100,13 @@ export function HomePresentationDeckCarousel({
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setViewportW(el.clientWidth));
+    const sync = () => {
+      setViewportW(el.clientWidth);
+      setViewportH(el.clientHeight);
+    };
+    const ro = new ResizeObserver(sync);
     ro.observe(el);
-    setViewportW(el.clientWidth);
+    sync();
     return () => ro.disconnect();
   }, []);
 
@@ -103,10 +115,16 @@ export function HomePresentationDeckCarousel({
     if (w <= 0) {
       return { cardWidth: 0, paddingX: 0, step: 0 };
     }
-    const cw = Math.round(w * CARD_WIDTH_RATIO);
+    const idealW = Math.round(w * CARD_WIDTH_RATIO);
+    const innerH = Math.max(0, viewportH - TRACK_PAD_Y_PX);
+    const maxWFromHeight =
+      viewportH > 0 && innerH > 0
+        ? Math.floor(innerH / CARD_VIDEO_ASPECT_H_OVER_W)
+        : idealW;
+    const cw = Math.max(1, Math.min(idealW, maxWFromHeight, Math.floor(w * 0.92)));
     const pad = Math.max(0, (w - cw) / 2);
     return { cardWidth: cw, paddingX: pad, step: cw + GAP_PX };
-  }, [viewportW]);
+  }, [viewportW, viewportH]);
 
   useEffect(() => {
     setActiveIndex((i) => clamp(i, 0, Math.max(0, count - 1)));
@@ -341,7 +359,7 @@ export function HomePresentationDeckCarousel({
 
       {count > 1 && (
         <div
-          className="mt-2 flex shrink-0 justify-center gap-1.5 pb-0.5 pt-2 sm:mt-3 sm:pt-2.5"
+          className="mt-2 flex shrink-0 justify-center gap-1.5 pb-3 pt-2 sm:mt-3 sm:pb-4 sm:pt-2.5"
           role="tablist"
           aria-label="Índice de presentaciones"
         >

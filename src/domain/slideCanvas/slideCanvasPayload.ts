@@ -205,7 +205,22 @@ export function readTextMarkdownFromElement(
   el: SlideCanvasElement,
 ): string {
   const p = el.payload;
-  if (isSlideCanvasTextPayload(p)) return p.markdown;
+  if (isSlideCanvasTextPayload(p)) {
+    const md = p.markdown;
+    if (el.kind === "title" || el.kind === "chapterTitle") {
+      const t = md.trim();
+      return t || slide.title;
+    }
+    if (el.kind === "subtitle" || el.kind === "chapterSubtitle") {
+      const t = md.trim();
+      return t || (slide.subtitle ?? "");
+    }
+    if (el.kind === "markdown" || el.kind === "matrixNotes") {
+      const t = md.trim();
+      return t || (slide.content ?? "");
+    }
+    return md;
+  }
   if (el.kind === "title" || el.kind === "chapterTitle") return slide.title;
   if (el.kind === "subtitle" || el.kind === "chapterSubtitle") {
     return slide.subtitle ?? "";

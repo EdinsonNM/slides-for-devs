@@ -7,12 +7,6 @@ import type { PresentationModel } from "./PromptInput";
 import type { HomePresentationCard } from "../../types";
 import type { PromptAttachment } from "../../utils/promptAttachments";
 
-/** Velo inferior: base opaca junto al prompt + rampa larga con paradas suaves (evita saltos bruscos). */
-const HOME_LIST_BOTTOM_VEIL_LIGHT =
-  "linear-gradient(to top, #ffffff 0%, #ffffff 22%, rgba(255,255,255,0.98) 34%, rgba(252,252,251,0.9) 48%, rgba(248,250,249,0.68) 60%, rgba(245,245,244,0.42) 74%, rgba(250,250,249,0.2) 86%, rgba(255,255,255,0.06) 94%, rgba(255,255,255,0) 100%)";
-const HOME_LIST_BOTTOM_VEIL_DARK =
-  "linear-gradient(to top, rgb(28 25 23) 0%, rgb(28 25 23) 20%, rgba(28,25,23,0.96) 32%, rgba(28,25,23,0.85) 46%, rgba(28,25,23,0.62) 60%, rgba(28,25,23,0.38) 74%, rgba(28,25,23,0.18) 86%, rgba(28,25,23,0.05) 94%, rgba(28,25,23,0) 100%)";
-
 export interface HomeWithCarouselProps {
   onOpenConfig?: () => void;
   topic: string;
@@ -49,7 +43,8 @@ export interface HomeWithCarouselProps {
 
 /**
  * Pantalla principal cuando ya hay presentaciones guardadas.
- * Carrusel de vista previa grande; el prompt compacto flota en la parte inferior.
+ * El prompt va al final del flex (no `position: fixed`) para reservar alto real al carrusel;
+ * si hace falta, solo el `<main>` (título + descripción + carrusel) hace scroll.
  */
 export function HomeWithCarousel({
   onOpenConfig,
@@ -120,13 +115,12 @@ export function HomeWithCarousel({
         </div>
       </header>
 
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-36 pt-4 sm:pb-40 sm:pt-5">
+      <main className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain pt-4 sm:pt-5">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
-            className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+            className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden"
           >
             <div className="shrink-0 px-3 sm:px-5 lg:px-7">
               <div className="mx-auto w-full min-w-0 max-w-6xl">
@@ -170,31 +164,15 @@ export function HomeWithCarousel({
               />
             </div>
           </motion.div>
-        </main>
-      </div>
-
-      {/*
-        `fixed` + z por debajo del footer: el velo evita que el prompt quede tapado visualmente
-        por el contenido del home (WebKit a veces compone capas raras con overflow).
-      */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[25] h-[min(30dvh,14rem)] dark:hidden sm:h-[min(31dvh,15rem)]"
-        style={{ background: HOME_LIST_BOTTOM_VEIL_LIGHT }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[25] hidden h-[min(30dvh,14rem)] sm:h-[min(31dvh,15rem)] dark:block"
-        style={{ background: HOME_LIST_BOTTOM_VEIL_DARK }}
-      />
+      </main>
 
       <footer
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30"
+        className="relative z-30 shrink-0 bg-transparent px-3 pt-1 sm:px-5"
         style={{
           paddingBottom: "max(0.65rem, env(safe-area-inset-bottom, 0px))",
         }}
       >
-        <div className="pointer-events-auto mx-auto w-full max-w-4xl px-3 drop-shadow-xl sm:px-5">
+        <div className="mx-auto w-full max-w-4xl drop-shadow-xl">
           <PromptInput
             onSubmit={onGenerate}
             value={topic}

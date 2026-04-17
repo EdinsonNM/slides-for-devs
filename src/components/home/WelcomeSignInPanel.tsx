@@ -10,7 +10,7 @@ export interface WelcomeSignInPanelProps {
 }
 
 /**
- * Panel de bienvenida con fondo en gradiente, texto grande a la izquierda
+ * Panel de bienvenida con vídeo de fondo (`/slaim-welcome.mp4`), texto a la izquierda
  * y botón para iniciar sesión con Google. Se muestra por defecto cuando el usuario no ha iniciado sesión.
  */
 export function WelcomeSignInPanel({ onContinueWithoutAccount }: WelcomeSignInPanelProps) {
@@ -34,23 +34,34 @@ export function WelcomeSignInPanel({ onContinueWithoutAccount }: WelcomeSignInPa
   };
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center font-sans overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, #0f766e 0%, #0d9488 25%, #14b8a6 50%, #2dd4bf 75%, #5eead4 100%)",
-      }}
-    >
-      {/* Capa suave para mejorar contraste del texto */}
+    <div className="relative isolate min-h-screen w-full flex items-center font-sans overflow-hidden bg-teal-900">
+      {/* Fondo: vídeo de bienvenida (fallback: color de fondo arriba) */}
+      <video
+        className="pointer-events-none absolute inset-0 z-0 h-full min-h-full w-full min-w-full object-cover"
+        src="/slaim-welcome.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        aria-hidden
+      />
+      {/* Capas para legibilidad del texto y coherencia con la marca */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="pointer-events-none absolute inset-0 z-[1]"
         style={{
           background:
-            "linear-gradient(90deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0) 50%)",
+            "linear-gradient(105deg, rgba(15, 91, 86, 0.88) 0%, rgba(15, 118, 110, 0.5) 42%, rgba(13, 148, 136, 0.22) 62%, rgba(0, 0, 0, 0.12) 100%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 z-[1]"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 55%)",
         }}
       />
 
-      <div className="relative z-10 max-w-6xl mx-auto w-full px-8 sm:px-12 lg:px-16 py-16 flex items-center justify-between gap-12">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl items-center px-8 py-16 sm:px-12 lg:px-16">
         <div className="max-w-xl shrink-0">
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
@@ -109,28 +120,10 @@ export function WelcomeSignInPanel({ onContinueWithoutAccount }: WelcomeSignInPa
             )}
           </motion.div>
         </div>
-
-        {/* Animación Slaim a la derecha */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="hidden lg:flex items-center justify-center flex-1 max-w-md xl:max-w-lg"
-        >
-          <video
-            src="/video-logo.webm"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full max-w-[320px] aspect-square object-contain"
-            aria-hidden
-          />
-        </motion.div>
       </div>
 
       {/* Formas decorativas de fondo */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1/3 h-2/3 max-w-md opacity-10 pointer-events-none">
+      <div className="pointer-events-none absolute right-0 top-1/2 z-[2] h-2/3 w-1/3 max-w-md -translate-y-1/2 opacity-10">
         <div className="absolute inset-0 rounded-full bg-white blur-3xl" />
       </div>
     </div>

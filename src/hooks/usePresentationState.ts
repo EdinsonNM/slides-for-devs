@@ -401,6 +401,11 @@ export function usePresentationState() {
   >({});
   /** `savedAt` de la última portada precargada por id (invalidación al guardar de nuevo). */
   const coverPrefetchSavedAtRef = useRef<Record<string, string>>({});
+  /**
+   * Invalida precargas in-flight al cambiar lista/ámbito. Evita `return` tras `await`, que
+   * abandonaba el resto del bucle y dejaba sin portada (p. ej. la tarjeta más reciente al final del `for`).
+   */
+  const coverPrefetchGenerationRef = useRef(0);
   const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
   const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
     useState(false);
@@ -1709,6 +1714,7 @@ export function usePresentationState() {
       });
       if (imageUrl) {
         const promptUsed = imagePrompt.trim();
+        let nextDeck: Slide[] | null = null;
         setSlides((prev) => {
           const updated = [...prev];
           const cur = updated[currentIndex];
@@ -1718,8 +1724,21 @@ export function usePresentationState() {
             patchMediaPanelElementId,
             (m) => applyGeneratedImageToMediaPanelPayload(m, imageUrl, promptUsed),
           );
+          nextDeck = updated;
           return updated;
         });
+        if (nextDeck && nextDeck.length > 0) {
+          const savedId = await savePresentationNow({
+            topic: topic || "Sin título",
+            slides: nextDeck,
+            characterId: selectedCharacterId ?? undefined,
+          });
+          if (!savedId) {
+            alert(
+              "La imagen se aplicó al lienzo pero no se pudo guardar en el almacenamiento local. Revisa el mensaje de estado o pulsa Guardar.",
+            );
+          }
+        }
         setShowImageModal(false);
         setImagePrompt("");
         trackEvent(ANALYTICS_EVENTS.IMAGE_GENERATED);
@@ -2212,7 +2231,8 @@ export function usePresentationState() {
 
   /** Portadas del carrusel: sin esto solo se rellenaba la caché al abrir la presentación. */
   useEffect(() => {
-    let cancelled = false;
+    const generation = ++coverPrefetchGenerationRef.current;
+    const scope = localAccountScope;
     const eligible = savedList.filter(
       (m) =>
         m.slideCount > 0 &&
@@ -2223,11 +2243,10 @@ export function usePresentationState() {
 
     void (async () => {
       for (const meta of eligible) {
-        if (cancelled) return;
         if (coverPrefetchSavedAtRef.current[meta.id] === meta.savedAt) continue;
         try {
-          const saved = await loadPresentation(meta.id, localAccountScope);
-          if (cancelled) return;
+          const saved = await loadPresentation(meta.id, scope);
+          if (coverPrefetchGenerationRef.current !== generation) break;
           if (saved.savedAt !== meta.savedAt) continue;
           coverPrefetchSavedAtRef.current[meta.id] = saved.savedAt;
           const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
@@ -2241,7 +2260,7 @@ export function usePresentationState() {
     })();
 
     return () => {
-      cancelled = true;
+      coverPrefetchGenerationRef.current += 1;
     };
   }, [savedList, localAccountScope]);
 

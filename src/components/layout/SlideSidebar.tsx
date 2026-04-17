@@ -4,22 +4,15 @@ import {
   PanelLeftOpen,
   Trash2,
   Plus,
-  Image as ImageIcon,
-  Code2,
-  Video,
-  Box,
-  Cuboid,
   Table2,
   GripVertical,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
-import { SLIDE_TYPE, type Slide } from "../../domain/entities";
-import {
-  PANEL_CONTENT_KIND,
-  resolveMediaPanelDescriptor,
-} from "../../domain/panelContent";
+import { SLIDE_TYPE } from "../../domain/entities";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
+import { IsoStyleThreeDBadge } from "../shared/IsoStyleThreeDBadge";
+import { SidebarSlideCanvasMiniPreview } from "./SidebarSlideCanvasMiniPreview";
 
 const SIDEBAR_WIDTH = 256;
 
@@ -41,68 +34,6 @@ function slideRowIndexAtY(
   }
   if (clientY < rects[0].top) return rects[0].index;
   return rects[rects.length - 1].index;
-}
-
-function sidebarSplitStripSurfaceClass(slide: Slide): string {
-  return resolveMediaPanelDescriptor(slide).sidebarSplitStripSurfaceClass(
-    Boolean(slide.imageUrl),
-  );
-}
-
-const SIDEBAR_MEDIA_ICON_CLASS =
-  "w-4 h-4 text-stone-500 dark:text-stone-400 shrink-0";
-
-/** Miniatura del panel derecho: imagen si es tipo imagen; icono para código, video o 3D. */
-function SidebarPanelMediaPreview({ slide }: { slide: Slide }) {
-  const kind = resolveMediaPanelDescriptor(slide).kind;
-  switch (kind) {
-    case PANEL_CONTENT_KIND.IMAGE:
-      return slide.imageUrl ? (
-        <img
-          src={slide.imageUrl}
-          alt=""
-          draggable={false}
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-      ) : null;
-    case PANEL_CONTENT_KIND.CODE:
-      return (
-        <Code2
-          className={SIDEBAR_MEDIA_ICON_CLASS}
-          strokeWidth={1.5}
-          aria-hidden
-        />
-      );
-    case PANEL_CONTENT_KIND.VIDEO:
-      return (
-        <Video
-          className={SIDEBAR_MEDIA_ICON_CLASS}
-          strokeWidth={1.5}
-          aria-hidden
-        />
-      );
-    case PANEL_CONTENT_KIND.PRESENTER_3D:
-      return (
-        <Box
-          className={SIDEBAR_MEDIA_ICON_CLASS}
-          strokeWidth={1.5}
-          aria-hidden
-        />
-      );
-    case PANEL_CONTENT_KIND.CANVAS_3D:
-      return (
-        <Cuboid
-          className={SIDEBAR_MEDIA_ICON_CLASS}
-          strokeWidth={1.5}
-          aria-hidden
-        />
-      );
-    default: {
-      const _e: never = kind;
-      return _e;
-    }
-  }
 }
 
 export function SlideSidebar() {
@@ -319,19 +250,8 @@ export function SlideSidebar() {
                       <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
                         {slide.title || "Isométrico"}
                       </span>
-                      <div className="flex-1 min-h-0 flex items-center justify-center gap-0.5 p-1 bg-linear-to-br from-sky-50 to-stone-50 dark:from-sky-950/40 dark:to-stone-800 rounded border border-dashed border-stone-200 dark:border-stone-600">
-                        <div
-                          className="h-2 w-2.5 rounded-[1px] bg-sky-400/80 dark:bg-sky-600"
-                          style={{ transform: "skewX(-16deg)" }}
-                        />
-                        <div
-                          className="h-2.5 w-2.5 rounded-[1px] bg-emerald-500/90 dark:bg-emerald-600 z-[1]"
-                          style={{ transform: "skewX(-16deg)" }}
-                        />
-                        <div
-                          className="h-2 w-2.5 rounded-[1px] bg-amber-400/80 dark:bg-amber-600"
-                          style={{ transform: "skewX(-16deg)" }}
-                        />
+                      <div className="flex-1 min-h-0 min-w-0">
+                        <IsoStyleThreeDBadge compact />
                       </div>
                       <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
                         Isométrico
@@ -355,68 +275,15 @@ export function SlideSidebar() {
                         Matriz
                       </span>
                     </div>
-                  ) : slide.contentLayout === "panel-full" ? (
-                    <div className="flex-1 flex flex-col gap-0.5 min-h-0">
-                      <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
-                        {slide.title || "Título + panel"}
-                      </span>
-                      <div className="h-0.5 w-3/4 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
-                      <div className="flex-1 min-h-0 rounded border border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center bg-stone-50 dark:bg-stone-800 p-0.5">
-                        {resolveMediaPanelDescriptor(slide).kind ===
-                        PANEL_CONTENT_KIND.IMAGE ? (
-                          slide.imageUrl ? (
-                            <img
-                              src={slide.imageUrl}
-                              alt=""
-                              draggable={false}
-                              className="w-full h-full object-cover rounded"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <ImageIcon
-                              className="w-4 h-4 text-stone-400 dark:text-stone-500"
-                              strokeWidth={1.5}
-                            />
-                          )
-                        ) : (
-                          <SidebarPanelMediaPreview slide={slide} />
-                        )}
-                      </div>
-                    </div>
-                  ) : slide.contentLayout === "full" ? (
-                    <div className="flex-1 flex flex-col gap-0.5 min-h-0">
-                      <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
-                        {slide.title || "Contenido"}
-                      </span>
-                      <div className="h-0.5 w-3/4 max-w-[85%] bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
-                      <div className="h-0.5 w-full max-w-[95%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                      <div className="h-0.5 w-full max-w-[88%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                      <div className="h-0.5 w-full max-w-[92%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                      <div className="h-0.5 w-full max-w-[70%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                      <div className="h-0.5 w-full max-w-[80%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse mt-auto" />
+                  ) : slide.type === SLIDE_TYPE.CONTENT ? (
+                    <div className="flex-1 min-h-0 min-w-0">
+                      <SidebarSlideCanvasMiniPreview slide={slide} />
                     </div>
                   ) : (
-                    <div className="flex-1 flex gap-1 min-h-0">
-                      <div className="flex-1 flex flex-col gap-0.5 min-w-0 min-h-0">
-                        <span className="text-[10px] font-medium text-stone-900 dark:text-foreground line-clamp-2 text-left leading-tight">
-                          {slide.title}
-                        </span>
-                        <div className="h-0.5 w-full max-w-[70%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                        <div className="h-0.5 w-full max-w-[85%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                        <div className="h-0.5 w-full max-w-[60%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                        <div className="h-0.5 w-full max-w-[75%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                        <div className="h-0.5 w-full max-w-[90%] bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
-                        <div className="h-0.5 w-10 bg-stone-100 dark:bg-stone-700 rounded animate-pulse mt-auto" />
-                      </div>
-                      <div
-                        className={cn(
-                          "rounded shrink-0 overflow-hidden flex items-center justify-center",
-                          sidebarSplitStripSurfaceClass(slide),
-                        )}
-                        style={{ width: "36%" }}
-                      >
-                        <SidebarPanelMediaPreview slide={slide} />
-                      </div>
+                    <div className="flex-1 flex items-center justify-center px-1">
+                      <span className="text-[9px] font-medium text-stone-500 dark:text-stone-400 line-clamp-3 text-center leading-tight">
+                        {slide.title || "—"}
+                      </span>
                     </div>
                   )}
                 </div>

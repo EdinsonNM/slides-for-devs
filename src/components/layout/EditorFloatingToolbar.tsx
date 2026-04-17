@@ -18,8 +18,8 @@ import {
   Image as ImageIcon,
   Code2,
   Video,
-  Smartphone,
-  Cuboid,
+  MonitorPlay,
+  Box,
   StickyNote,
   type LucideIcon,
 } from "lucide-react";
@@ -98,8 +98,8 @@ const PANEL_INSERT_MENU_ITEMS: {
   { id: PANEL_CONTENT_KIND.IMAGE, label: "Imagen", Icon: ImageIcon },
   { id: PANEL_CONTENT_KIND.CODE, label: "Código", Icon: Code2 },
   { id: PANEL_CONTENT_KIND.VIDEO, label: "Video", Icon: Video },
-  { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", Icon: Smartphone },
-  { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", Icon: Cuboid },
+  { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", Icon: MonitorPlay },
+  { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", Icon: Box },
 ];
 
 export function EditorFloatingToolbar({
