@@ -26,7 +26,9 @@ export function SlideEditor() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.02 }}
             className={cn(
-              "slide-content relative flex aspect-video w-full overflow-hidden rounded-lg border border-stone-200/90 bg-white dark:border-border dark:bg-surface-elevated",
+              /* `overflow-visible`: la barra del cromo Canva (`bottom-full` / `top-full`) y
+               * overlays del lienzo no deben recortarse por el borde de la tarjeta del slide. */
+              "slide-content relative flex aspect-video w-full overflow-visible rounded-lg border border-stone-200/90 bg-white dark:border-border dark:bg-surface-elevated",
             )}
           >
             <SlideCanvasSlide />

@@ -17,9 +17,11 @@ import {
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
   compareCanvasElementsByZThenId,
+  getCanvasMarkdownBodyDisplay,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
 } from "../../domain/slideCanvas/slideCanvasPayload";
+import { plainTextFromRichHtml } from "../../utils/slideRichText";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
@@ -29,6 +31,7 @@ import {
   deckPrimaryTextClass,
 } from "../../utils/deckSlideChrome";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
+import { SlideCanvasRichDescription } from "../canvas/SlideCanvasRichDescription";
 import { cn } from "../../utils/cn";
 import { IsoStyleThreeDBadge } from "../shared/IsoStyleThreeDBadge";
 
@@ -259,19 +262,29 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
         </div>
       );
     case "markdown": {
-      const raw = readTextMarkdownFromElement(slide, el).trim();
-      if (!raw) return null;
+      const disp = getCanvasMarkdownBodyDisplay(slide, el);
+      const empty =
+        disp.kind === "html"
+          ? !plainTextFromRichHtml(disp.html).trim()
+          : !disp.source.trim();
+      if (empty) return null;
       return (
         <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
             "h-full min-h-0 overflow-y-auto px-2 py-1 scrollbar-on-hover",
-            <SlideMarkdown
-              contentTone={tone}
-              className={cn("max-w-none min-w-0", THUMB_MARKDOWN_COMPACT)}
-            >
-              {readTextMarkdownFromElement(slide, el)}
-            </SlideMarkdown>,
+            <SlideCanvasRichDescription
+              elementId={el.id}
+              tone={tone}
+              display={disp}
+              isEditing={false}
+              plainBuffer=""
+              richHtmlBuffer=""
+              fontScale={disp.kind === "html" ? disp.scale : 1}
+              onPlainAndRichChange={() => {}}
+              onBlurCommit={() => {}}
+              shellClassName={cn("max-w-none min-w-0", THUMB_MARKDOWN_COMPACT)}
+            />,
           )}
         </div>
       );

@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Minus,
   Pencil,
+  Plus,
   RefreshCw,
   Split,
   Sparkles,
@@ -8,8 +17,23 @@ import {
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
+import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
+import {
+  compareCanvasElementsByZThenId,
+  getCanvasMarkdownBodyDisplay,
+} from "../../domain/slideCanvas/slideCanvasPayload";
+import { isSlideCanvasTextPayload } from "../../domain/entities/SlideCanvas";
+import { plainTextFromRichHtml } from "../../utils/slideRichText";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
+import {
+  SlideCanvasRichDescription,
+  type SlideCanvasRichDescriptionHandle,
+} from "../canvas/SlideCanvasRichDescription";
+import {
+  slideCanvasToolbarIconBtnClass,
+  slideCanvasToolbarPillRowClass,
+} from "../canvas/slideCanvasToolbarStyles";
 import { SlideRightPanel } from "./SlideRightPanel";
 import { CanvaSelectionFrame } from "./CanvaSelectionFrame";
 
@@ -39,9 +63,69 @@ export function SlideContentDefault() {
     isResizingPanelHeight,
     setIsResizingPanelHeight,
     openVideoModal,
+    deckVisualTheme,
+    editContentRichHtml,
+    setEditContentRichHtml,
+    editContentBodyFontScale,
+    setEditContentBodyFontScale,
+    formatMarkdown,
   } = usePresentation();
 
+  const deckContentTone = deckVisualTheme.contentTone;
+
+  const canvasMarkdownDescription = useMemo(() => {
+    if (!currentSlide) return null;
+    const s = ensureSlideCanvasScene(currentSlide);
+    const sorted = [...(s.canvasScene?.elements ?? [])].sort(
+      compareCanvasElementsByZThenId,
+    );
+    const el = sorted.find((e) => e.kind === "markdown");
+    if (!el) return null;
+    return { el, display: getCanvasMarkdownBodyDisplay(s, el) };
+  }, [currentSlide]);
+
+  const canvasDescriptionReadNode = useMemo(() => {
+    if (!canvasMarkdownDescription) return undefined;
+    const { el, display } = canvasMarkdownDescription;
+    const empty =
+      display.kind === "html"
+        ? !plainTextFromRichHtml(display.html).trim()
+        : !display.source.trim();
+    if (empty) return null;
+    const viewFontScale =
+      display.kind === "html"
+        ? display.scale
+        : Math.min(
+            2.5,
+            Math.max(
+              0.5,
+              isSlideCanvasTextPayload(el.payload)
+                ? (el.payload.bodyFontScale ?? 1)
+                : 1,
+            ),
+          );
+    return (
+      <SlideCanvasRichDescription
+        elementId={el.id}
+        tone={deckContentTone}
+        display={display}
+        isEditing={false}
+        plainBuffer={editContent}
+        richHtmlBuffer={editContentRichHtml}
+        fontScale={viewFontScale}
+        onPlainAndRichChange={() => {}}
+        onBlurCommit={() => {}}
+      />
+    );
+  }, [
+    canvasMarkdownDescription,
+    deckContentTone,
+    editContent,
+    editContentRichHtml,
+  ]);
+
   const [activeBlock, setActiveBlock] = useState<EditBlock | null>(null);
+  const markdownPanelRichRef = useRef<SlideCanvasRichDescriptionHandle>(null);
   const titleMeasureRef = useRef<HTMLDivElement>(null);
   const contentMeasureRef = useRef<HTMLDivElement>(null);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -596,7 +680,13 @@ export function SlideContentDefault() {
               tabIndex={0}
               title="Clic para editar el contenido"
             >
-              {currentSlide.content?.trim() ? (
+              {canvasMarkdownDescription ? (
+                canvasDescriptionReadNode ?? (
+                  <p className="text-stone-400 dark:text-stone-500 italic p-2">
+                    Clic para escribir el contenido…
+                  </p>
+                )
+              ) : currentSlide.content?.trim() ? (
                 <SlideMarkdown>{currentSlide.content}</SlideMarkdown>
               ) : (
                 <p className="text-stone-400 dark:text-stone-500 italic p-2">
@@ -640,18 +730,81 @@ export function SlideContentDefault() {
               }
             >
               <div className="flex min-h-0 flex-1 flex-col px-4 py-3">
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onBlur={scheduleCommitAfterBlur}
-                  onFocus={() => {
-                    cancelScheduledCommit();
-                    setActiveBlock("content");
-                  }}
-                  {...{ [EDIT_FIELD_ATTR]: "true" }}
-                  placeholder="Escribe el contenido de la diapositiva (markdown)..."
-                  className="box-border min-h-0 w-full flex-1 resize-none overflow-y-auto rounded-lg border-0 bg-transparent font-sans text-lg leading-relaxed text-stone-900 shadow-none placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:text-foreground dark:placeholder:text-stone-500"
-                />
+                {canvasMarkdownDescription ? (
+                  <div
+                    className="flex min-h-0 flex-1 flex-col"
+                    onFocusCapture={() => {
+                      cancelScheduledCommit();
+                      setActiveBlock("content");
+                    }}
+                  >
+                    <div className="mb-2 flex shrink-0 justify-center">
+                      <div className={slideCanvasToolbarPillRowClass}>
+                        <button
+                          type="button"
+                          className={slideCanvasToolbarIconBtnClass}
+                          title="Reducir tamaño del bloque"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setEditContentBodyFontScale((s) =>
+                              Math.max(0.5, Number((s / 1.08).toFixed(3))),
+                            );
+                            commitSlideEdits({ keepEditing: true });
+                          }}
+                        >
+                          <Minus size={16} strokeWidth={2} />
+                        </button>
+                        <span className="min-w-[2.25rem] shrink-0 text-center text-[10px] font-semibold tabular-nums text-stone-500 dark:text-stone-400">
+                          {Math.round(editContentBodyFontScale * 100)}%
+                        </span>
+                        <button
+                          type="button"
+                          className={slideCanvasToolbarIconBtnClass}
+                          title="Aumentar tamaño del bloque"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setEditContentBodyFontScale((s) =>
+                              Math.min(2.5, Number((s * 1.08).toFixed(3))),
+                            );
+                            commitSlideEdits({ keepEditing: true });
+                          }}
+                        >
+                          <Plus size={16} strokeWidth={2} />
+                        </button>
+                      </div>
+                    </div>
+                    <SlideCanvasRichDescription
+                      ref={markdownPanelRichRef}
+                      elementId={canvasMarkdownDescription.el.id}
+                      tone={deckContentTone}
+                      display={canvasMarkdownDescription.display}
+                      isEditing
+                      plainBuffer={editContent}
+                      richHtmlBuffer={editContentRichHtml}
+                      fontScale={editContentBodyFontScale}
+                      onPlainAndRichChange={(plain, rich) => {
+                        setEditContent(plain);
+                        setEditContentRichHtml(rich);
+                      }}
+                      onBlurCommit={() => {
+                        scheduleCommitAfterBlur();
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    onBlur={scheduleCommitAfterBlur}
+                    onFocus={() => {
+                      cancelScheduledCommit();
+                      setActiveBlock("content");
+                    }}
+                    {...{ [EDIT_FIELD_ATTR]: "true" }}
+                    placeholder="Escribe el contenido de la diapositiva (markdown)..."
+                    className="box-border min-h-0 w-full flex-1 resize-none overflow-y-auto rounded-lg border-0 bg-transparent font-sans text-lg leading-relaxed text-stone-900 shadow-none placeholder:text-stone-400 focus:outline-none focus:ring-0 dark:text-foreground dark:placeholder:text-stone-500"
+                  />
+                )}
               </div>
             </CanvaSelectionFrame>
           ) : (
@@ -666,7 +819,13 @@ export function SlideContentDefault() {
               tabIndex={0}
               title="Clic para editar el contenido"
             >
-              {editContent.trim() ? (
+              {canvasMarkdownDescription ? (
+                canvasDescriptionReadNode ?? (
+                  <p className="text-stone-400 dark:text-stone-500 italic p-2">
+                    Clic para escribir el contenido…
+                  </p>
+                )
+              ) : editContent.trim() ? (
                 <SlideMarkdown>{editContent}</SlideMarkdown>
               ) : (
                 <p className="text-stone-400 dark:text-stone-500 italic p-2">

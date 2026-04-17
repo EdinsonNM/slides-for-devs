@@ -1,5 +1,7 @@
 import {
+  Bold,
   Copy,
+  Italic,
   Link2,
   Minus,
   Moon,
@@ -11,6 +13,8 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  Type,
+  UnfoldVertical,
   Upload,
   Video,
 } from "lucide-react";
@@ -29,6 +33,10 @@ import {
   Canvas3dUrlModal,
 } from "../editor/Canvas3dUrlModal";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
+import {
+  slideCanvasToolbarIconBtnClass,
+  slideCanvasToolbarPillRowClass,
+} from "./slideCanvasToolbarStyles";
 
 /** Marca el cromo flotante para ignorar clics en el lienzo del bloque. */
 export const CANVAS_CHROME_DATA_ATTR = "data-slide-canvas-chrome";
@@ -46,9 +54,6 @@ const edgeCursor: Record<ResizeEdge, string> = {
   e: "cursor-ew-resize",
   w: "cursor-ew-resize",
 };
-
-const toolbarIconBtn =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-stone-300 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300";
 
 const transformCircle =
   "flex h-9 w-9 shrink-0 cursor-grab items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 shadow-md active:cursor-grabbing dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200";
@@ -87,6 +92,17 @@ export interface SlideCanvasCanvaChromeProps {
     };
     /** Panel Canvas 3D: URL http actual para el modal (vacío si solo hay data URL). */
     canvas3dSource?: { httpGlbUrl: string };
+    /** Descripción rica en edición: negrita/cursiva/color y escala de todo el bloque (misma barra que el resto). */
+    markdownDescriptionToolbar?: {
+      fontScalePct: number;
+      onBlockScaleDec: () => void;
+      onBlockScaleInc: () => void;
+      onWholeBold: () => void;
+      onWholeItalic: () => void;
+      onWholeColor: (hex: string) => void;
+      /** Ajusta `rect.h` al alto del contenido (scrollHeight), crece o encoge. */
+      onFitHeightToContent?: () => void;
+    };
   };
 }
 
@@ -115,6 +131,7 @@ export function SlideCanvasCanvaChrome({
     useState<ToolbarPlacement>("above");
   const moreRef = useRef<HTMLDivElement>(null);
   const chromeRootRef = useRef<HTMLDivElement>(null);
+  const markdownBlockColorInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -204,16 +221,11 @@ export function SlideCanvasCanvaChrome({
           )}
           data-slide-canvas-chrome=""
         >
-          <div
-            className={cn(
-              "flex items-center gap-0.5 rounded-full border border-stone-200/90 bg-white/95 px-1.5 py-1 shadow-lg backdrop-blur-sm",
-              "dark:border-stone-600 dark:bg-stone-900/95",
-            )}
-          >
+          <div className={slideCanvasToolbarPillRowClass}>
             {toolbar.onGenerateImage ? (
               <button
                 type="button"
-                className={toolbarIconBtn}
+                className={slideCanvasToolbarIconBtnClass}
                 title="Generar imagen"
                 aria-label="Generar imagen"
                 onPointerDown={stop}
@@ -225,7 +237,7 @@ export function SlideCanvasCanvaChrome({
             {toolbar.onUseImage ? (
               <button
                 type="button"
-                className={toolbarIconBtn}
+                className={slideCanvasToolbarIconBtnClass}
                 title="Usar imagen"
                 aria-label="Usar imagen"
                 onPointerDown={stop}
@@ -237,7 +249,7 @@ export function SlideCanvasCanvaChrome({
             {toolbar.onOpenVideoModal ? (
               <button
                 type="button"
-                className={toolbarIconBtn}
+                className={slideCanvasToolbarIconBtnClass}
                 title="Añadir o cambiar vídeo"
                 aria-label="Añadir o cambiar vídeo"
                 onPointerDown={stop}
@@ -250,7 +262,7 @@ export function SlideCanvasCanvaChrome({
               <>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Disminuir fuente"
                   aria-label="Disminuir fuente"
                   onPointerDown={stop}
@@ -266,7 +278,7 @@ export function SlideCanvasCanvaChrome({
                 </span>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Aumentar fuente"
                   aria-label="Aumentar fuente"
                   onPointerDown={stop}
@@ -290,7 +302,7 @@ export function SlideCanvasCanvaChrome({
                 </select>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title={
                     toolbar.codeActions.codeTheme === "dark"
                       ? "Tema claro del editor de código"
@@ -321,7 +333,7 @@ export function SlideCanvasCanvaChrome({
                 </button>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Generar código con IA"
                   aria-label="Generar código con IA"
                   onPointerDown={stop}
@@ -338,7 +350,7 @@ export function SlideCanvasCanvaChrome({
             {toolbar.showAi && toolbar.onAi ? (
               <button
                 type="button"
-                className={toolbarIconBtn}
+                className={slideCanvasToolbarIconBtnClass}
                 title="Pedir a la IA"
                 aria-label="Pedir a la IA"
                 onPointerDown={stop}
@@ -350,13 +362,111 @@ export function SlideCanvasCanvaChrome({
             {toolbar.onEdit ? (
               <button
                 type="button"
-                className={toolbarIconBtn}
+                className={slideCanvasToolbarIconBtnClass}
                 title="Editar"
                 onPointerDown={stop}
                 onClick={() => toolbar.onEdit?.()}
               >
                 <Pencil size={16} strokeWidth={2} />
               </button>
+            ) : null}
+            {toolbar.markdownDescriptionToolbar ? (
+              <>
+                <div
+                  className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
+                  aria-hidden
+                />
+                {toolbar.markdownDescriptionToolbar.onFitHeightToContent ? (
+                  <button
+                    type="button"
+                    className={slideCanvasToolbarIconBtnClass}
+                    title="Ajustar alto al contenido"
+                    aria-label="Ajustar alto al contenido"
+                    onPointerDown={stop}
+                    onClick={() =>
+                      toolbar.markdownDescriptionToolbar?.onFitHeightToContent?.()
+                    }
+                  >
+                    <UnfoldVertical size={16} strokeWidth={2} aria-hidden />
+                  </button>
+                ) : null}
+                <input
+                  ref={markdownBlockColorInputRef}
+                  type="color"
+                  className="sr-only"
+                  aria-hidden
+                  title="Color de todo el texto"
+                  onChange={(e) =>
+                    toolbar.markdownDescriptionToolbar?.onWholeColor(
+                      e.target.value,
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
+                  title="Negrita en todo el bloque"
+                  aria-label="Negrita en todo el bloque"
+                  onPointerDown={stop}
+                  onClick={() =>
+                    toolbar.markdownDescriptionToolbar?.onWholeBold()
+                  }
+                >
+                  <Bold size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
+                  title="Cursiva en todo el bloque"
+                  aria-label="Cursiva en todo el bloque"
+                  onPointerDown={stop}
+                  onClick={() =>
+                    toolbar.markdownDescriptionToolbar?.onWholeItalic()
+                  }
+                >
+                  <Italic size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
+                  title="Color de todo el texto"
+                  aria-label="Color de todo el texto"
+                  onPointerDown={stop}
+                  onClick={() => markdownBlockColorInputRef.current?.click()}
+                >
+                  <Type size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
+                  title="Reducir tamaño de todo el bloque"
+                  aria-label="Reducir tamaño de todo el bloque"
+                  onPointerDown={stop}
+                  onClick={() =>
+                    toolbar.markdownDescriptionToolbar?.onBlockScaleDec()
+                  }
+                >
+                  <Minus size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <span
+                  className="min-w-[2.25rem] shrink-0 text-center text-[10px] font-semibold tabular-nums text-stone-500 dark:text-stone-400"
+                  aria-hidden
+                >
+                  {toolbar.markdownDescriptionToolbar.fontScalePct}%
+                </span>
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
+                  title="Aumentar tamaño de todo el bloque"
+                  aria-label="Aumentar tamaño de todo el bloque"
+                  onPointerDown={stop}
+                  onClick={() =>
+                    toolbar.markdownDescriptionToolbar?.onBlockScaleInc()
+                  }
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </>
             ) : null}
             {canvas3d ? (
               <>
@@ -382,7 +492,7 @@ export function SlideCanvasCanvaChrome({
                 />
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Subir modelo .glb"
                   aria-label="Subir modelo .glb"
                   onPointerDown={stop}
@@ -392,7 +502,7 @@ export function SlideCanvasCanvaChrome({
                 </button>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Cargar modelo desde URL"
                   aria-label="Cargar modelo desde URL"
                   onPointerDown={stop}
@@ -402,7 +512,7 @@ export function SlideCanvasCanvaChrome({
                 </button>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Reencuadrar vista del modelo"
                   aria-label="Reencuadrar vista del modelo"
                   onPointerDown={stop}
@@ -419,7 +529,7 @@ export function SlideCanvasCanvaChrome({
             {toolbar.onDuplicate ? (
               <button
                 type="button"
-                className={toolbarIconBtn}
+                className={slideCanvasToolbarIconBtnClass}
                 title="Duplicar"
                 onPointerDown={stop}
                 onClick={() => toolbar.onDuplicate?.()}
@@ -430,7 +540,10 @@ export function SlideCanvasCanvaChrome({
             {toolbar.onDelete ? (
               <button
                 type="button"
-                className={cn(toolbarIconBtn, "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40")}
+                className={cn(
+                  slideCanvasToolbarIconBtnClass,
+                  "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40",
+                )}
                 title="Eliminar bloque"
                 onPointerDown={stop}
                 onClick={() => toolbar.onDelete?.()}
@@ -442,7 +555,7 @@ export function SlideCanvasCanvaChrome({
               <div className="relative" ref={moreRef}>
                 <button
                   type="button"
-                  className={toolbarIconBtn}
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Más"
                   onPointerDown={stop}
                   onClick={() => setMoreOpen((o) => !o)}

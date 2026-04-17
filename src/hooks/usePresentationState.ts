@@ -84,6 +84,7 @@ import {
   defaultCanvasTextEditTargets,
   isSlidePatchedDifferentFromBuffers,
   patchSlideMediaPanelByElementId,
+  replaceFirstMarkdownCanvasBody,
   type CanvasTextEditTargets,
 } from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import {
@@ -93,6 +94,8 @@ import {
   slideAppearanceForMediaElement,
   type SlideCanvasMediaPayload,
 } from "../domain/slideCanvas/slideCanvasPayload";
+import { isSlideCanvasTextPayload } from "../domain/entities/SlideCanvas";
+import { plainTextFromRichHtml } from "../utils/slideRichText";
 import { syncSlideRootFromCanvas } from "../domain/slideCanvas/syncSlideRootFromCanvas";
 import {
   appendCanvasElementToScene,
@@ -337,6 +340,8 @@ export function usePresentationState() {
   const [editTitle, setEditTitle] = useState("");
   const [editSubtitle, setEditSubtitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editContentRichHtml, setEditContentRichHtml] = useState("");
+  const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
   const [editCode, setEditCode] = useState("");
   const [editLanguage, setEditLanguage] = useState("javascript");
   const [editFontSize, setEditFontSizeState] = useState(14);
@@ -349,6 +354,8 @@ export function usePresentationState() {
   const editTitleRef = useRef("");
   const editSubtitleRef = useRef("");
   const editContentRef = useRef("");
+  const editContentRichHtmlRef = useRef("");
+  const editContentBodyFontScaleRef = useRef(1);
   const editCodeRef = useRef("");
   const editLanguageRef = useRef("javascript");
   const editFontSizeRef = useRef(14);
@@ -579,6 +586,8 @@ export function usePresentationState() {
     editTitleRef.current = editTitle;
     editSubtitleRef.current = editSubtitle;
     editContentRef.current = editContent;
+    editContentRichHtmlRef.current = editContentRichHtml;
+    editContentBodyFontScaleRef.current = editContentBodyFontScale;
     editCodeRef.current = editCode;
     editLanguageRef.current = editLanguage;
     editFontSizeRef.current = editFontSize;
@@ -587,6 +596,8 @@ export function usePresentationState() {
     editTitle,
     editSubtitle,
     editContent,
+    editContentRichHtml,
+    editContentBodyFontScale,
     editCode,
     editLanguage,
     editFontSize,
@@ -716,6 +727,8 @@ export function usePresentationState() {
           title: editTitleRef.current,
           subtitle: editSubtitleRef.current,
           content: editContentRef.current,
+          contentRichHtml: editContentRichHtmlRef.current,
+          contentBodyFontScale: editContentBodyFontScaleRef.current,
           code: editCodeRef.current,
           language: editLanguageRef.current,
           fontSize: editFontSizeRef.current,
@@ -751,6 +764,8 @@ export function usePresentationState() {
           title: editTitleRef.current,
           subtitle: editSubtitleRef.current,
           content: editContentRef.current,
+          contentRichHtml: editContentRichHtmlRef.current,
+          contentBodyFontScale: editContentBodyFontScaleRef.current,
           code: editCodeRef.current,
           language: editLanguageRef.current,
           fontSize: editFontSizeRef.current,
@@ -798,11 +813,38 @@ export function usePresentationState() {
         ? readTextMarkdownFromElement(s2, subtitleEl)
         : (s2.subtitle ?? ""),
     );
-    setEditContent(
-      formatMarkdown(
-        contentEl ? readTextMarkdownFromElement(s2, contentEl) : s2.content,
-      ),
-    );
+    if (contentEl?.kind === "markdown") {
+      const p = contentEl.payload;
+      if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
+        setEditContentRichHtml(p.richHtml);
+        setEditContentBodyFontScale(
+          Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
+        );
+        setEditContent(
+          p.markdown.trim()
+            ? p.markdown
+            : plainTextFromRichHtml(p.richHtml) || (s2.content ?? ""),
+        );
+      } else {
+        setEditContentRichHtml("");
+        setEditContentBodyFontScale(1);
+        setEditContent(
+          formatMarkdown(
+            contentEl
+              ? readTextMarkdownFromElement(s2, contentEl)
+              : (s2.content ?? ""),
+          ),
+        );
+      }
+    } else {
+      setEditContentRichHtml("");
+      setEditContentBodyFontScale(1);
+      setEditContent(
+        formatMarkdown(
+          contentEl ? readTextMarkdownFromElement(s2, contentEl) : s2.content,
+        ),
+      );
+    }
     setEditCode(s2.code || "");
     setEditLanguage(s2.language || "javascript");
     setEditFontSizeState(s2.fontSize || 14);
@@ -1843,15 +1885,20 @@ export function usePresentationState() {
         const updated = [...prev];
         const slide = updated[currentIndex];
         if (!slide) return prev;
-        updated[currentIndex] = {
-          ...slide,
-          title: result.title,
-          content: formattedContent,
-        };
+        updated[currentIndex] = replaceFirstMarkdownCanvasBody(
+          {
+            ...slide,
+            title: result.title,
+            content: formattedContent,
+          },
+          formattedContent,
+        );
         return updated;
       });
       setEditTitle(result.title);
       setEditContent(formattedContent);
+      setEditContentRichHtml("");
+      setEditContentBodyFontScale(1);
       setShowRewriteModal(false);
       setRewritePrompt("");
       trackEvent(ANALYTICS_EVENTS.SLIDE_REWRITTEN);
@@ -1976,15 +2023,20 @@ export function usePresentationState() {
         const updated = [...prev];
         const slide = updated[currentIndex];
         if (!slide) return prev;
-        updated[currentIndex] = {
-          ...slide,
-          title: result.title,
-          content: formattedContent,
-        };
+        updated[currentIndex] = replaceFirstMarkdownCanvasBody(
+          {
+            ...slide,
+            title: result.title,
+            content: formattedContent,
+          },
+          formattedContent,
+        );
         return updated;
       });
       setEditTitle(result.title);
       setEditContent(formattedContent);
+      setEditContentRichHtml("");
+      setEditContentBodyFontScale(1);
       setShowGenerateSlideContentModal(false);
       setGenerateSlideContentPrompt("");
       trackEvent(ANALYTICS_EVENTS.SLIDE_CONTENT_GENERATED);
@@ -2046,6 +2098,8 @@ export function usePresentationState() {
       title: editTitleRef.current,
       subtitle: editSubtitleRef.current,
       content: editContentRef.current,
+      contentRichHtml: editContentRichHtmlRef.current,
+      contentBodyFontScale: editContentBodyFontScaleRef.current,
       code: editCodeRef.current,
       language: editLanguageRef.current,
       fontSize: editFontSizeRef.current,
@@ -2470,6 +2524,8 @@ export function usePresentationState() {
       title: editTitleRef.current,
       subtitle: editSubtitleRef.current,
       content: editContentRef.current,
+      contentRichHtml: editContentRichHtmlRef.current,
+      contentBodyFontScale: editContentBodyFontScaleRef.current,
       code: editCodeRef.current,
       language: editLanguageRef.current,
       fontSize: editFontSizeRef.current,
@@ -3984,6 +4040,10 @@ export function usePresentationState() {
     setEditSubtitle,
     editContent,
     setEditContent,
+    editContentRichHtml,
+    setEditContentRichHtml,
+    editContentBodyFontScale,
+    setEditContentBodyFontScale,
     editCode,
     setEditCode,
     editLanguage,

@@ -27,6 +27,7 @@ import {
   type DeckContentTone,
   type SlideCanvasElement,
   type SlideCanvasRect,
+  type SlideCanvasScene,
 } from "../../domain/entities";
 import {
   PANEL_CONTENT_KIND,
@@ -37,10 +38,24 @@ import { useSlideContainerImageDnD } from "../../hooks/useSlideContainerImageDnD
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
 import {
+  getCanvasMarkdownBodyDisplay,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
 } from "../../domain/slideCanvas/slideCanvasPayload";
+import { isSlideCanvasTextPayload } from "../../domain/entities/SlideCanvas";
+import {
+  applyWholeRichHtmlBold,
+  applyWholeRichHtmlForeColor,
+  applyWholeRichHtmlItalic,
+  markdownBodyToRichHtmlForEditor,
+  plainTextFromRichHtml,
+  sanitizeSlideRichHtml,
+} from "../../utils/slideRichText";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
+import {
+  SlideCanvasRichDescription,
+  type SlideCanvasRichDescriptionHandle,
+} from "./SlideCanvasRichDescription";
 import { SlideRightPanel } from "../editor/SlideRightPanel";
 import { SlideContentDiagram } from "../editor/SlideContentDiagram";
 import { SlideContentIsometricFlow } from "../editor/SlideContentIsometricFlow";
@@ -148,6 +163,56 @@ function useCanvasTextBlockAutoHeight(
   }, deps);
 }
 
+/**
+ * Encoge `rect.h` del markdown solo cuando el área de scroll es más alta que el
+ * contenido (hueco en blanco). Sin ResizeObserver: no compite con el resize manual.
+ */
+function useMarkdownCanvasAutoShrinkHeight(
+  enabled: boolean,
+  measureRootRef: RefObject<HTMLDivElement | null>,
+  slideContainerRef: RefObject<HTMLDivElement | null>,
+  elementId: string,
+  rect: SlideCanvasRect,
+  onPatchRect: (id: string, r: SlideCanvasRect) => void,
+  deps: unknown[],
+) {
+  const rectRef = useRef(rect);
+  rectRef.current = rect;
+
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const root = measureRootRef.current;
+    const slideEl = slideContainerRef.current;
+    if (!root || !slideEl) return;
+
+    const run = () => {
+      const r = rectRef.current;
+      const scrollHost =
+        root.querySelector<HTMLElement>(
+          "[data-slide-markdown-scroll-measure]",
+        ) ?? root;
+      const sh = scrollHost.scrollHeight;
+      const ch = scrollHost.clientHeight;
+      if (ch < 8 || sh < 1) return;
+      const slideH = slideEl.getBoundingClientRect().height;
+      if (slideH < 1) return;
+
+      const pad = 8;
+      if (sh + pad >= ch - 2) return;
+
+      const hPx = Math.ceil(sh + pad);
+      let hPct = (hPx / slideH) * 100;
+      hPct = Math.min(100 - r.y, Math.max(3, hPct));
+      const next = clampCanvasRect({ ...r, h: hPct });
+      if (Math.abs(next.h - r.h) < 0.35) return;
+      onPatchRect(elementId, next);
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps list passed explicitly por bloque
+  }, deps);
+}
+
 function fieldForKind(kind: SlideCanvasElement["kind"]): TextField | null {
   if (kind === "title" || kind === "chapterTitle") return "title";
   if (kind === "subtitle" || kind === "chapterSubtitle") return "subtitle";
@@ -167,6 +232,11 @@ export function SlideCanvasSlide() {
     setEditSubtitle,
     editContent,
     setEditContent,
+    editContentRichHtml,
+    setEditContentRichHtml,
+    editContentBodyFontScale,
+    setEditContentBodyFontScale,
+    formatMarkdown,
     commitSlideEdits,
     setSlides,
     setShowRewriteModal,
@@ -196,6 +266,8 @@ export function SlideCanvasSlide() {
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(selectedId);
+  selectedIdRef.current = selectedId;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isDragOverImageFile, setIsDragOverImageFile] = useState(false);
   const [activeField, setActiveField] = useState<TextField | null>(null);
@@ -213,9 +285,6 @@ export function SlideCanvasSlide() {
     vertical: { posPct: number; stroke: "solid" | "dashed" }[];
     horizontal: { posPct: number; stroke: "solid" | "dashed" }[];
   } | null>(null);
-  /** Tras arrastrar un bloque, evita que el `click` posterior abra edición por error. */
-  const dragConsumedClickRef = useRef(false);
-
   useEffect(() => {
     setSelectedId(null);
     setHoveredId(null);
@@ -228,11 +297,6 @@ export function SlideCanvasSlide() {
       setActiveField(null);
     }
   }, [isEditing]);
-
-  /** Un solo clic solo selecciona; al cambiar de bloque se sale del campo de texto (doble clic = editar). */
-  useEffect(() => {
-    setActiveField(null);
-  }, [selectedId]);
 
   useEffect(() => {
     if (!currentSlide) return;
@@ -313,6 +377,9 @@ export function SlideCanvasSlide() {
         flushSync(() => {
           commitSlideEdits({ keepEditing: true });
         });
+      }
+      if (selectedIdRef.current === elementId) {
+        setActiveField(null);
       }
       setSelectedId((sid) => (sid === elementId ? null : sid));
       setHoveredId((hid) => (hid === elementId ? null : hid));
@@ -447,7 +514,6 @@ export function SlideCanvasSlide() {
         const d = Math.hypot(ev.clientX - startX, ev.clientY - startY);
         if (d < thresholdPx) return;
         dragStarted = true;
-        dragConsumedClickRef.current = true;
         cleanupWatch();
         dragPhaseActive = true;
 
@@ -486,12 +552,6 @@ export function SlideCanvasSlide() {
     },
     [onPatchRect, setAlignmentGuides],
   );
-
-  const consumeClickIfDrag = useCallback(() => {
-    if (!dragConsumedClickRef.current) return false;
-    dragConsumedClickRef.current = false;
-    return true;
-  }, []);
 
   const startResizeCorner = useCallback(
     (
@@ -626,6 +686,7 @@ export function SlideCanvasSlide() {
     flushCanvasTextCommitIfEditing();
     setSelectedId(null);
     setHoveredId(null);
+    setActiveField(null);
     setCanvasMediaPanelEditTarget(null);
   }, [flushCanvasTextCommitIfEditing, setCanvasMediaPanelEditTarget]);
 
@@ -760,6 +821,9 @@ export function SlideCanvasSlide() {
           }
           onSelect={() => {
             flushCanvasTextCommitIfEditing();
+            if (selectedIdRef.current !== el.id) {
+              setActiveField(null);
+            }
             setSelectedId(el.id);
             setHoveredId(null);
             if (el.kind === "mediaPanel") {
@@ -782,14 +846,19 @@ export function SlideCanvasSlide() {
           setEditSubtitle={setEditSubtitle}
           editContent={editContent}
           setEditContent={setEditContent}
+          editContentRichHtml={editContentRichHtml}
+          setEditContentRichHtml={setEditContentRichHtml}
+          editContentBodyFontScale={editContentBodyFontScale}
+          setEditContentBodyFontScale={setEditContentBodyFontScale}
+          formatMarkdown={formatMarkdown}
           commitSlideEdits={commitSlideEdits}
+          patchCurrentSlideCanvasScene={patchCurrentSlideCanvasScene}
           patchCurrentSlideMatrix={patchCurrentSlideMatrix}
           setShowRewriteModal={setShowRewriteModal}
           setGenerateSlideContentPrompt={setGenerateSlideContentPrompt}
           setShowGenerateSlideContentModal={setShowGenerateSlideContentModal}
           attachDragThreshold={attachDragThreshold}
           dragThresholdPx={DRAG_THRESHOLD_PX}
-          consumeClickIfDrag={consumeClickIfDrag}
           startResizeCorner={startResizeCorner}
           startResizeEdge={startResizeEdge}
           startRotate={startRotate}
@@ -845,14 +914,19 @@ function CanvasElementEditor({
   setEditSubtitle,
   editContent,
   setEditContent,
+  editContentRichHtml,
+  setEditContentRichHtml,
+  editContentBodyFontScale,
+  setEditContentBodyFontScale,
+  formatMarkdown,
   commitSlideEdits,
+  patchCurrentSlideCanvasScene,
   patchCurrentSlideMatrix,
   setShowRewriteModal,
   setGenerateSlideContentPrompt,
   setShowGenerateSlideContentModal,
   attachDragThreshold,
   dragThresholdPx,
-  consumeClickIfDrag,
   startResizeCorner,
   startResizeEdge,
   startRotate,
@@ -896,7 +970,15 @@ function CanvasElementEditor({
   setEditSubtitle: (v: string) => void;
   editContent: string;
   setEditContent: (v: string) => void;
+  editContentRichHtml: string;
+  setEditContentRichHtml: (v: string) => void;
+  editContentBodyFontScale: number;
+  setEditContentBodyFontScale: (v: number | ((p: number) => number)) => void;
+  formatMarkdown: (raw: string) => string;
   commitSlideEdits: (o?: { keepEditing?: boolean }) => void;
+  patchCurrentSlideCanvasScene: (
+    updater: (scene: SlideCanvasScene) => SlideCanvasScene,
+  ) => void;
   patchCurrentSlideMatrix: (u: (p: SlideMatrixData) => SlideMatrixData) => void;
   setShowRewriteModal: (v: boolean) => void;
   setGenerateSlideContentPrompt: (v: string) => void;
@@ -911,7 +993,6 @@ function CanvasElementEditor({
     thresholdPx: number,
   ) => void;
   dragThresholdPx: number;
-  consumeClickIfDrag: () => boolean;
   startResizeCorner: (
     id: string,
     corner: ResizeCorner,
@@ -976,12 +1057,40 @@ function CanvasElementEditor({
 
   const titleAutoMeasureRef = useRef<HTMLDivElement>(null);
   const subtitleAutoMeasureRef = useRef<HTMLDivElement>(null);
+  const markdownMeasureRootRef = useRef<HTMLDivElement>(null);
+  const markdownRectRef = useRef(rect);
+  markdownRectRef.current = rect;
+
+  const textField = fieldForKind(kind);
+  const editingThisBlockText =
+    Boolean(
+      isEditing &&
+        isSelected &&
+        textField != null &&
+        activeField === textField,
+    );
+
   const isTitleKind = kind === "title" || kind === "chapterTitle";
   const isSubtitleKind = kind === "subtitle" || kind === "chapterSubtitle";
   const showTitleEdit = isEditing && isSelected && activeField === "title";
   const showSubtitleEdit = isEditing && isSelected && activeField === "subtitle";
   /** Con rotación, el AABB infla el alto; no auto-ajustamos para no pisar el tamaño manual. */
   const autoHeightByContent = Math.abs(rotation) < 0.01;
+
+  const canvasMdDisplayForFit =
+    kind === "markdown" ? getCanvasMarkdownBodyDisplay(slide, element) : null;
+  const markdownFitContentSig =
+    kind !== "markdown" || !canvasMdDisplayForFit
+      ? ""
+      : [
+          canvasMdDisplayForFit.kind,
+          canvasMdDisplayForFit.kind === "html"
+            ? canvasMdDisplayForFit.html
+            : canvasMdDisplayForFit.source,
+          isSlideCanvasTextPayload(element.payload)
+            ? String(element.payload.bodyFontScale ?? 1)
+            : "1",
+        ].join("\u0001");
 
   useCanvasTextBlockAutoHeight(
     isTitleKind && autoHeightByContent,
@@ -1031,6 +1140,31 @@ function CanvasElementEditor({
     ],
   );
 
+  /**
+   * Markdown: sin ResizeObserver (evita pelear con el resize manual). Auto-encogido
+   * en layout cuando hay aire bajo el texto; botón en cromo para ajustar alto al contenido.
+   */
+  useMarkdownCanvasAutoShrinkHeight(
+    kind === "markdown" && autoHeightByContent && !editingThisBlockText,
+    markdownMeasureRootRef,
+    slideContainerRef,
+    id,
+    rect,
+    onPatchRect,
+    [
+      kind === "markdown" && autoHeightByContent && !editingThisBlockText,
+      id,
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      markdownFitContentSig,
+      editingThisBlockText,
+      onPatchRect,
+      slideContainerRef,
+    ],
+  );
+
   const zRank = Math.round(Number.isFinite(z) ? z : 0);
   const sub =
     (isSelected ? CANVAS_Z_SUB_SELECTED : 0) +
@@ -1055,13 +1189,15 @@ function CanvasElementEditor({
 
   const showHoverOutline = isHovered && !isSelected;
 
-  const textField = fieldForKind(kind);
-
-  const showCanvaChrome =
+  /** Marco verde + asas: visible también en edición de texto (resize/rotación). */
+  const showCanvaChromeFrame =
     isSelected &&
     kind !== "excalidraw" &&
     kind !== "isometricFlow" &&
     kind !== "sectionLabel";
+  /** Barra píldora (IA, lápiz, B/I…): se oculta en edición para no chocar con la barra de selección del rich text. */
+  const showCanvaChromeToolbarPill =
+    showCanvaChromeFrame && !editingThisBlockText;
 
   const onShellPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -1069,14 +1205,35 @@ function CanvasElementEditor({
     if (t.closest(`[${EDIT_FIELD_ATTR}="true"]`)) return;
     if (t.closest("[data-slide-canvas-chrome]")) return;
     if (t.closest("[data-canvas-resize]")) return;
+
+    const editingThisBlock = Boolean(
+      isEditing && textField != null && activeField === textField,
+    );
+    /* En edición: clics en el “aire” del marco (no en el campo) no deben
+     * disparar onSelect + commit en flush (pierden foco/selección del rich text). */
+    if (editingThisBlock) {
+      if (
+        t.closest(
+          "input, textarea, select, button, [contenteditable='true']",
+        )
+      ) {
+        return;
+      }
+      return;
+    }
+
     onSelect();
-    const editingThisBlock =
-      Boolean(isEditing && textField && activeField === textField);
-    if (editingThisBlock) return;
     if (
       t.closest(
         "input, textarea, select, button, [contenteditable='true']",
       )
+    ) {
+      return;
+    }
+    /* Markdown en vista: el arrastre del bloque competía con selección de texto y doble clic. */
+    if (
+      kind === "markdown" &&
+      (t.closest(".slide-rich-root") || t.closest(".slide-rich-wrap"))
     ) {
       return;
     }
@@ -1126,15 +1283,173 @@ function CanvasElementEditor({
       ? panelSlide.codeEditorTheme ?? globalCodeEditorTheme
       : globalCodeEditorTheme;
 
-  const canvaChromeEl =
-    showCanvaChrome ? (
-      <SlideCanvasCanvaChrome
-        showResize
-        layoutDigest={`${rect.x},${rect.y},${rect.w},${rect.h}`}
-        onResizeCorner={(corner, e) => startResizeCorner(id, corner, e, rect)}
-        onResizeEdge={(edge, e) => startResizeEdge(id, edge, e, rect)}
-        onRotatePointerDown={(e) => startRotate(id, e, rect, rotation)}
-        toolbar={{
+  const markdownRichRef = useRef<SlideCanvasRichDescriptionHandle>(null);
+
+  const openMarkdownContentEdit = useCallback(() => {
+    if (kind !== "markdown") return;
+    onSelect();
+    setCanvasTextEditTarget("content", id);
+    const p = element.payload;
+    if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
+      setEditContentRichHtml(p.richHtml);
+      setEditContentBodyFontScale(
+        Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
+      );
+      setEditContent(
+        p.markdown.trim()
+          ? p.markdown
+          : plainTextFromRichHtml(p.richHtml) || "",
+      );
+    } else {
+      setEditContentRichHtml("");
+      setEditContentBodyFontScale(1);
+      setEditContent(
+        formatMarkdown(readTextMarkdownFromElement(slide, element)),
+      );
+    }
+    setIsEditing(true);
+    setActiveField("content");
+  }, [
+    kind,
+    id,
+    onSelect,
+    element,
+    slide,
+    setCanvasTextEditTarget,
+    setEditContentRichHtml,
+    setEditContentBodyFontScale,
+    setEditContent,
+    formatMarkdown,
+    setIsEditing,
+    setActiveField,
+  ]);
+
+  const bumpMarkdownBodyFontScaleOnCanvas = useCallback(
+    (factor: number) => {
+      if (kind !== "markdown") return;
+      const p = element.payload;
+      if (!isSlideCanvasTextPayload(p)) return;
+      const cur = Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1));
+      const nextScale = Math.min(
+        2.5,
+        Math.max(0.5, Number((cur * factor).toFixed(3))),
+      );
+      flushSync(() => setEditContentBodyFontScale(nextScale));
+      patchCurrentSlideCanvasScene((scene) => ({
+        ...scene,
+        elements: scene.elements.map((e) => {
+          if (e.id !== id || e.kind !== "markdown") return e;
+          const ep = e.payload;
+          if (!isSlideCanvasTextPayload(ep)) return e;
+          const c = Math.min(2.5, Math.max(0.5, ep.bodyFontScale ?? 1));
+          const n = Math.min(
+            2.5,
+            Math.max(0.5, Number((c * factor).toFixed(3))),
+          );
+          return { ...e, payload: { ...ep, bodyFontScale: n } };
+        }),
+      }));
+    },
+    [kind, id, element, patchCurrentSlideCanvasScene, setEditContentBodyFontScale],
+  );
+
+  const markdownChromeFontScalePct =
+    kind === "markdown"
+      ? (() => {
+          const d = getCanvasMarkdownBodyDisplay(slide, element);
+          if (d.kind === "html") return Math.round(d.scale * 100);
+          const p = element.payload;
+          if (isSlideCanvasTextPayload(p)) {
+            return Math.round(
+              Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)) * 100,
+            );
+          }
+          return 100;
+        })()
+      : 100;
+
+  const patchMarkdownWholeRichHtml = useCallback(
+    (transform: (html: string) => string) => {
+      if (kind !== "markdown") return;
+      const p = element.payload;
+      if (!isSlideCanvasTextPayload(p)) return;
+      const mdFormatted = formatMarkdown(
+        readTextMarkdownFromElement(slide, element),
+      );
+      const baseHtml = p.richHtml?.trim()
+        ? p.richHtml
+        : markdownBodyToRichHtmlForEditor(mdFormatted);
+      const sanitized = sanitizeSlideRichHtml(transform(baseHtml));
+      const plain = plainTextFromRichHtml(sanitized);
+      const nextMarkdown = plain.trim() ? plain : p.markdown;
+      /* `commitSlideEdits` reaplica buffers al lienzo; si los refs siguen vacíos,
+       * `applyEditBuffersToSlide` borra `richHtml`. Alinear buffers con el patch. */
+      flushSync(() => {
+        setEditContentRichHtml(sanitized);
+        setEditContent(nextMarkdown);
+      });
+      patchCurrentSlideCanvasScene((scene) => ({
+        ...scene,
+        elements: scene.elements.map((e) => {
+          if (e.id !== id || e.kind !== "markdown") return e;
+          const ep = e.payload;
+          if (!isSlideCanvasTextPayload(ep)) return e;
+          const mdF = formatMarkdown(readTextMarkdownFromElement(slide, e));
+          const base = ep.richHtml?.trim()
+            ? ep.richHtml
+            : markdownBodyToRichHtmlForEditor(mdF);
+          const nextRich = transform(base);
+          const san = sanitizeSlideRichHtml(nextRich);
+          const pl = plainTextFromRichHtml(san);
+          return {
+            ...e,
+            payload: {
+              ...ep,
+              richHtml: san,
+              markdown: pl.trim() ? pl : ep.markdown,
+            },
+          };
+        }),
+      }));
+    },
+    [
+      kind,
+      id,
+      element,
+      patchCurrentSlideCanvasScene,
+      slide,
+      formatMarkdown,
+      setEditContent,
+      setEditContentRichHtml,
+    ],
+  );
+
+  const fitMarkdownHeightToContent = useCallback(() => {
+    if (kind !== "markdown") return;
+    const elementId = id;
+    window.requestAnimationFrame(() => {
+      const root = markdownMeasureRootRef.current;
+      const slideEl = slideContainerRef.current;
+      if (!root || !slideEl) return;
+      const r = markdownRectRef.current;
+      const scrollHost =
+        root.querySelector<HTMLElement>(
+          "[data-slide-markdown-scroll-measure]",
+        ) ?? root;
+      const sh = scrollHost.scrollHeight;
+      const slideH = slideEl.getBoundingClientRect().height;
+      if (slideH < 1 || sh < 1) return;
+      const hPx = Math.ceil(sh + 8);
+      let hPct = (hPx / slideH) * 100;
+      hPct = Math.min(100 - r.y, Math.max(3, hPct));
+      const next = clampCanvasRect({ ...r, h: hPct });
+      if (Math.abs(next.h - r.h) < 0.25) return;
+      onPatchRect(elementId, next);
+    });
+  }, [kind, id, onPatchRect, slideContainerRef]);
+
+  const canvaChromeToolbarProps = showCanvaChromeToolbarPill
+    ? {
           onGenerateImage: showMediaPanelImageActions
             ? () => openImageModal({ mediaPanelElementId: id })
             : undefined,
@@ -1197,7 +1512,36 @@ function CanvasElementEditor({
                 setIsEditing(true);
                 if (kind === "markdown" || kind === "matrixNotes") {
                   setCanvasTextEditTarget("content", id);
-                  setEditContent(readTextMarkdownFromElement(slide, element));
+                  if (kind === "markdown") {
+                    const p = element.payload;
+                    if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
+                      setEditContentRichHtml(p.richHtml);
+                      setEditContentBodyFontScale(
+                        Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
+                      );
+                      setEditContent(
+                        p.markdown.trim()
+                          ? p.markdown
+                          : plainTextFromRichHtml(p.richHtml) || "",
+                      );
+                    } else {
+                      setEditContentRichHtml("");
+                      setEditContentBodyFontScale(1);
+                      setEditContent(
+                        formatMarkdown(
+                          readTextMarkdownFromElement(slide, element),
+                        ),
+                      );
+                    }
+                  } else {
+                    setEditContentRichHtml("");
+                    setEditContentBodyFontScale(1);
+                    setEditContent(
+                      formatMarkdown(
+                        readTextMarkdownFromElement(slide, element),
+                      ),
+                    );
+                  }
                   setActiveField("content");
                 } else if (
                   kind === "title" ||
@@ -1228,12 +1572,43 @@ function CanvasElementEditor({
                   : "",
               }
             : undefined,
-        }}
-      />
-    ) : null;
+          markdownDescriptionToolbar:
+            kind === "markdown" && showCanvaChromeToolbarPill
+              ? {
+                  fontScalePct: markdownChromeFontScalePct,
+                  onBlockScaleDec: () =>
+                    bumpMarkdownBodyFontScaleOnCanvas(1 / 1.08),
+                  onBlockScaleInc: () =>
+                    bumpMarkdownBodyFontScaleOnCanvas(1.08),
+                  onWholeBold: () =>
+                    patchMarkdownWholeRichHtml((h) => applyWholeRichHtmlBold(h)),
+                  onWholeItalic: () =>
+                    patchMarkdownWholeRichHtml((h) =>
+                      applyWholeRichHtmlItalic(h),
+                    ),
+                  onWholeColor: (hex: string) =>
+                    patchMarkdownWholeRichHtml((h) =>
+                      applyWholeRichHtmlForeColor(h, hex),
+                    ),
+                  onFitHeightToContent: fitMarkdownHeightToContent,
+                }
+              : undefined,
+      }
+    : undefined;
+
+  const canvaChromeEl = showCanvaChromeFrame ? (
+    <SlideCanvasCanvaChrome
+      showResize
+      layoutDigest={`${rect.x},${rect.y},${rect.w},${rect.h}`}
+      onResizeCorner={(corner, e) => startResizeCorner(id, corner, e, rect)}
+      onResizeEdge={(edge, e) => startResizeEdge(id, edge, e, rect)}
+      onRotatePointerDown={(e) => startRotate(id, e, rect, rotation)}
+      toolbar={canvaChromeToolbarProps}
+    />
+  ) : null;
 
   const shellOverflowVisible =
-    showCanvaChrome || (isHovered && !isSelected);
+    showCanvaChromeFrame || (isHovered && !isSelected);
   const outerShellClass = cn(
     "absolute min-h-0 min-w-0 touch-manipulation",
     shellOverflowVisible ? "overflow-visible" : "overflow-hidden",
@@ -1283,7 +1658,6 @@ function CanvasElementEditor({
                   )}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
-                    if (consumeClickIfDrag()) return;
                     onSelect();
                     setCanvasTextEditTarget("title", id);
                     setEditTitle(readTextMarkdownFromElement(slide, element));
@@ -1386,7 +1760,6 @@ function CanvasElementEditor({
                   )}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
-                    if (consumeClickIfDrag()) return;
                     onSelect();
                     setCanvasTextEditTarget("subtitle", id);
                     setEditSubtitle(readTextMarkdownFromElement(slide, element));
@@ -1456,84 +1829,118 @@ function CanvasElementEditor({
       );
     }
     case "markdown": {
-      const bodyPreview =
-        isEditing && isSelected && activeField === "content"
-          ? editContent
-          : readTextMarkdownFromElement(slide, element);
+      const bodyDisplay = getCanvasMarkdownBodyDisplay(slide, element);
+      const viewEmpty =
+        bodyDisplay.kind === "html"
+          ? !plainTextFromRichHtml(bodyDisplay.html).trim()
+          : !bodyDisplay.source.trim();
+
+      const viewFontScale =
+        bodyDisplay.kind === "html"
+          ? bodyDisplay.scale
+          : Math.min(
+              2.5,
+              Math.max(
+                0.5,
+                isSlideCanvasTextPayload(element.payload)
+                  ? (element.payload.bodyFontScale ?? 1)
+                  : 1,
+              ),
+            );
+
       return (
         <div
           style={box}
           data-slide-canvas-el
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
+          onDoubleClickCapture={(e: React.MouseEvent) => {
+            if (e.button !== 0) return;
+            if (isEditing && isSelected && activeField === "content") return;
+            const t = e.target as HTMLElement;
+            if (t.closest(`[${EDIT_FIELD_ATTR}="true"]`)) return;
+            if (t.closest("[data-slide-canvas-chrome]")) return;
+            if (t.closest("[data-canvas-resize]")) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openMarkdownContentEdit();
+          }}
           {...shellHoverProps}
         >
           {rotatedInner(
             "relative flex h-full min-h-0 w-full flex-col overflow-hidden",
-            !isEditing || !isSelected || activeField !== "content" ? (
-              <div
-                className="min-h-0 flex-1 select-none overflow-y-auto px-2 py-1"
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  if (consumeClickIfDrag()) return;
-                  onSelect();
-                  setCanvasTextEditTarget("content", id);
-                  setEditContent(
-                    readTextMarkdownFromElement(slide, element),
-                  );
-                  setIsEditing(true);
-                  setActiveField("content");
-                }}
-                role="button"
-                tabIndex={0}
-                title="Doble clic para editar"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    onSelect();
-                    setCanvasTextEditTarget("content", id);
-                    setEditContent(
-                      readTextMarkdownFromElement(slide, element),
-                    );
-                    setIsEditing(true);
-                    setActiveField("content");
-                  }
-                }}
-              >
-                {bodyPreview.trim() ? (
-                  <SlideMarkdown contentTone={tone}>{bodyPreview}</SlideMarkdown>
-                ) : (
-                  <p className={cn("italic", deckMutedTextClass(tone))}>
-                    Doble clic para editar…
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="flex min-h-0 flex-1 flex-col px-2 py-1">
-                <textarea
-                  {...{ [EDIT_FIELD_ATTR]: "true" }}
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onBlur={() =>
-                    window.setTimeout(
-                      () => commitSlideEdits({ keepEditing: true }),
-                      120,
-                    )
-                  }
-                  className={deckMarkdownBodyTextareaClass(tone)}
-                  placeholder="Markdown…"
-                />
-                <button
-                  type="button"
-                  className={deckRewriteActionBtnClass(tone)}
-                  title="Replantear con IA"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setShowRewriteModal(true)}
+            <div
+              ref={markdownMeasureRootRef}
+              className="flex min-h-0 flex-1 flex-col px-2 py-1"
+            >
+              {!isEditing || !isSelected || activeField !== "content" ? (
+                <div
+                  data-slide-markdown-scroll-measure=""
+                  className="min-h-0 flex-1 select-none overflow-y-auto"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    openMarkdownContentEdit();
+                  }}
+                  tabIndex={0}
+                  title="Doble clic para editar"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      openMarkdownContentEdit();
+                    }
+                  }}
                 >
-                  <RefreshCw size={16} />
-                </button>
-              </div>
-            ),
+                  {!viewEmpty ? (
+                    <SlideCanvasRichDescription
+                      ref={markdownRichRef}
+                      elementId={id}
+                      tone={tone}
+                      display={bodyDisplay}
+                      isEditing={false}
+                      plainBuffer={editContent}
+                      richHtmlBuffer={editContentRichHtml}
+                      fontScale={viewFontScale}
+                      onPlainAndRichChange={() => {}}
+                      onBlurCommit={() => {}}
+                      onRequestEdit={openMarkdownContentEdit}
+                    />
+                  ) : (
+                    <p className={cn("italic", deckMutedTextClass(tone))}>
+                      Doble clic para editar…
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
+                  <SlideCanvasRichDescription
+                    ref={markdownRichRef}
+                    elementId={id}
+                    tone={tone}
+                    display={bodyDisplay}
+                    isEditing
+                    plainBuffer={editContent}
+                    richHtmlBuffer={editContentRichHtml}
+                    fontScale={editContentBodyFontScale}
+                    onPlainAndRichChange={(plain, rich) => {
+                      setEditContent(plain);
+                      setEditContentRichHtml(rich);
+                    }}
+                    onBlurCommit={() =>
+                      commitSlideEdits({ keepEditing: true })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className={cn(deckRewriteActionBtnClass(tone), "z-20")}
+                    title="Replantear con IA"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowRewriteModal(true)}
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                </div>
+              )}
+            </div>,
           )}
           {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}
@@ -1725,7 +2132,6 @@ function CanvasElementEditor({
                 className="select-none rounded-md"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  if (consumeClickIfDrag()) return;
                   onSelect();
                   setCanvasTextEditTarget("content", id);
                   setEditContent(

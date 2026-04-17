@@ -38,6 +38,10 @@ export type SlideCanvasTextPayload = {
   type: "text";
   role: SlideCanvasTextRole;
   markdown: string;
+  /** HTML sanitizado solo para `kind === "markdown"` (descripción en lienzo). */
+  richHtml?: string;
+  /** Escala tipográfica del bloque (1 = base). */
+  bodyFontScale?: number;
 };
 
 export type SlideCanvasMediaPayload = {

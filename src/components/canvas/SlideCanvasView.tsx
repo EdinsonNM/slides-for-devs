@@ -17,12 +17,15 @@ import {
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
+  getCanvasMarkdownBodyDisplay,
   presenter3dDisplayPropsFromCanvasElement,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
 } from "../../domain/slideCanvas/slideCanvasPayload";
+import { plainTextFromRichHtml } from "../../utils/slideRichText";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
+import { SlideCanvasRichDescription } from "./SlideCanvasRichDescription";
 import { CodeDisplay } from "../shared/CodeDisplay";
 import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
 import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas";
@@ -278,19 +281,33 @@ function CanvasElementReadOnly({
           )}
         </div>
       );
-    case "markdown":
+    case "markdown": {
+      const disp = getCanvasMarkdownBodyDisplay(slide, element);
+      const empty =
+        disp.kind === "html"
+          ? !plainTextFromRichHtml(disp.html).trim()
+          : !disp.source.trim();
       return (
         <div style={box} className={shell}>
           {rotated(
             "h-full overflow-y-auto px-2 py-1 scrollbar-on-hover",
-            readTextMarkdownFromElement(slide, element).trim() ? (
-              <SlideMarkdown contentTone={tone}>
-                {readTextMarkdownFromElement(slide, element)}
-              </SlideMarkdown>
+            !empty ? (
+              <SlideCanvasRichDescription
+                elementId={element.id}
+                tone={tone}
+                display={disp}
+                isEditing={false}
+                plainBuffer=""
+                richHtmlBuffer=""
+                fontScale={disp.kind === "html" ? disp.scale : 1}
+                onPlainAndRichChange={() => {}}
+                onBlurCommit={() => {}}
+              />
             ) : null,
           )}
         </div>
       );
+    }
     case "mediaPanel":
       if (slide.type !== SLIDE_TYPE.CONTENT) return null;
       return (

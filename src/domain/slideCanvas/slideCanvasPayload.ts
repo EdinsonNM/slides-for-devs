@@ -19,6 +19,7 @@ import {
   isSlideCanvasMediaPayload,
   isSlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
+import { plainTextFromRichHtml } from "../../utils/slideRichText";
 
 export type {
   SlideCanvasElementPayload,
@@ -200,6 +201,30 @@ export function canvasFirstMediaPanelElementId(slide: Slide): string | null {
   return sorted.find((e) => e.kind === "mediaPanel")?.id ?? null;
 }
 
+export type CanvasMarkdownBodyDisplay =
+  | { kind: "markdown"; source: string }
+  | { kind: "html"; html: string; scale: number };
+
+/** Vista del bloque descripción (`markdown`): markdown clásico o HTML enriquecido persistido. */
+export function getCanvasMarkdownBodyDisplay(
+  slide: Slide,
+  el: SlideCanvasElement,
+): CanvasMarkdownBodyDisplay {
+  if (el.kind !== "markdown") {
+    return { kind: "markdown", source: readTextMarkdownFromElement(slide, el) };
+  }
+  const p = el.payload;
+  if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
+    const scale = p.bodyFontScale ?? 1;
+    return {
+      kind: "html",
+      html: p.richHtml,
+      scale: Math.min(2.5, Math.max(0.5, Number.isFinite(scale) ? scale : 1)),
+    };
+  }
+  return { kind: "markdown", source: readTextMarkdownFromElement(slide, el) };
+}
+
 export function readTextMarkdownFromElement(
   slide: Slide,
   el: SlideCanvasElement,
@@ -216,6 +241,11 @@ export function readTextMarkdownFromElement(
       return t || (slide.subtitle ?? "");
     }
     if (el.kind === "markdown" || el.kind === "matrixNotes") {
+      if (el.kind === "markdown" && p.richHtml?.trim()) {
+        const plain = md.trim();
+        if (plain) return md;
+        return plainTextFromRichHtml(p.richHtml) || (slide.content ?? "");
+      }
       const t = md.trim();
       return t || (slide.content ?? "");
     }

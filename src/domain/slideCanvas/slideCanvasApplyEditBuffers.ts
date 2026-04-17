@@ -4,7 +4,9 @@ import type {
   SlideCanvasElementKind,
   SlideCanvasMediaPayload,
   SlideCanvasScene,
+  SlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
+import { isSlideCanvasTextPayload } from "../entities/SlideCanvas";
 import {
   compareCanvasElementsByZThenId,
   patchElementPayload,
@@ -13,6 +15,7 @@ import {
 } from "./slideCanvasPayload";
 import { ensureSlideCanvasScene } from "./ensureSlideCanvasScene";
 import { syncSlideRootFromCanvas } from "./syncSlideRootFromCanvas";
+import { sanitizeSlideRichHtml } from "../../utils/slideRichText";
 
 export type CanvasTextEditTargets = {
   titleElementId: string | null;
@@ -61,20 +64,29 @@ function isBodyKind(k: SlideCanvasElementKind): boolean {
   return k === "markdown" || k === "matrixNotes";
 }
 
+export type SlideCanvasEditBuffers = {
+  title: string;
+  subtitle: string;
+  content: string;
+  code: string;
+  language: string;
+  fontSize: number;
+  editorHeight: number;
+  /**
+   * HTML del bloque descripción (`markdown`). `undefined` = conservar el payload;
+   * `null` o `""` tras trim = quitar texto enriquecido.
+   */
+  contentRichHtml?: string | null;
+  /** Escala del bloque descripción (solo con `richHtml`). */
+  contentBodyFontScale?: number;
+};
+
 /**
  * Aplica buffers de edición a los payloads del lienzo y sincroniza la raíz del slide.
  */
 export function applyEditBuffersToSlide(
   base: Slide,
-  buffers: {
-    title: string;
-    subtitle: string;
-    content: string;
-    code: string;
-    language: string;
-    fontSize: number;
-    editorHeight: number;
-  },
+  buffers: SlideCanvasEditBuffers,
   targets: CanvasTextEditTargets,
 ): Slide {
   const ensured = ensureSlideCanvasScene(base);
@@ -90,8 +102,37 @@ export function applyEditBuffersToSlide(
     if (!id) return;
     const el = scene.elements.find((e) => e.id === id);
     if (!el || !kindPred(el.kind)) return;
-    const payload = { ...textPayloadForElementKind(slide, el.kind), markdown };
-    scene = patchElementPayload(scene, id, payload);
+    const root = textPayloadForElementKind(slide, el.kind);
+    const prev = el.payload;
+    const merged: SlideCanvasTextPayload = isSlideCanvasTextPayload(prev)
+      ? { ...root, ...prev, markdown }
+      : { ...root, markdown };
+    const next: SlideCanvasTextPayload = { ...merged };
+
+    if (isBodyKind(el.kind) && el.kind === "markdown") {
+      if (buffers.contentRichHtml !== undefined) {
+        const raw = buffers.contentRichHtml?.trim() ?? "";
+        if (raw) {
+          next.richHtml = sanitizeSlideRichHtml(raw);
+        } else {
+          delete next.richHtml;
+          delete next.bodyFontScale;
+        }
+      }
+      if (buffers.contentBodyFontScale !== undefined && next.richHtml?.trim()) {
+        const s = buffers.contentBodyFontScale;
+        next.bodyFontScale = Math.min(
+          2.5,
+          Math.max(0.5, Number.isFinite(s) ? s : 1),
+        );
+      }
+    }
+    if (el.kind !== "markdown") {
+      delete next.richHtml;
+      delete next.bodyFontScale;
+    }
+
+    scene = patchElementPayload(scene, id, next);
     slide = { ...slide, canvasScene: scene };
   };
 
@@ -116,6 +157,31 @@ export function applyEditBuffersToSlide(
   }
 
   return syncSlideRootFromCanvas(slide);
+}
+
+/** Sustituye el markdown del primer bloque `markdown` y elimina HTML enriquecido (p. ej. tras IA). */
+export function replaceFirstMarkdownCanvasBody(
+  slide: Slide,
+  markdown: string,
+): Slide {
+  const ensured = ensureSlideCanvasScene(slide);
+  if (!ensured.canvasScene) return { ...slide, content: markdown };
+  const sorted = [...ensured.canvasScene.elements].sort(
+    compareCanvasElementsByZThenId,
+  );
+  const el = sorted.find((e) => e.kind === "markdown");
+  if (!el) return { ...slide, content: markdown };
+  const p = el.payload;
+  const nextPayload: SlideCanvasTextPayload = isSlideCanvasTextPayload(p)
+    ? {
+        ...p,
+        markdown,
+        richHtml: undefined,
+        bodyFontScale: undefined,
+      }
+    : { ...textPayloadForElementKind(slide, el.kind), markdown };
+  const scene = patchElementPayload(ensured.canvasScene, el.id, nextPayload);
+  return syncSlideRootFromCanvas({ ...ensured, canvasScene: scene });
 }
 
 /** Comparación estable: detecta cambios en bloques que no reflejan el espejo raíz (p. ej. 2º subtítulo). */
