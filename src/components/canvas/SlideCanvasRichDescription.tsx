@@ -274,34 +274,7 @@ export const SlideCanvasRichDescription = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps -- plainBuffer/richHtmlBuffer solo para becameEditing/idChanged
   }, [isEditing, elementId]);
 
-  useEffect(() => {
-    if (isEditing) return;
-    const root = viewRootRef.current;
-    if (!root || !onRequestEditRef.current) return;
 
-    let lastFire = 0;
-    const fire = (ev: MouseEvent) => {
-      if (ev.button !== 0 || !onRequestEditRef.current) return;
-      const now = performance.now();
-      if (now - lastFire < 320) return;
-      lastFire = now;
-      ev.preventDefault();
-      ev.stopPropagation();
-      onRequestEditRef.current();
-    };
-
-    const onDblClick = (ev: MouseEvent) => fire(ev);
-    const onClickCapture = (ev: MouseEvent) => {
-      if (ev.detail === 2) fire(ev);
-    };
-
-    root.addEventListener("dblclick", onDblClick, true);
-    root.addEventListener("click", onClickCapture, true);
-    return () => {
-      root.removeEventListener("dblclick", onDblClick, true);
-      root.removeEventListener("click", onClickCapture, true);
-    };
-  }, [isEditing, display.kind, onRequestEdit]);
 
   useEffect(() => {
     if (isEditing) return;
@@ -420,6 +393,12 @@ export const SlideCanvasRichDescription = forwardRef<
           ref={viewRootRef}
           className={cn(wrapClass, "select-none", shellClassName)}
           style={{ fontSize: viewFontSize }}
+          onDoubleClick={(e) => {
+            if (onRequestEditRef.current) {
+              e.stopPropagation();
+              onRequestEditRef.current();
+            }
+          }}
         >
           <div
             className="slide-rich-root select-none [&_a]:underline"
@@ -438,6 +417,12 @@ export const SlideCanvasRichDescription = forwardRef<
         ref={viewRootRef}
         className={cn(wrapClass, "select-none", shellClassName)}
         style={{ fontSize: viewFontSize }}
+        onDoubleClick={(e) => {
+          if (onRequestEditRef.current) {
+            e.stopPropagation();
+            onRequestEditRef.current();
+          }
+        }}
       >
         {src.trim() ? (
           <SlideMarkdown contentTone={tone}>{src}</SlideMarkdown>

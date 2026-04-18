@@ -1925,6 +1925,10 @@ function CanvasElementEditor({
                   className="min-h-0 flex-1 select-none overflow-y-auto"
                   tabIndex={0}
                   title="Doble clic para editar"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    openMarkdownContentEdit();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
