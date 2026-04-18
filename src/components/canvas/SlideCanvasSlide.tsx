@@ -762,6 +762,14 @@ export function SlideCanvasSlide() {
     setCanvasMediaPanelEditTarget(null);
   }, [flushCanvasTextCommitIfEditing, setCanvasMediaPanelEditTarget]);
 
+  useEffect(() => {
+    const handleDismiss = () => dismissSlideCanvasSelection();
+    document.addEventListener("slide:dismissCanvasSelection", handleDismiss);
+    return () => {
+      document.removeEventListener("slide:dismissCanvasSelection", handleDismiss);
+    };
+  }, [dismissSlideCanvasSelection]);
+
   if (!currentSlide) {
     sceneElementsRef.current = [];
     return null;

@@ -9,7 +9,15 @@ export function SlideEditor() {
   if (!currentSlide) return null;
 
   return (
-    <section className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-stone-200/50 p-3 pb-24 md:p-4 lg:p-6 dark:bg-stone-900/60">
+    <section 
+      className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-stone-200/50 p-3 pb-24 md:p-4 lg:p-6 dark:bg-stone-900/60"
+      onPointerDown={(e) => {
+        const t = e.target as HTMLElement;
+        if (!t.closest(".slide-content")) {
+          document.dispatchEvent(new CustomEvent("slide:dismissCanvasSelection"));
+        }
+      }}
+    >
       <div className="slide-editor-canvas-wrap flex w-full max-w-5xl flex-col items-stretch gap-1">
         <div className="shrink-0 self-start px-0.5">
           <span
