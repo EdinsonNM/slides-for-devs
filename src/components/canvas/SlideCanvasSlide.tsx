@@ -51,6 +51,11 @@ import {
   plainTextFromRichHtml,
   sanitizeSlideRichHtml,
 } from "../../utils/slideRichText";
+import {
+  SlideChapterTitleReadOnly,
+  SlideContentTitleReadOnly,
+  SlideSubtitleMarkdownBody,
+} from "../../presentation/slide-elements";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import {
   SlideCanvasRichDescription,
@@ -66,7 +71,6 @@ import { SlideCanvasCanvaChrome } from "./SlideCanvasCanvaChrome";
 import { SlideCanvasHoverOutline } from "./SlideCanvasHoverOutline";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
 import {
-  deckChapterSubtitleHintClass,
   deckIaToolbarBtnClass,
   deckIaToolbarHoverClass,
   deckMarkdownBodyTextareaClass,
@@ -74,7 +78,6 @@ import {
   deckMediaPanelDragStripClass,
   deckMediaPanelShellClass,
   deckMutedTextClass,
-  deckPrimaryTextClass,
   deckRewriteActionBtnClass,
   deckSlideContentWrapperClass,
   deckSubtitleTextareaClass,
@@ -1746,28 +1749,22 @@ function CanvasElementEditor({
                     }
                   }}
                 >
-                  <span
-                    className={cn(
-                      "block max-w-full min-w-0 font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
-                      deckPrimaryTextClass(tone),
-                    )}
-                    style={
-                      chapter
-                        ? { fontSize: "var(--slide-title-chapter)" }
-                        : { fontSize: "var(--slide-title)" }
-                    }
-                  >
-                    {(
-                      showTitleEdit
-                        ? editTitle
-                        : readTextMarkdownFromElement(slide, element)
-                    ).trim() || "Sin título"}
-                  </span>
-                  {!chapter && (
-                    <div className="mt-2 h-1.5 w-20 shrink-0 rounded-full bg-emerald-600" />
-                  )}
-                  {chapter && (
-                    <div className="mx-auto mt-3 h-1 w-14 shrink-0 rounded-full bg-emerald-600 md:mt-4" />
+                  {chapter ? (
+                    <SlideChapterTitleReadOnly tone={tone}>
+                      {(
+                        showTitleEdit
+                          ? editTitle
+                          : readTextMarkdownFromElement(slide, element)
+                      ).trim() || "Sin título"}
+                    </SlideChapterTitleReadOnly>
+                  ) : (
+                    <SlideContentTitleReadOnly tone={tone}>
+                      {(
+                        showTitleEdit
+                          ? editTitle
+                          : readTextMarkdownFromElement(slide, element)
+                      ).trim() || "Sin título"}
+                    </SlideContentTitleReadOnly>
                   )}
                 </div>
               ) : (
@@ -1820,11 +1817,7 @@ function CanvasElementEditor({
                 <div
                   className={cn(
                     "flex w-full min-w-0 shrink-0 select-none flex-col overflow-visible rounded-md text-sm",
-                    chapter &&
-                      cn(
-                        "items-center text-center font-light uppercase tracking-wide",
-                        deckChapterSubtitleHintClass(tone),
-                      ),
+                    chapter && "items-center text-center",
                   )}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
@@ -1853,18 +1846,14 @@ function CanvasElementEditor({
                       ? editSubtitle
                       : readTextMarkdownFromElement(slide, element)
                   ).trim() ? (
-                    <SlideMarkdown
-                      contentTone={tone}
-                      className={cn(
-                        "prose-sm max-w-none min-w-0",
-                        chapter && "text-center normal-case",
-                      )}
-                      style={{ fontSize: "var(--slide-subtitle)" }}
+                    <SlideSubtitleMarkdownBody
+                      tone={tone}
+                      variant={chapter ? "chapter" : "default"}
                     >
                       {isEditing && showSubtitleEdit
                         ? editSubtitle
                         : readTextMarkdownFromElement(slide, element)}
-                    </SlideMarkdown>
+                    </SlideSubtitleMarkdownBody>
                   ) : (
                     <span className={cn("italic", deckMutedTextClass(tone))}>
                       Subtítulo (opcional)

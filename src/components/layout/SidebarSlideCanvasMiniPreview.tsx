@@ -27,9 +27,10 @@ import {
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import {
-  deckChapterSubtitleHintClass,
-  deckPrimaryTextClass,
-} from "../../utils/deckSlideChrome";
+  SlideChapterTitleReadOnly,
+  SlideContentTitleReadOnly,
+  SlideSubtitleMarkdownBody,
+} from "../../presentation/slide-elements";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideCanvasRichDescription } from "../canvas/SlideCanvasRichDescription";
 import { cn } from "../../utils/cn";
@@ -180,18 +181,12 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
           {rotated(
             rotation,
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-1",
-            <>
-              <h2
-                className={cn(
-                  "min-h-0 min-w-0 w-full max-w-full shrink font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
-                  deckPrimaryTextClass(tone),
-                )}
-                style={{ fontSize: "var(--slide-title)" }}
-              >
-                {readTextMarkdownFromElement(slide, el)}
-              </h2>
-              <div className="mt-2 h-1.5 w-20 shrink-0 rounded-full bg-emerald-600" />
-            </>,
+            <SlideContentTitleReadOnly
+              tone={tone}
+              headingClassName="min-h-0 shrink"
+            >
+              {readTextMarkdownFromElement(slide, el)}
+            </SlideContentTitleReadOnly>,
           )}
         </div>
       );
@@ -202,16 +197,13 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
           {rotated(
             rotation,
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-0.5",
-            <SlideMarkdown
-              contentTone={tone}
-              className={cn(
-                "prose-sm max-w-none min-w-0 w-full",
-                THUMB_MARKDOWN_COMPACT,
-              )}
-              style={{ fontSize: "var(--slide-subtitle)" }}
+            <SlideSubtitleMarkdownBody
+              tone={tone}
+              variant="default"
+              className={THUMB_MARKDOWN_COMPACT}
             >
               {readTextMarkdownFromElement(slide, el)}
-            </SlideMarkdown>,
+            </SlideSubtitleMarkdownBody>,
           )}
         </div>
       );
@@ -222,20 +214,14 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
         <div key={el.id} style={boxStyle} className={shell}>
           {rotated(
             rotation,
-            cn(
-              "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center",
-              deckChapterSubtitleHintClass(tone),
-            ),
-            <SlideMarkdown
-              contentTone={tone}
-              className={cn(
-                "prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide",
-                THUMB_MARKDOWN_COMPACT,
-              )}
-              style={{ fontSize: "var(--slide-subtitle)" }}
+            "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center",
+            <SlideSubtitleMarkdownBody
+              tone={tone}
+              variant="chapter"
+              className={THUMB_MARKDOWN_COMPACT}
             >
               {readTextMarkdownFromElement(slide, el)}
-            </SlideMarkdown>,
+            </SlideSubtitleMarkdownBody>,
           )}
         </div>
       );
@@ -246,18 +232,12 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
           {rotated(
             rotation,
             "flex h-full min-h-0 w-full flex-col items-center justify-start overflow-hidden px-3 text-center",
-            <>
-              <div className="mb-3 h-1 w-14 shrink-0 rounded-full bg-emerald-600 md:mb-4" />
-              <h1
-                className={cn(
-                  "min-h-0 min-w-0 w-full max-w-full shrink font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
-                  deckPrimaryTextClass(tone),
-                )}
-                style={{ fontSize: "var(--slide-title-chapter)" }}
-              >
-                {readTextMarkdownFromElement(slide, el)}
-              </h1>
-            </>,
+            <SlideChapterTitleReadOnly
+              tone={tone}
+              headingClassName="min-h-0 shrink"
+            >
+              {readTextMarkdownFromElement(slide, el)}
+            </SlideChapterTitleReadOnly>,
           )}
         </div>
       );

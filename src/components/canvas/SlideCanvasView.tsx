@@ -9,11 +9,7 @@ import {
   normalizeSlideMatrixData,
   type DeckContentTone,
 } from "../../domain/entities";
-import {
-  deckChapterSubtitleHintClass,
-  deckMutedTextClass,
-  deckPrimaryTextClass,
-} from "../../utils/deckSlideChrome";
+import { deckMutedTextClass } from "../../utils/deckSlideChrome";
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
@@ -24,6 +20,11 @@ import {
 } from "../../domain/slideCanvas/slideCanvasPayload";
 import { plainTextFromRichHtml } from "../../utils/slideRichText";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
+import {
+  SlideChapterTitleReadOnly,
+  SlideContentTitleReadOnly,
+  SlideSubtitleMarkdownBody,
+} from "../../presentation/slide-elements";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideCanvasRichDescription } from "./SlideCanvasRichDescription";
 import { CodeDisplay } from "../shared/CodeDisplay";
@@ -211,18 +212,9 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-1",
-            <>
-              <h2
-                className={cn(
-                  "min-w-0 w-full max-w-full font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
-                  deckPrimaryTextClass(tone),
-                )}
-                style={{ fontSize: "var(--slide-title)" }}
-              >
-                {readTextMarkdownFromElement(slide, element)}
-              </h2>
-              <div className="mt-2 h-1.5 w-20 shrink-0 rounded-full bg-emerald-600" />
-            </>,
+            <SlideContentTitleReadOnly tone={tone}>
+              {readTextMarkdownFromElement(slide, element)}
+            </SlideContentTitleReadOnly>,
           )}
         </div>
       );
@@ -232,13 +224,9 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "flex h-full min-h-0 w-full flex-col overflow-hidden px-2 py-0.5",
-            <SlideMarkdown
-              contentTone={tone}
-              className="prose-sm max-w-none min-w-0 w-full"
-              style={{ fontSize: "var(--slide-subtitle)" }}
-            >
+            <SlideSubtitleMarkdownBody tone={tone} variant="default">
               {readTextMarkdownFromElement(slide, element)}
-            </SlideMarkdown>,
+            </SlideSubtitleMarkdownBody>,
           )}
         </div>
       );
@@ -247,18 +235,9 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "flex h-full min-h-0 w-full flex-col items-center justify-start overflow-hidden px-3 text-center",
-            <>
-              <div className="mb-3 h-1 w-14 shrink-0 rounded-full bg-emerald-600 md:mb-4" />
-              <h1
-                className={cn(
-                  "min-w-0 w-full max-w-full font-serif italic leading-tight whitespace-pre-wrap wrap-break-word",
-                  deckPrimaryTextClass(tone),
-                )}
-                style={{ fontSize: "var(--slide-title-chapter)" }}
-              >
-                {readTextMarkdownFromElement(slide, element)}
-              </h1>
-            </>,
+            <SlideChapterTitleReadOnly tone={tone}>
+              {readTextMarkdownFromElement(slide, element)}
+            </SlideChapterTitleReadOnly>,
           )}
         </div>
       );
@@ -267,17 +246,10 @@ function CanvasElementReadOnly({
       return (
         <div style={box} className={shell}>
           {rotated(
-            cn(
-              "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center",
-              deckChapterSubtitleHintClass(tone),
-            ),
-            <SlideMarkdown
-              contentTone={tone}
-              className="prose-sm max-w-none min-w-0 w-full text-center font-light normal-case tracking-wide"
-              style={{ fontSize: "var(--slide-subtitle)" }}
-            >
+            "flex h-full min-h-0 w-full items-start justify-center overflow-hidden px-3 text-center",
+            <SlideSubtitleMarkdownBody tone={tone} variant="chapter">
               {readTextMarkdownFromElement(slide, element)}
-            </SlideMarkdown>,
+            </SlideSubtitleMarkdownBody>,
           )}
         </div>
       );
