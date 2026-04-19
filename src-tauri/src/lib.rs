@@ -1,6 +1,7 @@
 mod api_keys;
 mod ai_providers;
 mod db;
+mod meshy;
 mod oauth_google;
 
 use std::path::PathBuf;
@@ -251,6 +252,36 @@ fn set_openrouter_api_key(key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_meshy_api_key() -> Result<Option<String>, String> {
+    api_keys::get_meshy_api_key()
+}
+
+#[tauri::command]
+fn set_meshy_api_key(key: String) -> Result<(), String> {
+    api_keys::set_meshy_api_key(&key)
+}
+
+#[tauri::command]
+fn meshy_text_to_3d_glb(
+    app: tauri::AppHandle,
+    prompt: String,
+    ai_model: String,
+    with_texture: bool,
+) -> Result<String, String> {
+    meshy::meshy_text_to_3d_glb(&app, prompt, ai_model, with_texture)
+}
+
+#[tauri::command]
+fn meshy_image_to_3d_glb(
+    app: tauri::AppHandle,
+    image_url: String,
+    ai_model: String,
+    should_texture: bool,
+) -> Result<String, String> {
+    meshy::meshy_image_to_3d_glb(&app, image_url, ai_model, should_texture)
+}
+
+#[tauri::command]
 fn has_any_api_configured() -> Result<bool, String> {
     api_keys::has_any_api_configured()
 }
@@ -468,6 +499,10 @@ pub fn run() {
             set_cerebras_api_key,
             get_openrouter_api_key,
             set_openrouter_api_key,
+            get_meshy_api_key,
+            set_meshy_api_key,
+            meshy_text_to_3d_glb,
+            meshy_image_to_3d_glb,
             has_any_api_configured,
             provider_chat_completion,
             save_presentation,

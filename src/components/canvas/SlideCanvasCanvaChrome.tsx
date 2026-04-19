@@ -1,5 +1,6 @@
 import {
   Bold,
+  Box,
   Copy,
   Italic,
   Link2,
@@ -32,6 +33,7 @@ import {
   CANVAS_3D_GLB_FILE_ACCEPT,
   Canvas3dUrlModal,
 } from "../editor/Canvas3dUrlModal";
+import { Canvas3dMeshyAiModal } from "../editor/Canvas3dMeshyAiModal";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
 import {
   slideCanvasToolbarIconBtnClass,
@@ -126,6 +128,7 @@ export function SlideCanvasCanvaChrome({
     usePresentation();
   const [moreOpen, setMoreOpen] = useState(false);
   const [canvas3dUrlModalOpen, setCanvas3dUrlModalOpen] = useState(false);
+  const [canvas3dMeshyModalOpen, setCanvas3dMeshyModalOpen] = useState(false);
   const canvas3dFileRef = useRef<HTMLInputElement>(null);
   const [toolbarPlacement, setToolbarPlacement] =
     useState<ToolbarPlacement>("above");
@@ -513,6 +516,16 @@ export function SlideCanvasCanvaChrome({
                 <button
                   type="button"
                   className={slideCanvasToolbarIconBtnClass}
+                  title="Generar modelo 3D con IA (Meshy)"
+                  aria-label="Generar modelo 3D con IA (Meshy)"
+                  onPointerDown={stop}
+                  onClick={() => setCanvas3dMeshyModalOpen(true)}
+                >
+                  <Box size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Reencuadrar vista del modelo"
                   aria-label="Reencuadrar vista del modelo"
                   onPointerDown={stop}
@@ -682,12 +695,19 @@ export function SlideCanvasCanvaChrome({
       </div>
     </div>
     {canvas3d ? (
-      <Canvas3dUrlModal
-        isOpen={canvas3dUrlModalOpen}
-        onClose={() => setCanvas3dUrlModalOpen(false)}
-        initialUrl={canvas3d.httpGlbUrl}
-        onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
-      />
+      <>
+        <Canvas3dUrlModal
+          isOpen={canvas3dUrlModalOpen}
+          onClose={() => setCanvas3dUrlModalOpen(false)}
+          initialUrl={canvas3d.httpGlbUrl}
+          onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+        />
+        <Canvas3dMeshyAiModal
+          isOpen={canvas3dMeshyModalOpen}
+          onClose={() => setCanvas3dMeshyModalOpen(false)}
+          onAppliedGlbUrl={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+        />
+      </>
     ) : null}
     </>
   );

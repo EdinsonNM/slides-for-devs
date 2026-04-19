@@ -4,6 +4,7 @@ const STORAGE_XAI = "slaim_xai_api_key";
 const STORAGE_GROQ = "slaim_groq_api_key";
 const STORAGE_CEREBRAS = "slaim_cerebras_api_key";
 const STORAGE_OPENROUTER = "slaim_openrouter_api_key";
+const STORAGE_MESHY = "slaim_meshy_api_key";
 
 /** Cache en memoria cuando corre en Tauri (keychain); se rellena con loadApiKeysFromBackend(). */
 const inMemoryCache: {
@@ -13,6 +14,7 @@ const inMemoryCache: {
   groq: string | null;
   cerebras: string | null;
   openrouter: string | null;
+  meshy: string | null;
 } = {
   gemini: null,
   openai: null,
@@ -20,6 +22,7 @@ const inMemoryCache: {
   groq: null,
   cerebras: null,
   openrouter: null,
+  meshy: null,
 };
 
 function isTauri(): boolean {
@@ -27,6 +30,11 @@ function isTauri(): boolean {
     typeof window !== "undefined" &&
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ !== undefined
   );
+}
+
+/** True si la app corre dentro del shell de Tauri (comandos nativos disponibles). */
+export function isTauriRuntime(): boolean {
+  return isTauri();
 }
 
 /** Carga las API keys desde el keychain (Tauri). Llamar al inicio si isTauri(). */
@@ -41,6 +49,7 @@ export async function loadApiKeysFromBackend(): Promise<void> {
       groq,
       cerebras,
       openrouter,
+      meshy,
     ] = await Promise.all([
       invoke<string | null>("get_gemini_api_key"),
       invoke<string | null>("get_openai_api_key"),
@@ -48,6 +57,7 @@ export async function loadApiKeysFromBackend(): Promise<void> {
       invoke<string | null>("get_groq_api_key"),
       invoke<string | null>("get_cerebras_api_key"),
       invoke<string | null>("get_openrouter_api_key"),
+      invoke<string | null>("get_meshy_api_key"),
     ]);
     inMemoryCache.gemini = gemini?.trim() || null;
     inMemoryCache.openai = openai?.trim() || null;
@@ -55,6 +65,7 @@ export async function loadApiKeysFromBackend(): Promise<void> {
     inMemoryCache.groq = groq?.trim() || null;
     inMemoryCache.cerebras = cerebras?.trim() || null;
     inMemoryCache.openrouter = openrouter?.trim() || null;
+    inMemoryCache.meshy = meshy?.trim() || null;
   } catch {
     inMemoryCache.gemini = null;
     inMemoryCache.openai = null;
@@ -62,6 +73,7 @@ export async function loadApiKeysFromBackend(): Promise<void> {
     inMemoryCache.groq = null;
     inMemoryCache.cerebras = null;
     inMemoryCache.openrouter = null;
+    inMemoryCache.meshy = null;
   }
 }
 
@@ -131,6 +143,12 @@ export function getCerebrasApiKey(): string | undefined {
 export function getOpenRouterApiKey(): string | undefined {
   if (isTauri()) return inMemoryCache.openrouter ?? undefined;
   return localStorage.getItem(STORAGE_OPENROUTER)?.trim() || undefined;
+}
+
+/** Clave de Meshy (texto / imagen → 3D). En Tauri desde keychain; en web desde localStorage. */
+export function getMeshyApiKey(): string | undefined {
+  if (isTauri()) return inMemoryCache.meshy ?? undefined;
+  return localStorage.getItem(STORAGE_MESHY)?.trim() || undefined;
 }
 
 /** Guarda la clave de Gemini. En Tauri usa keychain y actualiza el cache. */
@@ -205,6 +223,18 @@ export async function setOpenRouterApiKey(key: string): Promise<void> {
   } else {
     if (trimmed) localStorage.setItem(STORAGE_OPENROUTER, trimmed);
     else localStorage.removeItem(STORAGE_OPENROUTER);
+  }
+}
+
+export async function setMeshyApiKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_meshy_api_key", { key: trimmed || "" });
+    inMemoryCache.meshy = trimmed || null;
+  } else {
+    if (trimmed) localStorage.setItem(STORAGE_MESHY, trimmed);
+    else localStorage.removeItem(STORAGE_MESHY);
   }
 }
 

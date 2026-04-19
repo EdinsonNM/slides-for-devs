@@ -1,12 +1,9 @@
 import { usePresentation } from "../../context/PresentationContext";
 import { HomeEmptyState } from "./HomeEmptyState";
 import { HomeWithCarousel } from "./HomeWithCarousel";
-import { SignInInviteBar } from "./SignInInviteBar";
 
 export interface HomeScreenProps {
   onOpenConfig?: () => void;
-  /** Vuelve a la pantalla de bienvenida (modo sin cuenta en el home). */
-  onBackToWelcome?: () => void;
   /** Solo en Tauri: al pulsar se busca actualización y se muestra diálogo con el resultado. */
   onCheckUpdates?: () => void;
   /** Si se proporciona, se usa en lugar del contexto al abrir una presentación guardada (p. ej. para navegar a /editor). */
@@ -25,7 +22,6 @@ export interface HomeScreenProps {
 export function HomeScreen(props: HomeScreenProps) {
   const {
     onOpenConfig,
-    onBackToWelcome,
     onCheckUpdates,
     onOpenSaved: onOpenSavedProp,
     onGenerate: onGenerateProp,
@@ -69,7 +65,6 @@ export function HomeScreen(props: HomeScreenProps) {
   if (!hasItems) {
     return (
       <div className="flex min-h-dvh flex-col">
-        <SignInInviteBar onBackToWelcome={onBackToWelcome} />
         <HomeEmptyState
         onOpenConfig={onOpenConfig}
         onCheckUpdates={onCheckUpdates}
@@ -95,7 +90,6 @@ export function HomeScreen(props: HomeScreenProps) {
 
   return (
     <div className="h-dvh min-h-0 flex flex-col overflow-hidden">
-      <SignInInviteBar onBackToWelcome={onBackToWelcome} />
       <HomeWithCarousel
         onOpenConfig={onOpenConfig}
         topic={topic}

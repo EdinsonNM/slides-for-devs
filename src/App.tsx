@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Routes,
   Route,
@@ -11,14 +11,13 @@ import {
   hasAnyApiConfiguredSync,
   hasAnyApiConfiguredAsync,
 } from "./services/apiConfig";
+import { registerApiConfigurationRequiredListener } from "./services/apiConfigurationGate";
 import { checkForAppUpdates } from "./services/updater";
 import { LoadingScreen } from "./components/shared/LoadingScreen";
 import { EditorShell } from "./components/layout/EditorShell";
 import { HomeScreen } from "./components/home/HomeScreen";
 import { WelcomeSignInPanel } from "./components/home/WelcomeSignInPanel";
-import { ApiSetupScreen } from "./components/home/ApiSetupScreen";
 import { useAuth } from "./context/AuthContext";
-import { SlideEditor } from "./components/editor/SlideEditor";
 import { SavedListModal } from "./components/modals/SavedListModal";
 import { SharePresentationModal } from "./components/modals/SharePresentationModal";
 import { CloudSyncConflictModal } from "./components/modals/CloudSyncConflictModal";
@@ -31,31 +30,26 @@ import { ExportDeckVideoModal } from "./components/modals/ExportDeckVideoModal";
 import { SplitSlideModal } from "./components/modals/SplitSlideModal";
 import { RewriteSlideModal } from "./components/modals/RewriteSlideModal";
 import { SpeechModal } from "./components/modals/SpeechModal";
-import { ApiConfigModal } from "./components/modals/ApiConfigModal";
 import { CharacterCreatorModal } from "./components/modals/CharacterCreatorModal";
 import { PreviewOverlay } from "./components/preview/PreviewOverlay";
 import { PresenterView } from "./components/presenter/PresenterView";
 import { GeneratingPresentationModal } from "./components/modals/GeneratingPresentationModal";
 import { GenerateFullDeckModal } from "./components/modals/GenerateFullDeckModal";
 import { GenerateSlideContentModal } from "./components/modals/GenerateSlideContentModal";
+import { ApiConfigurationScreen } from "./components/setup/ApiConfigurationScreen";
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 interface HomeOrRedirectProps {
   onOpenConfig: () => void;
-  showApiConfigModal: boolean;
-  setShowApiConfigModal: (v: boolean) => void;
-  skipLogin: boolean;
-  onContinueWithoutAccount: () => void;
-  onBackToWelcome: () => void;
+  apiConfigured: boolean;
 }
 
-function HomeOrRedirect({
-  onOpenConfig,
-  showApiConfigModal,
-  setShowApiConfigModal,
-  skipLogin,
-  onContinueWithoutAccount,
-  onBackToWelcome,
-}: HomeOrRedirectProps) {
+function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
@@ -63,11 +57,18 @@ function HomeOrRedirect({
     handleOpenSaved,
     handleGenerate,
     createBlankPresentation,
-    refreshApiKeys,
   } = usePresentation();
 
   if (slides.length > 0) {
     return <Navigate to="/editor" replace />;
+  }
+
+  if (!user) {
+    return <WelcomeSignInPanel />;
+  }
+
+  if (!apiConfigured) {
+    return <Navigate to="/configure-ai" replace />;
   }
 
   const onOpenSavedAndGo = async (id: string) => {
@@ -75,8 +76,9 @@ function HomeOrRedirect({
     navigate("/editor");
   };
 
-  const onGenerateAndGo = async (e: React.FormEvent) => {
-    await handleGenerate(e);
+  const onGenerateAndGo = (e: React.FormEvent) => {
+    const ok = handleGenerate(e);
+    if (!ok) return;
     navigate("/editor");
   };
 
@@ -85,43 +87,14 @@ function HomeOrRedirect({
     navigate("/editor");
   };
 
-  const handleApiConfigSaved = () => {
-    refreshApiKeys();
-    setShowApiConfigModal(false);
-  };
-
-  // Sin sesión: mostrar siempre la pantalla de login por defecto (salvo que elija "Continuar sin cuenta")
-  if (!user && !skipLogin) {
-    return (
-      <>
-        <WelcomeSignInPanel
-          onContinueWithoutAccount={onContinueWithoutAccount}
-        />
-        <ApiConfigModal
-          isOpen={showApiConfigModal}
-          onClose={() => setShowApiConfigModal(false)}
-          onSaved={handleApiConfigSaved}
-        />
-      </>
-    );
-  }
-
   return (
-    <>
-      <HomeScreen
-        onOpenConfig={onOpenConfig}
-        onBackToWelcome={!user ? onBackToWelcome : undefined}
-        onCheckUpdates={() => checkForAppUpdates(false)}
-        onOpenSaved={onOpenSavedAndGo}
-        onGenerate={onGenerateAndGo}
-        onCreateBlank={onCreateBlankAndGo}
-      />
-      <ApiConfigModal
-        isOpen={showApiConfigModal}
-        onClose={() => setShowApiConfigModal(false)}
-        onSaved={handleApiConfigSaved}
-      />
-    </>
+    <HomeScreen
+      onOpenConfig={onOpenConfig}
+      onCheckUpdates={() => checkForAppUpdates(false)}
+      onOpenSaved={onOpenSavedAndGo}
+      onGenerate={onGenerateAndGo}
+      onCreateBlank={onCreateBlankAndGo}
+    />
   );
 }
 
@@ -181,6 +154,8 @@ function EditorRoute({ onOpenConfig }: EditorRouteProps) {
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     refreshApiKeys,
     pendingGeneration,
@@ -198,15 +173,11 @@ export default function App() {
     resolveCloudConflictUseRemote,
     resolveCloudConflictForceLocal,
   } = usePresentation();
-  const { user: shareUser } = useAuth();
-  const isLoggedIn = !!shareUser;
+  const isLoggedIn = !!user;
   const shareMeta =
     sharePresentationLocalId != null
       ? savedList.find((p) => p.id === sharePresentationLocalId)
       : undefined;
-  const [apiConfigVersion, setApiConfigVersion] = useState(0);
-  const [showApiConfigModal, setShowApiConfigModal] = useState(false);
-  const [skipLogin, setSkipLogin] = useState(false);
   /** null = cargando (solo en Tauri), true = configurado, false = sin configurar */
   const [apiConfigured, setApiConfigured] = useState<boolean | null>(() =>
     typeof window !== "undefined" &&
@@ -223,6 +194,22 @@ export default function App() {
   }, [apiConfigured]);
 
   useEffect(() => {
+    registerApiConfigurationRequiredListener(() => {
+      navigate("/configure-ai?reason=generate");
+    });
+    return () => registerApiConfigurationRequiredListener(null);
+  }, [navigate]);
+
+  const handleApiConfigureSaved = useCallback(() => {
+    refreshApiKeys();
+    setApiConfigured(hasAnyApiConfiguredSync());
+  }, [refreshApiKeys]);
+
+  const openApiConfigFromSettings = useCallback(() => {
+    navigate("/configure-ai?mode=settings");
+  }, [navigate]);
+
+  useEffect(() => {
     const t = setTimeout(() => {
       checkForAppUpdates();
     }, 1500);
@@ -233,17 +220,6 @@ export default function App() {
     return <PresenterView />;
   }
 
-  if (apiConfigured === false) {
-    return (
-      <ApiSetupScreen
-        onConfigured={() => {
-          setApiConfigVersion((v) => v + 1);
-          setApiConfigured(true);
-        }}
-      />
-    );
-  }
-
   if (apiConfigured === null) {
     return <LoadingScreen />;
   }
@@ -251,22 +227,14 @@ export default function App() {
   return (
     <>
       <GeneratingPresentationModal isOpen={pendingGeneration !== null} />
-      <ApiConfigModal
-        isOpen={showApiConfigModal}
-        onClose={() => setShowApiConfigModal(false)}
-        onSaved={() => {
-          refreshApiKeys();
-          setShowApiConfigModal(false);
-        }}
-      />
       <SharePresentationModal
         open={
           sharePresentationLocalId !== null &&
           !!shareMeta?.cloudId &&
-          !!shareUser
+          !!user
         }
         onClose={closeSharePresentationModal}
-        ownerUid={shareUser?.uid ?? ""}
+        ownerUid={user?.uid ?? ""}
         cloudId={shareMeta?.cloudId ?? ""}
         topic={shareMeta?.topic ?? ""}
       />
@@ -292,22 +260,26 @@ export default function App() {
       />
       <Routes>
         <Route
+          path="/configure-ai"
+          element={
+            <RequireAuth>
+              <ApiConfigurationScreen onSaved={handleApiConfigureSaved} />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/"
           element={
             <HomeOrRedirect
-              onOpenConfig={() => setShowApiConfigModal(true)}
-              showApiConfigModal={showApiConfigModal}
-              setShowApiConfigModal={setShowApiConfigModal}
-              skipLogin={skipLogin}
-              onContinueWithoutAccount={() => setSkipLogin(true)}
-              onBackToWelcome={() => setSkipLogin(false)}
+              onOpenConfig={openApiConfigFromSettings}
+              apiConfigured={apiConfigured}
             />
           }
         />
         <Route
           path="/editor"
           element={
-            <EditorRoute onOpenConfig={() => setShowApiConfigModal(true)} />
+            <EditorRoute onOpenConfig={openApiConfigFromSettings} />
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

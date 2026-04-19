@@ -29,8 +29,15 @@ export function BaseModal({
 }: BaseModalProps) {
   if (!isOpen) return null;
 
-  const handleBackdropClick = () => {
-    if (!disabledBackdropClose) onClose();
+  const handleBackdropPointerDown = (e: React.PointerEvent) => {
+    if (disabledBackdropClose) return;
+    /** Solo el overlay vacío cierra: evita cierre si el evento “atraviesa” capas o burbujea mal. */
+    if (e.target !== e.currentTarget) return;
+    onClose();
+  };
+
+  const stopSurfacePropagation = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
   };
 
   const node = (
@@ -39,7 +46,7 @@ export function BaseModal({
         "fixed inset-0 flex items-center justify-center p-4 bg-black/50",
         BASE_MODAL_PORTAL_Z,
       )}
-      onClick={handleBackdropClick}
+      onPointerDown={handleBackdropPointerDown}
       role="presentation"
     >
       <div
@@ -51,7 +58,9 @@ export function BaseModal({
           "bg-white dark:bg-surface-elevated rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col",
           className
         )}
-        onClick={(e) => e.stopPropagation()}
+        onPointerDown={stopSurfacePropagation}
+        onMouseDown={stopSurfacePropagation}
+        onClick={stopSurfacePropagation}
       >
         <div className="p-4 border-b border-stone-100 dark:border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">

@@ -10,6 +10,7 @@ const XAI_ACCOUNT: &str = "xai_api_key";
 const GROQ_ACCOUNT: &str = "groq_api_key";
 const CEREBRAS_ACCOUNT: &str = "cerebras_api_key";
 const OPENROUTER_ACCOUNT: &str = "openrouter_api_key";
+const MESHY_ACCOUNT: &str = "meshy_api_key";
 
 fn gemini_entry() -> Result<Entry, keyring::Error> {
     Entry::new(SERVICE, GEMINI_ACCOUNT)
@@ -33,6 +34,10 @@ fn cerebras_entry() -> Result<Entry, keyring::Error> {
 
 fn openrouter_entry() -> Result<Entry, keyring::Error> {
     Entry::new(SERVICE, OPENROUTER_ACCOUNT)
+}
+
+fn meshy_entry() -> Result<Entry, keyring::Error> {
+    Entry::new(SERVICE, MESHY_ACCOUNT)
 }
 
 /// Devuelve la API key de Gemini si está configurada.
@@ -159,6 +164,26 @@ pub fn get_openrouter_api_key() -> Result<Option<String>, String> {
 pub fn set_openrouter_api_key(key: &str) -> Result<(), String> {
     let key = key.trim();
     let entry = openrouter_entry().map_err(|e| e.to_string())?;
+    if key.is_empty() {
+        let _ = entry.delete_password();
+        Ok(())
+    } else {
+        entry.set_password(key).map_err(|e| e.to_string())
+    }
+}
+
+pub fn get_meshy_api_key() -> Result<Option<String>, String> {
+    let entry = meshy_entry().map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(s) => Ok(Some(s.trim().to_string()).filter(|s| !s.is_empty())),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+pub fn set_meshy_api_key(key: &str) -> Result<(), String> {
+    let key = key.trim();
+    let entry = meshy_entry().map_err(|e| e.to_string())?;
     if key.is_empty() {
         let _ = entry.delete_password();
         Ok(())

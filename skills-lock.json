@@ -6,6 +6,11 @@
       "sourceType": "github",
       "computedHash": "d0137ba04049bf8926bc80f6a5e2b82d94b5633b6445a85dbfb26ab4f1b104c6"
     },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
     "react-refactor": {
       "source": "pproenca/dot-skills",
       "sourceType": "github",

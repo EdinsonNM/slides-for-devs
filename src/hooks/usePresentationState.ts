@@ -110,7 +110,9 @@ import {
   getGroqApiKey,
   getCerebrasApiKey,
   getOpenRouterApiKey,
+  hasAnyApiConfiguredSync,
 } from "../services/apiConfig";
+import { notifyApiConfigurationRequired } from "../services/apiConfigurationGate";
 import {
   savePresentation,
   updatePresentation,
@@ -1772,10 +1774,14 @@ export function usePresentationState() {
         deckNarrativePresetId?: string;
         narrativeNotes?: string;
       },
-    ) => {
+    ): boolean => {
       const saved = displayTopic.trim();
       const fullInput = (options?.modelInput ?? saved).trim();
-      if (!fullInput) return;
+      if (!fullInput) return false;
+      if (!hasAnyApiConfiguredSync()) {
+        notifyApiConfigurationRequired();
+        return false;
+      }
       generationErrorRestoreRef.current = options?.errorRestore ?? null;
       setTopic(saved);
       const placeholderSlide: Slide = {
@@ -1798,21 +1804,23 @@ export function usePresentationState() {
             ? options.narrativeNotes
             : narrativeNotes.trim() || undefined,
       });
+      return true;
     },
     [presentationModelId, deckNarrativePresetId, narrativeNotes],
   );
 
-  const handleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = (e: React.FormEvent): boolean => {
     e.preventDefault();
     const { modelInput, displayTopic } = composeFullDeckModelInput(
       topic,
       homePromptAttachments,
     );
-    if (!modelInput) return;
-    queueFullDeckGeneration(displayTopic, {
+    if (!modelInput) return false;
+    const queued = queueFullDeckGeneration(displayTopic, {
       modelInput: modelInput !== displayTopic ? modelInput : undefined,
     });
-    setHomePromptAttachments([]);
+    if (queued) setHomePromptAttachments([]);
+    return queued;
   };
 
   const openGenerateFullDeckModal = useCallback(() => {
@@ -1839,14 +1847,15 @@ export function usePresentationState() {
     const errorRestore = backupNeeded
       ? { slides: slides.map((s) => ({ ...s })), topic }
       : undefined;
-    setShowGenerateFullDeckModal(false);
-    setGenerateFullDeckTopic("");
-    setGenerateFullDeckAttachments([]);
-    queueFullDeckGeneration(displayTopic, {
+    const queued = queueFullDeckGeneration(displayTopic, {
       modelInput: modelInput !== displayTopic ? modelInput : undefined,
       errorRestore,
       reuseSavedId: currentSavedId,
     });
+    if (!queued) return;
+    setShowGenerateFullDeckModal(false);
+    setGenerateFullDeckTopic("");
+    setGenerateFullDeckAttachments([]);
   }, [
     generateFullDeckTopic,
     generateFullDeckAttachments,

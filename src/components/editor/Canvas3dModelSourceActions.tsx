@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { Link2, RotateCcw, Upload } from "lucide-react";
+import { Box, Link2, RotateCcw, Upload } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
   CANVAS_3D_GLB_FILE_ACCEPT,
   Canvas3dUrlModal,
 } from "./Canvas3dUrlModal";
+import { Canvas3dMeshyAiModal } from "./Canvas3dMeshyAiModal";
 
 export interface Canvas3dModelSourceActionsProps {
   /** URL .glb http(s) actual (para rellenar el modal). */
@@ -22,6 +23,7 @@ export function Canvas3dModelSourceActions({
     usePresentation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
+  const [meshyModalOpen, setMeshyModalOpen] = useState(false);
 
   const onFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,6 +85,18 @@ export function Canvas3dModelSourceActions({
         <button
           type="button"
           className={overlayBtn}
+          title="Generar modelo 3D con IA (Meshy: texto o imagen)"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setMeshyModalOpen(true)}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Box size={14} aria-hidden />
+            IA Meshy
+          </span>
+        </button>
+        <button
+          type="button"
+          className={overlayBtn}
           title="Vuelve a encuadrar el modelo automáticamente"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => clearCurrentSlideCanvas3dViewState()}
@@ -99,6 +113,11 @@ export function Canvas3dModelSourceActions({
         onClose={() => setUrlModalOpen(false)}
         initialUrl={httpGlbUrl}
         onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+      />
+      <Canvas3dMeshyAiModal
+        isOpen={meshyModalOpen}
+        onClose={() => setMeshyModalOpen(false)}
+        onAppliedGlbUrl={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
       />
     </>
   );
