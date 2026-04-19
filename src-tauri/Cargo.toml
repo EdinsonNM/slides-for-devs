@@ -30,6 +30,7 @@ uuid = { version = "1.11", features = ["v4"] }
 chrono = "0.4"
 keyring = "2"
 reqwest = { version = "0.12", features = ["json", "blocking"] }
+tokio = { version = "1.49", features = ["rt-multi-thread", "macros"] }
 opener = "0.7"
 sha2 = "0.10"
 rand = "0.8"

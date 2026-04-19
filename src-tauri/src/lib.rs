@@ -261,24 +261,35 @@ fn set_meshy_api_key(key: String) -> Result<(), String> {
     api_keys::set_meshy_api_key(&key)
 }
 
+/// Red de Meshy + espera activa: debe ir en `spawn_blocking` para no bloquear el runtime de Tauri (UI).
 #[tauri::command]
-fn meshy_text_to_3d_glb(
+async fn meshy_text_to_3d_glb(
     app: tauri::AppHandle,
     prompt: String,
     ai_model: String,
     with_texture: bool,
 ) -> Result<String, String> {
-    meshy::meshy_text_to_3d_glb(&app, prompt, ai_model, with_texture)
+    let app = app.clone();
+    tokio::task::spawn_blocking(move || {
+        meshy::meshy_text_to_3d_glb(&app, prompt, ai_model, with_texture)
+    })
+    .await
+    .map_err(|e| format!("Tarea Meshy interrumpida: {}", e))?
 }
 
 #[tauri::command]
-fn meshy_image_to_3d_glb(
+async fn meshy_image_to_3d_glb(
     app: tauri::AppHandle,
     image_url: String,
     ai_model: String,
     should_texture: bool,
 ) -> Result<String, String> {
-    meshy::meshy_image_to_3d_glb(&app, image_url, ai_model, should_texture)
+    let app = app.clone();
+    tokio::task::spawn_blocking(move || {
+        meshy::meshy_image_to_3d_glb(&app, image_url, ai_model, should_texture)
+    })
+    .await
+    .map_err(|e| format!("Tarea Meshy interrumpida: {}", e))?
 }
 
 #[tauri::command]

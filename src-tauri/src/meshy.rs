@@ -3,6 +3,7 @@
 //! @see https://docs.meshy.ai/en/api/image-to-3d
 
 use crate::api_keys;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use serde_json::{json, Value};
@@ -13,6 +14,8 @@ const APP_USER_AGENT: &str = "Slaim/0.1 (https://slaim.app; Tauri; Meshy)";
 const MESHY_API: &str = "https://api.meshy.ai";
 const POLL_MS: u64 = 3000;
 const POLL_MAX: u32 = 400;
+/// Límite al incrustar como data URL (IPC + memoria del visor 3D).
+const MAX_GLB_EMBED_BYTES: usize = 48 * 1024 * 1024;
 
 /// Evento IPC para que el frontend muestre avance (Meshy puede tardar minutos).
 pub const MESHY_TASK_PROGRESS_EVENT: &str = "meshy-task-progress";
@@ -177,6 +180,48 @@ fn normalize_ai_model(ai_model: &str) -> String {
     t.to_string()
 }
 
+/// Descarga el `.glb` firmado en `assets.meshy.ai` y lo devuelve como data URL.
+/// El visor web/Tauri no puede hacer `fetch` a Meshy por CORS; hay que traer bytes en nativo.
+fn download_glb_as_data_url(
+    app: &AppHandle,
+    client: &Client,
+    glb_https_url: &str,
+) -> Result<String, String> {
+    emit_progress(app, "download", "DOWNLOADING", 0);
+    let url = glb_https_url.trim();
+    if !url.starts_with("https://") {
+        return Err("URL de modelo .glb inválida.".to_string());
+    }
+    let mut h = HeaderMap::new();
+    h.insert(USER_AGENT, HeaderValue::from_static(APP_USER_AGENT));
+    let resp = client
+        .get(url)
+        .headers(h)
+        .send()
+        .map_err(|e| format!("Descargando el modelo: {}", e))?;
+    let status = resp.status();
+    if !status.is_success() {
+        let body = resp.text().unwrap_or_default();
+        let snippet: String = body.chars().take(240).collect();
+        return Err(format!(
+            "No se pudo descargar el .glb (HTTP {}). {}",
+            status.as_u16(),
+            snippet
+        ));
+    }
+    let bytes = resp.bytes().map_err(|e| e.to_string())?;
+    let len = bytes.len();
+    if len > MAX_GLB_EMBED_BYTES {
+        return Err(format!(
+            "El modelo es demasiado grande ({} MB). Prueba sin textura o un objeto más simple.",
+            len / 1024 / 1024
+        ));
+    }
+    let b64 = STANDARD.encode(&bytes);
+    emit_progress(app, "download", "READY", 100);
+    Ok(format!("data:model/gltf-binary;base64,{b64}"))
+}
+
 /// Texto → GLB (preview + refine con textura, según `with_texture`).
 pub fn meshy_text_to_3d_glb(
     app: &AppHandle,
@@ -213,7 +258,8 @@ pub fn meshy_text_to_3d_glb(
     emit_progress(app, "preview", "POLLING", 0);
     let preview_url = format!("{}/openapi/v2/text-to-3d/{}", MESHY_API, preview_id);
     if !with_texture {
-        return poll_until_glb(app, &client, &api_key, &preview_url, "preview");
+        let glb_url = poll_until_glb(app, &client, &api_key, &preview_url, "preview")?;
+        return download_glb_as_data_url(app, &client, &glb_url);
     }
     let _preview_mesh = poll_until_glb(app, &client, &api_key, &preview_url, "preview")?;
 
@@ -233,7 +279,8 @@ pub fn meshy_text_to_3d_glb(
     let refine_id = read_task_id(&refine_create)?;
     emit_progress(app, "refine", "POLLING", 0);
     let refine_url = format!("{}/openapi/v2/text-to-3d/{}", MESHY_API, refine_id);
-    poll_until_glb(app, &client, &api_key, &refine_url, "refine")
+    let glb_url = poll_until_glb(app, &client, &api_key, &refine_url, "refine")?;
+    download_glb_as_data_url(app, &client, &glb_url)
 }
 
 /// Imagen (URL o data URI) → GLB.
@@ -268,5 +315,6 @@ pub fn meshy_image_to_3d_glb(
     let id = read_task_id(&create)?;
     emit_progress(app, "image", "POLLING", 0);
     let poll_url = format!("{}/openapi/v1/image-to-3d/{}", MESHY_API, id);
-    poll_until_glb(app, &client, &api_key, &poll_url, "image")
+    let glb_url = poll_until_glb(app, &client, &api_key, &poll_url, "image")?;
+    download_glb_as_data_url(app, &client, &glb_url)
 }

@@ -15,6 +15,8 @@ export function meshyPhaseLabelEs(phase: string): string {
       return "Textura (refine)";
     case "image":
       return "Imagen → modelo";
+    case "download":
+      return "Descargando modelo";
     default:
       return phase || "Generación";
   }
@@ -28,6 +30,10 @@ export function meshyStatusLabelEs(status: string): string {
       return "Consultando estado…";
     case "CREATING_REFINE":
       return "Iniciando textura (refine)…";
+    case "DOWNLOADING":
+      return "Descargando archivo .glb…";
+    case "READY":
+      return "Listo para el visor";
     case "PENDING":
       return "En cola";
     case "IN_PROGRESS":

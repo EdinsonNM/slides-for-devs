@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { Box, Image, Loader2, Type } from "lucide-react";
 import {
   DEFAULT_MESHY_AI_MODEL_ID,
@@ -93,10 +92,21 @@ export function Canvas3dMeshyAiModal({
       );
       return;
     }
-    flushSync(() => {
-      setBusy(true);
-      setMeshyProgress(null);
-      setElapsedSec(0);
+
+    if (tab === "text" && !prompt.trim()) {
+      setError("Escribe una descripción del modelo.");
+      return;
+    }
+    if (tab === "image" && !imageDataUri?.trim()) {
+      setError("Selecciona una imagen (.png o .jpeg).");
+      return;
+    }
+
+    setBusy(true);
+    setMeshyProgress(null);
+    setElapsedSec(0);
+    await new Promise<void>((r) => {
+      requestAnimationFrame(() => r());
     });
 
     const { listen } = await import("@tauri-apps/api/event");
@@ -113,13 +123,8 @@ export function Canvas3dMeshyAiModal({
 
     try {
       if (tab === "text") {
-        const p = prompt.trim();
-        if (!p) {
-          setError("Escribe una descripción del modelo.");
-          return;
-        }
         const url = await meshyTextTo3dGlbUrl({
-          prompt: p,
+          prompt: prompt.trim(),
           ai_model: aiModelId,
           with_texture: withTexture,
         });
@@ -127,12 +132,8 @@ export function Canvas3dMeshyAiModal({
         onClose();
         setPrompt("");
       } else {
-        if (!imageDataUri?.trim()) {
-          setError("Selecciona una imagen (.png o .jpeg).");
-          return;
-        }
         const url = await meshyImageTo3dGlbUrl({
-          image_url: imageDataUri,
+          image_url: imageDataUri!,
           ai_model: aiModelId,
           should_texture: withTexture,
         });
@@ -158,6 +159,7 @@ export function Canvas3dMeshyAiModal({
       isOpen={isOpen}
       onClose={onClose}
       disabledBackdropClose={busy}
+      disableHeaderClose={busy}
       title="Modelo 3D con IA (Meshy)"
       subtitle="Texto → 3D o imagen → 3D. Consume créditos según tu plan en meshy.ai."
       icon={

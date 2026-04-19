@@ -13,6 +13,8 @@ export interface BaseModalProps {
   icon: React.ReactNode;
   children: React.ReactNode;
   disabledBackdropClose?: boolean;
+  /** Evita cerrar con la X (p. ej. operación larga en curso). */
+  disableHeaderClose?: boolean;
   /** Optional className for the content panel. */
   className?: string;
 }
@@ -25,6 +27,7 @@ export function BaseModal({
   icon,
   children,
   disabledBackdropClose = false,
+  disableHeaderClose = false,
   className,
 }: BaseModalProps) {
   if (!isOpen) return null;
@@ -84,12 +87,17 @@ export function BaseModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (!disableHeaderClose) onClose();
+            }}
+            disabled={disableHeaderClose}
             className={cn(
               "p-2 rounded-lg transition-colors shrink-0",
               "text-stone-400 hover:bg-stone-100 hover:text-stone-600",
               "dark:text-muted-foreground dark:hover:bg-surface dark:hover:text-foreground",
-              "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-surface-elevated"
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-surface-elevated",
+              disableHeaderClose &&
+                "pointer-events-none opacity-40 hover:bg-transparent dark:hover:bg-transparent",
             )}
             aria-label="Cerrar"
           >
