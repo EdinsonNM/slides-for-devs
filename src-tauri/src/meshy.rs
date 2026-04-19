@@ -62,7 +62,7 @@ fn meshy_api_key() -> Result<String, String> {
     api_keys::get_meshy_api_key()?
         .filter(|s| !s.trim().is_empty())
         .ok_or_else(|| {
-            "Configura tu API key de Meshy en Configuración de IA.".to_string()
+            "Añade tu API key de Meshy: menú de cuenta → Configura Slaim → Configurar claves.".to_string()
         })
 }
 

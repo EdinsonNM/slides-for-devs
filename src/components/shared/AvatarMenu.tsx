@@ -8,6 +8,7 @@ import {
   Moon,
   RefreshCw,
   Settings,
+  Sparkles,
   Sun,
   User,
 } from "lucide-react";
@@ -195,8 +196,14 @@ export function AvatarMenu({
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
                   >
-                    <Settings size={16} />
-                    Configuración
+                    <Settings size={16} className="shrink-0 opacity-80" />
+                    <span className="min-w-0 flex-1 truncate">Configura Slaim</span>
+                    <Sparkles
+                      size={16}
+                      strokeWidth={2.25}
+                      className="shrink-0 text-teal-600 dark:text-teal-400"
+                      aria-hidden
+                    />
                   </button>
                 )}
                 <button
@@ -310,8 +317,14 @@ export function AvatarMenu({
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
                   >
-                    <Settings size={16} />
-                    Configuración
+                    <Settings size={16} className="shrink-0 opacity-80" />
+                    <span className="min-w-0 flex-1 truncate">Configura Slaim</span>
+                    <Sparkles
+                      size={16}
+                      strokeWidth={2.25}
+                      className="shrink-0 text-teal-600 dark:text-teal-400"
+                      aria-hidden
+                    />
                   </button>
                 )}
                 <button

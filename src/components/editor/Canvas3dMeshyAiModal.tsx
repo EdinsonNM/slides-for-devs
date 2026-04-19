@@ -83,7 +83,9 @@ export function Canvas3dMeshyAiModal({
   const run = async () => {
     setError(null);
     if (!getMeshyApiKey()?.trim()) {
-      setError("Configura tu API key de Meshy en Configuración de IA.");
+      setError(
+      "Añade tu API key de Meshy: menú de cuenta → Configura Slaim → Configurar claves.",
+    );
       return;
     }
     if (!isTauriRuntime()) {
