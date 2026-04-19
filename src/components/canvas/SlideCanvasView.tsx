@@ -30,6 +30,8 @@ import { SlideCanvasRichDescription } from "./SlideCanvasRichDescription";
 import { CodeDisplay } from "../shared/CodeDisplay";
 import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
 import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas";
+import { parseMindMapDiagram } from "../../domain/entities/MindMapDiagram";
+import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
@@ -360,6 +362,21 @@ function CanvasElementReadOnly({
             <IsometricFlowDiagramCanvas
               key={`${slide.id}-${slide.isometricFlowData ? "d" : "empty"}`}
               data={parseIsometricFlowDiagram(slide.isometricFlowData)}
+              readOnly
+              className="h-full w-full"
+            />,
+          )}
+        </div>
+      );
+    case "mindMap":
+      if (slide.type !== SLIDE_TYPE.MIND_MAP) return null;
+      return (
+        <div style={box} className={shell}>
+          {rotated(
+            "absolute inset-0 min-h-0",
+            <MindMapDiagramCanvas
+              key={`${slide.id}-${slide.mindMapData ? "m" : "empty"}`}
+              data={parseMindMapDiagram(slide.mindMapData)}
               readOnly
               className="h-full w-full"
             />,

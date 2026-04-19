@@ -67,7 +67,7 @@ function defaultInsertRect(
   w: number;
   h: number;
 } {
-  if (slide?.type === SLIDE_TYPE.ISOMETRIC) {
+  if (slide?.type === SLIDE_TYPE.ISOMETRIC || slide?.type === SLIDE_TYPE.MIND_MAP) {
     if (kind === "title") return { x: 4, y: 3, w: 88, h: 11 };
     if (kind === "markdown") return { x: 4, y: 76, w: 92, h: 20 };
   }
@@ -99,6 +99,7 @@ export function insertableCanvasElementKindsForSlide(slide: Slide): SlideCanvasE
     case SLIDE_TYPE.MATRIX:
       return ["title", "subtitle", "matrixNotes"];
     case SLIDE_TYPE.ISOMETRIC:
+    case SLIDE_TYPE.MIND_MAP:
       /** Inserción desde el toolbar del diagrama (no se lista en la barra flotante inferior). */
       return ["title", "markdown"];
     default:

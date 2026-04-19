@@ -8,6 +8,7 @@ export const SLIDE_LAYOUT_TEMPLATE_ID = {
   CONTENT_PANEL_FULL: "content-panel-full",
   DIAGRAM: "diagram",
   ISOMETRIC_FLOW: "isometric-flow",
+  MIND_MAP: "mind-map",
   MATRIX: "matrix",
 } as const;
 

@@ -470,7 +470,7 @@ export function usePresentationState() {
   const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
-    "slide" | "characters" | "notes"
+    "slide" | "characters" | "notes" | "theme" | null
   >("slide");
   const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] =
     useState(false);
@@ -1570,6 +1570,15 @@ export function usePresentationState() {
     setSlides((prev) => {
       const updated = [...prev];
       updated[currentIndex] = { ...currentSlide, isometricFlowData: data };
+      return updated;
+    });
+  };
+
+  const setCurrentSlideMindMapData = (data: string) => {
+    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.MIND_MAP) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentIndex] = { ...currentSlide, mindMapData: data };
       return updated;
     });
   };
@@ -4220,6 +4229,7 @@ export function usePresentationState() {
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,
     setCurrentSlideIsometricFlowData,
+    setCurrentSlideMindMapData,
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
     cycleCodeEditorThemeForMediaPanel,

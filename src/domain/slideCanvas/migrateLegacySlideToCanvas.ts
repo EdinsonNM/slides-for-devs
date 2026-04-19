@@ -76,6 +76,19 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
         ],
       };
 
+    case SLIDE_TYPE.MIND_MAP:
+      return {
+        version: SLIDE_CANVAS_SCENE_VERSION,
+        elements: [
+          el(slide, "canvas-mind-map", "mindMap", 1, {
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 100,
+          }),
+        ],
+      };
+
     case SLIDE_TYPE.CHAPTER:
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,

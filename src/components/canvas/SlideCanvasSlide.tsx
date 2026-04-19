@@ -64,6 +64,7 @@ import {
 import { SlideRightPanel } from "../editor/SlideRightPanel";
 import { SlideContentDiagram } from "../editor/SlideContentDiagram";
 import { SlideContentIsometricFlow } from "../editor/SlideContentIsometricFlow";
+import { SlideContentMindMap } from "../editor/SlideContentMindMap";
 import type { SlideMatrixData } from "../../domain/entities";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import { SlideCanvasAlignmentGuides } from "./SlideCanvasAlignmentGuides";
@@ -819,7 +820,13 @@ export function SlideCanvasSlide() {
       )}
       onPointerDown={onBackgroundPointerDown}
     >
-      {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
+      {slide.type === SLIDE_TYPE.ISOMETRIC && (
+        <SlideContentIsometricFlow />
+      )}
+      {slide.type === SLIDE_TYPE.MIND_MAP && (
+        <SlideContentMindMap />
+      )}
+      {!isIsometricSlide && slide.type !== SLIDE_TYPE.MIND_MAP && <DeckBackdrop theme={deckVisualTheme} />}
       {alignmentGuides ? (
         <SlideCanvasAlignmentGuides
           vertical={alignmentGuides.vertical}

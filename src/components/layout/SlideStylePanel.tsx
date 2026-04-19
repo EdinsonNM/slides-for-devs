@@ -21,6 +21,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
     setShowSlideStylePanel,
     setCurrentSlideType,
     setCurrentSlideContentLayout,
+    inspectorSection,
   } = usePresentation();
 
   const visible = variant === "inspector" || showSlideStylePanel;
@@ -190,11 +191,12 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
   );
 
   if (variant === "inspector") {
+    const isTheme = inspectorSection === "theme";
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-surface-elevated">
-        {header}
-        {deckThemesRow}
-        {templatesRow}
+        {isTheme ? deckThemesRow : null}
+        {!isTheme ? header : null}
+        {!isTheme ? templatesRow : null}
       </div>
     );
   }

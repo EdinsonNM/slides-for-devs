@@ -10,6 +10,7 @@ export const SLIDE_TYPE = {
   DIAGRAM: "diagram",
   /** Diagrama isométrico tipo infra (bloques 3D y enlaces), editor propio. */
   ISOMETRIC: "isometric",
+  MIND_MAP: "mind-map",
   MATRIX: "matrix",
 } as const;
 
@@ -69,6 +70,8 @@ export interface Slide {
   excalidrawData?: string;
   /** JSON `IsometricFlowDiagram` cuando `type === SLIDE_TYPE.ISOMETRIC`. */
   isometricFlowData?: string;
+  /** JSON `MindMapDiagram` cuando `type === SLIDE_TYPE.MIND_MAP`. */
+  mindMapData?: string;
   /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
   matrixData?: SlideMatrixData;
   /** Posicionamiento libre de bloques en el lienzo (% del área del slide). */

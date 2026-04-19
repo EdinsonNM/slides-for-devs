@@ -86,6 +86,27 @@ function PreviewIsometricFlow() {
   );
 }
 
+function PreviewMindMap() {
+  return (
+    <div className="w-full aspect-video bg-stone-900 border border-stone-200 dark:border-border rounded-lg overflow-hidden relative flex items-center justify-center">
+      {/* Curved lines */}
+      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M 50 50 Q 30 70 20 80" fill="none" stroke="#334155" strokeWidth="1" />
+        <path d="M 50 50 Q 80 40 90 20" fill="none" stroke="#334155" strokeWidth="1" />
+        <path d="M 50 50 Q 20 30 15 20" fill="none" stroke="#334155" strokeWidth="1" />
+        <path d="M 50 50 Q 70 80 85 85" fill="none" stroke="#334155" strokeWidth="1" />
+      </svg>
+      {/* Central Node */}
+      <div className="absolute w-5 h-5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] z-10" />
+      {/* Leaf Nodes */}
+      <div className="absolute w-3 h-3 rounded-full bg-emerald-500 top-[20%] left-[15%] z-10" />
+      <div className="absolute w-3 h-3 rounded-full bg-amber-500 top-[80%] left-[20%] z-10" />
+      <div className="absolute w-3 h-3 rounded-full bg-purple-500 top-[20%] left-[90%] z-10" />
+      <div className="absolute w-3 h-3 rounded-full bg-rose-500 top-[85%] left-[85%] z-10" />
+    </div>
+  );
+}
+
 function PreviewMatrix() {
   return (
     <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col p-1 gap-0.5">
@@ -135,5 +156,10 @@ export const SLIDE_LAYOUT_TEMPLATE_REGISTRY: readonly SlideLayoutTemplateDefinit
     id: SLIDE_LAYOUT_TEMPLATE_ID.ISOMETRIC_FLOW,
     label: "Isométrico (infra)",
     Preview: PreviewIsometricFlow,
+  },
+  {
+    id: SLIDE_LAYOUT_TEMPLATE_ID.MIND_MAP,
+    label: "Mapa Mental",
+    Preview: PreviewMindMap,
   },
 ];
