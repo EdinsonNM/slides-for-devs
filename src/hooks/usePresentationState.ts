@@ -158,6 +158,7 @@ import {
 } from "../utils/cloudSyncErrors";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
+import { useUIStore, createUISetter } from "../store/useUIStore";
 import {
   PRESENTATION_MODELS,
   DEFAULT_PRESENTATION_MODEL_ID,
@@ -270,6 +271,39 @@ export type EditorTab = {
 };
 
 export function usePresentationState() {
+  const uiState = useUIStore();
+  const showImageModal = uiState.showImageModal;
+  const setShowImageModal = useCallback(createUISetter("showImageModal"), []);
+  const showImageUploadModal = uiState.showImageUploadModal;
+  const setShowImageUploadModal = useCallback(createUISetter("showImageUploadModal"), []);
+  const showSplitModal = uiState.showSplitModal;
+  const setShowSplitModal = useCallback(createUISetter("showSplitModal"), []);
+  const showRewriteModal = uiState.showRewriteModal;
+  const setShowRewriteModal = useCallback(createUISetter("showRewriteModal"), []);
+  const showGenerateFullDeckModal = uiState.showGenerateFullDeckModal;
+  const setShowGenerateFullDeckModal = useCallback(createUISetter("showGenerateFullDeckModal"), []);
+  const showGenerateSlideContentModal = uiState.showGenerateSlideContentModal;
+  const setShowGenerateSlideContentModal = useCallback(createUISetter("showGenerateSlideContentModal"), []);
+  const showVideoModal = uiState.showVideoModal;
+  const setShowVideoModal = useCallback(createUISetter("showVideoModal"), []);
+  const showExportDeckVideoModal = uiState.showExportDeckVideoModal;
+  const setShowExportDeckVideoModal = useCallback(createUISetter("showExportDeckVideoModal"), []);
+  const showSavedListModal = uiState.showSavedListModal;
+  const setShowSavedListModal = useCallback(createUISetter("showSavedListModal"), []);
+  const showSpeechModal = uiState.showSpeechModal;
+  const setShowSpeechModal = useCallback(createUISetter("showSpeechModal"), []);
+  const isSidebarOpen = uiState.isSidebarOpen;
+  const setIsSidebarOpen = useCallback(createUISetter("isSidebarOpen"), []);
+  const isNotesPanelOpen = uiState.isNotesPanelOpen;
+  const setIsNotesPanelOpen = useCallback(createUISetter("isNotesPanelOpen"), []);
+  const showCodeGenModal = uiState.showCodeGenModal;
+  const setShowCodeGenModal = useCallback(createUISetter("showCodeGenModal"), []);
+  const showCharacterCreatorModal = uiState.showCharacterCreatorModal;
+  const setShowCharacterCreatorModal = useCallback(createUISetter("showCharacterCreatorModal"), []);
+  const showCharactersPanel = uiState.showCharactersPanel;
+  const setShowCharactersPanel = useCallback(createUISetter("showCharactersPanel"), []);
+  const showSlideStylePanel = uiState.showSlideStylePanel;
+  const setShowSlideStylePanel = useCallback(createUISetter("showSlideStylePanel"), []);
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
     () => localAccountScopeForUser(user?.uid),
@@ -309,25 +343,14 @@ export function usePresentationState() {
   const [isGeneratingPromptAlternatives, setIsGeneratingPromptAlternatives] =
     useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
-  const [showSplitModal, setShowSplitModal] = useState(false);
-  const [showRewriteModal, setShowRewriteModal] = useState(false);
-  const [showGenerateFullDeckModal, setShowGenerateFullDeckModal] =
-    useState(false);
   const [generateFullDeckTopic, setGenerateFullDeckTopic] = useState("");
   const [homePromptAttachments, setHomePromptAttachments] = useState<
     PromptAttachment[]
   >([]);
   const [generateFullDeckAttachments, setGenerateFullDeckAttachments] =
     useState<PromptAttachment[]>([]);
-  const [showGenerateSlideContentModal, setShowGenerateSlideContentModal] =
-    useState(false);
   const [generateSlideContentPrompt, setGenerateSlideContentPrompt] =
     useState("");
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const [showExportDeckVideoModal, setShowExportDeckVideoModal] =
-    useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [splitPrompt, setSplitPrompt] = useState("");
   const [rewritePrompt, setRewritePrompt] = useState("");
@@ -408,7 +431,6 @@ export function usePresentationState() {
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
-  const [showSavedListModal, setShowSavedListModal] = useState(false);
   const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
   const [cloudMineSnapshot, setCloudMineSnapshot] = useState<
     CloudPresentationListItem[]
@@ -422,12 +444,8 @@ export function usePresentationState() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<HomeTab>("recent");
-  const [showSpeechModal, setShowSpeechModal] = useState(false);
   const [speechGeneralPrompt, setSpeechGeneralPrompt] = useState("");
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
-  const [showCodeGenModal, setShowCodeGenModal] = useState(false);
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
   const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -492,10 +510,6 @@ export function usePresentationState() {
   const [generatedResources, setGeneratedResources] = useState<
     GeneratedResourceEntry[]
   >([]);
-  const [showCharacterCreatorModal, setShowCharacterCreatorModal] =
-    useState(false);
-  const [showCharactersPanel, setShowCharactersPanel] = useState(false);
-  const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
     "slide" | "characters" | "notes" | "theme" | "resources" | null

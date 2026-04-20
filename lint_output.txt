@@ -1,0 +1,32 @@
+
+> react-example@0.1.33 lint /Volumes/EdiDev/proyects/slides-for-devs
+> tsc --noEmit
+
+src/components/layout/EditorFloatingToolbar.tsx(52,7): error TS2741: Property 'mindMap' is missing in type '{ title: { label: string; title: string; Icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; }; ... 9 more ...; isometricFlow: undefined; }' but required in type 'Record<SlideCanvasElementKind, { label: string; title: string; Icon: LucideIcon; }>'.
+src/domain/slideCanvas/slideCanvasPayload.ts(330,33): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/hooks/usePresentationState.ts(2739,37): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/hooks/usePresentationState.ts(2797,37): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/queries/presentationQueries.ts(12,5): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<unknown, Error, unknown, string[]>, queryClient?: QueryClient): DefinedUseQueryResult<unknown, Error>', gave the following error.
+    Type '(accountScope: string) => Promise<SavedPresentationMeta[]>' is not assignable to type 'QueryFunction<unknown, string[]>'.
+      Types of parameters 'accountScope' and 'context' are incompatible.
+        Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown>; pageParam?: unknown; direction?: unknown; }' is not assignable to type 'string'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<SavedPresentationMeta[], Error, SavedPresentationMeta[], string[]>, queryClient?: QueryClient): UseQueryResult<...>', gave the following error.
+    Type '(accountScope: string) => Promise<SavedPresentationMeta[]>' is not assignable to type 'unique symbol | QueryFunction<SavedPresentationMeta[], string[], never>'.
+      Type '(accountScope: string) => Promise<SavedPresentationMeta[]>' is not assignable to type 'QueryFunction<SavedPresentationMeta[], string[], never>'.
+        Types of parameters 'accountScope' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown>; pageParam?: unknown; direction?: unknown; }' is not assignable to type 'string'.
+  Overload 3 of 3, '(options: UseQueryOptions<SavedPresentationMeta[], Error, SavedPresentationMeta[], string[]>, queryClient?: QueryClient): UseQueryResult<...>', gave the following error.
+    Type '(accountScope: string) => Promise<SavedPresentationMeta[]>' is not assignable to type 'unique symbol | QueryFunction<SavedPresentationMeta[], string[], never>'.
+      Type '(accountScope: string) => Promise<SavedPresentationMeta[]>' is not assignable to type 'QueryFunction<SavedPresentationMeta[], string[], never>'.
+        Types of parameters 'accountScope' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown>; pageParam?: unknown; direction?: unknown; }' is not assignable to type 'string'.
+src/queries/presentationQueries.ts(26,5): error TS2322: Type '(id: string, accountScope: string) => Promise<SavedPresentation>' is not assignable to type 'MutationFunction<SavedPresentation, string>'.
+  Types of parameters 'accountScope' and 'context' are incompatible.
+    Type 'MutationFunctionContext' is not assignable to type 'string'.
+src/schemas/presentationSchemas.ts(26,14): error TS2554: Expected 2-3 arguments, but got 1.
+src/services/pptxSlideRasterCapture.tsx(67,31): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/services/pptxSlideRasterCapture.tsx(68,5): error TS2367: This comparison appears to be unintentional because the types '"mind-map"' and '"chapter"' have no overlap.
+src/store/useConfigStore.ts(2,15): error TS2305: Module '"../types"' has no exported member 'DeckVisualTheme'.
+src/store/useEditorStore.ts(2,15): error TS2305: Module '"../types"' has no exported member 'SlideCanvasElement'.
+ ELIFECYCLE  Command failed with exit code 2.
