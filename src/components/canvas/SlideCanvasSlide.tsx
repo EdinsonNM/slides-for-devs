@@ -280,6 +280,8 @@ export function SlideCanvasSlide() {
     setCanvasMediaPanelEditTarget,
     canvasMediaPanelElementId,
     ingestImageFileOnCurrentSlide,
+    clipboardElement,
+    setClipboardElement,
   } = usePresentation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -770,6 +772,76 @@ export function SlideCanvasSlide() {
       document.removeEventListener("slide:dismissCanvasSelection", handleDismiss);
     };
   }, [dismissSlideCanvasSelection]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Avoid if user is currently editing text
+      if (isEditing) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      if (!isCmdOrCtrl) return;
+
+      if (e.key === "c" || e.key === "C") {
+        const id = selectedIdRef.current;
+        if (!id) return;
+        const el = sceneElementsRef.current.find((x) => x.id === id);
+        if (el && setClipboardElement) {
+          e.preventDefault();
+          const copyPayload =
+            el.payload != null
+              ? typeof structuredClone === "function"
+                ? structuredClone(el.payload)
+                : ({ ...el.payload } as typeof el.payload)
+              : undefined;
+          setClipboardElement({
+            ...el,
+            payload: copyPayload,
+          });
+        }
+      } else if (e.key === "v" || e.key === "V") {
+        if (!clipboardElement) return;
+        e.preventDefault();
+        patchCurrentSlideCanvasScene((currentScene) => {
+          const maxZ = currentScene.elements.reduce((m, x) => Math.max(m, x.z), 0);
+          const copyPayload =
+            clipboardElement.payload != null
+              ? typeof structuredClone === "function"
+                ? structuredClone(clipboardElement.payload)
+                : ({ ...clipboardElement.payload } as typeof clipboardElement.payload)
+              : undefined;
+          const copy: SlideCanvasElement = {
+            ...clipboardElement,
+            id: crypto.randomUUID(),
+            rect: clampCanvasRect({
+              ...clipboardElement.rect,
+              x: clipboardElement.rect.x + 2,
+              y: clipboardElement.rect.y + 2,
+            }),
+            z: maxZ + 1,
+            payload: copyPayload,
+          };
+          const elements = normalizeCanvasElementsZOrder([
+            ...currentScene.elements,
+            copy,
+          ]);
+          return { ...currentScene, elements };
+        });
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing, clipboardElement, setClipboardElement, patchCurrentSlideCanvasScene]);
+
 
   if (!currentSlide) {
     sceneElementsRef.current = [];

@@ -344,8 +344,8 @@ export function usePresentationState() {
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editSubtitle, setEditSubtitle] = useState("");
+  const [editTitle, setEditTitleState] = useState("");
+  const [editSubtitle, setEditSubtitleState] = useState("");
   const [editContent, setEditContentState] = useState("");
   const [editContentRichHtml, setEditContentRichHtmlState] = useState("");
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
@@ -372,6 +372,22 @@ export function usePresentationState() {
   const editLanguageRef = useRef("javascript");
   const editFontSizeRef = useRef(14);
   const editEditorHeightRef = useRef(280);
+
+  const setEditTitle = useCallback((value: string | ((prev: string) => string)) => {
+    setEditTitleState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      editTitleRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const setEditSubtitle = useCallback((value: string | ((prev: string) => string)) => {
+    setEditSubtitleState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      editSubtitleRef.current = next;
+      return next;
+    });
+  }, []);
   /** Destinos de edición por bloque en el lienzo (título/subtítulo/cuerpo/panel). */
   const canvasTextTargetsRef = useRef<CanvasTextEditTargets>({
     titleElementId: null,
@@ -382,6 +398,7 @@ export function usePresentationState() {
   const [canvasMediaPanelElementId, setCanvasMediaPanelElementId] = useState<
     string | null
   >(null);
+  const [clipboardElement, setClipboardElement] = useState<SlideCanvasElement | null>(null);
   /** Panel `mediaPanel` objetivo mientras el modal de subida/generación está abierto (el ref puede quedar stale tras el file picker). */
   const pendingImageUploadMediaPanelIdRef = useRef<string | null>(null);
   const pendingImageGenerateMediaPanelIdRef = useRef<string | null>(null);
@@ -621,8 +638,6 @@ export function usePresentationState() {
   }, [isEditing]);
 
   useEffect(() => {
-    editTitleRef.current = editTitle;
-    editSubtitleRef.current = editSubtitle;
     if (!editContentDraftDirtyRef.current) {
       editContentRef.current = editContent;
       editContentRichHtmlRef.current = editContentRichHtml;
@@ -633,8 +648,6 @@ export function usePresentationState() {
     editFontSizeRef.current = editFontSize;
     editEditorHeightRef.current = editEditorHeight;
   }, [
-    editTitle,
-    editSubtitle,
     editContent,
     editContentRichHtml,
     editContentBodyFontScale,
@@ -4408,6 +4421,8 @@ export function usePresentationState() {
     setCanvasMediaPanelEditTarget,
     hydrateCodeEditFromSlide,
     canvasMediaPanelElementId,
+    clipboardElement,
+    setClipboardElement,
     toggleContentType,
     setCurrentSlideType,
     setCurrentSlideExcalidrawData,
