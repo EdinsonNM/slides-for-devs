@@ -159,6 +159,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import { useUIStore, createUISetter } from "../store/useUIStore";
+import { useSlidesStore, createSlidesSetter } from "../store/useSlidesStore";
+import { useEditorStore, createEditorSetter } from "../store/useEditorStore";
 import { useConfigStore, createConfigSetter } from "../store/useConfigStore";
 import {
   PRESENTATION_MODELS,
@@ -273,6 +275,38 @@ export type EditorTab = {
 
 export function usePresentationState() {
   
+  const slidesState = useSlidesStore();
+  const topic = slidesState.topic;
+  const setTopic = useCallback(createSlidesSetter("topic"), []);
+  const slides = slidesState.slides;
+  const setSlides = useCallback(createSlidesSetter("slides"), []);
+  const currentIndex = slidesState.currentIndex;
+  const setCurrentIndex = useCallback(createSlidesSetter("currentIndex"), []);
+
+  const editorState = useEditorStore();
+  const isEditing = editorState.isEditing;
+  const setIsEditing = useCallback(createEditorSetter("isEditing"), []);
+  const editTitle = editorState.editTitle;
+  const setEditTitleState = useCallback(createEditorSetter("editTitle"), []);
+  const editSubtitle = editorState.editSubtitle;
+  const setEditSubtitleState = useCallback(createEditorSetter("editSubtitle"), []);
+  const editContent = editorState.editContent;
+  const setEditContentState = useCallback(createEditorSetter("editContent"), []);
+  const editContentRichHtml = editorState.editContentRichHtml;
+  const setEditContentRichHtmlState = useCallback(createEditorSetter("editContentRichHtml"), []);
+  const editCode = editorState.editCode;
+  const setEditCode = useCallback(createEditorSetter("editCode"), []);
+  const editLanguage = editorState.editLanguage;
+  const setEditLanguage = useCallback(createEditorSetter("editLanguage"), []);
+  const editFontSize = editorState.editFontSize;
+  const setEditFontSizeState = useCallback(createEditorSetter("editFontSize"), []);
+  const editEditorHeight = editorState.editEditorHeight;
+  const setEditEditorHeight = useCallback(createEditorSetter("editEditorHeight"), []);
+  const clipboardElement = editorState.clipboardElement;
+  const setClipboardElement = useCallback(createEditorSetter("clipboardElement"), []);
+  const canvasMediaPanelElementId = editorState.canvasMediaPanelElementId;
+  const setCanvasMediaPanelElementId = useCallback(createEditorSetter("canvasMediaPanelElementId"), []);
+
   const configState = useConfigStore();
   const deckVisualTheme = configState.deckVisualTheme;
   const setDeckVisualThemeState = useCallback(createConfigSetter("deckVisualTheme"), []);
@@ -332,9 +366,7 @@ export function usePresentationState() {
     topic: string;
   } | null>(null);
 
-  const [topic, setTopic] = useState("");
-  const [slides, setSlides] = useState<Slide[]>([]);
-  const slidesRef = useRef<Slide[]>(slides);
+      const slidesRef = useRef<Slide[]>(slides);
   slidesRef.current = slides;
   
   
@@ -348,8 +380,7 @@ export function usePresentationState() {
     }),
     [deckNarrativePresetId, narrativeNotes],
   );
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingPromptAlternatives, setIsGeneratingPromptAlternatives] =
     useState(false);
@@ -377,17 +408,8 @@ export function usePresentationState() {
   );
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitleState] = useState("");
-  const [editSubtitle, setEditSubtitleState] = useState("");
-  const [editContent, setEditContentState] = useState("");
-  const [editContentRichHtml, setEditContentRichHtmlState] = useState("");
-  const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
-  const [editCode, setEditCode] = useState("");
-  const [editLanguage, setEditLanguage] = useState("javascript");
-  const [editFontSize, setEditFontSizeState] = useState(14);
-  const [editEditorHeight, setEditEditorHeight] = useState(280);
-  const slidesUndoRef = useRef<Slide[][]>([]);
+            const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
+          const slidesUndoRef = useRef<Slide[][]>([]);
   const slidesRedoRef = useRef<Slide[][]>([]);
   const currentIndexRef = useRef(0);
   const prevSlideIndexForFlushRef = useRef(0);
@@ -431,11 +453,7 @@ export function usePresentationState() {
     contentElementId: null,
     mediaPanelElementId: null,
   });
-  const [canvasMediaPanelElementId, setCanvasMediaPanelElementId] = useState<
-    string | null
-  >(null);
-  const [clipboardElement, setClipboardElement] = useState<SlideCanvasElement | null>(null);
-  /** Panel `mediaPanel` objetivo mientras el modal de subida/generación está abierto (el ref puede quedar stale tras el file picker). */
+      /** Panel `mediaPanel` objetivo mientras el modal de subida/generación está abierto (el ref puede quedar stale tras el file picker). */
   const pendingImageUploadMediaPanelIdRef = useRef<string | null>(null);
   const pendingImageGenerateMediaPanelIdRef = useRef<string | null>(null);
   const pendingVideoUrlMediaPanelIdRef = useRef<string | null>(null);

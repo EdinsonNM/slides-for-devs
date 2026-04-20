@@ -42,3 +42,12 @@ export const useEditorStore = create<EditorState>((set) => ({
   setClipboardElement: (val) => set({ clipboardElement: val }),
   setCanvasMediaPanelElementId: (val) => set({ canvasMediaPanelElementId: val }),
 }));
+
+export function createEditorSetter<K extends keyof EditorState>(key: K) {
+  return (val: EditorState[K] | ((prev: EditorState[K]) => EditorState[K])) => {
+    useEditorStore.setState((prev) => ({
+      ...prev,
+      [key]: typeof val === 'function' ? (val as any)(prev[key]) : val
+    }));
+  };
+}

@@ -32,3 +32,12 @@ export const useSlidesStore = create<SlidesState>((set) => ({
   undoSlides: () => { /* Logic to be moved */ },
   redoSlides: () => { /* Logic to be moved */ }
 }));
+
+export function createSlidesSetter<K extends keyof SlidesState>(key: K) {
+  return (val: SlidesState[K] | ((prev: SlidesState[K]) => SlidesState[K])) => {
+    useSlidesStore.setState((prev) => ({
+      ...prev,
+      [key]: typeof val === 'function' ? (val as any)(prev[key]) : val
+    }));
+  };
+}
