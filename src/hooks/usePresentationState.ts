@@ -159,6 +159,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import { useUIStore, createUISetter } from "../store/useUIStore";
+import { useConfigStore, createConfigSetter } from "../store/useConfigStore";
 import {
   PRESENTATION_MODELS,
   DEFAULT_PRESENTATION_MODEL_ID,
@@ -271,6 +272,20 @@ export type EditorTab = {
 };
 
 export function usePresentationState() {
+  
+  const configState = useConfigStore();
+  const deckVisualTheme = configState.deckVisualTheme;
+  const setDeckVisualThemeState = useCallback(createConfigSetter("deckVisualTheme"), []);
+  const deckNarrativePresetId = configState.deckNarrativePresetId;
+  const setDeckNarrativePresetId = useCallback(createConfigSetter("deckNarrativePresetId"), []);
+  const narrativeNotes = configState.narrativeNotes;
+  const setNarrativeNotes = useCallback(createConfigSetter("narrativeNotes"), []);
+  const presentationModelId = configState.presentationModelId;
+  const setPresentationModelId = useCallback(createConfigSetter("presentationModelId"), []);
+  const autoCloudSyncOnSave = configState.autoCloudSyncOnSave;
+  const apiKeysVersion = configState.apiKeysVersion;
+  const setApiKeysVersion = useCallback(createConfigSetter("apiKeysVersion"), []);
+
   const uiState = useUIStore();
   const showImageModal = uiState.showImageModal;
   const setShowImageModal = useCallback(createUISetter("showImageModal"), []);
@@ -321,13 +336,9 @@ export function usePresentationState() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const slidesRef = useRef<Slide[]>(slides);
   slidesRef.current = slides;
-  const [deckVisualTheme, setDeckVisualThemeState] = useState<DeckVisualTheme>(
-    DEFAULT_DECK_VISUAL_THEME,
-  );
-  const [deckNarrativePresetId, setDeckNarrativePresetId] = useState(
-    DEFAULT_DECK_NARRATIVE_PRESET_ID,
-  );
-  const [narrativeNotes, setNarrativeNotes] = useState("");
+  
+  
+  
   const deckNarrativeSlideOptions = useMemo(
     () => ({
       deckNarrativeContext: buildDeckNarrativeContextForPrompts(
@@ -474,14 +485,7 @@ export function usePresentationState() {
   const [deletePresentationId, setDeletePresentationId] = useState<string | null>(
     null,
   );
-  const [autoCloudSyncOnSave, setAutoCloudSyncOnSaveState] = useState(() => {
-    try {
-      return localStorage.getItem(AUTO_CLOUD_SYNC_STORAGE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const [cloudSyncConflict, setCloudSyncConflict] = useState<{
+    const [cloudSyncConflict, setCloudSyncConflict] = useState<{
     localId: string;
     cloudId: string;
     expectedRevision: number;
@@ -500,9 +504,7 @@ export function usePresentationState() {
    * Evita guardar un `topic` obsoleto si se pulsa Guardar antes de que React aplique el blur.
    */
   const presentationTitleDraftRef = useRef<string | null>(null);
-  const [presentationModelId, setPresentationModelId] = useState(
-    DEFAULT_PRESENTATION_MODEL_ID,
-  );
+  
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
@@ -528,7 +530,7 @@ export function usePresentationState() {
     narrativeNotes?: string;
   } | null>(null);
   /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
-  const [apiKeysVersion, setApiKeysVersion] = useState(0);
+  
   const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
     async () => {},
   );
@@ -596,7 +598,7 @@ export function usePresentationState() {
     } catch {
       /* ignore */
     }
-    setAutoCloudSyncOnSaveState(value);
+    createConfigSetter("autoCloudSyncOnSave")(value);
   }, []);
 
   // Modelo para operaciones Gemini (dividir, reescribir, prompt de imagen, código, notas, chat).

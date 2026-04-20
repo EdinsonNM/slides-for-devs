@@ -21,9 +21,24 @@ export const useConfigStore = create<ConfigState>((set) => ({
   deckNarrativePresetId: DEFAULT_DECK_NARRATIVE_PRESET_ID,
   narrativeNotes: "",
   presentationModelId: DEFAULT_PRESENTATION_MODEL_ID,
-  autoCloudSyncOnSave: false,
+  autoCloudSyncOnSave: (() => {
+    try {
+      return localStorage.getItem("slaim-auto-cloud-sync") === "1";
+    } catch {
+      return false;
+    }
+  })(),
   apiKeysVersion: 0,
 
   setConfigState: (newState) => set((state) => ({ ...state, ...newState })),
   incrementApiKeysVersion: () => set((state) => ({ apiKeysVersion: state.apiKeysVersion + 1 })),
 }));
+
+export function createConfigSetter<K extends keyof ConfigState>(key: K) {
+  return (val: ConfigState[K] | ((prev: ConfigState[K]) => ConfigState[K])) => {
+    useConfigStore.setState((prev) => ({
+      ...prev,
+      [key]: typeof val === 'function' ? (val as any)(prev[key]) : val
+    }));
+  };
+}
