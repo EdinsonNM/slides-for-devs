@@ -374,6 +374,7 @@ export function usePresentationState() {
   const editEditorHeightRef = useRef(280);
 
   const setEditTitle = useCallback((value: string | ((prev: string) => string)) => {
+    if (typeof value === "string") editTitleRef.current = value;
     setEditTitleState((prev) => {
       const next = typeof value === "function" ? value(prev) : value;
       editTitleRef.current = next;
@@ -382,6 +383,7 @@ export function usePresentationState() {
   }, []);
 
   const setEditSubtitle = useCallback((value: string | ((prev: string) => string)) => {
+    if (typeof value === "string") editSubtitleRef.current = value;
     setEditSubtitleState((prev) => {
       const next = typeof value === "function" ? value(prev) : value;
       editSubtitleRef.current = next;
@@ -616,7 +618,12 @@ export function usePresentationState() {
   const setEditContent = useCallback(
     (value: string | ((prev: string) => string)) => {
       editContentDraftDirtyRef.current = false;
-      setEditContentState(value);
+      if (typeof value === "string") editContentRef.current = value;
+      setEditContentState((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        editContentRef.current = next;
+        return next;
+      });
     },
     [],
   );
@@ -624,7 +631,12 @@ export function usePresentationState() {
   const setEditContentRichHtml = useCallback(
     (value: string | ((prev: string) => string)) => {
       editContentDraftDirtyRef.current = false;
-      setEditContentRichHtmlState(value);
+      if (typeof value === "string") editContentRichHtmlRef.current = value;
+      setEditContentRichHtmlState((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        editContentRichHtmlRef.current = next;
+        return next;
+      });
     },
     [],
   );
@@ -922,7 +934,8 @@ export function usePresentationState() {
    */
   const syncCanvasTextEditTargetsFromSelection = useCallback(
     (slide: Slide, selectedElement: SlideCanvasElement) => {
-      const s2 = ensureSlideCanvasScene(slide);
+      const actualSlide = slidesRef.current[currentIndexRef.current] || slide;
+      const s2 = ensureSlideCanvasScene(actualSlide);
       const defaults = defaultCanvasTextEditTargets(s2);
       const scene = s2.canvasScene!;
 
