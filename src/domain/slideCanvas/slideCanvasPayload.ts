@@ -324,7 +324,12 @@ export function readMediaPayloadFromElement(
   slide: Slide,
   el: SlideCanvasElement,
 ): SlideCanvasMediaPayload {
-  if (el.kind !== "mediaPanel" || slide.type !== SLIDE_TYPE.CONTENT) {
+  if (
+    el.kind !== "mediaPanel" ||
+    (slide.type !== SLIDE_TYPE.CONTENT &&
+      slide.type !== SLIDE_TYPE.TITLE &&
+      slide.type !== SLIDE_TYPE.CHAPTER)
+  ) {
     const p = el.payload;
     if (isSlideCanvasMediaPayload(p)) return normalizeCodeMediaPayload({ ...p });
     return mediaPayloadFromSlideRoot(slide);
@@ -369,7 +374,11 @@ export function presenter3dDisplayPropsFromCanvasElement(
   slide: Slide,
   el: SlideCanvasElement,
 ): Presenter3dCanvasBlockDisplay | null {
-  if (slide.type !== SLIDE_TYPE.CONTENT || el.kind !== "mediaPanel") {
+  if (
+    (slide.type !== SLIDE_TYPE.CONTENT &&
+      slide.type !== SLIDE_TYPE.CHAPTER) ||
+    el.kind !== "mediaPanel"
+  ) {
     return null;
   }
   const p = el.payload;

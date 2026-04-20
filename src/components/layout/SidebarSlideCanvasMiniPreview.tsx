@@ -271,7 +271,6 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
       );
     }
     case "mediaPanel":
-      if (slide.type !== SLIDE_TYPE.CONTENT) return null;
       return (
         <div key={el.id} style={boxStyle} className={shell}>
           {rotated(

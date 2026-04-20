@@ -95,7 +95,7 @@ export function insertableCanvasElementKindsForSlide(slide: Slide): SlideCanvasE
     case SLIDE_TYPE.CONTENT:
       return ["title", "subtitle", "markdown", "mediaPanel"];
     case SLIDE_TYPE.CHAPTER:
-      return ["chapterTitle", "chapterSubtitle"];
+      return ["chapterTitle", "chapterSubtitle", "mediaPanel"];
     case SLIDE_TYPE.MATRIX:
       return ["title", "subtitle", "matrixNotes"];
     case SLIDE_TYPE.ISOMETRIC:
@@ -163,7 +163,10 @@ export function createCanvasElementForInsert(
     return { ...base, payload: emptyTextPayloadForKind(kind) };
   }
 
-  if (kind === "mediaPanel" && slide.type === SLIDE_TYPE.CONTENT) {
+  if (
+    kind === "mediaPanel" &&
+    (slide.type === SLIDE_TYPE.CONTENT || slide.type === SLIDE_TYPE.CHAPTER)
+  ) {
     const contentType =
       options?.mediaContentType ??
       options?.mediaPanelPayloadOverrides?.contentType ??

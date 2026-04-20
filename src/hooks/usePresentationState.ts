@@ -758,7 +758,11 @@ export function usePresentationState() {
   /** Id del `mediaPanel` Presentador 3D a parchear: `explicit` (p. ej. lienzo) o ref del panel activo. */
   const resolvePresenter3dMediaPatchElementId = useCallback(
     (slide: Slide, explicitMediaPanelElementId?: string | null) => {
-      if (slide.type !== SLIDE_TYPE.CONTENT) return null;
+      if (
+        slide.type !== SLIDE_TYPE.CONTENT &&
+        slide.type !== SLIDE_TYPE.CHAPTER
+      )
+        return null;
       const candidateId =
         explicitMediaPanelElementId != null &&
         explicitMediaPanelElementId !== ""
@@ -2715,9 +2719,14 @@ export function usePresentationState() {
   const applyLibraryImageResource = useCallback(
     async (imageUrl: string, imagePromptLabel?: string) => {
       const slide = slidesRef.current[currentIndexRef.current];
-      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) {
+      if (
+        !slide ||
+        (slide.type !== SLIDE_TYPE.CONTENT &&
+          slide.type !== SLIDE_TYPE.TITLE &&
+          slide.type !== SLIDE_TYPE.CHAPTER)
+      ) {
         alert(
-          "Abre una diapositiva de contenido para aplicar una imagen desde Recursos.",
+          "Abre una diapositiva (Contenido, Título o Capítulo) para aplicar una imagen desde Recursos.",
         );
         return;
       }
@@ -2768,9 +2777,14 @@ export function usePresentationState() {
   const applyLibraryModel3dResource = useCallback(
     async (glbUrl: string) => {
       const slide = slidesRef.current[currentIndexRef.current];
-      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) {
+      if (
+        !slide ||
+        (slide.type !== SLIDE_TYPE.CONTENT &&
+          slide.type !== SLIDE_TYPE.TITLE &&
+          slide.type !== SLIDE_TYPE.CHAPTER)
+      ) {
         alert(
-          "Abre una diapositiva de contenido para aplicar un modelo 3D desde Recursos.",
+          "Abre una diapositiva (Contenido, Título o Capítulo) para aplicar un modelo 3D desde Recursos.",
         );
         return;
       }

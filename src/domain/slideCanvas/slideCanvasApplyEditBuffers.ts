@@ -140,7 +140,11 @@ export function applyEditBuffersToSlide(
   patchText(targets.subtitleElementId, isSubtitleKind, buffers.subtitle);
   patchText(targets.contentElementId, isBodyKind, buffers.content);
 
-  if (targets.mediaPanelElementId && slide.type === SLIDE_TYPE.CONTENT) {
+  if (
+    targets.mediaPanelElementId &&
+    (slide.type === SLIDE_TYPE.CONTENT ||
+      slide.type === SLIDE_TYPE.CHAPTER)
+  ) {
     const el = scene.elements.find((e) => e.id === targets.mediaPanelElementId);
     if (el?.kind === "mediaPanel") {
       const media = readMediaPayloadFromElement(slide, el);
@@ -224,7 +228,11 @@ export function patchSlideMediaPanelByElementId(
   mediaElementId: string | null,
   mutate: (m: SlideCanvasMediaPayload) => SlideCanvasMediaPayload,
 ): Slide {
-  if (slide.type !== SLIDE_TYPE.CONTENT) return slide;
+  if (
+    slide.type !== SLIDE_TYPE.CONTENT &&
+    slide.type !== SLIDE_TYPE.CHAPTER
+  )
+    return slide;
   const ensured = ensureSlideCanvasScene(slide);
   const id =
     mediaElementId ??

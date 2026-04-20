@@ -871,7 +871,9 @@ export function SlideCanvasSlide() {
     }
   };
 
-  const showIaToolbar = slide.type === SLIDE_TYPE.CONTENT;
+  const showIaToolbar =
+    slide.type === SLIDE_TYPE.CONTENT ||
+    slide.type === SLIDE_TYPE.CHAPTER;
   const showPanelVideoToolbarBtn =
     showIaToolbar &&
     resolveMediaPanelDescriptor(slide).showSlideContentVideoToolbar();

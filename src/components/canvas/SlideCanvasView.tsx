@@ -283,7 +283,6 @@ function CanvasElementReadOnly({
       );
     }
     case "mediaPanel":
-      if (slide.type !== SLIDE_TYPE.CONTENT) return null;
       return (
         <div style={box} className={shell}>
           {rotated(
