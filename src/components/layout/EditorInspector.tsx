@@ -1,13 +1,20 @@
-import { LayoutTemplate, UserPlus, StickyNote, Palette } from "lucide-react";
+import {
+  LayoutTemplate,
+  UserPlus,
+  StickyNote,
+  Palette,
+  LibraryBig,
+} from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideStylePanel } from "./SlideStylePanel";
 import { CharactersPanel } from "./CharactersPanel";
+import { ResourcesPanel } from "./ResourcesPanel";
 import { PresenterNotesPanel } from "../editor/PresenterNotesPanel";
 import { RailTooltip } from "../shared/RailTooltip";
 
 const SECTIONS: {
-  id: "slide" | "characters" | "notes" | "theme";
+  id: "slide" | "characters" | "notes" | "theme" | "resources";
   label: string;
   icon: typeof LayoutTemplate;
 }[] = [
@@ -15,6 +22,7 @@ const SECTIONS: {
   { id: "characters", label: "Personajes", icon: UserPlus },
   { id: "notes", label: "Notas", icon: StickyNote },
   { id: "theme", label: "Diseño y Tema", icon: Palette },
+  { id: "resources", label: "Recursos", icon: LibraryBig },
 ];
 
 export function EditorInspector() {
@@ -44,6 +52,10 @@ export function EditorInspector() {
     } else if (id === "characters") {
       setShowCharactersPanel(true);
       setShowSlideStylePanel(false);
+      setIsNotesPanelOpen(false);
+    } else if (id === "resources") {
+      setShowSlideStylePanel(false);
+      setShowCharactersPanel(false);
       setIsNotesPanelOpen(false);
     } else {
       setIsNotesPanelOpen(true);
@@ -100,6 +112,9 @@ export function EditorInspector() {
           )}
           {inspectorSection === "notes" && (
             <PresenterNotesPanel variant="inspector" />
+          )}
+          {inspectorSection === "resources" && (
+            <ResourcesPanel variant="inspector" />
           )}
         </div>
       )}

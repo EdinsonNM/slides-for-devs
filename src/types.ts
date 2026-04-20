@@ -10,6 +10,8 @@ export { SLIDE_TYPE, slideUsesFullBleedCanvas } from "./domain/entities";
 export type {
   ImageStyle,
   SavedCharacter,
+  GeneratedResourceKind,
+  GeneratedResourceEntry,
   Presentation,
   SavedPresentation,
   SavedPresentationMeta,

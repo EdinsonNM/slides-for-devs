@@ -10,6 +10,7 @@ import type {
   SlideType,
   ImageStyle,
   SavedCharacter,
+  GeneratedResourceEntry,
   SavedPresentationMeta,
   HomePresentationCard,
   Presentation,
@@ -129,6 +130,9 @@ import {
   setPresentationSharedCloudSource,
   setCharacterCloudState,
   localAccountScopeForUser,
+  listGeneratedResources,
+  addGeneratedResource,
+  deleteGeneratedResource,
 } from "../services/storage";
 import {
   pushCharacterToCloud,
@@ -466,13 +470,16 @@ export function usePresentationState() {
     null,
   );
   const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
+  const [generatedResources, setGeneratedResources] = useState<
+    GeneratedResourceEntry[]
+  >([]);
   const [showCharacterCreatorModal, setShowCharacterCreatorModal] =
     useState(false);
   const [showCharactersPanel, setShowCharactersPanel] = useState(false);
   const [showSlideStylePanel, setShowSlideStylePanel] = useState(false);
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
-    "slide" | "characters" | "notes" | "theme" | null
+    "slide" | "characters" | "notes" | "theme" | "resources" | null
   >("slide");
   const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] =
     useState(false);
@@ -1945,6 +1952,18 @@ export function usePresentationState() {
         setShowImageModal(false);
         setImagePrompt("");
         trackEvent(ANALYTICS_EVENTS.IMAGE_GENERATED);
+        void addGeneratedResource(
+          {
+            kind: "image",
+            payload: imageUrl,
+            prompt: promptUsed,
+            source: imageProvider,
+          },
+          localAccountScope,
+        )
+          .then(() => listGeneratedResources(localAccountScope))
+          .then(setGeneratedResources)
+          .catch((err) => console.error("Biblioteca de recursos:", err));
       }
     } catch (error) {
       console.error("Error generating image:", error);
@@ -2623,6 +2642,155 @@ export function usePresentationState() {
       deckNarrativePresetId,
       narrativeNotes,
     ],
+  );
+
+  const refreshGeneratedResources = useCallback(async () => {
+    try {
+      const list = await listGeneratedResources(localAccountScope);
+      setGeneratedResources(list);
+    } catch (e) {
+      console.error(e);
+      setGeneratedResources([]);
+    }
+  }, [localAccountScope]);
+
+  useEffect(() => {
+    void refreshGeneratedResources();
+  }, [refreshGeneratedResources]);
+
+  const deleteGeneratedResourceFromLibrary = useCallback(
+    async (id: string) => {
+      await deleteGeneratedResource(id, localAccountScope);
+      await refreshGeneratedResources();
+    },
+    [localAccountScope, refreshGeneratedResources],
+  );
+
+  const recordGeneratedModel3d = useCallback(
+    async (glbDataUrl: string, prompt: string | null) => {
+      try {
+        await addGeneratedResource(
+          {
+            kind: "model3d",
+            payload: glbDataUrl,
+            ...(prompt?.trim() ? { prompt: prompt.trim() } : {}),
+            source: "meshy",
+          },
+          localAccountScope,
+        );
+        await refreshGeneratedResources();
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [localAccountScope, refreshGeneratedResources],
+  );
+
+  const applyLibraryImageResource = useCallback(
+    async (imageUrl: string, imagePromptLabel?: string) => {
+      const slide = slidesRef.current[currentIndexRef.current];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) {
+        alert(
+          "Abre una diapositiva de contenido para aplicar una imagen desde Recursos.",
+        );
+        return;
+      }
+      if (
+        resolveMediaPanelDescriptor(slide) instanceof
+        Canvas3dMediaPanelDescriptor
+      ) {
+        alert(
+          "El bloque seleccionado es Canvas 3D. Cambia a imagen (o otro panel) o usa un modelo 3D desde la sección inferior de Recursos.",
+        );
+        return;
+      }
+      const patchMediaPanelElementId =
+        canvasTextTargetsRef.current.mediaPanelElementId;
+      const label = (imagePromptLabel?.trim() || "Desde biblioteca").slice(
+        0,
+        2000,
+      );
+      let nextDeck: Slide[] | null = null;
+      setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[currentIndexRef.current];
+        if (!cur) return prev;
+        updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
+          cur,
+          patchMediaPanelElementId,
+          (m) => applyGeneratedImageToMediaPanelPayload(m, imageUrl, label),
+        );
+        nextDeck = updated;
+        return updated;
+      });
+      if (nextDeck && nextDeck.length > 0) {
+        const savedId = await savePresentationNow({
+          topic: topic || "Sin título",
+          slides: nextDeck,
+          characterId: selectedCharacterId ?? undefined,
+        });
+        if (!savedId) {
+          alert(
+            "La imagen se aplicó pero no se pudo guardar la presentación. Pulsa Guardar si lo necesitas.",
+          );
+        }
+      }
+    },
+    [savePresentationNow, topic, selectedCharacterId],
+  );
+
+  const applyLibraryModel3dResource = useCallback(
+    async (glbUrl: string) => {
+      const slide = slidesRef.current[currentIndexRef.current];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) {
+        alert(
+          "Abre una diapositiva de contenido para aplicar un modelo 3D desde Recursos.",
+        );
+        return;
+      }
+      if (
+        !(
+          resolveMediaPanelDescriptor(slide) instanceof
+          Canvas3dMediaPanelDescriptor
+        )
+      ) {
+        alert(
+          "Selecciona un bloque Canvas 3D (o cambia el panel a Canvas 3D) para cargar un modelo guardado.",
+        );
+        return;
+      }
+      const trimmed = glbUrl.trim();
+      let nextDeck: Slide[] | null = null;
+      setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[currentIndexRef.current];
+        if (!cur) return prev;
+        updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
+          cur,
+          canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            canvas3dGlbUrl: trimmed || undefined,
+            canvas3dViewState: undefined,
+          }),
+        );
+        nextDeck = updated;
+        return updated;
+      });
+      if (nextDeck && nextDeck.length > 0) {
+        const savedId = await savePresentationNow({
+          topic: topic || "Sin título",
+          slides: nextDeck,
+          characterId: selectedCharacterId ?? undefined,
+        });
+        if (!savedId) {
+          alert(
+            "El modelo se aplicó pero no se pudo guardar la presentación. Pulsa Guardar si lo necesitas.",
+          );
+        }
+      }
+    },
+    [savePresentationNow, topic, selectedCharacterId],
   );
 
   const applyDeckVisualTheme = useCallback(
@@ -4183,6 +4351,12 @@ export function usePresentationState() {
     setShowSlideStylePanel,
     inspectorSection,
     setInspectorSection,
+    generatedResources,
+    refreshGeneratedResources,
+    deleteGeneratedResourceFromLibrary,
+    applyLibraryImageResource,
+    applyLibraryModel3dResource,
+    recordGeneratedModel3d,
     isGeneratingCharacterPreview,
     generateCharacterPreview,
     isPreviewMode,

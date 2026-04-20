@@ -4,9 +4,13 @@ import type {
   SavedCharacter,
   SavedPresentation,
   SavedPresentationMeta,
+  GeneratedResourceEntry,
+  GeneratedResourceKind,
 } from "../types";
 
 const CHARACTERS_STORAGE_KEY = "slides-for-devs-characters";
+const GENERATED_RESOURCES_STORAGE_PREFIX = "slides-for-devs-generated-resources";
+const MAX_WEB_GENERATED_RESOURCES = 100;
 
 /** Ámbito SQLite para sesión sin cuenta; con sesión Firebase usar `user.uid`. */
 export const LOCAL_ACCOUNT_SCOPE_GUEST = "__guest__";
@@ -19,6 +23,23 @@ export function localAccountScopeForUser(
 
 function charactersWebStorageKey(accountScope: string): string {
   return `${CHARACTERS_STORAGE_KEY}:${accountScope}`;
+}
+
+function generatedResourcesWebStorageKey(accountScope: string): string {
+  return `${GENERATED_RESOURCES_STORAGE_PREFIX}:${accountScope}`;
+}
+
+function readWebGeneratedResources(
+  accountScope: string
+): GeneratedResourceEntry[] {
+  const raw = localStorage.getItem(generatedResourcesWebStorageKey(accountScope));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as GeneratedResourceEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Guarda la presentación en SQLite (backend) y devuelve su id */
@@ -218,6 +239,78 @@ export async function setCharacterCloudState(
     localStorage.setItem(
       charactersWebStorageKey(accountScope),
       JSON.stringify(next)
+    );
+  }
+}
+
+export async function listGeneratedResources(
+  accountScope: string
+): Promise<GeneratedResourceEntry[]> {
+  try {
+    const list = await invoke<GeneratedResourceEntry[]>(
+      "list_generated_resources",
+      { accountScope }
+    );
+    return list ?? [];
+  } catch {
+    return readWebGeneratedResources(accountScope);
+  }
+}
+
+export type NewGeneratedResourceInput = {
+  kind: GeneratedResourceKind;
+  payload: string;
+  prompt?: string;
+  source?: string;
+};
+
+export async function addGeneratedResource(
+  input: NewGeneratedResourceInput,
+  accountScope: string
+): Promise<GeneratedResourceEntry> {
+  try {
+    return await invoke<GeneratedResourceEntry>("add_generated_resource", {
+      accountScope,
+      kind: input.kind,
+      payload: input.payload,
+      prompt: input.prompt,
+      source: input.source,
+    });
+  } catch {
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    const createdAt = new Date().toISOString();
+    const entry: GeneratedResourceEntry = {
+      id,
+      kind: input.kind,
+      payload: input.payload,
+      prompt: input.prompt,
+      source: input.source,
+      createdAt,
+    };
+    const prev = readWebGeneratedResources(accountScope);
+    const next = [entry, ...prev].slice(0, MAX_WEB_GENERATED_RESOURCES);
+    localStorage.setItem(
+      generatedResourcesWebStorageKey(accountScope),
+      JSON.stringify(next)
+    );
+    return entry;
+  }
+}
+
+export async function deleteGeneratedResource(
+  id: string,
+  accountScope: string
+): Promise<void> {
+  try {
+    await invoke("delete_generated_resource", { id, accountScope });
+  } catch {
+    const prev = readWebGeneratedResources(accountScope);
+    localStorage.setItem(
+      generatedResourcesWebStorageKey(accountScope),
+      JSON.stringify(prev.filter((r) => r.id !== id))
     );
   }
 }

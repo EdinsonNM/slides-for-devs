@@ -19,8 +19,11 @@ export function Canvas3dModelSourceActions({
   httpGlbUrl,
   className,
 }: Canvas3dModelSourceActionsProps) {
-  const { setCurrentSlideCanvas3dGlbUrl, clearCurrentSlideCanvas3dViewState } =
-    usePresentation();
+  const {
+    setCurrentSlideCanvas3dGlbUrl,
+    clearCurrentSlideCanvas3dViewState,
+    recordGeneratedModel3d,
+  } = usePresentation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [meshyModalOpen, setMeshyModalOpen] = useState(false);
@@ -117,7 +120,10 @@ export function Canvas3dModelSourceActions({
       <Canvas3dMeshyAiModal
         isOpen={meshyModalOpen}
         onClose={() => setMeshyModalOpen(false)}
-        onAppliedGlbUrl={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+        onAppliedGlbUrl={(url, meta) => {
+          setCurrentSlideCanvas3dGlbUrl(url);
+          void recordGeneratedModel3d(url, meta?.prompt ?? null);
+        }}
       />
     </>
   );

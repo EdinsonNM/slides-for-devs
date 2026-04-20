@@ -58,6 +58,7 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.target instanceof Element && e.target.closest("[data-mind-map-ui]")) return;
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       const z = zoom - e.deltaY * 0.01;
@@ -69,6 +70,7 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
   }, [zoom]);
 
   const handlePointerDownBg = useCallback((e: React.PointerEvent) => {
+    if (e.target instanceof Element && e.target.closest("[data-mind-map-ui]")) return;
     onEditorSurfacePointerDown?.();
     if (e.button !== 0) return;
     isDraggingBgRef.current = true;

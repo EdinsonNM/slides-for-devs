@@ -124,8 +124,11 @@ export function SlideCanvasCanvaChrome({
   layoutDigest,
   toolbar,
 }: SlideCanvasCanvaChromeProps) {
-  const { setCurrentSlideCanvas3dGlbUrl, clearCurrentSlideCanvas3dViewState } =
-    usePresentation();
+  const {
+    setCurrentSlideCanvas3dGlbUrl,
+    clearCurrentSlideCanvas3dViewState,
+    recordGeneratedModel3d,
+  } = usePresentation();
   const [moreOpen, setMoreOpen] = useState(false);
   const [canvas3dUrlModalOpen, setCanvas3dUrlModalOpen] = useState(false);
   const [canvas3dMeshyModalOpen, setCanvas3dMeshyModalOpen] = useState(false);
@@ -705,7 +708,10 @@ export function SlideCanvasCanvaChrome({
         <Canvas3dMeshyAiModal
           isOpen={canvas3dMeshyModalOpen}
           onClose={() => setCanvas3dMeshyModalOpen(false)}
-          onAppliedGlbUrl={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+          onAppliedGlbUrl={(url, meta) => {
+            setCurrentSlideCanvas3dGlbUrl(url);
+            void recordGeneratedModel3d(url, meta?.prompt ?? null);
+          }}
         />
       </>
     ) : null}

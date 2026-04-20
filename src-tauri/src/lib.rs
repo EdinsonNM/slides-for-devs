@@ -179,6 +179,49 @@ fn set_character_cloud_state(
     .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn list_generated_resources(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+) -> Result<Vec<db::GeneratedResourceEntry>, String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::list_generated_resources(&conn, &account_scope).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_generated_resource(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+    kind: String,
+    payload: String,
+    prompt: Option<String>,
+    source: Option<String>,
+) -> Result<db::GeneratedResourceEntry, String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::add_generated_resource(
+        &conn,
+        &account_scope,
+        &kind,
+        &payload,
+        prompt.as_deref(),
+        source.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_generated_resource(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+    id: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::delete_generated_resource(&conn, &account_scope, &id).map_err(|e| e.to_string())
+}
+
 /// Escribe un archivo binario desde base64. Usado para exportar .pptx (el frontend abre el diálogo de guardar).
 #[tauri::command]
 fn write_binary_file(path: String, base64_content: String) -> Result<(), String> {
@@ -542,6 +585,9 @@ pub fn run() {
             save_character,
             delete_character,
             set_character_cloud_state,
+            list_generated_resources,
+            add_generated_resource,
+            delete_generated_resource,
             write_binary_file,
         ])
         .run(tauri::generate_context!())

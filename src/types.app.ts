@@ -6,6 +6,19 @@ export interface ImageStyle {
   prompt: string;
 }
 
+export type GeneratedResourceKind = "image" | "model3d";
+
+/** Imagen o modelo 3D generado y guardado en la biblioteca local del usuario. */
+export interface GeneratedResourceEntry {
+  id: string;
+  kind: GeneratedResourceKind;
+  /** Data URL de imagen o de archivo .glb (Meshy). */
+  payload: string;
+  prompt?: string;
+  source?: string;
+  createdAt: string;
+}
+
 export interface SavedCharacter {
   id: string;
   name: string;

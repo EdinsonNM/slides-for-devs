@@ -56,6 +56,20 @@ CREATE TABLE IF NOT EXISTS saved_characters (
     name TEXT NOT NULL,
     description TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS generated_resources (
+    account_scope TEXT NOT NULL,
+    id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    prompt TEXT,
+    source TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (account_scope, id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_generated_resources_scope_time
+    ON generated_resources (account_scope, created_at DESC);
 ";
 
 /// Vista 3D persistida (OrbitControls): posición de cámara + target en espacio mundo.
@@ -163,6 +177,20 @@ pub struct SavedCharacter {
     pub cloud_synced_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "cloudRevision")]
     pub cloud_revision: Option<i64>,
+}
+
+/// Recurso generado por el usuario (imagen IA o modelo .glb) reutilizable desde el inspector.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedResourceEntry {
+    pub id: String,
+    pub kind: String,
+    pub payload: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub created_at: String,
 }
 
 /// Metadata for list (no slides, no images).
@@ -1205,6 +1233,77 @@ pub fn delete_character(
     conn.execute(
         "DELETE FROM saved_characters WHERE id = ?1 AND account_scope = ?2",
         params![id, account_scope],
+    )?;
+    Ok(())
+}
+
+// --- Biblioteca de recursos generados (imágenes / modelos 3D) ---
+
+const GENERATED_RESOURCES_LIST_CAP: i64 = 120;
+
+pub fn add_generated_resource(
+    conn: &Connection,
+    account_scope: &str,
+    kind: &str,
+    payload: &str,
+    prompt: Option<&str>,
+    source: Option<&str>,
+) -> Result<GeneratedResourceEntry, rusqlite::Error> {
+    let id = Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO generated_resources (account_scope, id, kind, payload, prompt, source, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            account_scope,
+            id,
+            kind,
+            payload,
+            prompt,
+            source,
+            created_at,
+        ],
+    )?;
+    Ok(GeneratedResourceEntry {
+        id,
+        kind: kind.to_string(),
+        payload: payload.to_string(),
+        prompt: prompt.map(|s| s.to_string()),
+        source: source.map(|s| s.to_string()),
+        created_at,
+    })
+}
+
+pub fn list_generated_resources(
+    conn: &Connection,
+    account_scope: &str,
+) -> Result<Vec<GeneratedResourceEntry>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, kind, payload, prompt, source, created_at FROM generated_resources WHERE account_scope = ?1 ORDER BY datetime(created_at) DESC LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(
+        params![account_scope, GENERATED_RESOURCES_LIST_CAP],
+        |row| {
+            Ok(GeneratedResourceEntry {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                payload: row.get(2)?,
+                prompt: row.get(3)?,
+                source: row.get(4)?,
+                created_at: row.get(5)?,
+            })
+        },
+    )?;
+    rows.collect()
+}
+
+pub fn delete_generated_resource(
+    conn: &Connection,
+    account_scope: &str,
+    id: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM generated_resources WHERE account_scope = ?1 AND id = ?2",
+        params![account_scope, id],
     )?;
     Ok(())
 }

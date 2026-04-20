@@ -4,17 +4,18 @@ import { slideCanvasToolbarIconBtnClass, slideCanvasToolbarPillRowClass } from "
 import { cn } from "../../../utils/cn";
 
 export function MindMapCanvasToolbar(ctrl: MindMapCanvasController) {
-  const { 
-    readOnly,
-    resetView,
-    addNode,
-    slideTextOverlayToolbar,
-    setZoom
-  } = ctrl;
+  const { readOnly, resetView, addNode, slideTextOverlayToolbar } = ctrl;
 
   return (
     <>
-      <div className="absolute right-4 top-4 z-[100] flex flex-col gap-2 pointer-events-auto">
+      <div
+        data-mind-map-ui
+        className={cn(
+          "absolute right-4 z-[100] flex flex-col gap-2 pointer-events-auto",
+          /* Presentador / preview: zoom abajo a la derecha para no chocar con HUD superior. */
+          readOnly ? "bottom-4" : "top-4",
+        )}
+      >
         <div className={cn(slideCanvasToolbarPillRowClass, "flex-col p-1.5 gap-1.5 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md shadow-sm")}>
           {!readOnly && (
             <>
@@ -46,7 +47,10 @@ export function MindMapCanvasToolbar(ctrl: MindMapCanvasController) {
       </div>
       
       {!readOnly && slideTextOverlayToolbar && (
-        <div className="absolute left-1/2 top-4 z-[100] -translate-x-1/2 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm border border-stone-200 dark:border-stone-800 rounded-lg p-1.5 flex gap-2 shadow-lg pointer-events-auto">
+        <div
+          data-mind-map-ui
+          className="absolute left-1/2 top-4 z-[100] -translate-x-1/2 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm border border-stone-200 dark:border-stone-800 rounded-lg p-1.5 flex gap-2 shadow-lg pointer-events-auto"
+        >
           <button 
             type="button" 
             onClick={slideTextOverlayToolbar.onAddTitle}

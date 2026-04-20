@@ -26,7 +26,11 @@ const IMAGE_ACCEPT = "image/png,image/jpeg,.png,.jpg,.jpeg";
 export interface Canvas3dMeshyAiModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAppliedGlbUrl: (httpGlbUrl: string) => void;
+  /** `meta.prompt`: descripción (texto→3D) o nombre de archivo (imagen→3D), para la biblioteca Recursos. */
+  onAppliedGlbUrl: (
+    glbUrl: string,
+    meta?: { prompt: string | null },
+  ) => void;
 }
 
 type TabId = "text" | "image";
@@ -131,7 +135,7 @@ export function Canvas3dMeshyAiModal({
           ai_model: aiModelId,
           with_texture: withTexture,
         });
-        onAppliedGlbUrl(url);
+        onAppliedGlbUrl(url, { prompt: prompt.trim() || null });
         onClose();
         setPrompt("");
       } else {
@@ -140,7 +144,9 @@ export function Canvas3dMeshyAiModal({
           ai_model: aiModelId,
           should_texture: withTexture,
         });
-        onAppliedGlbUrl(url);
+        onAppliedGlbUrl(url, {
+          prompt: imageName?.trim() ? imageName.trim() : null,
+        });
         onClose();
         setImageDataUri(null);
         setImageName(null);
