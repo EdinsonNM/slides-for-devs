@@ -100,6 +100,30 @@ export function hslFill(h: number, s: number, l: number) {
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
+/** Apariencia del lienzo isométrico según tema de la app (no persiste en el JSON). */
+export type IsoDiagramChrome = "light" | "dark";
+
+/** Trazo de aristas de bloques / dispositivos. */
+export function isoShapeStroke(chrome: IsoDiagramChrome): string {
+  return chrome === "dark" ? "rgba(148, 163, 184, 0.45)" : "rgba(30, 64, 175, 0.28)";
+}
+
+/** Ajusta luminosidad HSL de rellenos para fondo oscuro de la UI. */
+export function isoPaintL(l: number, chrome: IsoDiagramChrome): number {
+  if (chrome === "light") return l;
+  let out: number;
+  if (l >= 82) out = l - 46;
+  else if (l >= 70) out = l - 36;
+  else if (l >= 55) out = l - 24;
+  else if (l >= 40) out = l - 14;
+  else out = l - 6;
+  return Math.max(14, Math.min(52, Math.round(out)));
+}
+
+export function hslFillChrome(h: number, s: number, l: number, chrome: IsoDiagramChrome) {
+  return hslFill(h, s, isoPaintL(l, chrome));
+}
+
 /** Normaliza hex de Simple Icons (`ABC` o `#abc`) a `#rrggbb` para `<input type="color">` y `fill`. */
 export function normalizeSimpleIconHex(raw: string | undefined): string | undefined {
   if (raw == null) return undefined;
@@ -117,10 +141,17 @@ export function normalizeSimpleIconHex(raw: string | undefined): string | undefi
 }
 
 /** Prisma isométrico alineado a la cuadrícula (pie + caras + tapa). */
-export function isoSlabPrismPaths(cx: number, cy: number, cell: number, rise: number, hue: number) {
+export function isoSlabPrismPaths(
+  cx: number,
+  cy: number,
+  cell: number,
+  rise: number,
+  hue: number,
+  chrome: IsoDiagramChrome = "light",
+) {
   const footVerts = isoDiamondAroundPoint(cx, cy, cell, SLAB_FOOT_HALF);
   const topVerts = isoDiamondAroundPoint(cx, cy - rise, cell, SLAB_TOP_HALF);
-  const stroke = "rgba(30, 64, 175, 0.28)";
+  const stroke = isoShapeStroke(chrome);
   const sides = [0, 1, 2, 3].map((i) => {
     const a = footVerts[i]!;
     const b = footVerts[(i + 1) % 4]!;
@@ -129,18 +160,18 @@ export function isoSlabPrismPaths(cx: number, cy: number, cell: number, rise: nu
     return `M ${a.x} ${a.y} L ${b.x} ${b.y} L ${c.x} ${c.y} L ${d.x} ${d.y} Z`;
   });
   const sideFills = [
-    hslFill(hue, 48, 71),
-    hslFill(hue, 50, 80),
-    hslFill(hue, 47, 73),
-    hslFill(hue, 49, 78),
+    hslFillChrome(hue, 48, 71, chrome),
+    hslFillChrome(hue, 50, 80, chrome),
+    hslFillChrome(hue, 47, 73, chrome),
+    hslFillChrome(hue, 49, 78, chrome),
   ];
   return {
     footPath: polygonPath(footVerts),
     topPath: polygonPath(topVerts),
     sides,
     sideFills,
-    topFill: hslFill(hue, 55, 91),
-    footFill: hslFill(hue, 52, 86),
+    topFill: hslFillChrome(hue, 55, 91, chrome),
+    footFill: hslFillChrome(hue, 52, 86, chrome),
     stroke,
     footVerts,
     topVerts,
@@ -153,6 +184,7 @@ export function isoCylinderBody(
   cell: number,
   rise: number,
   hue: number,
+  chrome: IsoDiagramChrome = "light",
 ): {
   bodyPath: string;
   topFill: string;
@@ -166,9 +198,9 @@ export function isoCylinderBody(
   const erx = SLAB_TOP_HALF * gx.x;
   const ery = SLAB_TOP_HALF * gx.y;
   const ty = cy - rise;
-  const stroke = "rgba(30, 64, 175, 0.28)";
-  const sideFill = hslFill(hue, 49, 72);
-  const topFill = hslFill(hue, 55, 91);
+  const stroke = isoShapeStroke(chrome);
+  const sideFill = hslFillChrome(hue, 49, 72, chrome);
+  const topFill = hslFillChrome(hue, 55, 91, chrome);
   const bodyPath = `M ${cx - erx} ${cy} A ${erx} ${ery} 0 0 1 ${cx + erx} ${cy} L ${cx + erx} ${ty} A ${erx} ${ery} 0 0 0 ${cx - erx} ${ty} Z`;
   return { bodyPath, topFill, sideFill, stroke, erx, ery, ty };
 }
@@ -180,15 +212,16 @@ export function isoConeFaces(
   rise: number,
   hue: number,
   apex: { x: number; y: number },
+  chrome: IsoDiagramChrome = "light",
 ): { ordered: { d: string; fill: string }[]; stroke: string; footPath: string } {
   const footVerts = isoDiamondAroundPoint(cx, cy, cell, SLAB_FOOT_HALF);
-  const stroke = "rgba(30, 64, 175, 0.28)";
+  const stroke = isoShapeStroke(chrome);
   const footPath = polygonPath(footVerts);
   const faces = [0, 1, 2, 3].map((i) => {
     const a = footVerts[i]!;
     const b = footVerts[(i + 1) % 4]!;
     const d = `M ${a.x} ${a.y} L ${b.x} ${b.y} L ${apex.x} ${apex.y} Z`;
-    const fill = hslFill(hue, 50, 66 + (i % 2) * 8);
+    const fill = hslFillChrome(hue, 50, 66 + (i % 2) * 8, chrome);
     const minY = Math.min(a.y, b.y, apex.y);
     return { d, fill, minY };
   });
@@ -227,7 +260,12 @@ export function isoMobileGlyphExtent(cy: number, topPtY: number): { yTop: number
 }
 
 /** Monitor de escritorio: proporción ancho/alto ~1,5 (evita “ultra‑ancho” aplastado). */
-export function isoDesktopMonitorLayout(cx: number, cy: number, topPtY: number): {
+export function isoDesktopMonitorLayout(
+  cx: number,
+  cy: number,
+  topPtY: number,
+  chrome: IsoDiagramChrome = "light",
+): {
   stroke: string;
   stemY: number;
   hw: number;
@@ -240,7 +278,7 @@ export function isoDesktopMonitorLayout(cx: number, cy: number, topPtY: number):
   baseW: number;
   baseH: number;
 } {
-  const stroke = "rgba(30, 64, 175, 0.28)";
+  const stroke = isoShapeStroke(chrome);
   const screenH = CELL * 0.46;
   const aspect = 1.48;
   const hw = (screenH * aspect) / 2;

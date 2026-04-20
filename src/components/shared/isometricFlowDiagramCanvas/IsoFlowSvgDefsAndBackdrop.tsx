@@ -1,3 +1,4 @@
+import type { IsoDiagramChrome } from "./canvasModel";
 import { CELL, FLOW_DASH_SPAN, ORIGIN_X, ORIGIN_Y, type IsoViewRect } from "./constants";
 import { IsoGridBackground } from "./IsoGridBackground";
 
@@ -7,6 +8,7 @@ export type IsoFlowSvgDefsAndBackdropProps = {
   shadowId: string;
   flowDashAnimName: string;
   flowDashReverseAnimName: string;
+  diagramChrome: IsoDiagramChrome;
 };
 
 export function IsoFlowSvgDefsAndBackdrop({
@@ -15,7 +17,9 @@ export function IsoFlowSvgDefsAndBackdrop({
   shadowId,
   flowDashAnimName,
   flowDashReverseAnimName,
+  diagramChrome,
 }: IsoFlowSvgDefsAndBackdropProps) {
+  const gradIdDark = `${gradId}-dark`;
   return (
     <>
       <defs>
@@ -31,13 +35,25 @@ export function IsoFlowSvgDefsAndBackdrop({
             <stop offset="55%" stopColor="rgb(241 245 249)" />
             <stop offset="100%" stopColor="rgb(224 231 239)" />
           </linearGradient>
+          <linearGradient
+            id={gradIdDark}
+            gradientUnits="objectBoundingBox"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1"
+          >
+            <stop offset="0%" stopColor="rgb(15 23 42)" />
+            <stop offset="55%" stopColor="rgb(30 41 59)" />
+            <stop offset="100%" stopColor="rgb(51 65 85)" />
+          </linearGradient>
           <filter id={shadowId} x="-40%" y="-40%" width="180%" height="180%">
             <feDropShadow
               dx="2"
               dy="5"
               stdDeviation="4"
-              floodColor="#0f172a"
-              floodOpacity="0.12"
+              floodColor="#020617"
+              floodOpacity={diagramChrome === "dark" ? "0.45" : "0.12"}
             />
           </filter>
         </defs>
@@ -76,14 +92,16 @@ export function IsoFlowSvgDefsAndBackdrop({
           y={viewRect.y}
           width={viewRect.w}
           height={viewRect.h}
-          fill={`url(#${gradId})`}
-          className="dark:opacity-90"
+          fill={
+            diagramChrome === "dark" ? `url(#${gradIdDark})` : `url(#${gradId})`
+          }
         />
         <IsoGridBackground
           cell={CELL}
           ox={ORIGIN_X}
           oy={ORIGIN_Y}
           view={viewRect}
+          diagramChrome={diagramChrome}
         />
 
     </>

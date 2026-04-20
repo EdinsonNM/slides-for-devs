@@ -18,7 +18,7 @@ import {
   SLAB_TOP_RISE,
 } from "./constants";
 import {
-  hslFill,
+  hslFillChrome,
   isoBrandGlyphExtent,
   isoCloudGlyphPath,
   isoConeFaces,
@@ -26,6 +26,7 @@ import {
   isoDesktopMonitorLayout,
   isoDeviceGlyphExtent,
   isoMobileGlyphExtent,
+  isoShapeStroke,
   isoSlabPrismPaths,
   labelPillWidth,
   normalizeSimpleIconHex,
@@ -50,6 +51,7 @@ export type IsoFlowSvgNodesLayerProps = Pick<
   | "shadowId"
   | "setEditingId"
   | "setSelectedNodeIds"
+  | "diagramChrome"
 >;
 
 export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
@@ -70,6 +72,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
     shadowId,
     setEditingId,
     setSelectedNodeIds,
+    diagramChrome,
   } = props;
 
   return (
@@ -90,15 +93,15 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
             const shape = n.shape;
             const prism =
               shape === "slab"
-                ? isoSlabPrismPaths(cx, cy, CELL, SLAB_TOP_RISE, n.hue)
+                ? isoSlabPrismPaths(cx, cy, CELL, SLAB_TOP_RISE, n.hue, diagramChrome)
                 : null;
             const cyl =
               shape === "cylinder"
-                ? isoCylinderBody(cx, cy, CELL, SLAB_TOP_RISE, n.hue)
+                ? isoCylinderBody(cx, cy, CELL, SLAB_TOP_RISE, n.hue, diagramChrome)
                 : null;
             const cone =
               shape === "cone"
-                ? isoConeFaces(cx, cy, CELL, SLAB_TOP_RISE, n.hue, topPt)
+                ? isoConeFaces(cx, cy, CELL, SLAB_TOP_RISE, n.hue, topPt, diagramChrome)
                 : null;
             const glyphExtent =
               shape === "mobile"
@@ -112,7 +115,9 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     ? isoDeviceGlyphExtent(cy, topPt.y)
                     : null;
             const desktopLayout =
-              shape === "desktop" ? isoDesktopMonitorLayout(cx, cy, topPt.y) : null;
+              shape === "desktop"
+                ? isoDesktopMonitorLayout(cx, cy, topPt.y, diagramChrome)
+                : null;
             const orbR =
               shape === "orb" && glyphExtent
                 ? Math.min(CELL * 0.36, (glyphExtent.yBot - glyphExtent.yTop) * 0.44)
@@ -121,7 +126,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
               shape === "orb" && glyphExtent
                 ? (glyphExtent.yTop + glyphExtent.yBot) / 2
                 : cy - SLAB_TOP_RISE * 0.42;
-            const orbStroke = "rgba(30, 64, 175, 0.28)";
+            const orbStroke = isoShapeStroke(diagramChrome);
             const sel = selectedNodeIdSet.has(n.id);
             const hov = hoveredNodeId === n.id;
             const conn = connectFrom === n.id;
@@ -207,7 +212,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                         cy={cy}
                         rx={cyl.erx}
                         ry={cyl.ery}
-                        fill={hslFill(n.hue, 46, 64)}
+                        fill={hslFillChrome(n.hue, 46, 64, diagramChrome)}
                         stroke={cyl.stroke}
                         strokeWidth={1}
                         opacity={0.92}
@@ -233,7 +238,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     <>
                       <path
                         d={cone.footPath}
-                        fill={hslFill(n.hue, 46, 62)}
+                        fill={hslFillChrome(n.hue, 46, 62, diagramChrome)}
                         stroke={cone.stroke}
                         strokeWidth={1}
                         opacity={0.92}
@@ -264,7 +269,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                         cx={cx}
                         cy={orbCy}
                         r={orbR}
-                        fill={hslFill(n.hue, 52, 76)}
+                        fill={hslFillChrome(n.hue, 52, 76, diagramChrome)}
                         stroke={orbStroke}
                         strokeWidth={1}
                       />
@@ -277,7 +282,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     </>
                   ) : null}
                   {shape === "mobile" && glyphExtent ? (() => {
-                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const stroke = isoShapeStroke(diagramChrome);
                     const { yTop, yBot } = glyphExtent;
                     const h = yBot - yTop;
                     const w = CELL * 0.46;
@@ -292,7 +297,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={h}
                           rx={rx}
                           ry={rx}
-                          fill={hslFill(n.hue, 48, 82)}
+                          fill={hslFillChrome(n.hue, 48, 82, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={1.15}
                         />
@@ -303,7 +308,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={h * 0.7}
                           rx={3.5}
                           ry={3.5}
-                          fill={hslFill(n.hue, 42, 32)}
+                          fill={hslFillChrome(n.hue, 42, 32, diagramChrome)}
                         />
                         <circle
                           cx={cx}
@@ -332,7 +337,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={screenH}
                           rx={rxOuter}
                           ry={rxOuter}
-                          fill={hslFill(n.hue, 48, 80)}
+                          fill={hslFillChrome(n.hue, 48, 80, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={1}
                         />
@@ -343,11 +348,11 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={innerH}
                           rx={rxInner}
                           ry={rxInner}
-                          fill={hslFill(n.hue, 40, 28)}
+                          fill={hslFillChrome(n.hue, 40, 28, diagramChrome)}
                         />
                         <path
                           d={L.standPath}
-                          fill={hslFill(n.hue, 45, 64)}
+                          fill={hslFillChrome(n.hue, 45, 64, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={0.85}
                           strokeLinejoin="round"
@@ -359,7 +364,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={L.baseH}
                           rx={1.5}
                           ry={1.5}
-                          fill={hslFill(n.hue, 44, 60)}
+                          fill={hslFillChrome(n.hue, 44, 60, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={0.85}
                         />
@@ -367,12 +372,12 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     );
                   })() : null}
                   {shape === "cloud" && glyphExtent ? (() => {
-                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const stroke = isoShapeStroke(diagramChrome);
                     const d = isoCloudGlyphPath(cx, glyphExtent.yTop, glyphExtent.yBot);
                     return (
                       <path
                         d={d}
-                        fill={hslFill(n.hue, 52, 88)}
+                        fill={hslFillChrome(n.hue, 52, 88, diagramChrome)}
                         stroke={stroke}
                         strokeWidth={1}
                         strokeLinejoin="round"
@@ -380,7 +385,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     );
                   })() : null}
                   {shape === "llm" && glyphExtent ? (() => {
-                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const stroke = isoShapeStroke(diagramChrome);
                     const { yTop, yBot } = glyphExtent;
                     const h = yBot - yTop;
                     const w = CELL * 0.56;
@@ -397,7 +402,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={bodyH}
                           rx={corner}
                           ry={corner}
-                          fill={hslFill(n.hue, 48, 82)}
+                          fill={hslFillChrome(n.hue, 48, 82, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={1}
                         />
@@ -405,7 +410,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           x={cx}
                           y={y0 + bodyH / 2 + 3}
                           textAnchor="middle"
-                          className="fill-slate-800 text-[9px] font-bold tracking-[0.08em] dark:fill-slate-900"
+                          className="fill-slate-800 text-[9px] font-bold tracking-[0.08em] dark:fill-slate-200"
                         >
                           LLM
                         </text>
@@ -413,7 +418,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     );
                   })() : null}
                   {shape === "user" && glyphExtent ? (() => {
-                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const stroke = isoShapeStroke(diagramChrome);
                     const { yTop, yBot } = glyphExtent;
                     const h = yBot - yTop;
                     const headR = Math.min(CELL * 0.12, h * 0.2);
@@ -427,7 +432,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           cx={cx}
                           cy={headY}
                           r={headR}
-                          fill={hslFill(n.hue, 52, 86)}
+                          fill={hslFillChrome(n.hue, 52, 86, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={1}
                         />
@@ -438,7 +443,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           height={bodyH}
                           rx={bodyH / 2}
                           ry={bodyH / 2}
-                          fill={hslFill(n.hue, 48, 76)}
+                          fill={hslFillChrome(n.hue, 48, 76, diagramChrome)}
                           stroke={stroke}
                           strokeWidth={1}
                         />
@@ -446,7 +451,7 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                     );
                   })() : null}
                   {shape === "brand" && glyphExtent ? (() => {
-                    const stroke = "rgba(30, 64, 175, 0.28)";
+                    const stroke = isoShapeStroke(diagramChrome);
                     const { yTop, yBot } = glyphExtent;
                     const iconSlug = (n.iconSlug ?? "openai").trim().toLowerCase();
                     const brandIconHref = resolveBrandIconHref(
@@ -490,15 +495,13 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                           cx={cx}
                           cy={sphereCy}
                           r={sphereR}
-                          fill="rgb(255 255 255)"
+                          fill={
+                            diagramChrome === "dark"
+                              ? hslFillChrome(n.hue, 14, 26, diagramChrome)
+                              : "rgb(255 255 255)"
+                          }
                           stroke={stroke}
                           strokeWidth={1}
-                        />
-                        <circle
-                          cx={cx - sphereR * 0.24}
-                          cy={sphereCy - sphereR * 0.24}
-                          r={sphereR * 0.34}
-                          fill="rgba(255, 255, 255, 0.34)"
                         />
                         {useSvgTint ? (
                           <>
@@ -549,7 +552,11 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                   y1={stemTopY}
                   x2={cx}
                   y2={stemBotY}
-                  stroke="rgba(15, 23, 42, 0.45)"
+                  stroke={
+                    diagramChrome === "dark"
+                      ? "rgba(148, 163, 184, 0.35)"
+                      : "rgba(15, 23, 42, 0.45)"
+                  }
                   strokeWidth={1}
                   strokeDasharray="3 3"
                 />
@@ -602,16 +609,21 @@ export function IsoFlowSvgNodesLayer(props: IsoFlowSvgNodesLayerProps) {
                       height={LABEL_PILL_H}
                       rx={LABEL_PILL_H / 2}
                       ry={LABEL_PILL_H / 2}
-                      fill="white"
-                      stroke="rgba(148, 163, 184, 0.65)"
+                      fill={
+                        diagramChrome === "dark" ? "rgb(30 41 59)" : "white"
+                      }
+                      stroke={
+                        diagramChrome === "dark"
+                          ? "rgba(148, 163, 184, 0.45)"
+                          : "rgba(148, 163, 184, 0.65)"
+                      }
                       strokeWidth={1}
-                      className="dark:fill-slate-100"
                     />
                     <text
                       x={cx}
                       y={pillTop + LABEL_PILL_H / 2 + 4}
                       textAnchor="middle"
-                      className="pointer-events-none fill-slate-900 text-[11px] font-semibold dark:fill-slate-900"
+                      className="pointer-events-none fill-slate-900 text-[11px] font-semibold dark:fill-slate-100"
                     >
                       {n.label.length > 22 ? `${n.label.slice(0, 20)}…` : n.label}
                     </text>

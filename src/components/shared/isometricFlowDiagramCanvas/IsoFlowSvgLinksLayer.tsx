@@ -1,5 +1,5 @@
 import { arrowHeadPath, shortenPolylineEnd } from "../../../utils/isometricFlowGeometry";
-import { linkPolylinePoints, linkStroke } from "./canvasModel";
+import { linkPolylinePoints, linkStroke, type IsoDiagramChrome } from "./canvasModel";
 import {
   ARROW_SIZE,
   ARROW_TRIM,
@@ -16,6 +16,7 @@ export type IsoFlowSvgLinksLayerProps = {
   bidirectionalLinkIds: Set<string>;
   flowDashAnimName: string;
   flowDashReverseAnimName: string;
+  diagramChrome: IsoDiagramChrome;
 };
 
 export function IsoFlowSvgLinksLayer({
@@ -24,7 +25,16 @@ export function IsoFlowSvgLinksLayer({
   bidirectionalLinkIds,
   flowDashAnimName,
   flowDashReverseAnimName,
+  diagramChrome,
 }: IsoFlowSvgLinksLayerProps) {
+  const flowHighlight =
+    diagramChrome === "dark" ? "rgba(15, 23, 42, 0.92)" : "rgba(255, 255, 255, 0.95)";
+  const flowHighlightSoft =
+    diagramChrome === "dark" ? "rgba(15, 23, 42, 0.78)" : "rgba(255, 255, 255, 0.75)";
+  const selHalo =
+    diagramChrome === "dark" ? "rgba(148, 163, 184, 0.35)" : "rgb(255 255 255)";
+  const pulseDot =
+    diagramChrome === "dark" ? "rgba(15, 23, 42, 0.95)" : "rgba(255,255,255,0.96)";
   return (
     <>
       <g aria-hidden>
@@ -44,12 +54,11 @@ export function IsoFlowSvgLinksLayer({
                   <path
                     d={`M ${pts.map((p) => `${p.x} ${p.y}`).join(" L ")}`}
                     fill="none"
-                    stroke="rgb(255 255 255)"
+                    stroke={selHalo}
                     strokeWidth={10}
                     strokeLinejoin="round"
                     strokeLinecap="round"
                     opacity={0.45}
-                    className="dark:stroke-slate-200"
                   />
                 )}
                 <path
@@ -65,7 +74,7 @@ export function IsoFlowSvgLinksLayer({
                     <path
                       d={lineD}
                       fill="none"
-                      stroke="rgba(255, 255, 255, 0.95)"
+                      stroke={flowHighlight}
                       strokeWidth={sel ? 2.1 : 1.6}
                       strokeLinejoin="round"
                       strokeLinecap="round"
@@ -80,7 +89,7 @@ export function IsoFlowSvgLinksLayer({
                       <path
                         d={lineD}
                         fill="none"
-                        stroke="rgba(255, 255, 255, 0.75)"
+                        stroke={flowHighlightSoft}
                         strokeWidth={sel ? 1.5 : 1.2}
                         strokeLinejoin="round"
                         strokeLinecap="round"
@@ -97,7 +106,7 @@ export function IsoFlowSvgLinksLayer({
                   <>
                     <circle
                       r={sel ? 3.2 : 2.8}
-                      fill="rgba(255,255,255,0.96)"
+                      fill={pulseDot}
                       stroke={stroke}
                       strokeWidth={0.75}
                     >

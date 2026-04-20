@@ -66,17 +66,22 @@ export function IsometricFlowCanvasToolbar(props: IsometricFlowCanvasToolbarProp
 
   if (readOnly) return null;
 
+  /** Con nodos seleccionados se muestra la barra de forma/icono; ocultamos añadir bloque y texto en lienzo para no solapar. */
+  const showSlideAddChrome = selectedNodeIds.length === 0;
+
   return (
     <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1.5 rounded-lg border border-stone-200/90 bg-white/95 px-2 py-1.5 shadow-sm dark:border-border dark:bg-stone-900/95">
-      <button
-        type="button"
-        onClick={addNode}
-        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-sky-700"
-        aria-label="Añadir bloque"
-      >
-        <Plus size={14} />
-        Bloque
-      </button>
+      {showSlideAddChrome ? (
+        <button
+          type="button"
+          onClick={addNode}
+          className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-sky-700"
+          aria-label="Añadir bloque"
+        >
+          <Plus size={14} />
+          Bloque
+        </button>
+      ) : null}
       {(primarySelectedId || connectFrom) && (
         <button
           type="button"
@@ -114,7 +119,7 @@ export function IsometricFlowCanvasToolbar(props: IsometricFlowCanvasToolbarProp
           Quitar
         </button>
       )}
-      {slideTextOverlayToolbar ? (
+      {slideTextOverlayToolbar && showSlideAddChrome ? (
         <div
           className="flex flex-wrap items-center gap-1 border-l border-stone-200 pl-1.5 dark:border-stone-600"
           role="group"

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { isoGridToCanvas } from "../../../utils/isometricFlowGeometry";
-import { isoGridIndexBoundsForView } from "./canvasModel";
+import { isoGridIndexBoundsForView, type IsoDiagramChrome } from "./canvasModel";
 import type { IsoViewRect } from "./constants";
 
 export function IsoGridBackground({
@@ -8,17 +8,25 @@ export function IsoGridBackground({
   ox,
   oy,
   view,
+  diagramChrome,
 }: {
   cell: number;
   ox: number;
   oy: number;
   view: IsoViewRect;
+  diagramChrome: IsoDiagramChrome;
 }) {
   const lines = useMemo(() => {
     const { gx0, gx1, gy0, gy1 } = isoGridIndexBoundsForView(view, cell, ox, oy, 5);
     const out: ReactNode[] = [];
-    const stroke = "rgba(148, 163, 184, 0.45)";
-    const strokeDark = "rgba(100, 116, 139, 0.35)";
+    const stroke =
+      diagramChrome === "dark"
+        ? "rgba(148, 163, 184, 0.22)"
+        : "rgba(148, 163, 184, 0.45)";
+    const strokeDark =
+      diagramChrome === "dark"
+        ? "rgba(100, 116, 139, 0.2)"
+        : "rgba(100, 116, 139, 0.35)";
     for (let k = gx0; k <= gx1; k++) {
       const a = isoGridToCanvas(k, gy0, cell, ox, oy);
       const b = isoGridToCanvas(k, gy1, cell, ox, oy);
@@ -52,6 +60,6 @@ export function IsoGridBackground({
       );
     }
     return out;
-  }, [cell, ox, oy, view.x, view.y, view.w, view.h]);
+  }, [cell, ox, oy, view.x, view.y, view.w, view.h, diagramChrome]);
   return <g aria-hidden>{lines}</g>;
 }

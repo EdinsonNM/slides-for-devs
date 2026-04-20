@@ -58,6 +58,8 @@ import {
   hrefFromSimpleIconRelativePath,
 } from "../../../utils/isometricBrandIcon";
 import type { IsometricFlowDiagramCanvasProps } from "./isometricFlowDiagramCanvasTypes";
+import { useThemeOptional } from "../../../context/ThemeContext";
+import type { IsoDiagramChrome } from "./canvasModel";
 
 export function useIsometricFlowCanvasController({
   data,
@@ -67,6 +69,8 @@ export function useIsometricFlowCanvasController({
   slideTextOverlayToolbar,
   onEditorSurfacePointerDown,
 }: IsometricFlowDiagramCanvasProps) {
+  const themeOptional = useThemeOptional();
+  const diagramChrome: IsoDiagramChrome = themeOptional?.isDark ? "dark" : "light";
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [viewRect, setViewRect] = useState<IsoViewRect>(() => defaultIsoViewRect());
   const viewRectRef = useRef<IsoViewRect>(viewRect);
@@ -1312,6 +1316,7 @@ export function useIsometricFlowCanvasController({
     setIconPickerGroupByCategory,
     setIconPickerVisibleLimit,
     setSelectedNodeBrandIcon,
+    diagramChrome,
   };
 }
 

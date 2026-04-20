@@ -45,6 +45,7 @@ export function IsometricFlowCanvasSvg({ ctrl }: IsometricFlowCanvasSvgProps) {
     setConnectFrom,
     setLinkSegDrag,
     splitLinkAtDisplaySegment,
+    diagramChrome,
   } = ctrl;
 
   return (
@@ -75,6 +76,7 @@ export function IsometricFlowCanvasSvg({ ctrl }: IsometricFlowCanvasSvgProps) {
         shadowId={shadowId}
         flowDashAnimName={flowDashAnimName}
         flowDashReverseAnimName={flowDashReverseAnimName}
+        diagramChrome={diagramChrome}
       />
       <IsoFlowSvgLinksLayer
         data={data}
@@ -82,6 +84,7 @@ export function IsometricFlowCanvasSvg({ ctrl }: IsometricFlowCanvasSvgProps) {
         bidirectionalLinkIds={bidirectionalLinkIds}
         flowDashAnimName={flowDashAnimName}
         flowDashReverseAnimName={flowDashReverseAnimName}
+        diagramChrome={diagramChrome}
       />
       <IsoFlowSvgNodesLayer
         data={data}
@@ -100,8 +103,13 @@ export function IsometricFlowCanvasSvg({ ctrl }: IsometricFlowCanvasSvgProps) {
         uid={uid}
         setEditingId={setEditingId}
         setSelectedNodeIds={setSelectedNodeIds}
+        diagramChrome={diagramChrome}
       />
-      <IsoFlowSvgMarquee readOnly={readOnly} marqueeRect={marqueeRect} />
+      <IsoFlowSvgMarquee
+        readOnly={readOnly}
+        marqueeRect={marqueeRect}
+        diagramChrome={diagramChrome}
+      />
       <IsoFlowSvgLinkSegmentHandles
         readOnly={readOnly}
         selectedLinkId={selectedLinkId}

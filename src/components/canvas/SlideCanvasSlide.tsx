@@ -896,6 +896,16 @@ export function SlideCanvasSlide() {
 
       {sorted
         .filter((el) => el.kind !== "sectionLabel")
+        /* Diapositiva solo isométrica / mapa: ya se pinta el lienzo completo arriba; el bloque en `canvasScene` duplicaría UI (p. ej. dos toolbars). */
+        .filter((el) => {
+          if (slide.type === SLIDE_TYPE.ISOMETRIC && el.kind === "isometricFlow") {
+            return false;
+          }
+          if (slide.type === SLIDE_TYPE.MIND_MAP && el.kind === "mindMap") {
+            return false;
+          }
+          return true;
+        })
         .map((el) => (
         <CanvasElementEditor
           key={el.id}
