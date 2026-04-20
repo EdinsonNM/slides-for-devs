@@ -37,6 +37,7 @@ import {
 import { usePresentation } from "../../context/PresentationContext";
 import { ModelSelect } from "../shared/ModelSelect";
 import { cn } from "../../utils/cn";
+import { openExternalLink } from "../../utils/openExternalLink";
 import { OPENAI_IMAGE_MODEL_DISPLAY } from "../../constants/openaiImageModels";
 import {
   MESHY_AI_MODEL_OPTIONS,
@@ -299,7 +300,10 @@ function ProviderCredentialCard({
               target="_blank"
               rel="noopener noreferrer"
               className="text-teal-700 dark:text-teal-400 font-medium hover:underline"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                void openExternalLink(meta.docHref);
+              }}
             >
               {meta.docLabel}
             </a>
@@ -1115,8 +1119,9 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
                       className="mt-0.5 shrink-0 text-teal-600 dark:text-teal-400"
                       aria-hidden
                     />
-                    Pensado para equipos con presupuesto fijo (día, semana, mes o
-                    año)
+                    Pagos a tu medida: día o semana cuando lo necesites, sin
+                    mensualidad obligatoria, o suscripción mensual o anual con
+                    mejores beneficios
                   </li>
                   <li className="flex gap-2">
                     <Check
@@ -1460,6 +1465,10 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium text-violet-700 underline hover:no-underline dark:text-violet-300"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void openExternalLink("https://www.meshy.ai/api");
+                        }}
                       >
                         Meshy
                       </a>

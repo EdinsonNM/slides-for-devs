@@ -19,6 +19,7 @@ import {
 } from "../../constants/meshyProgress";
 import { ModelSelect } from "../shared/ModelSelect";
 import { BaseModal } from "../modals/BaseModal";
+import { openExternalLink } from "../../utils/openExternalLink";
 
 const IMAGE_ACCEPT = "image/png,image/jpeg,.png,.jpg,.jpeg";
 
@@ -338,6 +339,10 @@ export function Canvas3dMeshyAiModal({
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-violet-700 underline hover:no-underline dark:text-violet-300"
+            onClick={(e) => {
+              e.preventDefault();
+              void openExternalLink("https://www.meshy.ai/api");
+            }}
           >
             meshy.ai/api
           </a>

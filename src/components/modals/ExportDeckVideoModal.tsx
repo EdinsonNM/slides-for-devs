@@ -14,6 +14,7 @@ import {
 } from "../../remotion/deckVideoConstants";
 import { mapSlidesForDeckVideoExport } from "../../remotion/deckVideoTypes";
 import { downloadDeckPresentationMp4 } from "../../services/exportDeckVideo";
+import { openExternalLink } from "../../utils/openExternalLink";
 
 const REMOTION_CSR_DOC = "https://www.remotion.dev/docs/client-side-rendering";
 
@@ -170,6 +171,10 @@ export function ExportDeckVideoModal() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-emerald-600 underline-offset-2 hover:underline dark:text-emerald-400"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void openExternalLink(REMOTION_CSR_DOC);
+                  }}
                 >
                   Documentación
                 </a>

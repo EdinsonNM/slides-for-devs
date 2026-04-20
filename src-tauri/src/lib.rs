@@ -410,6 +410,17 @@ fn sign_in_google_external_browser(app: tauri::AppHandle) -> Result<String, Stri
     oauth_google::sign_in_with_external_browser(&content)
 }
 
+/// Abre `url` en el navegador predeterminado (escritorio). En el WebView de Tauri los
+/// `<a target="_blank">` no siempre delegan al SO; usar esto desde el frontend.
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
+        return Err("Solo se permiten enlaces http(s)".to_string());
+    }
+    opener::open_browser(trimmed).map_err(|e| e.to_string())
+}
+
 // --- Presentaciones ---
 
 /// Migrates existing JSON presentation files (AppData/presentations/*.json) into SQLite.
@@ -497,6 +508,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_firebase_config,
+            open_external_url,
             sign_in_google_external_browser,
             get_gemini_api_key,
             set_gemini_api_key,
