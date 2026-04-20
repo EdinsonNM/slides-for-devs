@@ -149,36 +149,43 @@
   background: rgba(120, 113, 108, 0.4);
 }
 
-/* Tipografía responsiva: escala con el ancho del lienzo (cqw), no con el viewport —
-   evita títulos enormes cuando la ventana es ancha pero la diapositiva es estrecha (editor md–xl). */
+/* Tipografía responsiva: escala con el ancho del lienzo (cqw).
+   Los techos usan también `cqw` para que, al agrandar el slide, las fuentes sigan proporción
+   (los máximos fijos en rem dejaban texto diminuto en pantallas grandes). */
 .slide-content {
   container-type: inline-size;
   container-name: slide;
-  --slide-title-chapter: clamp(1.5rem, 5.25cqw, 2.85rem);
-  --slide-title: clamp(1.05rem, 3.5cqw, 1.9rem);
-  --slide-subtitle: clamp(0.8125rem, 2.1cqw, 1.2rem);
-  --slide-label: clamp(0.58rem, 1.15cqw, 0.76rem);
-  --slide-body: clamp(0.75rem, 1.55cqw, 1.05rem);
+  --slide-title-chapter: clamp(1.5rem, 5.25cqw, 14cqw);
+  --slide-title: clamp(1.05rem, 3.65cqw, 11cqw);
+  --slide-subtitle: clamp(0.8125rem, 2.25cqw, 7cqw);
+  --slide-label: clamp(0.58rem, 1.15cqw, 3.75cqw);
+  --slide-body: clamp(0.75rem, 1.65cqw, 5.5cqw);
 }
 
-/* Etiqueta «Sección N» fuera del borde del lienzo (editor): mismo criterio de escala que .slide-content */
+/* Etiqueta «Sección N» fuera del lienzo: tamaño UI fijo (no escala con el slide / panel ancho), máx. 16px */
 .slide-editor-canvas-wrap {
   container-type: inline-size;
   container-name: slide-editor-outer;
-  --slide-section-out-label: clamp(0.58rem, 1.15cqw, 0.76rem);
+  --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
+}
+
+/* Área del lienzo: alto + ancho para `cqh`/`cqw` y encajar 16:9 sin bandas enormes en pantallas grandes */
+.slide-editor-stage {
+  container-type: size;
+  container-name: slide-editor-stage;
 }
 
 /* Navegadores sin container query units: fallback conservador con vw */
 @supports not (font-size: 1cqw) {
   .slide-content {
-    --slide-title-chapter: clamp(1.5rem, 4.5vw, 2.85rem);
-    --slide-title: clamp(1.05rem, 2.8vw, 1.9rem);
-    --slide-subtitle: clamp(0.8125rem, 1.65vw, 1.2rem);
-    --slide-label: clamp(0.58rem, 0.95vw, 0.76rem);
-    --slide-body: clamp(0.75rem, 1.2vw, 1.05rem);
+    --slide-title-chapter: clamp(1.5rem, 4.5vw, 12vw);
+    --slide-title: clamp(1.05rem, 3.1vw, 9vw);
+    --slide-subtitle: clamp(0.8125rem, 1.9vw, 6vw);
+    --slide-label: clamp(0.58rem, 0.95vw, 3.25vw);
+    --slide-body: clamp(0.75rem, 1.35vw, 4.5vw);
   }
   .slide-editor-canvas-wrap {
-    --slide-section-out-label: clamp(0.58rem, 0.95vw, 0.76rem);
+    --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
   }
 }
 
@@ -186,6 +193,13 @@
 .slide-content .prose p,
 .slide-content .prose li {
   font-size: var(--slide-body);
+}
+
+/* Subtítulo en markdown: mismo escalado que `--slide-subtitle` (no el cuerpo `.prose`). */
+.slide-content .prose-slide-subtitle,
+.slide-content .prose-slide-subtitle p,
+.slide-content .prose-slide-subtitle li {
+  font-size: var(--slide-subtitle);
 }
 
 /**
@@ -218,6 +232,12 @@
   font-size: var(--slide-body);
 }
 
+.sidebar-slide-canvas-mini .prose-slide-subtitle,
+.sidebar-slide-canvas-mini .prose-slide-subtitle p,
+.sidebar-slide-canvas-mini .prose-slide-subtitle li {
+  font-size: var(--slide-subtitle);
+}
+
 .sidebar-slide-canvas-mini .prose h1 {
   font-size: clamp(5.5px, 1.85em, 9px);
 }
@@ -242,34 +262,34 @@
   word-break: normal;
 }
 
-/* Vista previa / presentación: mismo criterio (ancho del contenedor de la slide) con techos algo mayores */
+/* Vista previa / presentación: mismo criterio (ancho del contenedor de la slide), techos en `cqw` */
 .preview-slide {
   container-type: inline-size;
   container-name: slide-preview;
-  --slide-title-chapter: clamp(2rem, 5.5cqw, 4.75rem);
-  --slide-title: clamp(1.35rem, 3.8cqw, 2.75rem);
-  --slide-subtitle: clamp(1rem, 2.35cqw, 1.85rem);
-  --slide-label: clamp(0.65rem, 1.15cqw, 0.88rem);
-  --slide-body: clamp(1rem, 1.65cqw, 1.45rem);
+  --slide-title-chapter: clamp(2rem, 5.5cqw, 14cqw);
+  --slide-title: clamp(1.35rem, 4cqw, 11cqw);
+  --slide-subtitle: clamp(1rem, 2.4cqw, 7cqw);
+  --slide-label: clamp(0.65rem, 1.2cqw, 3.75cqw);
+  --slide-body: clamp(1rem, 1.75cqw, 5.5cqw);
 }
 
-/* Columna vista previa: etiqueta «Sección N» encima del marco 16:9 */
+/* Columna vista previa: etiqueta «Sección N» encima del marco 16:9 (mismo criterio que el editor) */
 .preview-slide-outer {
   container-type: inline-size;
   container-name: slide-preview-outer;
-  --slide-section-out-label: clamp(0.65rem, 1.15cqw, 0.88rem);
+  --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
 }
 
 @supports not (font-size: 1cqw) {
   .preview-slide {
-    --slide-title-chapter: clamp(2rem, 6vw, 4.75rem);
-    --slide-title: clamp(1.35rem, 3.5vw, 2.75rem);
-    --slide-subtitle: clamp(1rem, 2vw, 1.85rem);
-    --slide-label: clamp(0.65rem, 1vw, 0.88rem);
-    --slide-body: clamp(1rem, 1.35vw, 1.45rem);
+    --slide-title-chapter: clamp(2rem, 6vw, 12vw);
+    --slide-title: clamp(1.35rem, 4.2vw, 9vw);
+    --slide-subtitle: clamp(1rem, 2.2vw, 6vw);
+    --slide-label: clamp(0.65rem, 1vw, 3.25vw);
+    --slide-body: clamp(1rem, 1.45vw, 4.5vw);
   }
   .preview-slide-outer {
-    --slide-section-out-label: clamp(0.65rem, 1vw, 0.88rem);
+    --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
   }
 }
 
@@ -277,6 +297,12 @@
 .preview-slide .prose p,
 .preview-slide .prose li {
   font-size: var(--slide-body);
+}
+
+.preview-slide .prose-slide-subtitle,
+.preview-slide .prose-slide-subtitle p,
+.preview-slide .prose-slide-subtitle li {
+  font-size: var(--slide-subtitle);
 }
 
 /* Encabezados dentro del contenido de la diapositiva */

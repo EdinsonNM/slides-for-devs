@@ -23,7 +23,7 @@ export function SlideSubtitleMarkdownBody({
     <SlideMarkdown
       contentTone={tone}
       className={cn(
-        "prose-sm max-w-none min-w-0 w-full",
+        "prose-slide-subtitle max-w-none min-w-0 w-full",
         variant === "chapter" &&
           cn(
             "text-center font-light normal-case tracking-wide",

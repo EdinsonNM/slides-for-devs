@@ -1841,7 +1841,7 @@ function CanvasElementEditor({
               {!isEditing || !showSubtitleEdit ? (
                 <div
                   className={cn(
-                    "flex w-full min-w-0 shrink-0 select-none flex-col overflow-visible rounded-md text-sm",
+                    "flex w-full min-w-0 shrink-0 select-none flex-col overflow-visible rounded-md",
                     chapter && "items-center text-center",
                   )}
                   onDoubleClick={(e) => {
@@ -1880,7 +1880,10 @@ function CanvasElementEditor({
                         : readTextMarkdownFromElement(slide, element)}
                     </SlideSubtitleMarkdownBody>
                   ) : (
-                    <span className={cn("italic", deckMutedTextClass(tone))}>
+                    <span
+                      className={cn("italic", deckMutedTextClass(tone))}
+                      style={{ fontSize: "var(--slide-subtitle)" }}
+                    >
                       Subtítulo (opcional)
                     </span>
                   )}
