@@ -326,9 +326,7 @@ export function readMediaPayloadFromElement(
 ): SlideCanvasMediaPayload {
   if (
     el.kind !== "mediaPanel" ||
-    (slide.type !== SLIDE_TYPE.CONTENT &&
-      slide.type !== SLIDE_TYPE.TITLE &&
-      slide.type !== SLIDE_TYPE.CHAPTER)
+    (slide.type !== SLIDE_TYPE.CONTENT && slide.type !== SLIDE_TYPE.CHAPTER)
   ) {
     const p = el.payload;
     if (isSlideCanvasMediaPayload(p)) return normalizeCodeMediaPayload({ ...p });

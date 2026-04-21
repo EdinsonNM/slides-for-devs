@@ -62,12 +62,7 @@ function extraPaintDelayMs(slide: Slide): number {
   if (slide.type === SLIDE_TYPE.ISOMETRIC) return 2400;
   if (slide.type === SLIDE_TYPE.MATRIX) return 180;
   if (slide.type === SLIDE_TYPE.CHAPTER) return 120;
-  if (
-    slide.type !== SLIDE_TYPE.CONTENT &&
-    slide.type !== SLIDE_TYPE.TITLE &&
-    slide.type !== SLIDE_TYPE.CHAPTER
-  )
-    return 200;
+  if (slide.type !== SLIDE_TYPE.CONTENT) return 200;
   const kind = resolveMediaPanelDescriptor(slide).kind;
   if (kind === PANEL_CONTENT_KIND.CANVAS_3D && slide.canvas3dGlbUrl?.trim()) {
     return 700;

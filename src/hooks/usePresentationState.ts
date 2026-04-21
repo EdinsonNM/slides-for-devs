@@ -5,6 +5,7 @@ import {
   useRef,
   useCallback,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
   Slide,
   SlideType,
@@ -33,9 +34,33 @@ import {
   SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
 } from "../constants/deckCover";
 import { resolveGeneratedPresentationTitle } from "../utils/presentationTitle";
-
-const AUTO_CLOUD_SYNC_STORAGE_KEY = "slaim-auto-cloud-sync";
 import { formatMarkdown } from "../utils/markdown";
+import {
+  AUTO_CLOUD_SYNC_STORAGE_KEY,
+  DEFAULT_IMAGE_WIDTH_PERCENT,
+  DEFAULT_PANEL_HEIGHT_PERCENT,
+  MAX_SLIDES_UNDO,
+} from "../presentation/state/presentationConstants";
+import {
+  LAST_OPENED_PRESENTATION_KEY,
+  type HomeTab,
+  type EditorWorkspaceSnapshot,
+  type EditorTab,
+} from "../presentation/state/presentationTypes";
+import {
+  cloneSlideDeck,
+  applyImageDataUrlToMediaPanelPayload,
+  applyVideoUrlToMediaPanelPayload,
+  applyGeneratedImageToMediaPanelPayload,
+} from "../presentation/state/presentationMediaHelpers";
+import { usePresentationSlideEditing } from "../presentation/state/usePresentationSlideEditing";
+import { presentationQueryKeys } from "../presentation/queryKeys";
+import { fetchCloudPresentationSnapshots } from "../presentation/state/usePresentationCloudList";
+import {
+  useSavedPresentations,
+  useSavedCharacters,
+  useGeneratedResourcesList,
+} from "../queries/presentationQueries";
 import {
   composeFullDeckModelInput,
   type PromptAttachment,
@@ -142,8 +167,6 @@ import {
 } from "../services/charactersCloud";
 import {
   pushPresentationToCloud,
-  listCloudPresentations,
-  listCloudPresentationsSharedWithMe,
   pullPresentationFromCloud,
   deleteOwnerPresentationFromCloud,
   CloudSyncConflictError,
@@ -183,95 +206,13 @@ import {
   Canvas3dMediaPanelDescriptor,
 } from "../domain/panelContent";
 
-const DEFAULT_IMAGE_WIDTH_PERCENT = 40;
-const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
-const MAX_SLIDES_UNDO = 50;
-
-function cloneSlideDeck(slides: Slide[]): Slide[] {
-  if (typeof structuredClone === "function") {
-    return structuredClone(slides) as Slide[];
-  }
-  return JSON.parse(JSON.stringify(slides)) as Slide[];
-}
-
-function applyImageDataUrlToMediaPanelPayload(
-  m: SlideCanvasMediaPayload,
-  dataUrl: string,
-): SlideCanvasMediaPayload {
-  if (normalizePanelContentKind(m.contentType) === PANEL_CONTENT_KIND.PRESENTER_3D) {
-    return {
-      ...m,
-      imageUrl: dataUrl,
-      presenter3dScreenMedia: "image",
-    };
-  }
-  return {
-    ...m,
-    imageUrl: dataUrl,
-    contentType: PANEL_CONTENT_KIND.IMAGE,
-  };
-}
-
-function applyVideoUrlToMediaPanelPayload(
-  m: SlideCanvasMediaPayload,
-  videoUrl: string,
-): SlideCanvasMediaPayload {
-  if (normalizePanelContentKind(m.contentType) === PANEL_CONTENT_KIND.PRESENTER_3D) {
-    return {
-      ...m,
-      videoUrl,
-      presenter3dScreenMedia: "video",
-    };
-  }
-  return {
-    ...m,
-    videoUrl,
-    contentType: PANEL_CONTENT_KIND.VIDEO,
-  };
-}
-
-function applyGeneratedImageToMediaPanelPayload(
-  m: SlideCanvasMediaPayload,
-  imageUrl: string,
-  imagePrompt: string,
-): SlideCanvasMediaPayload {
-  if (normalizePanelContentKind(m.contentType) === PANEL_CONTENT_KIND.PRESENTER_3D) {
-    return {
-      ...m,
-      imageUrl,
-      imagePrompt,
-      presenter3dScreenMedia: "image",
-    };
-  }
-  return {
-    ...m,
-    imageUrl,
-    imagePrompt,
-    contentType: PANEL_CONTENT_KIND.IMAGE,
-  };
-}
-
-/** Clave para persistir el id de la última presentación abierta (restaurar al refrescar en /editor). */
-export const LAST_OPENED_PRESENTATION_KEY = "slides-for-devs-last-opened";
-
-export type HomeTab = "recent" | "mine" | "templates";
-
-/** Estado de una pestaña del editor (varias presentaciones abiertas en memoria). */
-export type EditorWorkspaceSnapshot = {
-  topic: string;
-  slides: Slide[];
-  currentIndex: number;
-  currentSavedId: string | null;
-  selectedCharacterId: string | null;
-  deckVisualTheme: DeckVisualTheme;
-  deckNarrativePresetId?: string;
-  narrativeNotes?: string;
-};
-
-export type EditorTab = {
-  id: string;
-  title: string;
-};
+/** Re-export público para consumidores que importaban desde este archivo. */
+export {
+  LAST_OPENED_PRESENTATION_KEY,
+  type HomeTab,
+  type EditorWorkspaceSnapshot,
+  type EditorTab,
+} from "../presentation/state/presentationTypes";
 
 export function usePresentationState() {
   
@@ -366,6 +307,14 @@ export function usePresentationState() {
     topic: string;
   } | null>(null);
 
+  const queryClient = useQueryClient();
+  const savedPresentationsQuery = useSavedPresentations(localAccountScope);
+  const savedList = savedPresentationsQuery.data ?? [];
+  const savedCharactersQuery = useSavedCharacters(localAccountScope);
+  const savedCharacters = savedCharactersQuery.data ?? [];
+  const generatedResourcesQuery = useGeneratedResourcesList(localAccountScope);
+  const generatedResources = generatedResourcesQuery.data ?? [];
+
       const slidesRef = useRef<Slide[]>(slides);
   slidesRef.current = slides;
   
@@ -453,6 +402,65 @@ export function usePresentationState() {
     contentElementId: null,
     mediaPanelElementId: null,
   });
+
+  const slideEditing = usePresentationSlideEditing({
+    slidesRef,
+    slidesUndoRef,
+    slidesRedoRef,
+    currentIndexRef,
+    isEditingRef,
+    editTitleRef,
+    editSubtitleRef,
+    editContentRef,
+    editContentRichHtmlRef,
+    editContentBodyFontScaleRef,
+    editContentDraftDirtyRef,
+    editCodeRef,
+    editLanguageRef,
+    editFontSizeRef,
+    editEditorHeightRef,
+    canvasTextTargetsRef,
+    setSlides,
+    setIsEditing,
+    setEditTitle,
+    setEditSubtitle,
+    setEditContentState,
+    setEditContentRichHtmlState,
+    setEditContentBodyFontScale,
+    setEditCode,
+    setEditLanguage,
+    setEditFontSizeState,
+    setEditEditorHeight,
+    setCanvasMediaPanelElementId,
+    editContent,
+    editContentRichHtml,
+    editContentBodyFontScale,
+    editCode,
+    editLanguage,
+    editFontSize,
+    editEditorHeight,
+    currentIndex,
+    isEditing,
+  });
+
+  const {
+    applyEditContentRichDraft,
+    setEditContent,
+    setEditContentRichHtml,
+    setEditFontSize,
+    setCanvasTextEditTarget,
+    hydrateCodeEditFromSlide,
+    setCanvasMediaPanelEditTarget,
+    resolvePresenter3dMediaPatchElementId,
+    flushEditsToSlideIndex,
+    commitSlideEdits,
+    syncEditFieldsFromSlide,
+    syncCanvasTextEditTargetsFromSelection,
+    applySlidesUndo,
+    applySlidesRedo,
+    handleSaveManualEdit,
+  } = slideEditing;
+
       /** Panel `mediaPanel` objetivo mientras el modal de subida/generación está abierto (el ref puede quedar stale tras el file picker). */
   const pendingImageUploadMediaPanelIdRef = useRef<string | null>(null);
   const pendingImageGenerateMediaPanelIdRef = useRef<string | null>(null);
@@ -460,7 +468,6 @@ export function usePresentationState() {
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
-  const [savedList, setSavedList] = useState<SavedPresentationMeta[]>([]);
   const [cloudMineSnapshot, setCloudMineSnapshot] = useState<
     CloudPresentationListItem[]
   >([]);
@@ -526,10 +533,6 @@ export function usePresentationState() {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
-  const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
-  const [generatedResources, setGeneratedResources] = useState<
-    GeneratedResourceEntry[]
-  >([]);
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
     "slide" | "characters" | "notes" | "theme" | "resources" | null
@@ -642,468 +645,6 @@ export function usePresentationState() {
       ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
       : DEFAULT_PANEL_HEIGHT_PERCENT;
 
-  /** Actualiza solo refs: sin re-render por tecla en el WYSIWYG del cuerpo enriquecido. */
-  const applyEditContentRichDraft = useCallback((plain: string, richHtml: string) => {
-    editContentDraftDirtyRef.current = true;
-    editContentRef.current = plain;
-    editContentRichHtmlRef.current = richHtml;
-  }, []);
-
-  const setEditContent = useCallback(
-    (value: string | ((prev: string) => string)) => {
-      editContentDraftDirtyRef.current = false;
-      if (typeof value === "string") editContentRef.current = value;
-      setEditContentState((prev) => {
-        const next = typeof value === "function" ? value(prev) : value;
-        editContentRef.current = next;
-        return next;
-      });
-    },
-    [],
-  );
-
-  const setEditContentRichHtml = useCallback(
-    (value: string | ((prev: string) => string)) => {
-      editContentDraftDirtyRef.current = false;
-      if (typeof value === "string") editContentRichHtmlRef.current = value;
-      setEditContentRichHtmlState((prev) => {
-        const next = typeof value === "function" ? value(prev) : value;
-        editContentRichHtmlRef.current = next;
-        return next;
-      });
-    },
-    [],
-  );
-
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
-
-  useEffect(() => {
-    isEditingRef.current = isEditing;
-  }, [isEditing]);
-
-  useEffect(() => {
-    if (!editContentDraftDirtyRef.current) {
-      editContentRef.current = editContent;
-      editContentRichHtmlRef.current = editContentRichHtml;
-    }
-    editContentBodyFontScaleRef.current = editContentBodyFontScale;
-    editCodeRef.current = editCode;
-    editLanguageRef.current = editLanguage;
-    editFontSizeRef.current = editFontSize;
-    editEditorHeightRef.current = editEditorHeight;
-  }, [
-    editContent,
-    editContentRichHtml,
-    editContentBodyFontScale,
-    editCode,
-    editLanguage,
-    editFontSize,
-    editEditorHeight,
-  ]);
-
-  /** Sincroniza el slide actual; usar `setEditFontSizeState` al hidratar desde el slide para no reescribir el deck. */
-  const setEditFontSize = useCallback(
-    (value: number | ((prev: number) => number)) => {
-      setEditFontSizeState((prev) => {
-        const raw = typeof value === "function" ? value(prev) : value;
-        const next = Math.min(64, Math.max(8, raw));
-        queueMicrotask(() => {
-          setSlides((prevSlides) => {
-            const i = currentIndexRef.current;
-            if (i < 0 || i >= prevSlides.length) return prevSlides;
-            const cur = prevSlides[i];
-            if (!cur || (cur.fontSize ?? 14) === next) return prevSlides;
-            const updated = [...prevSlides];
-            updated[i] = patchSlideMediaPanelByElementId(
-              cur,
-              canvasTextTargetsRef.current.mediaPanelElementId,
-              (m) => ({ ...m, fontSize: next }),
-            );
-            return updated;
-          });
-        });
-        return next;
-      });
-    },
-    [],
-  );
-
-  const pushSlidesUndo = useCallback((snapshot: Slide[]) => {
-    slidesUndoRef.current = [
-      ...slidesUndoRef.current.slice(-(MAX_SLIDES_UNDO - 1)),
-      cloneSlideDeck(snapshot),
-    ];
-    slidesRedoRef.current = [];
-  }, []);
-
-  const setCanvasTextEditTarget = useCallback(
-    (field: "title" | "subtitle" | "content", elementId: string) => {
-      const key =
-        field === "title"
-          ? "titleElementId"
-          : field === "subtitle"
-            ? "subtitleElementId"
-            : "contentElementId";
-      canvasTextTargetsRef.current = {
-        ...canvasTextTargetsRef.current,
-        [key]: elementId,
-      };
-    },
-    [],
-  );
-
-  /** Rellena los buffers de código desde un slide (p. ej. un `mediaPanel` concreto del lienzo). */
-  const hydrateCodeEditFromSlide = useCallback((s: Slide) => {
-    setEditCode(s.code ?? "");
-    setEditLanguage(s.language || "javascript");
-    setEditFontSizeState(s.fontSize ?? 14);
-    setEditEditorHeight(s.editorHeight ?? 280);
-  }, []);
-
-  const setCanvasMediaPanelEditTarget = useCallback(
-    (
-      elementId: string | null,
-      options?: { rehydrateCodeBuffers?: boolean },
-    ) => {
-      canvasTextTargetsRef.current = {
-        ...canvasTextTargetsRef.current,
-        mediaPanelElementId: elementId,
-      };
-      setCanvasMediaPanelElementId(elementId);
-      /** Tras `flushSync(commit)` al cambiar de panel con edición activa, el buffer debe ser del `mediaPanel` seleccionado. */
-      if (!elementId || !options?.rehydrateCodeBuffers) return;
-      const idx = currentIndexRef.current;
-      const cur = slidesRef.current[idx];
-      if (!cur) return;
-      const ensured = ensureSlideCanvasScene(cur);
-      const panelEl = ensured.canvasScene?.elements.find(
-        (e) => e.id === elementId,
-      );
-      if (!panelEl || panelEl.kind !== "mediaPanel") return;
-      hydrateCodeEditFromSlide(
-        slideAppearanceForMediaElement(ensured, panelEl),
-      );
-    },
-    [hydrateCodeEditFromSlide],
-  );
-
-  /** Id del `mediaPanel` Presentador 3D a parchear: `explicit` (p. ej. lienzo) o ref del panel activo. */
-  const resolvePresenter3dMediaPatchElementId = useCallback(
-    (slide: Slide, explicitMediaPanelElementId?: string | null) => {
-      if (
-        slide.type !== SLIDE_TYPE.CONTENT &&
-        slide.type !== SLIDE_TYPE.CHAPTER
-      )
-        return null;
-      const candidateId =
-        explicitMediaPanelElementId != null &&
-        explicitMediaPanelElementId !== ""
-          ? explicitMediaPanelElementId
-          : canvasTextTargetsRef.current.mediaPanelElementId;
-      if (!candidateId) return null;
-      const ensured = ensureSlideCanvasScene(slide);
-      const el = ensured.canvasScene?.elements.find((e) => e.id === candidateId);
-      if (!el || el.kind !== "mediaPanel") return null;
-      const media = readMediaPayloadFromElement(ensured, el);
-      if (
-        normalizePanelContentKind(media.contentType) !==
-        PANEL_CONTENT_KIND.PRESENTER_3D
-      ) {
-        return null;
-      }
-      return candidateId;
-    },
-    [],
-  );
-
-  const flushEditsToSlideIndex = useCallback(
-    (slideIndex: number) => {
-      if (editContentDraftDirtyRef.current) {
-        setEditContent(editContentRef.current);
-        setEditContentRichHtml(editContentRichHtmlRef.current);
-      }
-      setSlides((prevSlides) => {
-        if (slideIndex < 0 || slideIndex >= prevSlides.length) {
-          return prevSlides;
-        }
-        const cur = prevSlides[slideIndex];
-        if (!cur) return prevSlides;
-        const buffers = {
-          title: editTitleRef.current,
-          subtitle: editSubtitleRef.current,
-          content: editContentRef.current,
-          contentRichHtml: editContentRichHtmlRef.current,
-          contentBodyFontScale: editContentBodyFontScaleRef.current,
-          code: editCodeRef.current,
-          language: editLanguageRef.current,
-          fontSize: editFontSizeRef.current,
-          editorHeight: editEditorHeightRef.current,
-        };
-        const ensured = ensureSlideCanvasScene(cur);
-        const next = applyEditBuffersToSlide(
-          ensured,
-          buffers,
-          canvasTextTargetsRef.current,
-        );
-        if (!isSlidePatchedDifferentFromBuffers(cur, next)) return prevSlides;
-        pushSlidesUndo(prevSlides);
-        const updated = [...prevSlides];
-        updated[slideIndex] = next;
-        return updated;
-      });
-      setIsEditing(false);
-    },
-    [pushSlidesUndo, setEditContent, setEditContentRichHtml],
-  );
-
-  const commitSlideEdits = useCallback(
-    (options?: { keepEditing?: boolean }) => {
-      if (editContentDraftDirtyRef.current) {
-        setEditContent(editContentRef.current);
-        setEditContentRichHtml(editContentRichHtmlRef.current);
-      }
-      setSlides((prevSlides) => {
-        const slideIndex = currentIndexRef.current;
-        if (slideIndex < 0 || slideIndex >= prevSlides.length) {
-          return prevSlides;
-        }
-        const cur = prevSlides[slideIndex];
-        if (!cur) return prevSlides;
-        const buffers = {
-          title: editTitleRef.current,
-          subtitle: editSubtitleRef.current,
-          content: editContentRef.current,
-          contentRichHtml: editContentRichHtmlRef.current,
-          contentBodyFontScale: editContentBodyFontScaleRef.current,
-          code: editCodeRef.current,
-          language: editLanguageRef.current,
-          fontSize: editFontSizeRef.current,
-          editorHeight: editEditorHeightRef.current,
-        };
-        const ensured = ensureSlideCanvasScene(cur);
-        const next = applyEditBuffersToSlide(
-          ensured,
-          buffers,
-          canvasTextTargetsRef.current,
-        );
-        if (!isSlidePatchedDifferentFromBuffers(cur, next)) return prevSlides;
-        pushSlidesUndo(prevSlides);
-        const updated = [...prevSlides];
-        updated[slideIndex] = next;
-        return updated;
-      });
-      if (!options?.keepEditing) {
-        setIsEditing(false);
-      }
-    },
-    [pushSlidesUndo, setEditContent, setEditContentRichHtml],
-  );
-
-  const syncEditFieldsFromSlide = useCallback((s: Slide) => {
-    const s2 = ensureSlideCanvasScene(s);
-    const tr = defaultCanvasTextEditTargets(s2);
-    canvasTextTargetsRef.current = tr;
-    setCanvasMediaPanelElementId(tr.mediaPanelElementId);
-    const scene = s2.canvasScene!;
-    const titleEl = tr.titleElementId
-      ? scene.elements.find((e) => e.id === tr.titleElementId)
-      : undefined;
-    const subtitleEl = tr.subtitleElementId
-      ? scene.elements.find((e) => e.id === tr.subtitleElementId)
-      : undefined;
-    const contentEl = tr.contentElementId
-      ? scene.elements.find((e) => e.id === tr.contentElementId)
-      : undefined;
-    setEditTitle(
-      titleEl ? readTextMarkdownFromElement(s2, titleEl) : s2.title,
-    );
-    setEditSubtitle(
-      subtitleEl
-        ? readTextMarkdownFromElement(s2, subtitleEl)
-        : (s2.subtitle ?? ""),
-    );
-    if (contentEl?.kind === "markdown") {
-      const p = contentEl.payload;
-      if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
-        setEditContentRichHtml(p.richHtml);
-        setEditContentBodyFontScale(
-          Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
-        );
-        const fromRichSync = plainTextFromRichHtml(p.richHtml);
-        setEditContent(
-          p.markdown.trim()
-            ? p.markdown
-            : fromRichSync.trim()
-              ? fromRichSync
-              : readTextMarkdownFromElement(s2, contentEl),
-        );
-      } else {
-        setEditContentRichHtml("");
-        setEditContentBodyFontScale(1);
-        setEditContent(
-          formatMarkdown(
-            contentEl
-              ? readTextMarkdownFromElement(s2, contentEl)
-              : (s2.content ?? ""),
-          ),
-        );
-      }
-    } else {
-      setEditContentRichHtml("");
-      setEditContentBodyFontScale(1);
-      setEditContent(
-        formatMarkdown(
-          contentEl ? readTextMarkdownFromElement(s2, contentEl) : s2.content,
-        ),
-      );
-    }
-    setEditCode(s2.code || "");
-    setEditLanguage(s2.language || "javascript");
-    setEditFontSizeState(s2.fontSize || 14);
-    setEditEditorHeight(s2.editorHeight ?? 280);
-  }, []);
-
-  /**
-   * Alinea `titleElementId`, `subtitleElementId`, `contentElementId` y los buffers de edición
-   * al bloque del lienzo seleccionado. Si el tipo no coincide, cada id vuelve al “primero en z”
-   * de `defaultCanvasTextEditTargets` (misma convención que `syncSlideRootFromCanvas`).
-   */
-  const syncCanvasTextEditTargetsFromSelection = useCallback(
-    (slide: Slide, selectedElement: SlideCanvasElement) => {
-      const actualSlide = slidesRef.current[currentIndexRef.current] || slide;
-      const s2 = ensureSlideCanvasScene(actualSlide);
-      const defaults = defaultCanvasTextEditTargets(s2);
-      const scene = s2.canvasScene!;
-
-      const isTitle =
-        selectedElement.kind === "title" ||
-        selectedElement.kind === "chapterTitle";
-      const isSubtitle =
-        selectedElement.kind === "subtitle" ||
-        selectedElement.kind === "chapterSubtitle";
-      const isBody =
-        selectedElement.kind === "markdown" ||
-        selectedElement.kind === "matrixNotes";
-
-      const titleElementId = isTitle
-        ? selectedElement.id
-        : defaults.titleElementId;
-      const subtitleElementId = isSubtitle
-        ? selectedElement.id
-        : defaults.subtitleElementId;
-      const contentElementId = isBody
-        ? selectedElement.id
-        : defaults.contentElementId;
-
-      canvasTextTargetsRef.current = {
-        ...canvasTextTargetsRef.current,
-        titleElementId,
-        subtitleElementId,
-        contentElementId,
-      };
-
-      const titleEl = titleElementId
-        ? scene.elements.find((e) => e.id === titleElementId)
-        : undefined;
-      setEditTitle(
-        titleEl &&
-          (titleEl.kind === "title" || titleEl.kind === "chapterTitle")
-          ? readTextMarkdownFromElement(s2, titleEl)
-          : s2.title,
-      );
-
-      const subtitleEl = subtitleElementId
-        ? scene.elements.find((e) => e.id === subtitleElementId)
-        : undefined;
-      setEditSubtitle(
-        subtitleEl &&
-          (subtitleEl.kind === "subtitle" ||
-            subtitleEl.kind === "chapterSubtitle")
-          ? readTextMarkdownFromElement(s2, subtitleEl)
-          : (s2.subtitle ?? ""),
-      );
-
-      const contentEl =
-        contentElementId != null && contentElementId !== ""
-          ? scene.elements.find((e) => e.id === contentElementId)
-          : undefined;
-
-      if (contentEl?.kind === "markdown") {
-        const p = contentEl.payload;
-        if (isSlideCanvasTextPayload(p) && p.richHtml?.trim()) {
-          setEditContentRichHtml(p.richHtml);
-          setEditContentBodyFontScale(
-            Math.min(2.5, Math.max(0.5, p.bodyFontScale ?? 1)),
-          );
-          const fromRich = plainTextFromRichHtml(p.richHtml);
-          setEditContent(
-            p.markdown.trim()
-              ? p.markdown
-              : fromRich.trim()
-                ? fromRich
-                : readTextMarkdownFromElement(s2, contentEl),
-          );
-        } else {
-          setEditContentRichHtml("");
-          setEditContentBodyFontScale(1);
-          setEditContent(
-            formatMarkdown(readTextMarkdownFromElement(s2, contentEl)),
-          );
-        }
-      } else if (contentEl?.kind === "matrixNotes") {
-        setEditContentRichHtml("");
-        setEditContentBodyFontScale(1);
-        setEditContent(
-          formatMarkdown(readTextMarkdownFromElement(s2, contentEl)),
-        );
-      } else {
-        setEditContentRichHtml("");
-        setEditContentBodyFontScale(1);
-        setEditContent(formatMarkdown(s2.content ?? ""));
-      }
-    },
-    [formatMarkdown],
-  );
-
-  const applySlidesUndo = useCallback(() => {
-    const stack = slidesUndoRef.current;
-    if (stack.length === 0) return;
-    const snapshot = stack[stack.length - 1]!;
-    slidesUndoRef.current = stack.slice(0, -1);
-    setSlides((cur) => {
-      slidesRedoRef.current.push(cloneSlideDeck(cur));
-      return cloneSlideDeck(snapshot);
-    });
-    const restored = cloneSlideDeck(snapshot);
-    const idx = Math.min(
-      currentIndexRef.current,
-      Math.max(0, restored.length - 1),
-    );
-    const s = restored[idx];
-    if (s) syncEditFieldsFromSlide(s);
-    setIsEditing(false);
-  }, [syncEditFieldsFromSlide]);
-
-  const applySlidesRedo = useCallback(() => {
-    const stack = slidesRedoRef.current;
-    if (stack.length === 0) return;
-    const snapshot = stack[stack.length - 1]!;
-    slidesRedoRef.current = stack.slice(0, -1);
-    setSlides((cur) => {
-      slidesUndoRef.current.push(cloneSlideDeck(cur));
-      return cloneSlideDeck(snapshot);
-    });
-    const restored = cloneSlideDeck(snapshot);
-    const idx = Math.min(
-      currentIndexRef.current,
-      Math.max(0, restored.length - 1),
-    );
-    const s = restored[idx];
-    if (s) syncEditFieldsFromSlide(s);
-    setIsEditing(false);
-  }, [syncEditFieldsFromSlide]);
 
   // Ajustar modelo seleccionado si no está entre los permitidos (solo APIs configuradas)
   useEffect(() => {
@@ -1165,12 +706,6 @@ export function usePresentationState() {
       ),
     );
   }, [topic, activeEditorTabId, slides.length]);
-
-  useEffect(() => {
-    listCharacters(localAccountScope)
-      .then(setSavedCharacters)
-      .catch(() => setSavedCharacters([]));
-  }, [localAccountScope]);
 
   // Generación en segundo plano: al tener pendingGeneration, llamar API, actualizar slides y guardar.
   useEffect(() => {
@@ -1235,9 +770,9 @@ export function usePresentationState() {
         } catch {
           // ignore
         }
-        void listPresentations(localAccountScope)
-          .then(setSavedList)
-          .catch(() => setSavedList([]));
+        void queryClient.invalidateQueries({
+          queryKey: presentationQueryKeys.savedPresentations(localAccountScope),
+        });
         if (
           autoCloudSyncOnSave &&
           user &&
@@ -1280,6 +815,7 @@ export function usePresentationState() {
     user,
     localAccountScope,
     deckVisualTheme,
+    queryClient,
   ]);
 
   useEffect(() => {
@@ -1422,10 +958,6 @@ export function usePresentationState() {
     applySlidesUndo,
     applySlidesRedo,
   ]);
-
-  const handleSaveManualEdit = useCallback(() => {
-    commitSlideEdits();
-  }, [commitSlideEdits]);
 
   const setEditorHeightForCurrentSlide = (height: number) => {
     const clamped = Math.min(560, Math.max(120, height));
@@ -2025,8 +1557,13 @@ export function usePresentationState() {
           },
           localAccountScope,
         )
-          .then(() => listGeneratedResources(localAccountScope))
-          .then(setGeneratedResources)
+          .then(() =>
+            queryClient.invalidateQueries({
+              queryKey: presentationQueryKeys.generatedResources(
+                localAccountScope,
+              ),
+            }),
+          )
           .catch((err) => console.error("Biblioteca de recursos:", err));
       }
     } catch (error) {
@@ -2438,37 +1975,28 @@ export function usePresentationState() {
       return;
     }
     setHomeCloudSharedListWarning(null);
-    try {
-      const mine = await listCloudPresentations(user.uid);
-      setCloudMineSnapshot(mine);
-    } catch {
-      setCloudMineSnapshot([]);
-    }
-    try {
-      const shared = await listCloudPresentationsSharedWithMe(user.uid);
-      setCloudSharedSnapshot(shared);
-    } catch (shareErr) {
+    const { mine, shared, sharedListError } =
+      await fetchCloudPresentationSnapshots(user.uid);
+    setCloudMineSnapshot(mine);
+    setCloudSharedSnapshot(shared);
+    if (sharedListError) {
       console.warn(
         "Listado de presentaciones compartidas (home):",
-        shareErr,
+        sharedListError,
       );
-      setCloudSharedSnapshot([]);
       const cfg = await getFirebaseConfig();
       setHomeCloudSharedListWarning(
-        formatCloudSharedListError(shareErr, cfg?.projectId),
+        formatCloudSharedListError(sharedListError, cfg?.projectId),
       );
     }
   }, [user, firebaseReady]);
 
   const refreshSavedList = useCallback(async () => {
-    try {
-      const list = await listPresentations(localAccountScope);
-      setSavedList(list);
-    } catch {
-      setSavedList([]);
-    }
+    await queryClient.invalidateQueries({
+      queryKey: presentationQueryKeys.savedPresentations(localAccountScope),
+    });
     void refreshCloudMineSnapshot();
-  }, [localAccountScope, refreshCloudMineSnapshot]);
+  }, [queryClient, localAccountScope, refreshCloudMineSnapshot]);
 
   const homePresentationCards = useMemo((): HomePresentationCard[] => {
     const hasAnyLocalForCloud = (cloudId: string) =>
@@ -2709,18 +2237,10 @@ export function usePresentationState() {
   );
 
   const refreshGeneratedResources = useCallback(async () => {
-    try {
-      const list = await listGeneratedResources(localAccountScope);
-      setGeneratedResources(list);
-    } catch (e) {
-      console.error(e);
-      setGeneratedResources([]);
-    }
-  }, [localAccountScope]);
-
-  useEffect(() => {
-    void refreshGeneratedResources();
-  }, [refreshGeneratedResources]);
+    await queryClient.invalidateQueries({
+      queryKey: presentationQueryKeys.generatedResources(localAccountScope),
+    });
+  }, [queryClient, localAccountScope]);
 
   const deleteGeneratedResourceFromLibrary = useCallback(
     async (id: string) => {
@@ -2756,11 +2276,10 @@ export function usePresentationState() {
       if (
         !slide ||
         (slide.type !== SLIDE_TYPE.CONTENT &&
-          slide.type !== SLIDE_TYPE.TITLE &&
           slide.type !== SLIDE_TYPE.CHAPTER)
       ) {
         alert(
-          "Abre una diapositiva (Contenido, Título o Capítulo) para aplicar una imagen desde Recursos.",
+          "Abre una diapositiva (Contenido o Capítulo) para aplicar una imagen desde Recursos.",
         );
         return;
       }
@@ -2814,11 +2333,10 @@ export function usePresentationState() {
       if (
         !slide ||
         (slide.type !== SLIDE_TYPE.CONTENT &&
-          slide.type !== SLIDE_TYPE.TITLE &&
           slide.type !== SLIDE_TYPE.CHAPTER)
       ) {
         alert(
-          "Abre una diapositiva (Contenido, Título o Capítulo) para aplicar un modelo 3D desde Recursos.",
+          "Abre una diapositiva (Contenido o Capítulo) para aplicar un modelo 3D desde Recursos.",
         );
         return;
       }
@@ -3057,11 +2575,9 @@ export function usePresentationState() {
   const openSavedListModal = async () => {
     setShowSavedListModal(true);
     try {
-      const list = await listPresentations(localAccountScope);
-      setSavedList(list);
+      await savedPresentationsQuery.refetch();
     } catch (e) {
       console.error(e);
-      setSavedList([]);
     }
   };
 
@@ -3147,7 +2663,10 @@ export function usePresentationState() {
       try {
         const listFresh = await listPresentations(localAccountScope);
         metaOpen = listFresh.find((p) => p.id === id);
-        setSavedList(listFresh);
+        queryClient.setQueryData(
+          presentationQueryKeys.savedPresentations(localAccountScope),
+          listFresh,
+        );
       } catch {
         metaOpen = savedList.find((p) => p.id === id);
       }
@@ -3385,7 +2904,11 @@ export function usePresentationState() {
         setSlides([]);
         setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
       }
-      setSavedList((prev) => prev.filter((p) => p.id !== id));
+      queryClient.setQueryData(
+        presentationQueryKeys.savedPresentations(localAccountScope),
+        (prev: SavedPresentationMeta[] | undefined) =>
+          (prev ?? []).filter((p) => p.id !== id),
+      );
       delete coverPrefetchSavedAtRef.current[id];
       setCoverImageCache((prev) => {
         const next = { ...prev };
@@ -3398,7 +2921,7 @@ export function usePresentationState() {
     } finally {
       setDeletePresentationId(null);
     }
-  }, [deletePresentationId, currentSavedId]);
+  }, [deletePresentationId, currentSavedId, queryClient, localAccountScope]);
 
   const confirmClearPresentationLocalKeepCloud = useCallback(async () => {
     const id = deletePresentationId;
@@ -3455,7 +2978,11 @@ export function usePresentationState() {
         setSlides([]);
         setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
       }
-      setSavedList((prev) => prev.filter((p) => p.id !== id));
+      queryClient.setQueryData(
+        presentationQueryKeys.savedPresentations(localAccountScope),
+        (prev: SavedPresentationMeta[] | undefined) =>
+          (prev ?? []).filter((p) => p.id !== id),
+      );
       delete coverPrefetchSavedAtRef.current[id];
       setCoverImageCache((prev) => {
         const next = { ...prev };
@@ -3468,7 +2995,13 @@ export function usePresentationState() {
     } finally {
       setDeletePresentationId(null);
     }
-  }, [deletePresentationId, user, currentSavedId, localAccountScope]);
+  }, [
+    deletePresentationId,
+    user,
+    currentSavedId,
+    localAccountScope,
+    queryClient,
+  ]);
 
   const handleGenerateCoverForPresentation = async (id: string) => {
     setGeneratingCoverId(id);
@@ -3763,10 +3296,10 @@ export function usePresentationState() {
   };
 
   const refreshSavedCharacters = useCallback(() => {
-    listCharacters(localAccountScope)
-      .then(setSavedCharacters)
-      .catch(() => setSavedCharacters([]));
-  }, [localAccountScope]);
+    void queryClient.invalidateQueries({
+      queryKey: presentationQueryKeys.savedCharacters(localAccountScope),
+    });
+  }, [queryClient, localAccountScope]);
 
   const handleSaveCharacter = async (incoming: SavedCharacter) => {
     const existing = savedCharacters.find((c) => c.id === incoming.id);
@@ -3812,9 +3345,9 @@ export function usePresentationState() {
             newRevision,
             localAccountScope,
           );
-          listCharacters(localAccountScope)
-            .then(setSavedCharacters)
-            .catch(() => undefined);
+          void queryClient.invalidateQueries({
+            queryKey: presentationQueryKeys.savedCharacters(localAccountScope),
+          });
         } catch (e) {
           if (e instanceof CharacterCloudSyncConflictError) {
             console.warn(

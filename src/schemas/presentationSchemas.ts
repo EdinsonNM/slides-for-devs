@@ -23,7 +23,7 @@ export const SlideCanvasElementSchema = z.object({
   id: z.string(),
   kind: z.string(),
   rect: SlideCanvasRectSchema,
-  payload: z.record(z.unknown()), // Generic as element payload is polymorphic
+  payload: z.record(z.string(), z.unknown()), // Generic as element payload is polymorphic
 });
 
 export const SlideCanvasSceneSchema = z.object({
