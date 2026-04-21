@@ -53,6 +53,8 @@ import {
 import { usePresentationSlideEditing } from "../presentation/state/usePresentationSlideEditing";
 import { usePresentationEditorTabs } from "../presentation/state/usePresentationEditorTabs";
 import { usePresentationDeckMutations } from "../presentation/state/usePresentationDeckMutations";
+import { usePresentationEditorKeyboard } from "../presentation/state/usePresentationEditorKeyboard";
+import { usePresentationSlideCanvasMutations } from "../presentation/state/usePresentationSlideCanvasMutations";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import { fetchCloudPresentationSnapshots } from "../presentation/state/usePresentationCloudList";
 import {
@@ -90,12 +92,7 @@ import {
   createEmptySlideMatrixData,
   normalizeSlideMatrixData,
   SLIDE_TYPE,
-  type SlideCanvasElement,
-  type SlideCanvasElementKind,
   type SlideCanvasRect,
-  type SlideCanvasScene,
-  type SlideCodeEditorTheme,
-  type SlideMatrixData,
 } from "../domain/entities";
 import {
   normalizeSlidesCanvasScenes,
@@ -110,8 +107,6 @@ import {
   type CanvasTextEditTargets,
 } from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import {
-  patchElementPayload,
-  readMediaPayloadFromElement,
   readTextMarkdownFromElement,
   slideAppearanceForMediaElement,
   type SlideCanvasMediaPayload,
@@ -123,7 +118,6 @@ import {
   appendCanvasElementToScene,
   type AppendCanvasElementOptions,
 } from "../domain/slideCanvas/insertCanvasElement";
-import { readPersistedCodeEditorTheme } from "./useCodeEditorTheme";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -192,7 +186,6 @@ import {
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 import { trackEvent, ANALYTICS_EVENTS } from "../services/analytics";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
-import type { Presenter3dViewState } from "../utils/presenter3dView";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
@@ -310,9 +303,15 @@ export function usePresentationState() {
 
       const slidesRef = useRef<Slide[]>(slides);
   slidesRef.current = slides;
-  
-  
-  
+
+  /** Actualizado tras `usePresentationDeckMutations` para que el listener de teclado use la misma navegación que la UI. */
+  const deckNavigationRef = useRef<{ nextSlide: () => void; prevSlide: () => void }>(
+    {
+      nextSlide: () => {},
+      prevSlide: () => {},
+    },
+  );
+
   const deckNarrativeSlideOptions = useMemo(
     () => ({
       deckNarrativeContext: buildDeckNarrativeContextForPrompts(
@@ -912,58 +911,14 @@ export function usePresentationState() {
     }
   }, [showImageModal, currentIndex, currentSlide?.id]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const inTextField =
-        target != null &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable);
-
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
-        if (inTextField) return;
-        e.preventDefault();
-        applySlidesUndo();
-        return;
-      }
-      if (
-        (mod && e.shiftKey && e.key.toLowerCase() === "z") ||
-        (e.ctrlKey && e.key.toLowerCase() === "y")
-      ) {
-        if (inTextField) return;
-        e.preventDefault();
-        applySlidesRedo();
-        return;
-      }
-
-      if (inTextField || isEditing) {
-        return;
-      }
-
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
-        e.preventDefault();
-        if (currentIndex < slides.length - 1) setCurrentIndex(currentIndex + 1);
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
-      } else if (e.key === "Escape" && isPreviewMode) {
-        setIsPreviewMode(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    currentIndex,
-    slides.length,
+  usePresentationEditorKeyboard({
+    deckNavigationRef,
     isEditing,
     isPreviewMode,
+    setIsPreviewMode,
     applySlidesUndo,
     applySlidesRedo,
-  ]);
+  });
 
   const setEditorHeightForCurrentSlide = (height: number) => {
     const clamped = Math.min(560, Math.max(120, height));
@@ -984,311 +939,30 @@ export function usePresentationState() {
     });
   };
 
-  const patchCurrentSlideMatrix = useCallback(
-    (updater: (prev: SlideMatrixData) => SlideMatrixData) => {
-      setSlides((prev) => {
-        const idx = currentIndexRef.current;
-        const cur = prev[idx];
-        if (!cur || cur.type !== SLIDE_TYPE.MATRIX) return prev;
-        const raw = cur.matrixData ?? createEmptySlideMatrixData();
-        const nextMatrix = normalizeSlideMatrixData(updater(raw));
-        const out = [...prev];
-        out[idx] = { ...cur, matrixData: nextMatrix };
-        return out;
-      });
-    },
-    [],
-  );
-
-  const patchCurrentSlideCanvasScene = useCallback(
-    (updater: (scene: SlideCanvasScene) => SlideCanvasScene) => {
-      setSlides((prev) => {
-        const idx = currentIndexRef.current;
-        const cur = prev[idx];
-        if (!cur?.canvasScene) return prev;
-        const nextScene = updater(cur.canvasScene);
-        const out = [...prev];
-        out[idx] = syncSlideRootFromCanvas({
-          ...cur,
-          canvasScene: nextScene,
-        });
-        return out;
-      });
-    },
-    [],
-  );
-
-  /** Tema claro/oscuro del editor de código solo para un `mediaPanel` del lienzo (payload). */
-  const cycleCodeEditorThemeForMediaPanel = useCallback((elementId: string) => {
-    setSlides((prev) => {
-      const idx = currentIndexRef.current;
-      const cur = prev[idx];
-      if (!cur?.canvasScene || cur.type !== SLIDE_TYPE.CONTENT) return prev;
-      const el = cur.canvasScene.elements.find((e) => e.id === elementId);
-      if (!el || el.kind !== "mediaPanel") return prev;
-      const media = readMediaPayloadFromElement(cur, el);
-      const persisted = readPersistedCodeEditorTheme();
-      const effective: SlideCodeEditorTheme =
-        media.codeEditorTheme ?? persisted;
-      const flipped: SlideCodeEditorTheme =
-        effective === "dark" ? "light" : "dark";
-      const nextMedia = { ...media, codeEditorTheme: flipped };
-      const scene = patchElementPayload(cur.canvasScene, elementId, nextMedia);
-      const out = [...prev];
-      out[idx] = syncSlideRootFromCanvas({ ...cur, canvasScene: scene });
-      return out;
-    });
-  }, []);
-
-  const addCanvasElementToCurrentSlide = useCallback(
-    (
-      kind: SlideCanvasElementKind,
-      options?: AppendCanvasElementOptions,
-    ) => {
-      let newMediaPanelId: string | null = null;
-      setSlides((prev) => {
-        const idx = currentIndexRef.current;
-        const raw = prev[idx];
-        if (!raw) return prev;
-        const cur = ensureSlideCanvasScene(raw);
-        const scene = cur.canvasScene;
-        if (!scene) return prev;
-        const appended = appendCanvasElementToScene(
-          cur,
-          scene.elements,
-          kind,
-          options,
-        );
-        if (!appended) return prev;
-        const { elements: nextElements, created } = appended;
-        if (created.kind === "mediaPanel") {
-          newMediaPanelId = created.id;
-        }
-        const nextSlide = syncSlideRootFromCanvas({
-          ...cur,
-          canvasScene: { ...scene, elements: nextElements },
-        });
-        const out = [...prev];
-        out[idx] = nextSlide;
-        return out;
-      });
-      if (newMediaPanelId != null) {
-        window.setTimeout(() => {
-          setCanvasMediaPanelEditTarget(newMediaPanelId, {
-            rehydrateCodeBuffers: true,
-          });
-        }, 0);
-      }
-    },
-    [setCanvasMediaPanelEditTarget],
-  );
-
-  /** Actualiza los datos del diagrama Excalidraw de la diapositiva actual. Solo para type "diagram". */
-  const setCurrentSlideExcalidrawData = (data: string) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.DIAGRAM) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, excalidrawData: data };
-      return updated;
-    });
-  };
-
-  const setCurrentSlideIsometricFlowData = (data: string) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.ISOMETRIC) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, isometricFlowData: data };
-      return updated;
-    });
-  };
-
-  const setCurrentSlideMindMapData = (data: string) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.MIND_MAP) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentIndex] = { ...currentSlide, mindMapData: data };
-      return updated;
-    });
-  };
-
-  /** Cambia la distribución del contenido: split = con panel derecho; full = solo texto; panel-full = título + subtítulo arriba y panel a ancho completo. Solo para type "content". */
-  const setCurrentSlideContentLayout = (
-    contentLayout: "split" | "full" | "panel-full",
-  ) => {
-    setSlides((prev) => {
-      const slide = prev[currentIndex];
-      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return prev;
-      if (slide.contentLayout === contentLayout) return prev;
-      const updated = [...prev];
-      const next: Slide = { ...slide, contentLayout };
-      delete (next as Slide).canvasScene;
-      updated[currentIndex] = next;
-      return updated;
-    });
-  };
-
-  const setCurrentSlideContentType = (
-    contentType: NonNullable<Slide["contentType"]>,
-  ) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (currentSlide.contentType === contentType) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      let next = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({ ...m, contentType }),
-      );
-      if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
-        next = patchSlideMediaPanelByElementId(
-          next,
-          canvasTextTargetsRef.current.mediaPanelElementId,
-          (m) => ({
-            ...m,
-            presenter3dDeviceId: m.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
-            presenter3dScreenMedia: m.presenter3dScreenMedia ?? "image",
-          }),
-        );
-      }
-      updated[currentIndex] = next;
-      return updated;
-    });
-  };
-
-  const setCurrentSlidePresenter3dDeviceId = (
-    presenter3dDeviceId: string,
-    explicitMediaPanelElementId?: string | null,
-  ) => {
-    const cur = slidesRef.current[currentIndexRef.current];
-    if (!cur || cur.type !== SLIDE_TYPE.CONTENT) return;
-    const targetId = resolvePresenter3dMediaPatchElementId(
-      cur,
-      explicitMediaPanelElementId,
-    );
-    if (!targetId) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      const slide = updated[currentIndexRef.current];
-      if (!slide) return prev;
-      updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
-        slide,
-        targetId,
-        (m) => ({ ...m, presenter3dDeviceId }),
-      );
-      return updated;
-    });
-  };
-
-  const setCurrentSlidePresenter3dScreenMedia = (
-    presenter3dScreenMedia: "image" | "video",
-    explicitMediaPanelElementId?: string | null,
-  ) => {
-    const cur = slidesRef.current[currentIndexRef.current];
-    if (!cur || cur.type !== SLIDE_TYPE.CONTENT) return;
-    const targetId = resolvePresenter3dMediaPatchElementId(
-      cur,
-      explicitMediaPanelElementId,
-    );
-    if (!targetId) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      const slide = updated[currentIndexRef.current];
-      if (!slide) return prev;
-      updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
-        slide,
-        targetId,
-        (m) => ({ ...m, presenter3dScreenMedia }),
-      );
-      return updated;
-    });
-  };
-
-  const setCurrentSlidePresenter3dViewState = (
-    presenter3dViewState: Presenter3dViewState,
-    explicitMediaPanelElementId?: string | null,
-  ) => {
-    const cur = slidesRef.current[currentIndexRef.current];
-    if (!cur || cur.type !== SLIDE_TYPE.CONTENT) return;
-    const targetId = resolvePresenter3dMediaPatchElementId(
-      cur,
-      explicitMediaPanelElementId,
-    );
-    if (!targetId) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      const slide = updated[currentIndexRef.current];
-      if (!slide) return prev;
-      updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
-        slide,
-        targetId,
-        (m) => ({ ...m, presenter3dViewState }),
-      );
-      return updated;
-    });
-  };
-
-  const setCurrentSlideCanvas3dGlbUrl = (canvas3dGlbUrl: string) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (!(resolveMediaPanelDescriptor(currentSlide) instanceof Canvas3dMediaPanelDescriptor)) {
-      return;
-    }
-    setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      const trimmed = canvas3dGlbUrl.trim();
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({
-          ...m,
-          canvas3dGlbUrl: trimmed || undefined,
-          canvas3dViewState: undefined,
-        }),
-      );
-      return updated;
-    });
-  };
-
-  const setCurrentSlideCanvas3dViewState = (
-    canvas3dViewState: Presenter3dViewState,
-  ) => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (!(resolveMediaPanelDescriptor(currentSlide) instanceof Canvas3dMediaPanelDescriptor)) {
-      return;
-    }
-    setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({ ...m, canvas3dViewState }),
-      );
-      return updated;
-    });
-  };
-
-  const clearCurrentSlideCanvas3dViewState = () => {
-    if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    if (!(resolveMediaPanelDescriptor(currentSlide) instanceof Canvas3dMediaPanelDescriptor)) {
-      return;
-    }
-    setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({ ...m, canvas3dViewState: undefined }),
-      );
-      return updated;
-    });
-  };
+  const {
+    patchCurrentSlideMatrix,
+    patchCurrentSlideCanvasScene,
+    cycleCodeEditorThemeForMediaPanel,
+    addCanvasElementToCurrentSlide,
+    setCurrentSlideExcalidrawData,
+    setCurrentSlideIsometricFlowData,
+    setCurrentSlideMindMapData,
+    setCurrentSlideContentLayout,
+    setCurrentSlideContentType,
+    setCurrentSlidePresenter3dDeviceId,
+    setCurrentSlidePresenter3dScreenMedia,
+    setCurrentSlidePresenter3dViewState,
+    setCurrentSlideCanvas3dGlbUrl,
+    setCurrentSlideCanvas3dViewState,
+    clearCurrentSlideCanvas3dViewState,
+  } = usePresentationSlideCanvasMutations({
+    setSlides,
+    currentIndexRef,
+    slidesRef,
+    canvasTextTargetsRef,
+    setCanvasMediaPanelEditTarget,
+    resolvePresenter3dMediaPatchElementId,
+  });
 
   const queueFullDeckGeneration = useCallback(
     (
@@ -2070,6 +1744,8 @@ export function usePresentationState() {
     canvasTextTargetsRef,
     savePresentationNow,
   });
+
+  deckNavigationRef.current = { nextSlide, prevSlide };
 
   const refreshGeneratedResources = useCallback(async () => {
     await queryClient.invalidateQueries({
