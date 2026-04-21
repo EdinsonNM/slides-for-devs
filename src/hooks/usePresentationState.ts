@@ -57,6 +57,7 @@ import { usePresentationSlideCanvasMutations } from "../presentation/state/usePr
 import { usePresentationSlideResizeGestures } from "../presentation/state/usePresentationSlideResizeGestures";
 import { usePresentationHomeCards } from "../presentation/state/usePresentationHomeCards";
 import { usePresentationSavePresentation } from "../presentation/state/usePresentationSavePresentation";
+import { usePresentationManualSave } from "../presentation/state/usePresentationManualSave";
 import {
   applySavedPresentationToEditorState,
   type ApplySavedPresentationEditorContext,
@@ -104,7 +105,6 @@ import {
   ensureSlideCanvasScene,
 } from "../domain/slideCanvas/ensureSlideCanvasScene";
 import {
-  applyEditBuffersToSlide,
   defaultCanvasTextEditTargets,
   isSlidePatchedDifferentFromBuffers,
   patchSlideMediaPanelByElementId,
@@ -1739,66 +1739,30 @@ export function usePresentationState() {
     await refreshSavedList();
   }, [savePresentationNow, refreshSavedList]);
 
-  const handleSave = async () => {
-    if (slides.length === 0) return;
-    const pendingDiagram = flushDiagramPending();
-    const pendingIsometric = flushIsometricFlowPending();
-    const idx = currentIndexRef.current;
-    const buffers = {
-      title: editTitleRef.current,
-      subtitle: editSubtitleRef.current,
-      content: editContentRef.current,
-      contentRichHtml: editContentRichHtmlRef.current,
-      contentBodyFontScale: editContentBodyFontScaleRef.current,
-      code: editCodeRef.current,
-      language: editLanguageRef.current,
-      fontSize: editFontSizeRef.current,
-      editorHeight: editEditorHeightRef.current,
-    };
-    const merged = slides.map((s, i) =>
-      i === idx
-        ? applyEditBuffersToSlide(
-            ensureSlideCanvasScene(s),
-            buffers,
-            canvasTextTargetsRef.current,
-          )
-        : s,
-    );
-    let slidesToSave =
-      pendingDiagram != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
-        ? merged.map((s, i) =>
-            i === idx ? { ...s, excalidrawData: pendingDiagram } : s,
-          )
-        : merged;
-    slidesToSave =
-      pendingIsometric != null && slidesToSave[idx]?.type === SLIDE_TYPE.ISOMETRIC
-        ? slidesToSave.map((s, i) =>
-            i === idx ? { ...s, isometricFlowData: pendingIsometric } : s,
-          )
-        : slidesToSave;
-
-    const hadTitleDraft = presentationTitleDraftRef.current !== null;
-    const topicSource =
-      hadTitleDraft ? presentationTitleDraftRef.current! : topic;
-    if (hadTitleDraft) {
-      presentationTitleDraftRef.current = null;
-      setTopic(topicSource.trim() || "");
-    }
-    const topicToSave = topicSource.trim() || "Sin título";
-
-    setIsSaving(true);
-    setSaveMessage(null);
-    try {
-      await savePresentationNow({
-        topic: topicToSave,
-        slides: slidesToSave,
-        characterId: selectedCharacterId ?? undefined,
-      });
-      setSlides(slidesToSave);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const { handleSave } = usePresentationManualSave({
+    slides,
+    setSlides,
+    topic,
+    setTopic,
+    selectedCharacterId,
+    currentIndexRef,
+    editTitleRef,
+    editSubtitleRef,
+    editContentRef,
+    editContentRichHtmlRef,
+    editContentBodyFontScaleRef,
+    editCodeRef,
+    editLanguageRef,
+    editFontSizeRef,
+    editEditorHeightRef,
+    canvasTextTargetsRef,
+    presentationTitleDraftRef,
+    flushDiagramPending,
+    flushIsometricFlowPending,
+    savePresentationNow,
+    setIsSaving,
+    setSaveMessage,
+  });
 
   const handleSyncPresentationToCloud = useCallback(
     async (localId: string) => {
