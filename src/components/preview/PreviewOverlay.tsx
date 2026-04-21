@@ -1,10 +1,16 @@
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { usePresentation } from "../../context/PresentationContext";
 import type { DeckContentTone } from "../../domain/entities";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
 import { cn } from "../../utils/cn";
+import {
+  elementSupportsRequestFullscreen,
+  exitDocumentFullscreen,
+  getFullscreenElement,
+  requestElementFullscreen,
+} from "../../utils/fullscreenApi";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
@@ -59,6 +65,52 @@ export function PreviewOverlay() {
     deckVisualTheme,
   });
   const presenterWindowRef = useRef<Window | null>(null);
+  const overlayRootRef = useRef<HTMLDivElement | null>(null);
+  const [browserFullscreenActive, setBrowserFullscreenActive] = useState(false);
+
+  const nativeFullscreenSupported =
+    typeof document !== "undefined" &&
+    elementSupportsRequestFullscreen(document.documentElement);
+
+  const syncBrowserFullscreen = useCallback(() => {
+    const host = overlayRootRef.current;
+    setBrowserFullscreenActive(host != null && getFullscreenElement() === host);
+  }, []);
+
+  useEffect(() => {
+    if (!isPreviewMode) {
+      setBrowserFullscreenActive(false);
+      return;
+    }
+    syncBrowserFullscreen();
+    const onChange = () => syncBrowserFullscreen();
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, [isPreviewMode, syncBrowserFullscreen]);
+
+  const handleToggleNativeFullscreen = useCallback(() => {
+    const el = overlayRootRef.current;
+    if (!el) return;
+    if (getFullscreenElement() === el) {
+      void exitDocumentFullscreen();
+      return;
+    }
+    void requestElementFullscreen(el).catch(() => {});
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    const el = overlayRootRef.current;
+    if (el && getFullscreenElement() === el) {
+      void exitDocumentFullscreen().finally(() => setIsPreviewMode(false));
+      return;
+    }
+    setIsPreviewMode(false);
+  }, [setIsPreviewMode]);
+
   nextSlideRef.current = nextSlide;
   prevSlideRef.current = prevSlide;
   stateRef.current = {
@@ -207,6 +259,7 @@ export function PreviewOverlay() {
   return (
     <AnimatePresence>
       <motion.div
+        ref={overlayRootRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -214,7 +267,12 @@ export function PreviewOverlay() {
       >
         <PreviewToolbar
           onOpenPresenter={openPresenterWindow}
-          onClose={() => setIsPreviewMode(false)}
+          onClose={handleClosePreview}
+          nativeFullscreen={{
+            supported: nativeFullscreenSupported,
+            active: browserFullscreenActive,
+            onToggle: handleToggleNativeFullscreen,
+          }}
         />
 
         <div className="relative z-[50] isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-black p-0 pointer-events-auto">

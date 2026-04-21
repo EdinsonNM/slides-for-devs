@@ -78,10 +78,11 @@ export function DataMotionRingInspectorPanel() {
           Aro de datos 3D
         </h2>
         <p className="text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-          Controla el título, el fondo, las tarjetas y sus datos. En el lienzo: clic en
-          una tarjeta para ver el detalle (se detiene el giro); arrastra el fondo en
-          horizontal para girar el aro y en vertical para inclinar la vista; pasa el puntero
-          sobre una tarjeta para resaltarla.
+          Título y subtítulo del panel son opcionales (vacío = no se muestran). Controla el
+          fondo, las tarjetas y sus datos. Al elegir una tarjeta se abre el detalle con gráfico
+          interactivo; ciérralo con la X o Escape. El giro se detiene con el detalle abierto.
+          Arrastra el fondo para girar e inclinar; pasa el puntero sobre una tarjeta para
+          resaltarla.
         </p>
       </div>
 
@@ -100,21 +101,23 @@ export function DataMotionRingInspectorPanel() {
           <>
             <div className="space-y-2">
               <label className="block text-[11px] font-medium text-stone-600 dark:text-stone-300">
-                Título
+                Título (opcional)
               </label>
               <input
                 type="text"
                 value={state.heading}
                 onChange={(e) => commit({ ...state, heading: e.target.value })}
+                placeholder="Vacío = sin título en el panel"
                 className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs dark:border-border dark:bg-surface"
               />
               <label className="block text-[11px] font-medium text-stone-600 dark:text-stone-300">
-                Subtítulo
+                Subtítulo (opcional)
               </label>
               <input
                 type="text"
                 value={state.subtitle}
                 onChange={(e) => commit({ ...state, subtitle: e.target.value })}
+                placeholder="Vacío = sin subtítulo en el panel"
                 className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs dark:border-border dark:bg-surface"
               />
             </div>
@@ -285,7 +288,22 @@ export function DataMotionRingInspectorPanel() {
                   )}
 
                   <label className="mb-1 block text-[10px] text-stone-500">
-                    Leyenda (opcional)
+                    Título
+                  </label>
+                  <input
+                    type="text"
+                    value={card.title ?? ""}
+                    onChange={(e) =>
+                      updateCard(index, {
+                        title: e.target.value.trim() || undefined,
+                      })
+                    }
+                    placeholder="Ej. Ingresos por región"
+                    className="mb-2 w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] dark:border-border dark:bg-surface"
+                  />
+
+                  <label className="mb-1 block text-[10px] text-stone-500">
+                    Leyenda corta (opcional)
                   </label>
                   <input
                     type="text"
@@ -295,7 +313,7 @@ export function DataMotionRingInspectorPanel() {
                         label: e.target.value.trim() || undefined,
                       })
                     }
-                    placeholder="Ej. Ingresos"
+                    placeholder="Ej. Q1"
                     className="mb-2 w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] dark:border-border dark:bg-surface"
                   />
 
@@ -335,18 +353,18 @@ export function DataMotionRingInspectorPanel() {
                   />
 
                   <label className="mb-1 mt-2 block text-[10px] text-stone-500">
-                    Notas (vista detallada al hacer clic en la tarjeta)
+                    Descripción (modal al ampliar)
                   </label>
                   <textarea
-                    value={card.notes ?? ""}
+                    value={card.description ?? ""}
                     onChange={(e) => {
                       const t = e.target.value;
                       updateCard(index, {
-                        notes: t.trim() ? t : undefined,
+                        description: t.trim() ? t : undefined,
                       });
                     }}
-                    rows={2}
-                    placeholder="Texto libre que aparece en el panel ampliado…"
+                    rows={3}
+                    placeholder="Texto que se muestra en el detalle centrado junto al gráfico interactivo…"
                     className={cn(
                       "w-full resize-y rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px]",
                       "dark:border-border dark:bg-surface",

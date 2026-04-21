@@ -8,66 +8,23 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 import { cn } from "../../utils/cn";
 import {
   DATA_MOTION_CHART_TYPE,
-  type DataMotionChartType,
   type DataMotionRingCard,
   type DataMotionRingState,
-  type DataMotionValueFormat,
   defaultDataMotionPalette,
+  formatDataMotionRingValue,
   nearestSpinToAlignCardFront,
 } from "../../domain/dataMotionRing/dataMotionRingModel";
-
-function formatDataValue(
-  v: number,
-  format?: DataMotionValueFormat,
-  suffix?: string,
-): string {
-  const suf = suffix ?? "";
-  switch (format) {
-    case "currency":
-      return `$${v.toFixed(2)}${suf}`;
-    case "percent":
-      return `${Math.round(v)}%${suf}`;
-    case "integer":
-      return `${Math.round(v)}${suf}`;
-    case "decimal":
-      return `${v.toFixed(1)}${suf}`;
-    default:
-      if (Math.abs(v - Math.round(v)) < 1e-6) return `${Math.round(v)}${suf}`;
-      return `${v.toFixed(2)}${suf}`;
-  }
-}
+import { DataMotionRingInteractiveChart } from "./DataMotionRingInteractiveChart";
 
 function paletteForCard(card: DataMotionRingCard, index: number): string[] {
   const d = defaultDataMotionPalette();
   if (card.colors?.length) return card.colors;
   return [d[index % d.length]!];
-}
-
-function chartTypeLabelEs(t: DataMotionChartType): string {
-  switch (t) {
-    case DATA_MOTION_CHART_TYPE.LINE:
-      return "Línea";
-    case DATA_MOTION_CHART_TYPE.BAR:
-      return "Barras verticales";
-    case DATA_MOTION_CHART_TYPE.H_BAR:
-      return "Barras horizontales";
-    case DATA_MOTION_CHART_TYPE.GAUGE:
-      return "Gauge";
-    case DATA_MOTION_CHART_TYPE.RADAR:
-      return "Radar";
-    case DATA_MOTION_CHART_TYPE.DONUT:
-      return "Donut";
-    case DATA_MOTION_CHART_TYPE.BIG_NUMBER:
-      return "Número destacado";
-    default: {
-      const _e: never = t;
-      return _e;
-    }
-  }
 }
 
 function MiniLineChart({
@@ -348,16 +305,7 @@ function MiniDonut({
   );
 }
 
-function CardChart({
-  card,
-  index,
-  variant = "ring",
-}: {
-  card: DataMotionRingCard;
-  index: number;
-  variant?: "ring" | "detail";
-}) {
-  const isDetail = variant === "detail";
+function CardChart({ card, index }: { card: DataMotionRingCard; index: number }) {
   const colors = paletteForCard(card, index);
   const primary = colors[0] ?? "#3b82f6";
   const vals = card.values.length ? card.values : [0];
@@ -383,30 +331,13 @@ function CardChart({
       return <MiniDonut values={vals} colors={colors} />;
     case DATA_MOTION_CHART_TYPE.BIG_NUMBER:
       return (
-        <div
-          className={cn(
-            "flex h-full w-full flex-col items-center justify-center px-1",
-            isDetail && "py-6",
-          )}
-        >
-          <p
-            className={cn(
-              "text-center font-bold leading-none tracking-tight text-stone-900 dark:text-white",
-              isDetail
-                ? "text-3xl md:text-4xl"
-                : "text-[clamp(0.65rem,2.8vw,1.1rem)]",
-            )}
-          >
-            {formatDataValue(vals[0] ?? 0, card.format, card.suffix)}
+        <div className="flex h-full w-full flex-col items-center justify-center px-1">
+          <p className="text-center text-[clamp(0.65rem,2.8vw,1.1rem)] font-bold leading-none tracking-tight text-stone-900 dark:text-white">
+            {formatDataMotionRingValue(vals[0] ?? 0, card.format, card.suffix)}
           </p>
-          {card.label ? (
-            <p
-              className={cn(
-                "mt-1 max-w-[100%] text-center font-medium text-stone-500 dark:text-stone-400",
-                isDetail ? "text-sm" : "truncate text-[9px]",
-              )}
-            >
-              {card.label}
+          {card.title?.trim() || card.label?.trim() ? (
+            <p className="mt-1 max-w-[100%] truncate text-center text-[9px] font-medium text-stone-500 dark:text-stone-400">
+              {card.title?.trim() || card.label}
             </p>
           ) : null}
         </div>
@@ -416,94 +347,6 @@ function CardChart({
       return _exhaustive;
     }
   }
-}
-
-function DataMotionRingCardDetailOverlay({
-  card,
-  index,
-  onClose,
-}: {
-  card: DataMotionRingCard;
-  index: number;
-  onClose: () => void;
-}) {
-  const vals = card.values.length ? card.values : [0];
-  return (
-    <div className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center p-3 pt-14 sm:p-6 sm:pt-16">
-      <button
-        type="button"
-        className="absolute inset-0 bg-stone-900/40 backdrop-blur-[2px] dark:bg-black/55"
-        aria-label="Cerrar vista detallada"
-        onClick={onClose}
-      />
-      <div
-        className="relative z-10 flex max-h-[min(88dvh,720px)] w-[min(96vw,440px)] flex-col overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-2xl dark:border-border dark:bg-surface-elevated"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-2 border-b border-stone-100 px-4 py-3 dark:border-border">
-          <div className="min-w-0 pr-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-              Tarjeta {index + 1} · {chartTypeLabelEs(card.chartType)}
-            </p>
-            {card.label ? (
-              <h3 className="mt-0.5 truncate text-base font-semibold text-stone-900 dark:text-white">
-                {card.label}
-              </h3>
-            ) : (
-              <h3 className="mt-0.5 text-base font-semibold text-stone-900 dark:text-white">
-                Detalle
-              </h3>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-stone-200 text-stone-600 transition-colors hover:bg-stone-50 dark:border-border dark:text-stone-200 dark:hover:bg-white/10"
-            title="Cerrar"
-            aria-label="Cerrar"
-          >
-            <X size={18} aria-hidden />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="mb-4 min-h-[200px] w-full rounded-xl bg-stone-50/90 p-3 dark:bg-stone-900/50">
-            <CardChart card={card} index={index} variant="detail" />
-          </div>
-          <p className="mb-2 text-xs font-semibold text-stone-700 dark:text-stone-200">
-            Valores
-          </p>
-          <table className="w-full text-left text-xs">
-            <tbody>
-              {vals.map((v, i) => (
-                <tr
-                  key={i}
-                  className="border-t border-stone-100 first:border-t-0 dark:border-border"
-                >
-                  <td className="py-1.5 pr-3 text-stone-500 dark:text-stone-400">
-                    #{i + 1}
-                  </td>
-                  <td className="py-1.5 font-mono font-medium text-stone-900 tabular-nums dark:text-white">
-                    {formatDataValue(v, card.format, card.suffix)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {card.notes?.trim() ? (
-            <>
-              <p className="mb-1 mt-4 text-xs font-semibold text-stone-700 dark:text-stone-200">
-                Notas
-              </p>
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-stone-600 dark:text-stone-300">
-                {card.notes.trim()}
-              </p>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export interface DataMotionRingExperienceProps {
@@ -566,13 +409,13 @@ export function DataMotionRingExperience({
     };
   }, [stageMin, n]);
 
-  const spinRef = useRef(0);
-  spinRef.current = spin;
-
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
-  const alignRafRef = useRef(0);
   const backdropDragRef = useRef({ active: false, lastX: 0, lastY: 0 });
+
+  const closeSelection = useCallback(() => {
+    setSelectedIndex(null);
+  }, []);
 
   const auto =
     Boolean(state.autoRotate) && !reducedMotion && selectedIndex === null;
@@ -591,26 +434,6 @@ export function DataMotionRingExperience({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [auto, degPerSec]);
-
-  useEffect(() => {
-    if (selectedIndex === null) return;
-    const from = spinRef.current;
-    const target = nearestSpinToAlignCardFront(from, selectedIndex, step);
-    if (Math.abs(target - from) < 0.45) return;
-    cancelAnimationFrame(alignRafRef.current);
-    const start = performance.now();
-    const dur = 520;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const ease = 1 - (1 - t) ** 3;
-      setSpin(from + (target - from) * ease);
-      if (t < 1) {
-        alignRafRef.current = requestAnimationFrame(tick);
-      }
-    };
-    alignRafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(alignRafRef.current);
-  }, [selectedIndex, step]);
 
   const onBackdropPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -668,16 +491,41 @@ export function DataMotionRingExperience({
     rootSurfaceStyle.backgroundColor = "transparent";
   }
 
-  const openCardDetail = useCallback((i: number) => {
-    setHoveredCardIndex(null);
-    setSelectedIndex(i);
-  }, []);
+  const openCardDetail = useCallback(
+    (i: number) => {
+      setHoveredCardIndex(null);
+      setSpin((s) => nearestSpinToAlignCardFront(s, i, step));
+      setSelectedIndex(i);
+    },
+    [step],
+  );
 
   useEffect(() => {
     if (selectedIndex !== null) setHoveredCardIndex(null);
   }, [selectedIndex]);
 
-  const detailCard = selectedIndex != null ? cards[selectedIndex] : null;
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeSelection();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedIndex, closeSelection]);
+
+  const detailCard = useMemo(() => {
+    if (
+      selectedIndex === null ||
+      selectedIndex < 0 ||
+      selectedIndex >= cards.length
+    ) {
+      return null;
+    }
+    return cards[selectedIndex]!;
+  }, [selectedIndex, cards]);
 
   return (
     <div
@@ -692,25 +540,30 @@ export function DataMotionRingExperience({
       )}
       style={Object.keys(rootSurfaceStyle).length ? rootSurfaceStyle : undefined}
     >
-      <header className="relative z-10 flex shrink-0 items-start justify-between gap-3 px-5 pb-1 pt-4 md:px-7 md:pt-5">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold tracking-tight text-stone-950 md:text-xl dark:text-white">
-            {state.heading}
-          </h2>
-          <p className="mt-0.5 truncate text-xs font-medium text-stone-500 md:text-sm dark:text-stone-400">
-            {state.subtitle}
-          </p>
+      <header
+        className={cn(
+          "relative z-10 flex shrink-0 justify-between gap-3 px-5 pb-1 pt-4 md:px-7 md:pt-5",
+          state.heading || state.subtitle ? "items-start" : "items-center",
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          {state.heading ? (
+            <h2 className="truncate text-lg font-bold tracking-tight text-stone-950 md:text-xl dark:text-white">
+              {state.heading}
+            </h2>
+          ) : null}
+          {state.subtitle ? (
+            <p
+              className={cn(
+                "truncate text-xs font-medium text-stone-500 md:text-sm dark:text-stone-400",
+                state.heading ? "mt-0.5" : null,
+              )}
+            >
+              {state.subtitle}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
-          {selectedIndex !== null ? (
-            <button
-              type="button"
-              onClick={() => setSelectedIndex(null)}
-              className="rounded-full border border-stone-300/80 bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-stone-700 shadow-sm hover:bg-white dark:border-border dark:bg-white/10 dark:text-stone-100 dark:hover:bg-white/15"
-            >
-              Volver al aro
-            </button>
-          ) : null}
           <div className="flex items-center gap-1.5" aria-hidden>
             {cards.map((_, i) => (
               <span
@@ -736,7 +589,7 @@ export function DataMotionRingExperience({
           transformStyle: "preserve-3d",
         }}
         role="img"
-        aria-label="Aro de tarjetas en tres dimensiones. Arrastra el fondo en horizontal para girar el aro, en vertical para inclinar la vista; clic en una tarjeta para el detalle."
+        aria-label="Aro de tarjetas en tres dimensiones. Arrastra el fondo para girar e inclinar. Al elegir una tarjeta se abre el detalle centrado; ciérralo con Escape o el botón cerrar."
       >
         <div
           className="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"
@@ -755,32 +608,33 @@ export function DataMotionRingExperience({
             style={{
               transformStyle: "preserve-3d",
               transform: `rotateX(${tiltX}deg) rotateY(${spin}deg)`,
-              opacity: selectedIndex !== null ? 0.38 : 1,
+              opacity: 1,
             }}
           >
             {cards.map((card, i) => {
               const angle = i * step;
-              const hovered =
-                !reducedMotion &&
-                selectedIndex === null &&
-                hoveredCardIndex === i;
+              const allowHover = selectedIndex === null && !reducedMotion;
+              const hovered = allowHover && hoveredCardIndex === i;
               const zLift = hovered ? 26 : 0;
               const hoverScale = hovered ? 1.06 : 1;
+              const totalZ = ringRadius + zLift;
               return (
                 <div
                   key={`${i}-${card.chartType}`}
                   className={cn(
-                    "pointer-events-auto absolute left-1/2 top-1/2 shrink-0 duration-200 ease-out will-change-transform",
-                    !reducedMotion && "transition-[transform,box-shadow]",
+                    "absolute left-1/2 top-1/2 shrink-0 will-change-transform",
+                    allowHover ? "pointer-events-auto" : "pointer-events-none",
+                    allowHover &&
+                      "transition-[transform,box-shadow] duration-200 ease-out",
                   )}
                   style={{
                     width: cardWpx,
                     height: cardHpx,
-                    zIndex: hovered ? 8 : 1,
+                    zIndex: hovered ? 8 : 10 + i,
                     transform: `
                       translate(-50%, -50%)
                       rotateY(${angle}deg)
-                      translateZ(${ringRadius + zLift}px)
+                      translateZ(${totalZ}px)
                       scale(${hoverScale})
                     `,
                     transformOrigin: "center center",
@@ -789,7 +643,7 @@ export function DataMotionRingExperience({
                     backfaceVisibility: "visible",
                   }}
                   onPointerEnter={() => {
-                    if (selectedIndex === null) setHoveredCardIndex(i);
+                    if (allowHover) setHoveredCardIndex(i);
                   }}
                   onPointerLeave={() => {
                     setHoveredCardIndex((h) => (h === i ? null : h));
@@ -797,22 +651,23 @@ export function DataMotionRingExperience({
                 >
                   <button
                     type="button"
-                    className="flex h-full w-full flex-col rounded-2xl border-0 bg-transparent p-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    className="flex h-full w-full flex-col rounded-2xl border-0 bg-transparent p-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-surface-elevated"
                     onClick={() => openCardDetail(i)}
-                    aria-label={`Ver detalle de la tarjeta ${i + 1}`}
+                    aria-label={`Abrir detalle de la tarjeta ${i + 1}`}
                   >
                     <div
                       className={cn(
-                        "flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-2 shadow-xl duration-200 ease-out",
-                        "shadow-stone-900/12 ring-1 ring-black/5 dark:border-white/10 dark:bg-white/[0.94] dark:shadow-black/40",
+                        "flex h-full w-full flex-col overflow-hidden rounded-2xl border p-2 shadow-xl duration-200 ease-out",
+                        "border-stone-200/90 bg-white ring-1 ring-black/[0.06] shadow-stone-900/10",
+                        "dark:border-border dark:bg-surface-elevated dark:ring-white/10 dark:shadow-black/40",
                         hovered &&
                           "shadow-2xl ring-2 ring-primary/35 dark:ring-primary/40",
                       )}
                     >
-                      {card.label &&
+                      {(card.title?.trim() || card.label?.trim()) &&
                       card.chartType !== DATA_MOTION_CHART_TYPE.BIG_NUMBER ? (
-                        <p className="mb-1 truncate text-center text-[9px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-500">
-                          {card.label}
+                        <p className="mb-1 truncate text-center text-[9px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                          {card.title?.trim() || card.label}
                         </p>
                       ) : null}
                       <div className="min-h-0 flex-1">
@@ -827,13 +682,68 @@ export function DataMotionRingExperience({
         </div>
       </div>
 
-      {detailCard != null && selectedIndex != null ? (
-        <DataMotionRingCardDetailOverlay
-          card={detailCard}
-          index={selectedIndex}
-          onClose={() => setSelectedIndex(null)}
-        />
-      ) : null}
+      <AnimatePresence mode="wait">
+        {detailCard !== null && selectedIndex !== null ? (
+          <motion.div
+            key={selectedIndex}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dmr-detail-title"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 12 }}
+            transition={{
+              type: "spring",
+              stiffness: 420,
+              damping: 32,
+              mass: 0.82,
+            }}
+            className="pointer-events-none absolute inset-0 z-[60] flex items-center justify-center p-4 sm:p-6"
+          >
+            <div className="pointer-events-auto relative flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-2xl ring-1 ring-black/5 dark:border-border dark:bg-surface-elevated dark:shadow-black/50 dark:ring-white/10">
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-stone-100 px-4 py-3 dark:border-border">
+                <div className="min-w-0 flex-1 pr-2">
+                  <p
+                    id="dmr-detail-title"
+                    className="truncate text-base font-bold text-stone-950 dark:text-white"
+                  >
+                    {detailCard.title?.trim() ||
+                      detailCard.label?.trim() ||
+                      `Tarjeta ${selectedIndex + 1}`}
+                  </p>
+                  {detailCard.title?.trim() && detailCard.label?.trim() ? (
+                    <p className="mt-0.5 truncate text-[11px] font-medium text-stone-500 dark:text-stone-400">
+                      {detailCard.label.trim()}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={closeSelection}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-white"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-5 w-5" strokeWidth={2} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                {detailCard.description?.trim() ? (
+                  <p className="mb-4 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+                    {detailCard.description.trim()}
+                  </p>
+                ) : null}
+                <div className="rounded-xl border border-stone-100 bg-stone-50/60 p-2 dark:border-border dark:bg-black/20">
+                  <DataMotionRingInteractiveChart
+                    card={detailCard}
+                    index={selectedIndex}
+                  />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
     </div>
   );
 }

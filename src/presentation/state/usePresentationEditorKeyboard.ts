@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { useLatestRef } from "./useLatestRef";
 import type { MutableRefObject } from "react";
+import {
+  exitDocumentFullscreen,
+  getFullscreenElement,
+} from "../../utils/fullscreenApi";
 
 export type DeckNavigationActions = {
   nextSlide: () => void;
@@ -65,6 +69,10 @@ export function usePresentationEditorKeyboard(
         e.preventDefault();
         d.deckNavigationRef.current.prevSlide();
       } else if (e.key === "Escape" && d.isPreviewMode) {
+        if (getFullscreenElement()) {
+          void exitDocumentFullscreen();
+          return;
+        }
         d.setIsPreviewMode(false);
       }
     };

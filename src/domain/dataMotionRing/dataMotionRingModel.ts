@@ -20,12 +20,35 @@ export type DataMotionValueFormat = "currency" | "integer" | "percent" | "decima
 /** Fondo del contenedor del aro (persistido). */
 export type DataMotionRingBackgroundMode = "default" | "transparent" | "solid";
 
+export function formatDataMotionRingValue(
+  v: number,
+  format?: DataMotionValueFormat,
+  suffix?: string,
+): string {
+  const suf = suffix ?? "";
+  switch (format) {
+    case "currency":
+      return `$${v.toFixed(2)}${suf}`;
+    case "percent":
+      return `${Math.round(v)}%${suf}`;
+    case "integer":
+      return `${Math.round(v)}${suf}`;
+    case "decimal":
+      return `${v.toFixed(1)}${suf}`;
+    default:
+      if (Math.abs(v - Math.round(v)) < 1e-6) return `${Math.round(v)}${suf}`;
+      return `${v.toFixed(2)}${suf}`;
+  }
+}
+
 export interface DataMotionRingCard {
   chartType: DataMotionChartType;
-  /** Leyenda corta opcional. */
+  /** Título visible en la tarjeta del aro y en el modal. */
+  title?: string;
+  /** Leyenda corta opcional (subtítulo en la tarjeta pequeña). */
   label?: string;
-  /** Texto libre para la vista detallada al seleccionar la tarjeta. */
-  notes?: string;
+  /** Descripción en el modal al ampliar. Se persiste como `description`; se lee también `notes` heredado. */
+  description?: string;
   /** Serie numérica (interpretación según `chartType`). */
   values: number[];
   /** Colores hex opcionales (se repiten si faltan). */
@@ -35,7 +58,9 @@ export interface DataMotionRingCard {
 }
 
 export interface DataMotionRingState {
+  /** Vacío oculta el título en el panel. */
   heading: string;
+  /** Vacío oculta el subtítulo en el panel. */
   subtitle: string;
   cards: DataMotionRingCard[];
   /** Giro lento automático en modo presentación / editor. */
@@ -98,8 +123,16 @@ function normalizeCard(raw: unknown, index: number): DataMotionRingCard {
   const colors = Array.isArray(o.colors)
     ? o.colors.filter((c): c is string => typeof c === "string" && c.length > 0)
     : undefined;
+  const title = typeof o.title === "string" ? o.title : undefined;
   const label = typeof o.label === "string" ? o.label : undefined;
-  const notes = typeof o.notes === "string" ? o.notes : undefined;
+  const descriptionRaw =
+    typeof o.description === "string"
+      ? o.description
+      : typeof o.notes === "string"
+        ? o.notes
+        : undefined;
+  const description =
+    descriptionRaw && descriptionRaw.trim() ? descriptionRaw.trim() : undefined;
   const format =
     o.format === "currency" ||
     o.format === "integer" ||
@@ -129,8 +162,9 @@ function normalizeCard(raw: unknown, index: number): DataMotionRingCard {
 
   return {
     chartType,
+    title,
     label,
-    notes,
+    description,
     values: values.length > 0 ? values : fallbackValues(),
     colors: colors && colors.length > 0 ? colors : undefined,
     format,
@@ -159,43 +193,61 @@ export function createDefaultDataMotionRingState(): DataMotionRingState {
     cards: [
       {
         chartType: DATA_MOTION_CHART_TYPE.H_BAR,
+        title: "Rendimiento por canal",
+        label: "Q1",
+        description:
+          "Comparativa de tres canales clave. Usa el gráfico interactivo para inspeccionar cada barra.",
         values: [72, 45, 88],
         colors: ["#facc15", "#22c55e", "#a855f7"],
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.LINE,
+        title: "Tendencia semanal",
+        description: "Serie temporal con vista ampliada y tooltip al pasar el cursor.",
         values: [22, 38, 30, 52, 44, 62, 55, 48],
         colors: ["#3b82f6"],
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.GAUGE,
+        title: "Salud del pipeline",
         values: [62],
         format: "integer",
+        description: "Indicador orientativo del avance global frente al objetivo.",
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.RADAR,
+        title: "Perfil multieje",
         values: [0.72, 0.55, 0.88, 0.62, 0.78, 0.5],
         colors: ["#a855f7"],
+        description: "Cada eje resume una dimensión; valores normalizados entre 0 y 1.",
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.BAR,
+        title: "Volumen por etapa",
         values: [35, 55, 42, 70, 48, 60],
         colors: ["#22c55e"],
+        description: "Barras verticales con interactividad en el modal.",
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.DONUT,
+        title: "Mix de categorías",
         values: [38, 28, 22, 12],
         colors: ["#ec4899", "#f472b6", "#fda4af", "#fce7f3"],
+        description: "Participación relativa de cada segmento sobre el total.",
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.BIG_NUMBER,
+        title: "Ticket medio",
         values: [34.02],
         format: "currency",
+        description: "Cifra destacada para comunicar un KPI principal en una sola lectura.",
       },
       {
         chartType: DATA_MOTION_CHART_TYPE.BIG_NUMBER,
+        title: "Usuarios activos",
         values: [1845],
         format: "integer",
+        description: "Total acumulado en la ventana de medición actual.",
       },
     ],
   };
@@ -206,13 +258,9 @@ export function normalizeDataMotionRingState(raw: unknown): DataMotionRingState 
   if (!raw || typeof raw !== "object") return base;
   const o = raw as Record<string, unknown>;
   const heading =
-    typeof o.heading === "string" && o.heading.trim()
-      ? o.heading.trim()
-      : base.heading;
+    typeof o.heading === "string" ? o.heading.trim() : base.heading;
   const subtitle =
-    typeof o.subtitle === "string" && o.subtitle.trim()
-      ? o.subtitle.trim()
-      : base.subtitle;
+    typeof o.subtitle === "string" ? o.subtitle.trim() : base.subtitle;
   const autoRotate =
     typeof o.autoRotate === "boolean" ? o.autoRotate : base.autoRotate;
   const autoRotateDegPerSec =
