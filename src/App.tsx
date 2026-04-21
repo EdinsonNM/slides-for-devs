@@ -5,6 +5,7 @@ import {
   Navigate,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import { usePresentation } from "./context/PresentationContext";
 import {
@@ -57,10 +58,16 @@ function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
     handleOpenSaved,
     handleGenerate,
     createBlankPresentation,
+    currentSavedId,
   } = usePresentation();
 
   if (slides.length > 0) {
-    return <Navigate to="/editor" replace />;
+    return (
+      <Navigate
+        to={currentSavedId ? `/editor/${currentSavedId}` : "/editor"}
+        replace
+      />
+    );
   }
 
   if (!user) {
@@ -73,7 +80,7 @@ function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
 
   const onOpenSavedAndGo = async (id: string) => {
     await handleOpenSaved(id);
-    navigate("/editor");
+    navigate(`/editor/${id}`);
   };
 
   const onGenerateAndGo = (e: React.FormEvent) => {
@@ -128,14 +135,27 @@ interface EditorRouteProps {
 }
 
 function EditorRoute({ onOpenConfig }: EditorRouteProps) {
-  const { slides, restoreLastOpenedPresentation } = usePresentation();
+  const { slides, restoreLastOpenedPresentation, handleOpenSaved, currentSavedId } =
+    usePresentation();
   const [restoring, setRestoring] = useState(true);
   const triedRestore = useRef(false);
   const navigate = useNavigate();
+  const { presentationId } = useParams<{ presentationId: string }>();
 
   useEffect(() => {
     if (triedRestore.current) return;
     triedRestore.current = true;
+
+    if (presentationId) {
+      handleOpenSaved(presentationId)
+        .then(() => setRestoring(false))
+        .catch(() => {
+          setRestoring(false);
+          navigate("/", { replace: true });
+        });
+      return;
+    }
+
     restoreLastOpenedPresentation()
       .then((ok) => {
         setRestoring(false);
@@ -145,7 +165,20 @@ function EditorRoute({ onOpenConfig }: EditorRouteProps) {
         setRestoring(false);
         if (slides.length === 0) navigate("/", { replace: true });
       });
-  }, [restoreLastOpenedPresentation, navigate, slides.length]);
+  }, [
+    presentationId,
+    handleOpenSaved,
+    restoreLastOpenedPresentation,
+    navigate,
+    slides.length,
+  ]);
+
+  useEffect(() => {
+    if (restoring) return;
+    if (!currentSavedId) return;
+    if (presentationId === currentSavedId) return;
+    navigate(`/editor/${currentSavedId}`, { replace: true });
+  }, [restoring, currentSavedId, presentationId, navigate]);
 
   if (restoring) return <LoadingScreen />;
   if (slides.length === 0) return <Navigate to="/" replace />;
@@ -165,9 +198,7 @@ export default function App() {
     cloudSyncAvailable,
     deletePresentationTarget,
     closeDeletePresentationModal,
-    confirmDeletePresentationLocalOnly,
-    confirmClearPresentationLocalKeepCloud,
-    confirmDeletePresentationLocalAndCloud,
+    confirmDeletePresentationEverywhere,
     cloudSyncConflict,
     dismissCloudSyncConflict,
     resolveCloudConflictUseRemote,
@@ -259,12 +290,8 @@ export default function App() {
       <DeletePresentationModal
         open={deletePresentationTarget !== null}
         meta={deletePresentationTarget}
-        cloudSyncAvailable={cloudSyncAvailable}
-        isLoggedIn={isLoggedIn}
         onClose={closeDeletePresentationModal}
-        onDeleteLocalOnly={confirmDeletePresentationLocalOnly}
-        onClearLocalKeepCloud={confirmClearPresentationLocalKeepCloud}
-        onDeleteLocalAndCloud={confirmDeletePresentationLocalAndCloud}
+        onDeleteEverywhere={confirmDeletePresentationEverywhere}
       />
       <Routes>
         <Route
@@ -286,6 +313,12 @@ export default function App() {
         />
         <Route
           path="/editor"
+          element={
+            <EditorRoute onOpenConfig={openApiConfigFromSettings} />
+          }
+        />
+        <Route
+          path="/editor/:presentationId"
           element={
             <EditorRoute onOpenConfig={openApiConfigFromSettings} />
           }

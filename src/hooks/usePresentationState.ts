@@ -62,6 +62,7 @@ import {
 import { isSlideCanvasTextPayload } from "../domain/entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../utils/slideRichText";
 import { localAccountScopeForUser } from "../services/storage";
+import { cleanupDuplicatePresentations } from "../services/storage";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
@@ -203,8 +204,23 @@ export function usePresentationState() {
     await queryClient.invalidateQueries({
       queryKey: presentationQueryKeys.savedPresentations(localAccountScope),
     });
-    void refreshCloudMineSnapshot();
+    await refreshCloudMineSnapshot();
   }, [queryClient, localAccountScope, refreshCloudMineSnapshot]);
+
+  const cleanedScopesRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (cleanedScopesRef.current.has(localAccountScope)) return;
+    cleanedScopesRef.current.add(localAccountScope);
+    cleanupDuplicatePresentations(localAccountScope)
+      .then((removed) => {
+        if (removed > 0) {
+          void refreshSavedList();
+        }
+      })
+      .catch((e) => {
+        console.warn("Cleanup de duplicados de presentaciones:", e);
+      });
+  }, [localAccountScope, refreshSavedList]);
 
   const cloudPresentation = usePresentationCloudPresentation({
     user,
@@ -223,6 +239,7 @@ export function usePresentationState() {
     handleSyncPresentationToCloud,
     maybePullCloudPresentationBeforeLoad,
     handleDownloadFromCloud,
+    handleDeleteCloudOnlyMine,
     openSharePresentationModal,
     closeSharePresentationModal,
     dismissCloudSyncConflict,
@@ -513,9 +530,7 @@ export function usePresentationState() {
     requestDeletePresentation,
     closeDeletePresentationModal,
     deletePresentationTarget,
-    confirmDeletePresentationLocalOnly,
-    confirmClearPresentationLocalKeepCloud,
-    confirmDeletePresentationLocalAndCloud,
+    confirmDeletePresentationEverywhere,
   } = savedLibrary;
 
   /** Pestaña activa del panel derecho estilo Figma. */
@@ -1125,9 +1140,7 @@ export function usePresentationState() {
     requestDeletePresentation,
     closeDeletePresentationModal,
     deletePresentationTarget,
-    confirmDeletePresentationLocalOnly,
-    confirmClearPresentationLocalKeepCloud,
-    confirmDeletePresentationLocalAndCloud,
+    confirmDeletePresentationEverywhere,
     generatingCoverId,
     handleGenerateCoverForPresentation,
     coverImageCache,
@@ -1136,12 +1149,12 @@ export function usePresentationState() {
     cloudSyncAvailable:
       !!user &&
       firebaseReady === true &&
-      typeof window !== "undefined" &&
-      (window as unknown as { __TAURI__?: unknown }).__TAURI__ !== undefined,
+      typeof window !== "undefined",
     syncingToCloudId,
     handleSyncPresentationToCloud,
     homeCloudSharedListWarning,
     handleDownloadFromCloud,
+    handleDeleteCloudOnlyMine,
     downloadingCloudKey,
     sharePresentationLocalId,
     openSharePresentationModal,

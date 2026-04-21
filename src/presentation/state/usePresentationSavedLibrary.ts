@@ -147,9 +147,17 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
   }, []);
 
   const deletePresentationTarget = useMemo((): SavedPresentationMeta | null => {
-    const id = depsRef.current.deletePresentationId;
+    const id = deps.deletePresentationId;
     if (!id) return null;
-    return depsRef.current.savedList.find((p) => p.id === id) ?? null;
+    const fromList = deps.savedList.find((p) => p.id === id);
+    if (fromList) return fromList;
+    // Fallback para evitar que el modal "desaparezca" si la lista se refresca justo tras el click.
+    return {
+      id,
+      topic: "Presentación",
+      savedAt: new Date().toISOString(),
+      slideCount: 0,
+    };
   }, [deps.deletePresentationId, deps.savedList]);
 
   const confirmDeletePresentationLocalOnly = useCallback(async () => {
@@ -211,7 +219,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
       alert(
         e instanceof Error && e.message
           ? e.message
-          : "No se pudo quitar la copia local.",
+          : "No se pudo quitar la caché offline.",
       );
     } finally {
       x.setDeletePresentationId(null);
@@ -261,6 +269,10 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
     }
   }, []);
 
+  const confirmDeletePresentationEverywhere = useCallback(async () => {
+    await confirmDeletePresentationLocalAndCloud();
+  }, [confirmDeletePresentationLocalAndCloud]);
+
   return {
     openSavedListModal,
     handleOpenSaved,
@@ -268,8 +280,6 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
     requestDeletePresentation,
     closeDeletePresentationModal,
     deletePresentationTarget,
-    confirmDeletePresentationLocalOnly,
-    confirmClearPresentationLocalKeepCloud,
-    confirmDeletePresentationLocalAndCloud,
+    confirmDeletePresentationEverywhere,
   };
 }

@@ -128,6 +128,28 @@ fn set_presentation_shared_cloud_source(
 }
 
 #[tauri::command]
+fn set_presentation_sync_state(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    dirty_slide_ids: Option<Vec<String>>,
+    sync_status: Option<String>,
+    last_synced_revision: Option<i64>,
+    account_scope: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::set_presentation_sync_state(
+        &conn,
+        &id,
+        dirty_slide_ids,
+        sync_status.as_deref(),
+        last_synced_revision,
+        &account_scope,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn list_characters(
     db_path: tauri::State<DbPath>,
     account_scope: String,
@@ -579,6 +601,7 @@ pub fn run() {
             clear_presentation_local_body,
             import_saved_presentation,
             set_presentation_cloud_state,
+            set_presentation_sync_state,
             set_presentation_shared_cloud_source,
             migrate_json_presentations,
             list_characters,

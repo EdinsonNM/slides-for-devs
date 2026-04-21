@@ -214,6 +214,15 @@ pub struct SavedPresentationMeta {
     /// Origen si se importó desde compartida: `ownerUid::cloudId`.
     #[serde(skip_serializing_if = "Option::is_none", rename = "sharedCloudSource")]
     pub shared_cloud_source: Option<String>,
+    /// IDs de slides pendientes de sincronizar.
+    #[serde(default, skip_serializing_if = "Vec::is_empty", rename = "dirtySlideIds")]
+    pub dirty_slide_ids: Vec<String>,
+    /// Estado de sincronización local para UI/reintentos.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "syncStatus")]
+    pub sync_status: Option<String>,
+    /// Última revisión cloud confirmada en local.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "lastSyncedRevision")]
+    pub last_synced_revision: Option<i64>,
 }
 
 /// Creates the database file and tables if they don't exist.
@@ -435,6 +444,40 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
     if has_scs == 0 {
         conn.execute(
             "ALTER TABLE presentations ADD COLUMN shared_cloud_source TEXT",
+            [],
+        )?;
+    }
+    // Migration: sync metadata (dirty slides + estado local de sincronización).
+    let has_dirty_ids: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='dirty_slide_ids'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_dirty_ids == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN dirty_slide_ids TEXT",
+            [],
+        )?;
+    }
+    let has_sync_status: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='sync_status'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_sync_status == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN sync_status TEXT",
+            [],
+        )?;
+    }
+    let has_last_synced_revision: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='last_synced_revision'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_last_synced_revision == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN last_synced_revision INTEGER",
             [],
         )?;
     }
@@ -1052,15 +1095,25 @@ pub fn list_presentations(
         SELECT p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision,
                COALESCE(p.local_body_cleared, 0) AS lbc,
                p.shared_cloud_source,
+               p.dirty_slide_ids,
+               p.sync_status,
+               p.last_synced_revision,
                COUNT(s.ordinal) AS slide_count
         FROM presentations p
         LEFT JOIN slides s ON s.presentation_id = p.id
         WHERE p.account_scope = ?1
-        GROUP BY p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision, p.local_body_cleared, p.shared_cloud_source
+        GROUP BY p.id, p.topic, p.saved_at, p.cloud_id, p.cloud_synced_at, p.cloud_revision, p.local_body_cleared, p.shared_cloud_source, p.dirty_slide_ids, p.sync_status, p.last_synced_revision
         ORDER BY p.saved_at DESC
         "#,
     )?;
     let rows = stmt.query_map(params![account_scope], |row| {
+        let dirty_slide_ids_raw: Option<String> = row.get(8)?;
+        let dirty_slide_ids = dirty_slide_ids_raw
+            .as_ref()
+            .map(|raw| raw.trim())
+            .filter(|raw| !raw.is_empty())
+            .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+            .unwrap_or_default();
         Ok(SavedPresentationMeta {
             id: row.get(0)?,
             topic: row.get(1)?,
@@ -1070,7 +1123,10 @@ pub fn list_presentations(
             cloud_revision: row.get(5)?,
             local_body_cleared: row.get::<_, i64>(6)? != 0,
             shared_cloud_source: row.get(7)?,
-            slide_count: row.get(8)?,
+            dirty_slide_ids,
+            sync_status: row.get(9)?,
+            last_synced_revision: row.get(10)?,
+            slide_count: row.get(11)?,
         })
     })?;
     rows.collect()
@@ -1105,6 +1161,28 @@ pub fn set_presentation_shared_cloud_source(
     let n = conn.execute(
         "UPDATE presentations SET shared_cloud_source = ?1 WHERE id = ?2 AND account_scope = ?3",
         params![shared_cloud_source, id, account_scope],
+    )?;
+    if n == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+    Ok(())
+}
+
+/// Actualiza metadatos de sincronización local (dirty slides, estado y última revisión confirmada).
+pub fn set_presentation_sync_state(
+    conn: &Connection,
+    id: &str,
+    dirty_slide_ids: Option<Vec<String>>,
+    sync_status: Option<&str>,
+    last_synced_revision: Option<i64>,
+    account_scope: &str,
+) -> Result<(), rusqlite::Error> {
+    let dirty_slide_ids_json = dirty_slide_ids
+        .map(|ids| ids.into_iter().filter(|id| !id.trim().is_empty()).collect::<Vec<_>>())
+        .and_then(|ids| serde_json::to_string(&ids).ok());
+    let n = conn.execute(
+        "UPDATE presentations SET dirty_slide_ids = COALESCE(?1, dirty_slide_ids), sync_status = COALESCE(?2, sync_status), last_synced_revision = ?3 WHERE id = ?4 AND account_scope = ?5",
+        params![dirty_slide_ids_json, sync_status, last_synced_revision, id, account_scope],
     )?;
     if n == 0 {
         return Err(rusqlite::Error::QueryReturnedNoRows);

@@ -65,6 +65,12 @@ export interface SavedPresentationMeta {
    * Sirve para no duplicar la tarjeta fantasma en el home tras descargar.
    */
   sharedCloudSource?: string;
+  /** IDs de slides pendientes de sincronizar hacia la nube. */
+  dirtySlideIds?: string[];
+  /** Estado de sincronización local para UI y reintentos. */
+  syncStatus?: "synced" | "pending" | "offline" | "conflict";
+  /** Última revisión cloud confirmada localmente (alias funcional de cloudRevision). */
+  lastSyncedRevision?: number;
 }
 
 /** Elemento de la parrilla/carrusel del home: copia local o documento solo en Firestore. */

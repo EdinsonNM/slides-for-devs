@@ -6,7 +6,7 @@ import {
   Share2,
   Cloud,
   CloudDownload,
-  HardDrive,
+  WifiOff,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -42,8 +42,8 @@ export function SavedListModal() {
               Mis presentaciones
             </h3>
             <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-              Verde: local+nube. Punteado ámbar: solo equipo. Punteado azul: en
-              nube sin copia local.
+              Verde: sincronizada con nube. Ámbar: pendiente de sync (offline).
+              Azul: en nube sin caché offline.
             </p>
           </div>
           <button
@@ -86,7 +86,7 @@ export function SavedListModal() {
                       {p.cloudId && p.localBodyCleared ? (
                         <>
                           <CloudDownload size={11} aria-hidden />
-                          Nube (sin local)
+                          Nube (sin caché)
                         </>
                       ) : p.cloudId ? (
                         <>
@@ -95,8 +95,8 @@ export function SavedListModal() {
                         </>
                       ) : (
                         <>
-                          <HardDrive size={11} aria-hidden />
-                          Solo local
+                          <WifiOff size={11} aria-hidden />
+                          Pendiente de sync
                         </>
                       )}
                     </div>
@@ -154,7 +154,7 @@ export function SavedListModal() {
                           ? "Eliminar de la nube o cancelar"
                           : p.cloudId
                             ? "Eliminar (elige alcance)"
-                            : "Eliminar de este dispositivo"
+                            : "Eliminar de la caché local"
                       }
                     >
                       <Trash2 size={18} />

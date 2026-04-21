@@ -1,7 +1,10 @@
 import { useCallback } from "react";
 import { useLatestRef } from "./useLatestRef";
 import {
+  importSavedPresentation,
   savePresentation,
+  setPresentationSyncState,
+  setPresentationCloudState,
   updatePresentation,
 } from "../../services/storage";
 import {
@@ -37,6 +40,7 @@ export function usePresentationSavePresentation(
             ? presentation.narrativeNotes?.trim() || undefined
             : d.narrativeNotes.trim() || undefined,
       };
+      const dirtySlideIds = full.slides.map((slide) => slide.id);
       let savedId: string | null = null;
       try {
         if (d.currentSavedId) {
@@ -46,6 +50,14 @@ export function usePresentationSavePresentation(
             d.localAccountScope,
           );
           savedId = d.currentSavedId;
+          await setPresentationSyncState(
+            d.currentSavedId,
+            {
+              dirtySlideIds,
+              syncStatus: d.user ? "pending" : "offline",
+            },
+            d.localAccountScope,
+          );
           d.setSaveMessage("Guardado");
           try {
             sessionStorage.setItem(
@@ -90,6 +102,32 @@ export function usePresentationSavePresentation(
                 cloudId,
                 cloudRevision: newRevision,
               };
+              const localId = `${d.user.uid}::${cloudId}`;
+              await importSavedPresentation(
+                {
+                  ...full,
+                  id: localId,
+                  savedAt: new Date().toISOString(),
+                },
+                d.localAccountScope,
+              );
+              await setPresentationCloudState(
+                localId,
+                cloudId,
+                new Date().toISOString(),
+                newRevision,
+                d.localAccountScope,
+              );
+              await setPresentationSyncState(
+                localId,
+                {
+                  dirtySlideIds: [],
+                  syncStatus: "synced",
+                  lastSyncedRevision: newRevision,
+                },
+                d.localAccountScope,
+              );
+              d.setCurrentSavedId(localId);
             } catch (e) {
               if (createdOptimisticSession) {
                 d.webCloudSessionRef.current = null;
@@ -120,6 +158,14 @@ export function usePresentationSavePresentation(
           const id = await savePresentation(full, d.localAccountScope);
           d.setCurrentSavedId(id);
           savedId = id;
+          await setPresentationSyncState(
+            id,
+            {
+              dirtySlideIds,
+              syncStatus: d.user ? "pending" : "offline",
+            },
+            d.localAccountScope,
+          );
           d.setSaveMessage("Guardado");
           try {
             sessionStorage.setItem(d.lastOpenedSessionKey, id);
@@ -132,8 +178,7 @@ export function usePresentationSavePresentation(
         if (
           savedId &&
           d.autoCloudSyncOnSave &&
-          d.user &&
-          isTauriRuntime()
+          d.user
         ) {
           void d.maybeAutoSyncAfterLocalSave(savedId);
         }

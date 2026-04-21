@@ -1,4 +1,6 @@
 import { motion, useReducedMotion } from "motion/react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ImagePlus,
   Trash2,
@@ -102,6 +104,7 @@ export interface HomePresentationCardTileProps {
   onSyncToCloud?: (id: string) => void;
   onSharePresentation?: (id: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid: string) => void;
+  onDeleteCloudOnlyMine?: (cloudId: string, ownerUid: string) => void;
   downloadingCloudKey: string | null;
   /** En navegador: abrir en memoria; en Tauri: importar a SQLite. */
   cloudOnlyCardActionMode?: "download" | "open";
@@ -125,6 +128,7 @@ export function HomePresentationCardTile({
   onSyncToCloud,
   onSharePresentation,
   onDownloadFromCloud,
+  onDeleteCloudOnlyMine,
   downloadingCloudKey,
   cloudOnlyCardActionMode = "download",
   listLayout = "grid",
@@ -132,6 +136,7 @@ export function HomePresentationCardTile({
   style,
 }: HomePresentationCardTileProps) {
   const reduceMotion = useReducedMotion();
+  const [confirmDeleteCloudOpen, setConfirmDeleteCloudOpen] = useState(false);
 
   const carouselFrameClass =
     listLayout === "carousel"
@@ -236,6 +241,61 @@ export function HomePresentationCardTile({
             <Download size={20} className="opacity-80" aria-hidden />
           )}
         </div>
+        {onDeleteCloudOnlyMine && (
+          <div className="absolute top-5 left-5 z-40 pointer-events-auto">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setConfirmDeleteCloudOpen(true);
+              }}
+              className="p-2 rounded-lg bg-black/35 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-red-600/90 hover:ring-red-300/40 transition-colors"
+              title="Eliminar de tu nube"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        )}
+        {confirmDeleteCloudOpen &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4"
+              onClick={() => setConfirmDeleteCloudOpen(false)}
+            >
+              <div
+                className="w-full max-w-sm rounded-xl bg-white p-4 text-stone-900 shadow-2xl dark:bg-stone-900 dark:text-stone-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h4 className="text-base font-semibold">Eliminar presentación</h4>
+                <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+                  ¿Seguro que deseas eliminar "{card.topic || "Sin título"}" de tu
+                  nube? Esta acción no se puede deshacer.
+                </p>
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteCloudOpen(false)}
+                    className="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDeleteCloudOnlyMine?.(card.cloudId, card.ownerUid);
+                      setConfirmDeleteCloudOpen(false);
+                    }}
+                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
         {isBusy && (
           <div className="absolute inset-0 bg-black/45 rounded-2xl flex items-center justify-center z-20">
             <Loader2 className="w-10 h-10 text-white animate-spin" />
@@ -515,8 +575,8 @@ export function HomePresentationCardTile({
             p.localBodyCleared && p.cloudId
               ? "Opciones: quitar de la nube o cancelar"
               : p.cloudId
-                ? "Eliminar (elige solo local o también nube)"
-                : "Eliminar presentación de este dispositivo"
+                ? "Eliminar (elige quitar caché offline o también nube)"
+                : "Eliminar de la caché offline de este dispositivo"
           }
         >
           <Trash2 size={18} />

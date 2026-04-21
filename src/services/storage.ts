@@ -21,6 +21,9 @@ type WebPresentationRecord = SavedPresentation & {
   cloudRevision?: number;
   localBodyCleared?: boolean;
   sharedCloudSource?: string;
+  dirtySlideIds?: string[];
+  syncStatus?: "synced" | "pending" | "offline" | "conflict";
+  lastSyncedRevision?: number;
 };
 
 function presentationsWebStorageKey(accountScope: string): string {
@@ -61,13 +64,35 @@ function recordToMeta(r: WebPresentationRecord): SavedPresentationMeta {
     cloudRevision: r.cloudRevision,
     localBodyCleared: r.localBodyCleared,
     sharedCloudSource: r.sharedCloudSource,
+    dirtySlideIds: r.dirtySlideIds,
+    syncStatus: r.syncStatus,
+    lastSyncedRevision: r.lastSyncedRevision,
   };
+}
+
+function normalizeDirtySlideIds(slideIds: string[] | undefined): string[] {
+  if (!Array.isArray(slideIds)) return [];
+  return [...new Set(slideIds.map((id) => id.trim()).filter(Boolean))];
 }
 
 function sortPresentationMetasDesc(
   records: WebPresentationRecord[],
 ): SavedPresentationMeta[] {
-  return [...records]
+  const byCanonicalKey = new Map<string, WebPresentationRecord>();
+  for (const rec of records) {
+    const cloudId = rec.cloudId?.trim();
+    const shared = rec.sharedCloudSource?.trim();
+    const key = cloudId
+      ? `cloud:${cloudId}`
+      : shared
+        ? `shared:${shared}`
+        : `local:${rec.id}`;
+    const prev = byCanonicalKey.get(key);
+    if (!prev || prev.savedAt < rec.savedAt) {
+      byCanonicalKey.set(key, rec);
+    }
+  }
+  return [...byCanonicalKey.values()]
     .sort((a, b) => (a.savedAt < b.savedAt ? 1 : a.savedAt > b.savedAt ? -1 : 0))
     .map(recordToMeta);
 }
@@ -152,6 +177,9 @@ export async function updatePresentation(
       sharedCloudSource: existing.sharedCloudSource,
       localBodyCleared:
         presentation.slides.length === 0 ? existing.localBodyCleared : false,
+      dirtySlideIds: existing.dirtySlideIds ?? [],
+      syncStatus: existing.syncStatus ?? "pending",
+      lastSyncedRevision: existing.lastSyncedRevision,
     };
     const merged = [...prev];
     merged[idx] = next;
@@ -221,6 +249,50 @@ export async function deletePresentation(
   await invoke("delete_presentation", { id, accountScope });
 }
 
+function canonicalPresentationKey(meta: SavedPresentationMeta): string {
+  const cloudId = meta.cloudId?.trim();
+  if (cloudId) return `cloud:${cloudId}`;
+  const shared = meta.sharedCloudSource?.trim();
+  if (shared) return `shared:${shared}`;
+  return `local:${meta.id}`;
+}
+
+/**
+ * Elimina físicamente duplicados locales por presentación canónica.
+ * Conserva siempre la versión más reciente (`savedAt`) por clave cloud/shared/local.
+ */
+export async function cleanupDuplicatePresentations(
+  accountScope: string,
+): Promise<number> {
+  const metas = await listPresentations(accountScope);
+  if (metas.length < 2) return 0;
+  const byKey = new Map<string, SavedPresentationMeta[]>();
+  for (const meta of metas) {
+    const key = canonicalPresentationKey(meta);
+    const bucket = byKey.get(key);
+    if (bucket) {
+      bucket.push(meta);
+    } else {
+      byKey.set(key, [meta]);
+    }
+  }
+  const idsToDelete: string[] = [];
+  for (const bucket of byKey.values()) {
+    if (bucket.length < 2) continue;
+    bucket.sort((a, b) =>
+      a.savedAt < b.savedAt ? 1 : a.savedAt > b.savedAt ? -1 : 0,
+    );
+    for (let i = 1; i < bucket.length; i++) {
+      idsToDelete.push(bucket[i]!.id);
+    }
+  }
+  if (idsToDelete.length === 0) return 0;
+  for (const id of idsToDelete) {
+    await deletePresentation(id, accountScope);
+  }
+  return idsToDelete.length;
+}
+
 /** Quita diapositivas e imágenes locales y deja stub con `cloud_id` (copia solo en la nube). */
 export async function clearPresentationLocalBody(
   id: string,
@@ -238,6 +310,7 @@ export async function clearPresentationLocalBody(
       slides: [],
       localBodyCleared: true,
       savedAt: new Date().toISOString(),
+      syncStatus: "pending",
     };
     writeWebPresentationRecords(accountScope, prev);
     return;
@@ -256,6 +329,8 @@ export async function importSavedPresentation(
     const record: WebPresentationRecord = {
       ...saved,
       localBodyCleared: false,
+      dirtySlideIds: [],
+      syncStatus: "synced",
     };
     writeWebPresentationRecords(accountScope, [record, ...without]);
     return;
@@ -295,6 +370,10 @@ export async function setPresentationCloudState(
       delete next.cloudRevision;
     } else {
       next.cloudRevision = cloudRevision;
+      next.lastSyncedRevision = cloudRevision;
+    }
+    if (next.syncStatus !== "conflict") {
+      next.syncStatus = cloudId ? "synced" : next.syncStatus;
     }
     prev[idx] = next;
     writeWebPresentationRecords(accountScope, prev);
@@ -305,6 +384,50 @@ export async function setPresentationCloudState(
     cloudId: cloudId ?? undefined,
     cloudSyncedAt: cloudSyncedAt ?? undefined,
     cloudRevision: cloudRevision ?? undefined,
+    accountScope,
+  });
+}
+
+export async function setPresentationSyncState(
+  id: string,
+  patch: {
+    dirtySlideIds?: string[];
+    syncStatus?: SavedPresentationMeta["syncStatus"];
+    lastSyncedRevision?: number | null;
+  },
+  accountScope: string,
+): Promise<void> {
+  const normalizedDirtySlideIds = normalizeDirtySlideIds(patch.dirtySlideIds);
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    const idx = prev.findIndex((p) => p.id === id);
+    if (idx < 0) {
+      throw new Error("Presentation not found");
+    }
+    const next: WebPresentationRecord = { ...prev[idx] };
+    if (patch.dirtySlideIds !== undefined) {
+      next.dirtySlideIds = normalizedDirtySlideIds;
+    }
+    if (patch.syncStatus !== undefined) {
+      next.syncStatus = patch.syncStatus;
+    }
+    if (patch.lastSyncedRevision === null || patch.lastSyncedRevision === undefined) {
+      delete next.lastSyncedRevision;
+    } else {
+      next.lastSyncedRevision = patch.lastSyncedRevision;
+    }
+    prev[idx] = next;
+    writeWebPresentationRecords(accountScope, prev);
+    return;
+  }
+  await invoke("set_presentation_sync_state", {
+    id,
+    dirtySlideIds: patch.dirtySlideIds ? normalizedDirtySlideIds : undefined,
+    syncStatus: patch.syncStatus ?? undefined,
+    lastSyncedRevision:
+      patch.lastSyncedRevision === null || patch.lastSyncedRevision === undefined
+        ? undefined
+        : patch.lastSyncedRevision,
     accountScope,
   });
 }

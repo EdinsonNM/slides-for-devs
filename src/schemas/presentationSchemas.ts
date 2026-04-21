@@ -69,4 +69,9 @@ export const SavedPresentationMetaSchema = z.object({
   cloudRevision: z.number().optional(),
   localBodyCleared: z.boolean().optional(),
   sharedCloudSource: z.string().optional(),
+  dirtySlideIds: z.array(z.string()).optional(),
+  syncStatus: z
+    .enum(["synced", "pending", "offline", "conflict"])
+    .optional(),
+  lastSyncedRevision: z.number().optional(),
 });

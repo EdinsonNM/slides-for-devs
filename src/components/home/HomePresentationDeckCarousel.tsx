@@ -73,6 +73,7 @@ export interface HomePresentationDeckCarouselProps {
   onSyncToCloud?: (id: string) => void;
   onSharePresentation?: (id: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid: string) => void;
+  onDeleteCloudOnlyMine?: (cloudId: string, ownerUid: string) => void;
   downloadingCloudKey: string | null;
   cloudOnlyCardActionMode?: "download" | "open";
 }
@@ -95,6 +96,7 @@ export function HomePresentationDeckCarousel({
   onSyncToCloud,
   onSharePresentation,
   onDownloadFromCloud,
+  onDeleteCloudOnlyMine,
   downloadingCloudKey,
   cloudOnlyCardActionMode = "download",
 }: HomePresentationDeckCarouselProps) {
@@ -338,6 +340,7 @@ export function HomePresentationDeckCarousel({
                     onSyncToCloud={onSyncToCloud}
                     onSharePresentation={onSharePresentation}
                     onDownloadFromCloud={onDownloadFromCloud}
+                    onDeleteCloudOnlyMine={onDeleteCloudOnlyMine}
                     downloadingCloudKey={downloadingCloudKey}
                     cloudOnlyCardActionMode={cloudOnlyCardActionMode}
                     listLayout="carousel"

@@ -44,6 +44,7 @@ export interface HomeWithCarouselProps {
   /** Compartir por UID (solo si la tarjeta tiene `cloudId`). */
   onSharePresentation?: (localId: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid?: string) => void;
+  onDeleteCloudOnlyMine?: (cloudId: string, ownerUid?: string) => void;
   downloadingCloudKey: string | null;
   /** En web las tarjetas solo-nube abren en el editor sin “descargar”. */
   cloudOnlyCardActionMode?: "download" | "open";
@@ -78,6 +79,7 @@ export function HomeWithCarousel({
   homeCloudSharedListWarning = null,
   onSharePresentation,
   onDownloadFromCloud,
+  onDeleteCloudOnlyMine,
   downloadingCloudKey,
   cloudOnlyCardActionMode = "download",
   promptAttachments,
@@ -175,6 +177,7 @@ export function HomeWithCarousel({
                 onSyncToCloud={onSyncToCloud}
                 onSharePresentation={onSharePresentation}
                 onDownloadFromCloud={onDownloadFromCloud}
+                onDeleteCloudOnlyMine={onDeleteCloudOnlyMine}
                 downloadingCloudKey={downloadingCloudKey}
                 cloudOnlyCardActionMode={cloudOnlyCardActionMode}
               />

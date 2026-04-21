@@ -49,6 +49,7 @@ export function HomeScreen(props: HomeScreenProps) {
     openSharePresentationModal,
     homePresentationCards,
     handleDownloadFromCloud,
+    handleDeleteCloudOnlyMine,
     downloadingCloudKey,
     homeCloudSharedListWarning,
     homePromptAttachments,
@@ -120,6 +121,7 @@ export function HomeScreen(props: HomeScreenProps) {
         homeCloudSharedListWarning={homeCloudSharedListWarning}
         onSharePresentation={openSharePresentationModal}
         onDownloadFromCloud={handleDownloadFromCloud}
+        onDeleteCloudOnlyMine={handleDeleteCloudOnlyMine}
         downloadingCloudKey={downloadingCloudKey}
         cloudOnlyCardActionMode={cloudOnlyCardActionMode}
         promptAttachments={homePromptAttachments}

@@ -1,4 +1,4 @@
-import { Cloud, CloudDownload, HardDrive, Users } from "lucide-react";
+import { Cloud, CloudDownload, WifiOff, Users } from "lucide-react";
 import type { SavedPresentationMeta } from "../../types";
 
 function shortSyncedLabel(iso?: string): string | null {
@@ -24,14 +24,14 @@ export function PresentationStorageBadge({
     return (
       <div
         className="absolute top-5 left-5 z-30 flex max-w-[min(100%-2rem,15rem)] flex-col gap-0.5 rounded-lg bg-violet-700/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-violet-400/50"
-        title="Importada desde una presentación que te compartieron. Es una copia local; no enlaza a la nube del autor."
+        title="Importada desde una presentación que te compartieron. Se usa como caché para abrir rápido y trabajar sin conexión."
       >
         <span className="flex items-center gap-1">
           <Users size={12} className="shrink-0" aria-hidden />
           Compartida
         </span>
         <span className="normal-case font-medium text-[9px] text-violet-100/95">
-          Copia en este equipo
+          Disponible offline
         </span>
       </div>
     );
@@ -48,7 +48,7 @@ export function PresentationStorageBadge({
           En la nube
         </span>
         <span className="normal-case font-medium text-[9px] text-sky-100/95">
-          Sin copia local — toca para recuperar
+          Sin caché offline - toca para recuperar
         </span>
       </div>
     );
@@ -79,10 +79,10 @@ export function PresentationStorageBadge({
   return (
     <div
       className="absolute top-5 left-5 z-30 flex max-w-[min(100%-2rem,14rem)] items-center gap-1 rounded-lg bg-amber-950/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-amber-400/45"
-      title="Solo en este dispositivo. Sube a la nube para tener copia en tu cuenta y abrirla en otro equipo."
+      title="Pendiente de subir a la nube. Funciona como caché offline y se sincroniza al recuperar conexión."
     >
-      <HardDrive size={12} className="shrink-0" aria-hidden />
-      Solo local
+      <WifiOff size={12} className="shrink-0" aria-hidden />
+      Pendiente de sync
     </div>
   );
 }

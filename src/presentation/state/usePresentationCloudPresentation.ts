@@ -5,10 +5,12 @@ import {
   listPresentations,
   loadPresentation,
   setPresentationCloudState,
+  setPresentationSyncState,
   setPresentationSharedCloudSource,
   updatePresentation,
 } from "../../services/storage";
 import {
+  deleteOwnerPresentationFromCloud,
   pushPresentationToCloud,
   pullPresentationFromCloud,
   CloudSyncConflictError,
@@ -65,11 +67,7 @@ export function usePresentationCloudPresentation(
     const d = depsRef.current;
     if (!d.autoCloudSyncOnSave || !d.user) return;
     if (conflictResolvingRef.current) return;
-    if (
-      typeof window === "undefined" ||
-      (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
-    )
-      return;
+    if (typeof window === "undefined") return;
     const fb = await initFirebase();
     if (!fb?.firestore) return;
     void enqueuePresentationCloudPush(localId, async () => {
@@ -89,6 +87,15 @@ export function usePresentationCloudPresentation(
           cloudId,
           syncedAt,
           newRevision,
+          d.localAccountScope,
+        );
+        await setPresentationSyncState(
+          localId,
+          {
+            dirtySlideIds: [],
+            syncStatus: "synced",
+            lastSyncedRevision: newRevision,
+          },
           d.localAccountScope,
         );
         await d.refreshSavedList();
@@ -112,12 +119,31 @@ export function usePresentationCloudPresentation(
               newRevision,
               d.localAccountScope,
             );
+            await setPresentationSyncState(
+              localId,
+              {
+                dirtySlideIds: [],
+                syncStatus: "synced",
+                lastSyncedRevision: newRevision,
+              },
+              d.localAccountScope,
+            );
             await d.refreshSavedList();
           } catch (retryErr) {
             console.error("Auto-sync retry tras conflicto:", retryErr);
+            await setPresentationSyncState(
+              localId,
+              { syncStatus: "conflict" },
+              d.localAccountScope,
+            ).catch(() => {});
           }
         } else {
           console.error("Auto-sync nube:", e);
+          await setPresentationSyncState(
+            localId,
+            { syncStatus: "offline" },
+            d.localAccountScope,
+          ).catch(() => {});
         }
       }
     });
@@ -140,7 +166,7 @@ export function usePresentationCloudPresentation(
         const preMeta = listPre.find((p) => p.id === localId);
         if (preMeta?.localBodyCleared) {
           alert(
-            "Recupera la copia local desde la nube (abre la tarjeta) antes de sincronizar.",
+            "Recupera la caché offline desde la nube (abre la tarjeta) antes de sincronizar.",
           );
           return;
         }
@@ -167,6 +193,15 @@ export function usePresentationCloudPresentation(
               newRevision,
               d.localAccountScope,
             );
+            await setPresentationSyncState(
+              localId,
+              {
+                dirtySlideIds: [],
+                syncStatus: "synced",
+                lastSyncedRevision: newRevision,
+              },
+              d.localAccountScope,
+            );
             await d.refreshSavedList();
           } catch (e) {
             if (e instanceof CloudSyncConflictError) {
@@ -182,8 +217,18 @@ export function usePresentationCloudPresentation(
                 localSlideCount: meta?.slideCount,
                 remoteSlideCount: e.remoteSlideCount,
               });
+              await setPresentationSyncState(
+                localId,
+                { syncStatus: "conflict" },
+                d.localAccountScope,
+              ).catch(() => {});
             } else {
               console.error(e);
+              await setPresentationSyncState(
+                localId,
+                { syncStatus: "offline" },
+                d.localAccountScope,
+              ).catch(() => {});
               alert(
                 `No se pudo sincronizar: ${formatCloudSyncUserMessage(e)}`,
               );
@@ -237,6 +282,15 @@ export function usePresentationCloudPresentation(
           d.localAccountScope,
         );
       }
+      await setPresentationSyncState(
+        localId,
+        {
+          dirtySlideIds: [],
+          syncStatus: "synced",
+          lastSyncedRevision: cloudRevision,
+        },
+        d.localAccountScope,
+      );
       await d.refreshSavedList();
     },
     [],
@@ -293,6 +347,7 @@ export function usePresentationCloudPresentation(
       const applyPulledToWebEditor = (
         pulled: PulledPresentation,
         cloudRevision: number,
+        localId: string,
       ) => {
         const ctx = d.applySavedPresentationForCloudWebRef.current;
         if (!ctx) {
@@ -302,11 +357,11 @@ export function usePresentationCloudPresentation(
         }
         const synthetic: SavedPresentation = {
           ...pulled,
-          id: crypto.randomUUID(),
+          id: localId,
           savedAt: pulled.savedAt ?? new Date().toISOString(),
         };
         applySavedPresentationToEditorState(synthetic, ctx);
-        ctx.setCurrentSavedId(null);
+        ctx.setCurrentSavedId(localId);
         if (!isSharedFromOther && owner === d.user.uid) {
           d.webCloudSessionRef.current = {
             ownerUid: owner,
@@ -325,7 +380,26 @@ export function usePresentationCloudPresentation(
           try {
             const { presentation: pulled, cloudRevision } =
               await pullPresentationFromCloud(owner, cloudId);
-            applyPulledToWebEditor(pulled, cloudRevision);
+            await updatePresentation(
+              existing.id,
+              {
+                topic: pulled.topic,
+                slides: pulled.slides,
+                characterId: pulled.characterId,
+                deckVisualTheme: pulled.deckVisualTheme,
+                deckNarrativePresetId: pulled.deckNarrativePresetId,
+                narrativeNotes: pulled.narrativeNotes,
+              },
+              d.localAccountScope,
+            );
+            await setPresentationCloudState(
+              existing.id,
+              isSharedFromOther ? null : cloudId,
+              new Date().toISOString(),
+              cloudRevision,
+              d.localAccountScope,
+            );
+            applyPulledToWebEditor(pulled, cloudRevision, existing.id);
             await d.refreshSavedList();
           } catch (e) {
             console.error(e);
@@ -351,7 +425,37 @@ export function usePresentationCloudPresentation(
         const { presentation: pulled, cloudRevision } =
           await pullPresentationFromCloud(owner, cloudId);
         if (!isTauriRuntime()) {
-          applyPulledToWebEditor(pulled, cloudRevision);
+          const localId = `${owner}::${cloudId}`;
+          await importSavedPresentation(
+            {
+              ...pulled,
+              id: localId,
+            },
+            d.localAccountScope,
+          );
+          if (isSharedFromOther) {
+            await setPresentationCloudState(
+              localId,
+              null,
+              new Date().toISOString(),
+              cloudRevision,
+              d.localAccountScope,
+            );
+            await setPresentationSharedCloudSource(
+              localId,
+              `${owner}::${cloudId}`,
+              d.localAccountScope,
+            );
+          } else {
+            await setPresentationCloudState(
+              localId,
+              cloudId,
+              new Date().toISOString(),
+              cloudRevision,
+              d.localAccountScope,
+            );
+          }
+          applyPulledToWebEditor(pulled, cloudRevision, localId);
           await d.refreshSavedList();
           return;
         }
@@ -399,6 +503,29 @@ export function usePresentationCloudPresentation(
       }
     },
     [rehydratePresentationFromMyCloud],
+  );
+
+  const handleDeleteCloudOnlyMine = useCallback(
+    async (cloudId: string, ownerUid?: string) => {
+      const d = depsRef.current;
+      if (!d.user) {
+        alert("Inicia sesión para eliminar en la nube.");
+        return;
+      }
+      const owner = ownerUid ?? d.user.uid;
+      if (owner !== d.user.uid) {
+        alert("Solo puedes eliminar presentaciones de tu propia nube.");
+        return;
+      }
+      try {
+        await deleteOwnerPresentationFromCloud(owner, cloudId);
+        await d.refreshSavedList();
+      } catch (e) {
+        console.error(e);
+        alert(`No se pudo eliminar: ${formatCloudSyncUserMessage(e)}`);
+      }
+    },
+    [],
   );
 
   const openSharePresentationModal = useCallback((localId: string) => {
@@ -451,6 +578,15 @@ export function usePresentationCloudPresentation(
         cloudId,
         new Date().toISOString(),
         cloudRevision,
+        d.localAccountScope,
+      );
+      await setPresentationSyncState(
+        localId,
+        {
+          dirtySlideIds: [],
+          syncStatus: "synced",
+          lastSyncedRevision: cloudRevision,
+        },
         d.localAccountScope,
       );
       if (ed.currentSavedId === localId) {
@@ -520,6 +656,15 @@ export function usePresentationCloudPresentation(
         newRevision,
         d.localAccountScope,
       );
+      await setPresentationSyncState(
+        localId,
+        {
+          dirtySlideIds: [],
+          syncStatus: "synced",
+          lastSyncedRevision: newRevision,
+        },
+        d.localAccountScope,
+      );
       await d.refreshSavedList();
     } catch (e) {
       console.error(e);
@@ -534,6 +679,7 @@ export function usePresentationCloudPresentation(
     handleSyncPresentationToCloud,
     maybePullCloudPresentationBeforeLoad,
     handleDownloadFromCloud,
+    handleDeleteCloudOnlyMine,
     openSharePresentationModal,
     closeSharePresentationModal,
     dismissCloudSyncConflict,
