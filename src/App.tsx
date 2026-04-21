@@ -155,7 +155,7 @@ function EditorRoute({ onOpenConfig }: EditorRouteProps) {
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const {
     refreshApiKeys,
     pendingGeneration,
@@ -215,6 +215,14 @@ export default function App() {
     }, 1500);
     return () => clearTimeout(t);
   }, []);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <WelcomeSignInPanel />;
+  }
 
   if (isPresenterWindow) {
     return <PresenterView />;
