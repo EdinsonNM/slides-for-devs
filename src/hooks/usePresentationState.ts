@@ -55,6 +55,7 @@ import { usePresentationEditorTabs } from "../presentation/state/usePresentation
 import { usePresentationDeckMutations } from "../presentation/state/usePresentationDeckMutations";
 import { usePresentationEditorKeyboard } from "../presentation/state/usePresentationEditorKeyboard";
 import { usePresentationSlideCanvasMutations } from "../presentation/state/usePresentationSlideCanvasMutations";
+import { usePresentationSlideResizeGestures } from "../presentation/state/usePresentationSlideResizeGestures";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import { fetchCloudPresentationSnapshots } from "../presentation/state/usePresentationCloudList";
 import {
@@ -823,71 +824,14 @@ export function usePresentationState() {
     queryClient,
   ]);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-      const container = document.getElementById("slide-container");
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const percent = Math.min(Math.max(15, 100 - (x / rect.width) * 100), 85);
-      setSlides((prev) => {
-        const idx = currentIndex;
-        if (idx < 0 || idx >= prev.length) return prev;
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], imageWidthPercent: percent };
-        return updated;
-      });
-    };
-
-    const handleMouseUp = () => setIsResizing(false);
-
-    if (isResizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-    } else {
-      document.body.style.cursor = "default";
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isResizing, currentIndex]);
-
-  // Resize panel height (layout panel-full): arrastrar el borde entre título y panel
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingPanelHeight) return;
-      const container = document.getElementById("slide-container");
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const percent = Math.min(Math.max(25, 100 - (y / rect.height) * 100), 95);
-      setSlides((prev) => {
-        const idx = currentIndex;
-        if (idx < 0 || idx >= prev.length) return prev;
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], panelHeightPercent: percent };
-        return updated;
-      });
-    };
-    const handleMouseUp = () => setIsResizingPanelHeight(false);
-
-    if (isResizingPanelHeight) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "row-resize";
-    } else {
-      document.body.style.cursor = "";
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isResizingPanelHeight, currentIndex]);
+  usePresentationSlideResizeGestures({
+    isResizing,
+    setIsResizing,
+    isResizingPanelHeight,
+    setIsResizingPanelHeight,
+    currentIndex,
+    setSlides,
+  });
 
   useEffect(() => {
     const prevIdx = prevSlideIndexForFlushRef.current;
