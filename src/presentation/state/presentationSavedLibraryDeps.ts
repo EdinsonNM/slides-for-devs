@@ -38,6 +38,12 @@ export type PresentationSavedLibraryDeps = {
   setNarrativeNotes: (notes: string | ((prev: string) => string)) => void;
   coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
   setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
+  setHomeFirstSlideReplicaBySavedId: Dispatch<
+    SetStateAction<Record<string, Slide | undefined>>
+  >;
+  setHomeFirstSlideReplicaDeckThemeBySavedId: Dispatch<
+    SetStateAction<Record<string, DeckVisualTheme | undefined>>
+  >;
   refreshSavedList: () => Promise<void>;
   webCloudSessionRef: MutableRefObject<WebCloudEditSession | null>;
 };

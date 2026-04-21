@@ -38,6 +38,8 @@ export function HomeScreen(props: HomeScreenProps) {
     generatingCoverId,
     handleGenerateCoverForPresentation,
     coverImageCache,
+    homeFirstSlideReplicaBySavedId,
+    homeFirstSlideReplicaDeckThemeBySavedId,
     presentationModelId,
     setPresentationModelId,
     presentationModels,
@@ -108,6 +110,10 @@ export function HomeScreen(props: HomeScreenProps) {
         onGenerateCover={handleGenerateCoverForPresentation}
         generatingCoverId={generatingCoverId}
         coverImageCache={coverImageCache}
+        homeFirstSlideReplicaBySavedId={homeFirstSlideReplicaBySavedId}
+        homeFirstSlideReplicaDeckThemeBySavedId={
+          homeFirstSlideReplicaDeckThemeBySavedId
+        }
         cloudSyncAvailable={cloudSyncAvailable}
         onSyncToCloud={handleSyncPresentationToCloud}
         syncingToCloudId={syncingToCloudId}

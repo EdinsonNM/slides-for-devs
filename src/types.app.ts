@@ -79,6 +79,10 @@ export type HomePresentationCard =
       updatedAt: string | null;
       /** Portada Slaim en nube (`deckCoverImageFile`), URL firmada. */
       homePreviewImageUrl?: string;
+      /** Primer slide resuelto (réplica) si no hay portada Slaim. */
+      homeFirstSlideReplica?: Slide;
+      /** Tema del deck en la nube (tipografía/fondo acorde al doc principal). */
+      homePreviewDeckVisualTheme?: DeckVisualTheme;
     }
   | {
       kind: "cloud_only_shared";
@@ -88,6 +92,8 @@ export type HomePresentationCard =
       savedAt: string;
       updatedAt: string | null;
       homePreviewImageUrl?: string;
+      homeFirstSlideReplica?: Slide;
+      homePreviewDeckVisualTheme?: DeckVisualTheme;
     };
 
 export function homePresentationCardKey(card: HomePresentationCard): string {

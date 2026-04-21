@@ -33,7 +33,10 @@ import {
   DECK_COVER_CLOUD_STORAGE_BASENAME,
   isPersistedSlaimDeckCoverSlide,
 } from "../constants/deckCover";
-import { normalizeDeckVisualTheme } from "../domain/entities";
+import {
+  normalizeDeckVisualTheme,
+  type DeckVisualTheme,
+} from "../domain/entities";
 import {
   isSlideCanvasScene,
   normalizeSlideMatrixData,
@@ -281,6 +284,10 @@ export interface CloudPresentationListItem {
    * Se rellena al listar.
    */
   homePreviewImageUrl?: string;
+  /** Primer slide resuelto (réplica visual del home) si no hay portada Slaim. */
+  homeFirstSlideReplica?: Slide;
+  /** Tema del doc principal (para pintar la réplica como en el editor). */
+  homePreviewDeckVisualTheme?: DeckVisualTheme;
 }
 
 function userPresentationsRef(db: import("firebase/firestore").Firestore, uid: string) {
@@ -303,6 +310,97 @@ function safeStorageLeafName(raw: string | undefined | null): string | undefined
   const s = typeof raw === "string" ? raw.trim() : "";
   if (!s || s.includes("..") || s.includes("/")) return undefined;
   return s;
+}
+
+/** Timeout por archivo de Storage al descargar presentaciones (evita spinner infinito). */
+const STORAGE_PULL_TIMEOUT_MS = 180_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = globalThis.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (v) => {
+        globalThis.clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        globalThis.clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
+}
+
+/** Primer slide con raster/diagrama resueltos desde Storage (miniatura “réplica” del home). */
+async function loadFirstSlideResolvedForHomeReplica(
+  db: Firestore,
+  st: FirebaseStorage,
+  ownerUid: string,
+  cloudId: string,
+  mainData: Record<string, unknown>,
+): Promise<Slide | undefined> {
+  const expectedSlideCount = Number(mainData.slideCount ?? 0);
+  if (expectedSlideCount < 1) return undefined;
+  const prefix = storagePrefix(ownerUid, cloudId);
+  const slideImagePaths = (mainData.slideImagePaths as Record<string, string>) ?? {};
+  const excalidrawPaths = (mainData.excalidrawPaths as Record<string, string>) ?? {};
+  const deckCoverLeaf = safeStorageLeafName(String(mainData.deckCoverImageFile ?? ""));
+  const inlineSlides = mainData.slides;
+  const isV1 =
+    Array.isArray(inlineSlides) && (inlineSlides as unknown[]).length > 0;
+  let row: Record<string, unknown> | undefined;
+  if (isV1) {
+    row = (inlineSlides as Record<string, unknown>[])[0];
+  } else {
+    const s0 = await getDoc(
+      doc(db, "users", ownerUid, "presentations", cloudId, "slides", "0"),
+    );
+    if (!s0.exists()) return undefined;
+    row = s0.data() as Record<string, unknown>;
+  }
+  if (!row) return undefined;
+  const base = plainToSlide(row);
+
+  const imageUrl = await (async (): Promise<string | undefined> => {
+    const i = 0;
+    const fromSlidePaths = slideImagePaths[String(i)]?.trim();
+    const imgName =
+      fromSlidePaths ||
+      (i === 0 && deckCoverLeaf ? deckCoverLeaf : undefined);
+    if (!imgName) return base.imageUrl;
+    const path = `${prefix}/${imgName}`;
+    try {
+      return await withTimeout(
+        getDownloadURL(ref(st, path)),
+        STORAGE_PULL_TIMEOUT_MS,
+        `Home preview: imagen slide 0 (${imgName}).`,
+      );
+    } catch {
+      return base.imageUrl;
+    }
+  })();
+
+  const excalidrawData = await (async (): Promise<string | undefined> => {
+    const excName = excalidrawPaths["0"];
+    if (!excName) return base.excalidrawData;
+    const path = `${prefix}/${excName}`;
+    try {
+      const bytes = await withTimeout(
+        getBytes(ref(st, path)),
+        STORAGE_PULL_TIMEOUT_MS,
+        "Home preview: diagrama slide 0.",
+      );
+      return new TextDecoder().decode(bytes);
+    } catch {
+      return base.excalidrawData;
+    }
+  })();
+
+  return {
+    ...base,
+    ...(imageUrl !== undefined ? { imageUrl } : {}),
+    ...(excalidrawData !== undefined ? { excalidrawData } : {}),
+  };
 }
 
 async function deckCoverPreviewDownloadUrl(
@@ -329,7 +427,7 @@ async function enrichCloudPresentationItemsWithDeckCoverPreview(
 ): Promise<CloudPresentationListItem[]> {
   return Promise.all(
     items.map(async (item) => {
-      if (item.homePreviewImageUrl) return item;
+      if (item.homePreviewImageUrl || item.homeFirstSlideReplica) return item;
       const key = `${item.ownerUid}::${item.cloudId}`;
       let main = mainDocByOwnerCloud?.get(key);
       if (!main) {
@@ -337,8 +435,33 @@ async function enrichCloudPresentationItemsWithDeckCoverPreview(
         if (!snap.exists()) return item;
         main = snap.data() as Record<string, unknown>;
       }
-      const url = await deckCoverPreviewDownloadUrl(st, item.ownerUid, item.cloudId, main);
-      return url ? { ...item, homePreviewImageUrl: url } : item;
+      const deckUrl = await deckCoverPreviewDownloadUrl(
+        st,
+        item.ownerUid,
+        item.cloudId,
+        main,
+      );
+      if (deckUrl) return { ...item, homePreviewImageUrl: deckUrl };
+      try {
+        const slide0 = await loadFirstSlideResolvedForHomeReplica(
+          db,
+          st,
+          item.ownerUid,
+          item.cloudId,
+          main,
+        );
+        return slide0
+          ? {
+              ...item,
+              homeFirstSlideReplica: slide0,
+              homePreviewDeckVisualTheme: normalizeDeckVisualTheme(
+                main.deckVisualTheme,
+              ),
+            }
+          : item;
+      } catch {
+        return item;
+      }
     }),
   );
 }
@@ -429,25 +552,6 @@ async function fetchUrlAsBytes(url: string): Promise<{ bytes: Uint8Array; conten
   } catch {
     return null;
   }
-}
-
-/** Timeout por archivo de Storage al descargar presentaciones (evita spinner infinito). */
-const STORAGE_PULL_TIMEOUT_MS = 180_000;
-
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = globalThis.setTimeout(() => reject(new Error(message)), ms);
-    promise.then(
-      (v) => {
-        globalThis.clearTimeout(id);
-        resolve(v);
-      },
-      (e) => {
-        globalThis.clearTimeout(id);
-        reject(e);
-      }
-    );
-  });
 }
 
 function slideToPlain(s: Slide): Record<string, unknown> {

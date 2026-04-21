@@ -4,7 +4,8 @@ import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import { HomePresentationDeckCarousel } from "./HomePresentationDeckCarousel";
 import type { PresentationModel } from "./PromptInput";
-import type { HomePresentationCard } from "../../types";
+import type { DeckVisualTheme } from "../../domain/entities";
+import type { HomePresentationCard, Slide } from "../../types";
 import type { PromptAttachment } from "../../utils/promptAttachments";
 
 export interface HomeWithCarouselProps {
@@ -30,6 +31,11 @@ export interface HomeWithCarouselProps {
   onGenerateCover: (id: string) => void;
   generatingCoverId: string | null;
   coverImageCache: Record<string, string>;
+  homeFirstSlideReplicaBySavedId?: Record<string, Slide | undefined>;
+  homeFirstSlideReplicaDeckThemeBySavedId?: Record<
+    string,
+    DeckVisualTheme | undefined
+  >;
   cloudSyncAvailable?: boolean;
   onSyncToCloud?: (id: string) => void;
   syncingToCloudId?: string | null;
@@ -64,6 +70,8 @@ export function HomeWithCarousel({
   onGenerateCover,
   generatingCoverId,
   coverImageCache,
+  homeFirstSlideReplicaBySavedId,
+  homeFirstSlideReplicaDeckThemeBySavedId,
   cloudSyncAvailable = false,
   onSyncToCloud,
   syncingToCloudId = null,
@@ -154,6 +162,10 @@ export function HomeWithCarousel({
               <HomePresentationDeckCarousel
                 homePresentationCards={homePresentationCards}
                 coverImageCache={coverImageCache}
+                homeFirstSlideReplicaBySavedId={homeFirstSlideReplicaBySavedId}
+                homeFirstSlideReplicaDeckThemeBySavedId={
+                  homeFirstSlideReplicaDeckThemeBySavedId
+                }
                 generatingCoverId={generatingCoverId}
                 syncingToCloudId={syncingToCloudId}
                 onOpenSaved={onOpenSaved}

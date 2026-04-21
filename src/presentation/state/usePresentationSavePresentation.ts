@@ -40,13 +40,6 @@ export function usePresentationSavePresentation(
       let savedId: string | null = null;
       try {
         if (d.currentSavedId) {
-          if (!isTauriRuntime()) {
-            d.setSaveMessage(
-              "En el navegador no hay copia local de esta presentación. Usa la app de escritorio o abre el deck desde la nube.",
-            );
-            setTimeout(() => d.setSaveMessage(null), 4200);
-            return null;
-          }
           await updatePresentation(
             d.currentSavedId,
             full,

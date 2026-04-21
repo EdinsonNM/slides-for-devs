@@ -82,6 +82,14 @@ export function usePresentationHomeCards({
         ...(item.homePreviewImageUrl
           ? { homePreviewImageUrl: item.homePreviewImageUrl }
           : {}),
+        ...(item.homeFirstSlideReplica
+          ? { homeFirstSlideReplica: item.homeFirstSlideReplica }
+          : {}),
+        ...(item.homePreviewDeckVisualTheme
+          ? {
+              homePreviewDeckVisualTheme: item.homePreviewDeckVisualTheme,
+            }
+          : {}),
       }));
 
     const cloudOnlyShared: HomePresentationCard[] = cloudSharedSnapshot
@@ -99,6 +107,14 @@ export function usePresentationHomeCards({
         updatedAt: item.updatedAt,
         ...(item.homePreviewImageUrl
           ? { homePreviewImageUrl: item.homePreviewImageUrl }
+          : {}),
+        ...(item.homeFirstSlideReplica
+          ? { homeFirstSlideReplica: item.homeFirstSlideReplica }
+          : {}),
+        ...(item.homePreviewDeckVisualTheme
+          ? {
+              homePreviewDeckVisualTheme: item.homePreviewDeckVisualTheme,
+            }
           : {}),
       }));
 

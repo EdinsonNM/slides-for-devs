@@ -45,30 +45,6 @@ export function isPersistedSlaimDeckCoverSlide(slide: Slide | undefined): boolea
   return p === DECK_COVER_IMAGE_PROMPT || p === LEGACY_DECK_COVER_IMAGE_PROMPT;
 }
 
-/** URLs que el home puede usar en `background-image` / `<img>` sin protocolos opacos. */
-export function isHomePreviewableSlideImageUrl(url: string): boolean {
-  const u = url.trim();
-  if (!u) return false;
-  return (
-    u.startsWith("data:") ||
-    u.startsWith("blob:") ||
-    u.startsWith("http://") ||
-    u.startsWith("https://")
-  );
-}
-
-/**
- * Portada Slaim si aplica; si no, la imagen del primer slide (misma URL que en el editor).
- * Así el carrusel del home muestra miniatura aunque no exista portada generada.
- */
-export function firstSlideHomePreviewImageUrl(first?: Slide): string | undefined {
-  const slaim = firstSlideDeckCoverImageUrl(first);
-  if (slaim) return slaim;
-  const raw = first?.imageUrl?.trim();
-  if (raw && isHomePreviewableSlideImageUrl(raw)) return raw;
-  return undefined;
-}
-
 export function mascotCoverReferenceFetchUrl(): string {
   const base = import.meta.env.BASE_URL ?? "/";
   const normalized = base.endsWith("/") ? base : `${base}/`;

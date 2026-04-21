@@ -35,6 +35,9 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
       setNarrativeNotes: deps.setNarrativeNotes,
       coverPrefetchSavedAtRef: deps.coverPrefetchSavedAtRef,
       setCoverImageCache: deps.setCoverImageCache,
+      setHomeFirstSlideReplicaBySavedId: deps.setHomeFirstSlideReplicaBySavedId,
+      setHomeFirstSlideReplicaDeckThemeBySavedId:
+        deps.setHomeFirstSlideReplicaDeckThemeBySavedId,
     },
   );
 

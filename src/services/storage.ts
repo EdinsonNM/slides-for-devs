@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isTauriRuntime } from "../utils/isTauriRuntime";
 import type {
   Presentation,
   SavedCharacter,
@@ -10,7 +11,66 @@ import type {
 
 const CHARACTERS_STORAGE_KEY = "slides-for-devs-characters";
 const GENERATED_RESOURCES_STORAGE_PREFIX = "slides-for-devs-generated-resources";
+const PRESENTATIONS_WEB_STORAGE_PREFIX = "slides-for-devs-presentations";
 const MAX_WEB_GENERATED_RESOURCES = 100;
+
+/** Copia local en navegador: cuerpo + metadatos de nube en un solo JSON por ámbito. */
+type WebPresentationRecord = SavedPresentation & {
+  cloudId?: string;
+  cloudSyncedAt?: string;
+  cloudRevision?: number;
+  localBodyCleared?: boolean;
+  sharedCloudSource?: string;
+};
+
+function presentationsWebStorageKey(accountScope: string): string {
+  return `${PRESENTATIONS_WEB_STORAGE_PREFIX}:${accountScope}`;
+}
+
+function readWebPresentationRecords(
+  accountScope: string,
+): WebPresentationRecord[] {
+  const raw = localStorage.getItem(presentationsWebStorageKey(accountScope));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as WebPresentationRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeWebPresentationRecords(
+  accountScope: string,
+  records: WebPresentationRecord[],
+): void {
+  localStorage.setItem(
+    presentationsWebStorageKey(accountScope),
+    JSON.stringify(records),
+  );
+}
+
+function recordToMeta(r: WebPresentationRecord): SavedPresentationMeta {
+  return {
+    id: r.id,
+    topic: r.topic,
+    savedAt: r.savedAt,
+    slideCount: r.localBodyCleared ? 0 : r.slides.length,
+    cloudId: r.cloudId,
+    cloudSyncedAt: r.cloudSyncedAt,
+    cloudRevision: r.cloudRevision,
+    localBodyCleared: r.localBodyCleared,
+    sharedCloudSource: r.sharedCloudSource,
+  };
+}
+
+function sortPresentationMetasDesc(
+  records: WebPresentationRecord[],
+): SavedPresentationMeta[] {
+  return [...records]
+    .sort((a, b) => (a.savedAt < b.savedAt ? 1 : a.savedAt > b.savedAt ? -1 : 0))
+    .map(recordToMeta);
+}
 
 /** Ámbito SQLite para sesión sin cuenta; con sesión Firebase usar `user.uid`. */
 export const LOCAL_ACCOUNT_SCOPE_GUEST = "__guest__";
@@ -42,11 +102,26 @@ function readWebGeneratedResources(
   }
 }
 
-/** Guarda la presentación en SQLite (backend) y devuelve su id */
+/** Guarda la presentación en SQLite (Tauri) o localStorage (navegador) y devuelve su id */
 export async function savePresentation(
   presentation: Presentation,
   accountScope: string
 ): Promise<string> {
+  if (!isTauriRuntime()) {
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    const savedAt = new Date().toISOString();
+    const record: WebPresentationRecord = {
+      ...presentation,
+      id,
+      savedAt,
+    };
+    const prev = readWebPresentationRecords(accountScope);
+    writeWebPresentationRecords(accountScope, [record, ...prev]);
+    return id;
+  }
   return invoke<string>("save_presentation", {
     presentation,
     accountScope,
@@ -59,6 +134,30 @@ export async function updatePresentation(
   presentation: Presentation,
   accountScope: string
 ): Promise<void> {
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    const idx = prev.findIndex((p) => p.id === id);
+    if (idx < 0) {
+      throw new Error("Presentation not found");
+    }
+    const existing = prev[idx];
+    const savedAt = new Date().toISOString();
+    const next: WebPresentationRecord = {
+      ...presentation,
+      id,
+      savedAt,
+      cloudId: existing.cloudId,
+      cloudSyncedAt: existing.cloudSyncedAt,
+      cloudRevision: existing.cloudRevision,
+      sharedCloudSource: existing.sharedCloudSource,
+      localBodyCleared:
+        presentation.slides.length === 0 ? existing.localBodyCleared : false,
+    };
+    const merged = [...prev];
+    merged[idx] = next;
+    writeWebPresentationRecords(accountScope, merged);
+    return;
+  }
   await invoke("update_presentation", {
     id,
     presentation,
@@ -70,6 +169,9 @@ export async function updatePresentation(
 export async function listPresentations(
   accountScope: string
 ): Promise<SavedPresentationMeta[]> {
+  if (!isTauriRuntime()) {
+    return sortPresentationMetasDesc(readWebPresentationRecords(accountScope));
+  }
   const list = await invoke<SavedPresentationMeta[]>("list_presentations", {
     accountScope,
   });
@@ -81,6 +183,22 @@ export async function loadPresentation(
   id: string,
   accountScope: string
 ): Promise<SavedPresentation> {
+  if (!isTauriRuntime()) {
+    const rec = readWebPresentationRecords(accountScope).find((p) => p.id === id);
+    if (!rec) {
+      throw new Error("Presentation not found");
+    }
+    return {
+      id: rec.id,
+      savedAt: rec.savedAt,
+      topic: rec.topic,
+      slides: rec.slides,
+      characterId: rec.characterId,
+      deckVisualTheme: rec.deckVisualTheme,
+      deckNarrativePresetId: rec.deckNarrativePresetId,
+      narrativeNotes: rec.narrativeNotes,
+    };
+  }
   return invoke<SavedPresentation>("load_presentation", {
     id,
     accountScope,
@@ -92,6 +210,14 @@ export async function deletePresentation(
   id: string,
   accountScope: string
 ): Promise<void> {
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    writeWebPresentationRecords(
+      accountScope,
+      prev.filter((p) => p.id !== id),
+    );
+    return;
+  }
   await invoke("delete_presentation", { id, accountScope });
 }
 
@@ -100,6 +226,22 @@ export async function clearPresentationLocalBody(
   id: string,
   accountScope: string
 ): Promise<void> {
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    const idx = prev.findIndex((p) => p.id === id);
+    if (idx < 0) {
+      throw new Error("Presentation not found");
+    }
+    const existing = prev[idx];
+    prev[idx] = {
+      ...existing,
+      slides: [],
+      localBodyCleared: true,
+      savedAt: new Date().toISOString(),
+    };
+    writeWebPresentationRecords(accountScope, prev);
+    return;
+  }
   await invoke("clear_presentation_local_body", { id, accountScope });
 }
 
@@ -108,6 +250,16 @@ export async function importSavedPresentation(
   saved: SavedPresentation,
   accountScope: string
 ): Promise<void> {
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    const without = prev.filter((p) => p.id !== saved.id);
+    const record: WebPresentationRecord = {
+      ...saved,
+      localBodyCleared: false,
+    };
+    writeWebPresentationRecords(accountScope, [record, ...without]);
+    return;
+  }
   await invoke("import_saved_presentation", {
     saved,
     accountScope,
@@ -121,6 +273,33 @@ export async function setPresentationCloudState(
   cloudRevision: number | null | undefined,
   accountScope: string
 ): Promise<void> {
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    const idx = prev.findIndex((p) => p.id === id);
+    if (idx < 0) {
+      throw new Error("Presentation not found");
+    }
+    const existing = prev[idx];
+    const next: WebPresentationRecord = { ...existing };
+    if (cloudId === null || cloudId === "") {
+      delete next.cloudId;
+    } else if (cloudId !== undefined) {
+      next.cloudId = cloudId;
+    }
+    if (cloudSyncedAt === null || cloudSyncedAt === "") {
+      delete next.cloudSyncedAt;
+    } else if (cloudSyncedAt !== undefined) {
+      next.cloudSyncedAt = cloudSyncedAt;
+    }
+    if (cloudRevision === null || cloudRevision === undefined) {
+      delete next.cloudRevision;
+    } else {
+      next.cloudRevision = cloudRevision;
+    }
+    prev[idx] = next;
+    writeWebPresentationRecords(accountScope, prev);
+    return;
+  }
   await invoke("set_presentation_cloud_state", {
     id,
     cloudId: cloudId ?? undefined,
@@ -136,6 +315,23 @@ export async function setPresentationSharedCloudSource(
   sharedCloudSource: string | null,
   accountScope: string
 ): Promise<void> {
+  if (!isTauriRuntime()) {
+    const prev = readWebPresentationRecords(accountScope);
+    const idx = prev.findIndex((p) => p.id === id);
+    if (idx < 0) {
+      throw new Error("Presentation not found");
+    }
+    const existing = prev[idx];
+    const next: WebPresentationRecord = { ...existing };
+    if (sharedCloudSource === null || sharedCloudSource === "") {
+      delete next.sharedCloudSource;
+    } else {
+      next.sharedCloudSource = sharedCloudSource;
+    }
+    prev[idx] = next;
+    writeWebPresentationRecords(accountScope, prev);
+    return;
+  }
   await invoke("set_presentation_shared_cloud_source", {
     id,
     sharedCloudSource: sharedCloudSource ?? undefined,
@@ -148,6 +344,9 @@ export async function setPresentationSharedCloudSource(
  * Devuelve el número de archivos migrados. Se puede llamar al iniciar la app.
  */
 export async function migrateJsonPresentations(): Promise<number> {
+  if (!isTauriRuntime()) {
+    return 0;
+  }
   return invoke<number>("migrate_json_presentations");
 }
 

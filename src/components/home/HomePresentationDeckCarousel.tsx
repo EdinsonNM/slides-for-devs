@@ -14,7 +14,8 @@ import {
 } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { HomePresentationCardTile } from "./HomePresentationCardTile";
-import type { HomePresentationCard } from "../../types";
+import type { DeckVisualTheme } from "../../domain/entities";
+import type { HomePresentationCard, Slide } from "../../types";
 import { homePresentationCardKey } from "../../types";
 import { cn } from "../../utils/cn";
 
@@ -58,6 +59,11 @@ const EDGE_FADE_WIDTH = "min(2.5%, 1.25rem)";
 export interface HomePresentationDeckCarouselProps {
   homePresentationCards: HomePresentationCard[];
   coverImageCache: Record<string, string>;
+  homeFirstSlideReplicaBySavedId?: Record<string, Slide | undefined>;
+  homeFirstSlideReplicaDeckThemeBySavedId?: Record<
+    string,
+    DeckVisualTheme | undefined
+  >;
   generatingCoverId: string | null;
   syncingToCloudId: string | null;
   onOpenSaved: (id: string) => void;
@@ -78,6 +84,8 @@ function clamp(n: number, min: number, max: number) {
 export function HomePresentationDeckCarousel({
   homePresentationCards,
   coverImageCache,
+  homeFirstSlideReplicaBySavedId,
+  homeFirstSlideReplicaDeckThemeBySavedId,
   generatingCoverId,
   syncingToCloudId,
   onOpenSaved,
@@ -317,6 +325,10 @@ export function HomePresentationDeckCarousel({
                     card={card}
                     index={index}
                     coverImageCache={coverImageCache}
+                    homeFirstSlideReplicaBySavedId={homeFirstSlideReplicaBySavedId}
+                    homeFirstSlideReplicaDeckThemeBySavedId={
+                      homeFirstSlideReplicaDeckThemeBySavedId
+                    }
                     generatingCoverId={generatingCoverId}
                     syncingToCloudId={syncingToCloudId}
                     onOpenSaved={onOpenSaved}

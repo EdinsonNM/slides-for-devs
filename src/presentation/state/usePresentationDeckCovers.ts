@@ -4,15 +4,19 @@ import {
   DECK_COVER_IMAGE_PROMPT,
   DECK_COVER_STYLE_PROMPT,
   buildDeckCoverImageUserPrompt,
-  firstSlideHomePreviewImageUrl,
+  firstSlideDeckCoverImageUrl,
   loadSlaimMascotCoverReferenceDataUrl,
   SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
 } from "../../constants/deckCover";
-import { normalizeDeckVisualTheme } from "../../domain/entities";
+import {
+  normalizeDeckVisualTheme,
+  type DeckVisualTheme,
+} from "../../domain/entities";
 import { listPresentations, loadPresentation, updatePresentation } from "../../services/storage";
 import { getGeminiApiKey } from "../../services/apiConfig";
 import { generateImage as generateImageUseCase } from "../../composition/container";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
+import type { Slide } from "../../types";
 import type { PresentationDeckCoversDeps } from "./presentationDeckCoversDeps";
 
 export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
@@ -24,6 +28,12 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
   const [coverImageCache, setCoverImageCache] = useState<
     Record<string, string>
   >({});
+  const [homeFirstSlideReplicaBySavedId, setHomeFirstSlideReplicaBySavedId] =
+    useState<Record<string, Slide | undefined>>({});
+  const [
+    homeFirstSlideReplicaDeckThemeBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
+  ] = useState<Record<string, DeckVisualTheme | undefined>>({});
   const coverPrefetchSavedAtRef = useRef<Record<string, string>>({});
   const coverPrefetchGenerationRef = useRef(0);
 
@@ -47,9 +57,33 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           if (coverPrefetchGenerationRef.current !== generation) break;
           if (saved.savedAt !== meta.savedAt) continue;
           coverPrefetchSavedAtRef.current[meta.id] = saved.savedAt;
-          const coverUrl = firstSlideHomePreviewImageUrl(saved.slides[0]);
-          if (coverUrl) {
-            setCoverImageCache((prev) => ({ ...prev, [meta.id]: coverUrl }));
+          const deckUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
+          if (deckUrl) {
+            setCoverImageCache((prev) => ({ ...prev, [meta.id]: deckUrl }));
+            setHomeFirstSlideReplicaBySavedId((prev) => {
+              const next = { ...prev };
+              delete next[meta.id];
+              return next;
+            });
+            setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => {
+              const next = { ...prev };
+              delete next[meta.id];
+              return next;
+            });
+          } else if (saved.slides[0]) {
+            setCoverImageCache((prev) => {
+              const next = { ...prev };
+              delete next[meta.id];
+              return next;
+            });
+            setHomeFirstSlideReplicaBySavedId((prev) => ({
+              ...prev,
+              [meta.id]: { ...saved.slides[0] },
+            }));
+            setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => ({
+              ...prev,
+              [meta.id]: normalizeDeckVisualTheme(saved.deckVisualTheme),
+            }));
           }
         } catch {
           /* listado ya mostró la tarjeta; fallo al leer portada no bloquea */
@@ -127,6 +161,16 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           void d.runAutoSyncAfterSaveRef.current(id);
         }
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
+        setHomeFirstSlideReplicaBySavedId((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
         trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
       } else {
         alert(
@@ -147,6 +191,10 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
     generatingCoverId,
     coverImageCache,
     setCoverImageCache,
+    homeFirstSlideReplicaBySavedId,
+    setHomeFirstSlideReplicaBySavedId,
+    homeFirstSlideReplicaDeckThemeBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
     coverPrefetchSavedAtRef,
     handleGenerateCoverForPresentation,
   };

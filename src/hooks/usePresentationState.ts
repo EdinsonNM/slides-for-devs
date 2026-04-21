@@ -403,6 +403,10 @@ export function usePresentationState() {
     generatingCoverId,
     coverImageCache,
     setCoverImageCache,
+    homeFirstSlideReplicaBySavedId,
+    setHomeFirstSlideReplicaBySavedId,
+    homeFirstSlideReplicaDeckThemeBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
     coverPrefetchSavedAtRef,
     handleGenerateCoverForPresentation,
   } = usePresentationDeckCovers({
@@ -496,6 +500,8 @@ export function usePresentationState() {
     setNarrativeNotes,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
+    setHomeFirstSlideReplicaBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
     refreshSavedList,
     webCloudSessionRef,
   });
@@ -827,6 +833,8 @@ export function usePresentationState() {
     setCurrentIndex,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
+    setHomeFirstSlideReplicaBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
     currentSavedId,
     setTopic,
     setCurrentSavedId,
@@ -1123,6 +1131,8 @@ export function usePresentationState() {
     generatingCoverId,
     handleGenerateCoverForPresentation,
     coverImageCache,
+    homeFirstSlideReplicaBySavedId,
+    homeFirstSlideReplicaDeckThemeBySavedId,
     cloudSyncAvailable:
       !!user &&
       firebaseReady === true &&

@@ -1,6 +1,7 @@
 import { useLayoutEffect } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { Slide } from "../../types";
+import type { DeckVisualTheme } from "../../domain/entities";
 import type { PresentationCloudResolveRemoteEditorDeps } from "./presentationCloudPresentationDeps";
 import type { ApplySavedPresentationEditorContext } from "./applySavedPresentationToEditorState";
 import type { DeckNavigationActions } from "./usePresentationEditorKeyboard";
@@ -27,6 +28,12 @@ export type PresentationOrchestratorRefSyncArgs = {
   ) => void;
   coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
   setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
+  setHomeFirstSlideReplicaBySavedId: Dispatch<
+    SetStateAction<Record<string, Slide | undefined>>
+  >;
+  setHomeFirstSlideReplicaDeckThemeBySavedId: Dispatch<
+    SetStateAction<Record<string, DeckVisualTheme | undefined>>
+  >;
 } & PresentationCloudResolveRemoteEditorDeps;
 
 /**
@@ -56,6 +63,8 @@ export function usePresentationOrchestratorRefSync(
     setCurrentIndex,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
+    setHomeFirstSlideReplicaBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
     currentSavedId,
     setTopic,
     setCurrentSavedId,
@@ -126,6 +135,8 @@ export function usePresentationOrchestratorRefSync(
       setNarrativeNotes,
       coverPrefetchSavedAtRef,
       setCoverImageCache,
+      setHomeFirstSlideReplicaBySavedId,
+      setHomeFirstSlideReplicaDeckThemeBySavedId,
     };
   }, [
     applySavedPresentationForCloudWebRef,
@@ -141,5 +152,7 @@ export function usePresentationOrchestratorRefSync(
     setNarrativeNotes,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
+    setHomeFirstSlideReplicaBySavedId,
+    setHomeFirstSlideReplicaDeckThemeBySavedId,
   ]);
 }

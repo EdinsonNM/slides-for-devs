@@ -39,6 +39,11 @@ export interface PreviewSlideContentProps {
    * llene el contenedor (los diagramas isométricos en SVG no queden con alto 0).
    */
   pptxExportFrame?: boolean;
+  /**
+   * Oculta la etiqueta exterior «Sección n» (cromo del presentador/vista previa, no del slide).
+   * Útil en miniaturas del home u otros embeds donde solo debe verse el lienzo 16:9.
+   */
+  hideSectionLabel?: boolean;
 }
 
 /**
@@ -54,6 +59,7 @@ export function PreviewSlideContent({
   disableEntryMotion = false,
   fillExportContainer = false,
   pptxExportFrame = false,
+  hideSectionLabel = false,
 }: PreviewSlideContentProps) {
   const ctx = usePresentationOptional();
   const deckVisualTheme =
@@ -76,7 +82,7 @@ export function PreviewSlideContent({
   if (disableEntryMotion) {
     return (
       <div key={slide.id} className={outerClass}>
-        {!isFullscreen && !pptxExportFrame && (
+        {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
           <div className="shrink-0 self-start px-0.5">
             <span
               className={cn("font-bold uppercase tracking-[0.2em]", sectionLabelClass)}
@@ -117,7 +123,7 @@ export function PreviewSlideContent({
       exit={{ opacity: 0, x: -20 }}
       className={outerClass}
     >
-      {!isFullscreen && (
+      {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
         <div className="shrink-0 self-start px-0.5">
           <span
             className={cn("font-bold uppercase tracking-[0.2em]", sectionLabelClass)}

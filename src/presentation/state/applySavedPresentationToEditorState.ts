@@ -4,7 +4,7 @@ import { normalizeDeckVisualTheme } from "../../domain/entities";
 import { DEFAULT_DECK_NARRATIVE_PRESET_ID } from "../../constants/presentationNarrativePresets";
 import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { formatMarkdown } from "../../utils/markdown";
-import { firstSlideHomePreviewImageUrl } from "../../constants/deckCover";
+import { firstSlideDeckCoverImageUrl } from "../../constants/deckCover";
 import type { SavedPresentation, Slide } from "../../types";
 
 export type ApplySavedPresentationEditorContext = {
@@ -28,6 +28,12 @@ export type ApplySavedPresentationEditorContext = {
   setNarrativeNotes: (notes: string | ((prev: string) => string)) => void;
   coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
   setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
+  setHomeFirstSlideReplicaBySavedId: Dispatch<
+    SetStateAction<Record<string, Slide | undefined>>
+  >;
+  setHomeFirstSlideReplicaDeckThemeBySavedId: Dispatch<
+    SetStateAction<Record<string, DeckVisualTheme | undefined>>
+  >;
 };
 
 /**
@@ -59,8 +65,32 @@ export function applySavedPresentationToEditorState(
   );
   ctx.setNarrativeNotes(saved.narrativeNotes ?? "");
   ctx.coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
-  const coverUrl = firstSlideHomePreviewImageUrl(saved.slides[0]);
-  if (coverUrl) {
-    ctx.setCoverImageCache((prev) => ({ ...prev, [saved.id]: coverUrl }));
+  const deckCoverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
+  if (deckCoverUrl) {
+    ctx.setCoverImageCache((prev) => ({ ...prev, [saved.id]: deckCoverUrl }));
+    ctx.setHomeFirstSlideReplicaBySavedId((prev) => {
+      const next = { ...prev };
+      delete next[saved.id];
+      return next;
+    });
+    ctx.setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => {
+      const next = { ...prev };
+      delete next[saved.id];
+      return next;
+    });
+  } else if (saved.slides[0]) {
+    ctx.setCoverImageCache((prev) => {
+      const next = { ...prev };
+      delete next[saved.id];
+      return next;
+    });
+    ctx.setHomeFirstSlideReplicaBySavedId((prev) => ({
+      ...prev,
+      [saved.id]: { ...saved.slides[0] },
+    }));
+    ctx.setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => ({
+      ...prev,
+      [saved.id]: normalizeDeckVisualTheme(saved.deckVisualTheme),
+    }));
   }
 }

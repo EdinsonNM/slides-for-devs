@@ -11,7 +11,12 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
-import type { HomePresentationCard } from "../../types";
+import {
+  DEFAULT_DECK_VISUAL_THEME,
+  type DeckVisualTheme,
+} from "../../domain/entities";
+import type { HomePresentationCard, Slide } from "../../types";
+import { HomeDeckSlideReplicaFill } from "./HomeDeckSlideReplicaFill";
 import { PresentationStorageBadge } from "./PresentationStorageBadge";
 import { presentationHeroCardBorderClass } from "../../utils/presentationStorageUi";
 
@@ -82,6 +87,12 @@ export interface HomePresentationCardTileProps {
   card: HomePresentationCard;
   index: number;
   coverImageCache: Record<string, string>;
+  /** Réplica del primer slide (local) cuando no hay portada Slaim. */
+  homeFirstSlideReplicaBySavedId?: Record<string, Slide | undefined>;
+  homeFirstSlideReplicaDeckThemeBySavedId?: Record<
+    string,
+    DeckVisualTheme | undefined
+  >;
   generatingCoverId: string | null;
   syncingToCloudId: string | null;
   onOpenSaved: (id: string) => void;
@@ -103,6 +114,8 @@ export function HomePresentationCardTile({
   card,
   index,
   coverImageCache,
+  homeFirstSlideReplicaBySavedId = {},
+  homeFirstSlideReplicaDeckThemeBySavedId = {},
   generatingCoverId,
   syncingToCloudId,
   onOpenSaved,
@@ -138,6 +151,9 @@ export function HomePresentationCardTile({
         : new Date(card.savedAt);
     const cloudHeroUrl = card.homePreviewImageUrl?.trim();
     const hasCloudHero = !!cloudHeroUrl;
+    const cloudReplicaSlide = card.homeFirstSlideReplica;
+    const hasCloudReplica = !!cloudReplicaSlide && !hasCloudHero;
+    const cloudHasHeroVisual = hasCloudHero || hasCloudReplica;
 
     return (
       <motion.div
@@ -160,10 +176,19 @@ export function HomePresentationCardTile({
       >
         {hasCloudHero ? (
           <HeroCardMediaLayer coverUrl={cloudHeroUrl} />
+        ) : hasCloudReplica ? (
+          <div className="absolute inset-0 z-0 overflow-hidden" aria-hidden>
+            <HomeDeckSlideReplicaFill
+              slide={cloudReplicaSlide}
+              deckVisualTheme={
+                card.homePreviewDeckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME
+              }
+            />
+          </div>
         ) : (
           <HeroCardMediaLayer gradientClass={CLOUD_ONLY_GRADIENT} />
         )}
-        {hasCloudHero ? (
+        {cloudHasHeroVisual ? (
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
             aria-hidden
@@ -179,7 +204,7 @@ export function HomePresentationCardTile({
           }
           className={cn(
             "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-0 disabled:cursor-wait",
-            hasCloudHero
+            cloudHasHeroVisual
               ? "focus:ring-sky-500/40 focus:ring-white/25"
               : "focus:ring-sky-500/50",
           )}
@@ -230,6 +255,9 @@ export function HomePresentationCardTile({
         : new Date(card.savedAt);
     const cloudHeroUrl = card.homePreviewImageUrl?.trim();
     const hasCloudHero = !!cloudHeroUrl;
+    const cloudReplicaSlide = card.homeFirstSlideReplica;
+    const hasCloudReplica = !!cloudReplicaSlide && !hasCloudHero;
+    const cloudHasHeroVisual = hasCloudHero || hasCloudReplica;
 
     return (
       <motion.div
@@ -252,10 +280,19 @@ export function HomePresentationCardTile({
       >
         {hasCloudHero ? (
           <HeroCardMediaLayer coverUrl={cloudHeroUrl} />
+        ) : hasCloudReplica ? (
+          <div className="absolute inset-0 z-0 overflow-hidden" aria-hidden>
+            <HomeDeckSlideReplicaFill
+              slide={cloudReplicaSlide}
+              deckVisualTheme={
+                card.homePreviewDeckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME
+              }
+            />
+          </div>
         ) : (
           <HeroCardMediaLayer gradientClass={SHARED_ONLY_GRADIENT} />
         )}
-        {hasCloudHero ? (
+        {cloudHasHeroVisual ? (
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
             aria-hidden
@@ -271,7 +308,7 @@ export function HomePresentationCardTile({
           }
           className={cn(
             "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-0 disabled:cursor-wait",
-            hasCloudHero
+            cloudHasHeroVisual
               ? "focus:ring-violet-500/40 focus:ring-white/25"
               : "focus:ring-violet-500/50",
           )}
@@ -316,13 +353,16 @@ export function HomePresentationCardTile({
   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
   const isGeneratingCover = generatingCoverId === p.id;
   const isSyncingCloud = syncingToCloudId === p.id;
-  const slaimCoverUrl = coverImageCache[p.id];
-  const hasSlaimCover = !!slaimCoverUrl;
+  const deckCoverPhotoUrl = coverImageCache[p.id]?.trim();
+  const hasDeckCoverPhoto = !!deckCoverPhotoUrl;
+  const firstSlideReplica = homeFirstSlideReplicaBySavedId[p.id];
+  const hasSlideReplica = !!firstSlideReplica && !hasDeckCoverPhoto;
+  const hasHeroVisual = hasDeckCoverPhoto || hasSlideReplica;
 
-  const actionBtnClass = hasSlaimCover
+  const actionBtnClass = hasHeroVisual
     ? "p-2 rounded-lg bg-black/35 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-black/45 transition-colors"
     : "p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors";
-  const actionDeleteClass = hasSlaimCover
+  const actionDeleteClass = hasHeroVisual
     ? "p-2 rounded-lg bg-black/35 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-red-600/90 hover:ring-red-300/40 transition-colors"
     : "p-2 rounded-lg bg-white/20 hover:bg-red-500/80 text-white transition-colors";
 
@@ -345,12 +385,22 @@ export function HomePresentationCardTile({
       )}
       style={mergedFrameStyle}
     >
-      {hasSlaimCover ? (
-        <HeroCardMediaLayer coverUrl={slaimCoverUrl} />
+      {hasDeckCoverPhoto ? (
+        <HeroCardMediaLayer coverUrl={deckCoverPhotoUrl} />
+      ) : hasSlideReplica ? (
+        <div className="absolute inset-0 z-0 overflow-hidden" aria-hidden>
+          <HomeDeckSlideReplicaFill
+            slide={firstSlideReplica}
+            deckVisualTheme={
+              homeFirstSlideReplicaDeckThemeBySavedId[p.id] ??
+              DEFAULT_DECK_VISUAL_THEME
+            }
+          />
+        </div>
       ) : (
         <HeroCardMediaLayer coverUrl={undefined} gradientClass={gradient} />
       )}
-      {hasSlaimCover ? (
+      {hasHeroVisual ? (
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
           aria-hidden
@@ -363,7 +413,7 @@ export function HomePresentationCardTile({
         onClick={() => onOpenSaved(p.id)}
         className={cn(
           "absolute inset-0 z-[2] flex h-full w-full flex-col p-6 pt-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset text-white",
-          hasSlaimCover
+          hasHeroVisual
             ? "focus-visible:ring-white/40"
             : "focus-visible:ring-white/35",
         )}

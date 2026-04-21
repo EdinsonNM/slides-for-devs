@@ -2,15 +2,17 @@ import { z } from "zod";
 import type { CloudPresentationListItem } from "../../services/presentationCloud";
 
 /** Validación en el borde para ítems devueltos por listados nube antes de guardar en estado. */
-export const cloudPresentationListItemSchema = z.object({
-  cloudId: z.string(),
-  ownerUid: z.string(),
-  topic: z.string(),
-  savedAt: z.string(),
-  updatedAt: z.string().nullable(),
-  source: z.enum(["mine", "shared"]),
-  homePreviewImageUrl: z.string().optional(),
-});
+export const cloudPresentationListItemSchema = z
+  .object({
+    cloudId: z.string(),
+    ownerUid: z.string(),
+    topic: z.string(),
+    savedAt: z.string(),
+    updatedAt: z.string().nullable(),
+    source: z.enum(["mine", "shared"]),
+    homePreviewImageUrl: z.string().optional(),
+  })
+  .passthrough();
 
 export function parseCloudPresentationListItems(
   raw: unknown[],
