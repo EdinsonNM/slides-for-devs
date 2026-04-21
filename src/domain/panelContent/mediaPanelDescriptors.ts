@@ -226,6 +226,22 @@ export class Canvas3dMediaPanelDescriptor extends MediaPanelDescriptor {
   }
 }
 
+export class DataMotionRingMediaPanelDescriptor extends MediaPanelDescriptor {
+  readonly kind = PANEL_CONTENT_KIND.DATA_MOTION_RING;
+
+  override splitPanelOccupied(): boolean {
+    return true;
+  }
+
+  override presenterSummaryBadge(): string | null {
+    return "Aro datos";
+  }
+
+  override sidebarSplitStripSurfaceClass(): string {
+    return "bg-indigo-100/85 dark:bg-indigo-950/45";
+  }
+}
+
 const DESCRIPTORS: Record<PanelContentKind, MediaPanelDescriptor> = {
   [PANEL_CONTENT_KIND.IMAGE]: new ImageMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CODE]: new CodeMediaPanelDescriptor(),
@@ -234,6 +250,7 @@ const DESCRIPTORS: Record<PanelContentKind, MediaPanelDescriptor> = {
   [PANEL_CONTENT_KIND.RIVE]: new RiveMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.PRESENTER_3D]: new Presenter3dMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CANVAS_3D]: new Canvas3dMediaPanelDescriptor(),
+  [PANEL_CONTENT_KIND.DATA_MOTION_RING]: new DataMotionRingMediaPanelDescriptor(),
 };
 
 export function resolveMediaPanelDescriptor(

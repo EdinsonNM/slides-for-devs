@@ -41,6 +41,8 @@ import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
+import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
+import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import {
   PANEL_CONTENT_KIND,
@@ -171,6 +173,15 @@ function mediaBlock(
           />
         </div>
       );
+    case PANEL_CONTENT_KIND.DATA_MOTION_RING:
+      return (
+        <div className="h-full min-h-0 w-full overflow-visible rounded-xl">
+          <DataMotionRingExperience
+            state={normalizeDataMotionRingState(deckSlide.dataMotionRing)}
+            className="h-full min-h-[120px]"
+          />
+        </div>
+      );
     case PANEL_CONTENT_KIND.RIVE: {
       const src = deckSlide.riveUrl?.trim() ?? "";
       if (!src) {
@@ -249,23 +260,34 @@ function CanvasElementReadOnly({
     height: `${rect.h}%`,
     zIndex: z,
   };
-  const shell = "absolute min-h-0 min-w-0 overflow-hidden";
-
-  const rotated = (className: string, children: ReactNode) => (
-    <div
-      className={cn("min-h-0 min-w-0", className)}
-      style={
-        rotation
-          ? {
-              transform: `rotate(${rotation}deg)`,
-              transformOrigin: "center center",
-            }
-          : undefined
-      }
-    >
-      {children}
-    </div>
+  const panelIsDataMotionRing =
+    kind === "mediaPanel" &&
+    resolveMediaPanelDescriptor(panelSlide).kind ===
+      PANEL_CONTENT_KIND.DATA_MOTION_RING;
+  const shell = cn(
+    "absolute min-h-0 min-w-0",
+    panelIsDataMotionRing ? "overflow-visible" : "overflow-hidden",
   );
+
+  const rotated = (className: string, children: ReactNode) => {
+    const style: CSSProperties | undefined = (() => {
+      if (!rotation && !panelIsDataMotionRing) return undefined;
+      const s: CSSProperties = {};
+      if (rotation) {
+        s.transform = `rotate(${rotation}deg)`;
+        s.transformOrigin = "center center";
+      }
+      if (panelIsDataMotionRing) {
+        s.transformStyle = "preserve-3d";
+      }
+      return s;
+    })();
+    return (
+      <div className={cn("min-h-0 min-w-0", className)} style={style}>
+        {children}
+      </div>
+    );
+  };
 
   switch (kind) {
     case "sectionLabel":

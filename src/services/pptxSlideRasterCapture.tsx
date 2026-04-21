@@ -73,6 +73,7 @@ function extraPaintDelayMs(slide: Slide): number {
     return 500;
   }
   if (kind === PANEL_CONTENT_KIND.RIVE && slide.riveUrl?.trim()) return 520;
+  if (kind === PANEL_CONTENT_KIND.DATA_MOTION_RING) return 380;
   return 220;
 }
 

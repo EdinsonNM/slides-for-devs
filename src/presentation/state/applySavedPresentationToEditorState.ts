@@ -6,6 +6,12 @@ import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlid
 import { formatMarkdown } from "../../utils/markdown";
 import { firstSlideDeckCoverImageUrl } from "../../constants/deckCover";
 import type { SavedPresentation, Slide } from "../../types";
+import { clampEditorSlideIndex } from "../../constants/editorNavigation";
+
+export type ApplySavedPresentationOptions = {
+  /** Índice 0-based del slide inicial (p. ej. desde `?slide=` en la URL). */
+  initialSlideIndex?: number;
+};
 
 export type ApplySavedPresentationEditorContext = {
   slidesUndoRef: MutableRefObject<Slide[][]>;
@@ -43,20 +49,25 @@ export type ApplySavedPresentationEditorContext = {
 export function applySavedPresentationToEditorState(
   saved: SavedPresentation,
   ctx: ApplySavedPresentationEditorContext,
+  options?: ApplySavedPresentationOptions,
 ): void {
   ctx.slidesUndoRef.current = [];
   ctx.slidesRedoRef.current = [];
   ctx.setTopic(saved.topic);
-  ctx.setSlides(
-    normalizeSlidesCanvasScenes(
-      saved.slides.map((s) => ({
-        ...s,
-        id: crypto.randomUUID(),
-        content: formatMarkdown(s.content ?? ""),
-      })),
-    ),
+  const normalizedSlides = normalizeSlidesCanvasScenes(
+    saved.slides.map((s) => ({
+      ...s,
+      id: crypto.randomUUID(),
+      content: formatMarkdown(s.content ?? ""),
+    })),
   );
-  ctx.setCurrentIndex(0);
+  ctx.setSlides(normalizedSlides);
+  const slideCount = normalizedSlides.length;
+  const initialIndex =
+    options?.initialSlideIndex !== undefined && slideCount > 0
+      ? clampEditorSlideIndex(options.initialSlideIndex, slideCount)
+      : 0;
+  ctx.setCurrentIndex(slideCount > 0 ? initialIndex : 0);
   ctx.setCurrentSavedId(saved.id);
   ctx.setSelectedCharacterId(saved.characterId ?? null);
   ctx.setDeckVisualThemeState(normalizeDeckVisualTheme(saved.deckVisualTheme));

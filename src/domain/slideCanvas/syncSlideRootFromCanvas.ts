@@ -70,6 +70,18 @@ export function syncSlideRootFromCanvas(slide: Slide): Slide {
       canvas3dGlbUrl: media.canvas3dGlbUrl,
       canvas3dViewState: media.canvas3dViewState,
     };
+    if (
+      normalizePanelContentKind(media.contentType) ===
+      PANEL_CONTENT_KIND.DATA_MOTION_RING
+    ) {
+      if (media.dataMotionRing !== undefined) {
+        next.dataMotionRing = media.dataMotionRing;
+      } else {
+        delete (next as { dataMotionRing?: unknown }).dataMotionRing;
+      }
+    } else {
+      delete (next as { dataMotionRing?: unknown }).dataMotionRing;
+    }
     delete (next as { riveUrl?: unknown }).riveUrl;
     delete (next as { riveStateMachineNames?: unknown }).riveStateMachineNames;
     delete (next as { riveArtboard?: unknown }).riveArtboard;

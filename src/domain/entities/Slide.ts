@@ -1,5 +1,6 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
+import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
 import type { SlideCanvasScene, SlideCodeEditorTheme } from "./SlideCanvas";
 import type { SlideMatrixData } from "./SlideMatrix";
 
@@ -74,6 +75,10 @@ export interface Slide {
   canvas3dGlbUrl?: string;
   /** Vista de cámara guardada para el panel Canvas 3D (mismo formato que Presentador 3D). */
   canvas3dViewState?: Presenter3dViewState;
+  /**
+   * Configuración del panel «aro de datos 3D» (`PANEL_CONTENT_KIND.DATA_MOTION_RING`).
+   */
+  dataMotionRing?: DataMotionRingState;
   contentLayout?: "split" | "full" | "panel-full";
   imageWidthPercent?: number;
   panelHeightPercent?: number;

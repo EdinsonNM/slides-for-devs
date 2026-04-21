@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   Box,
   Code2,
   Film,
@@ -165,6 +166,14 @@ function SidebarMiniMediaBlock({ panelSlide }: { panelSlide: Slide }) {
           Icon={Box}
           surfaceClassName="from-teal-50 to-teal-100/90 dark:from-teal-950/40 dark:to-teal-900/30"
           iconClassName="text-teal-800 dark:text-teal-200"
+        />
+      );
+    case PANEL_CONTENT_KIND.DATA_MOTION_RING:
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={BarChart3}
+          surfaceClassName="from-indigo-50 to-indigo-100/90 dark:from-indigo-950/45 dark:to-indigo-900/35"
+          iconClassName="text-indigo-800 dark:text-indigo-200"
         />
       );
     default: {

@@ -15,6 +15,7 @@ import {
   type ApplySavedPresentationEditorContext,
 } from "./applySavedPresentationToEditorState";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
+import { readEditorSlideIndexFromHash } from "../../constants/editorNavigation";
 import type { SavedPresentationMeta } from "../../types";
 import type { PresentationSavedLibraryDeps } from "./presentationSavedLibraryDeps";
 
@@ -82,7 +83,12 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
         }
       }
       const saved = await loadPresentation(id, x.localAccountScope);
-      applySavedPresentationToEditorState(saved, applySavedEditorCtxRef.current);
+      const urlSlide = readEditorSlideIndexFromHash();
+      applySavedPresentationToEditorState(
+        saved,
+        applySavedEditorCtxRef.current,
+        urlSlide !== null ? { initialSlideIndex: urlSlide } : undefined,
+      );
       x.setShowSavedListModal(false);
       try {
         sessionStorage.setItem(x.lastOpenedSessionKey, id);
@@ -123,9 +129,11 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
           }
         }
         const saved = await loadPresentation(id, x.localAccountScope);
+        const urlSlide = readEditorSlideIndexFromHash();
         applySavedPresentationToEditorState(
           saved,
           applySavedEditorCtxRef.current,
+          urlSlide !== null ? { initialSlideIndex: urlSlide } : undefined,
         );
         return true;
       } catch {

@@ -25,6 +25,10 @@ import {
 import { readPersistedCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import {
+  createDefaultDataMotionRingState,
+  type DataMotionRingState,
+} from "../../domain/dataMotionRing/dataMotionRingModel";
+import {
   PANEL_CONTENT_KIND,
   normalizePanelContentKind,
   resolveMediaPanelDescriptor,
@@ -225,6 +229,9 @@ export function usePresentationSlideCanvasMutations(
             if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.IFRAME_EMBED) {
               delete (o as { iframeEmbedUrl?: string }).iframeEmbedUrl;
             }
+            if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.DATA_MOTION_RING) {
+              delete (o as { dataMotionRing?: unknown }).dataMotionRing;
+            }
             return o;
           },
         );
@@ -239,7 +246,47 @@ export function usePresentationSlideCanvasMutations(
             }),
           );
         }
+        if (contentType === PANEL_CONTENT_KIND.DATA_MOTION_RING) {
+          next = patchSlideMediaPanelByElementId(
+            next,
+            d.canvasTextTargetsRef.current.mediaPanelElementId,
+            (m) => ({
+              ...m,
+              dataMotionRing: m.dataMotionRing ?? createDefaultDataMotionRingState(),
+            }),
+          );
+        }
         updated[idx] = next;
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const setCurrentSlideDataMotionRing = useCallback(
+    (dataMotionRing: DataMotionRingState) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (
+        !slide ||
+        (slide.type !== SLIDE_TYPE.CONTENT && slide.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        return;
+      }
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(
+          cur,
+          d.canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            contentType: PANEL_CONTENT_KIND.DATA_MOTION_RING,
+            dataMotionRing,
+          }),
+        );
         return updated;
       });
     },
@@ -426,5 +473,6 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
     clearCurrentSlideCanvas3dViewState,
+    setCurrentSlideDataMotionRing,
   };
 }

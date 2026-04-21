@@ -7,6 +7,10 @@ import {
   SLIDE_TYPE,
 } from "../../domain/entities";
 import { SlideCanvasView } from "../canvas/SlideCanvasView";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
 import {
   deckSectionLabelClass,
@@ -68,14 +72,20 @@ export function PreviewSlideContent({
   const sectionLabelClass = deckSectionLabelClass(deckVisualTheme.contentTone);
   const isFullscreen = layout === "fullscreen";
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
+  const isDataMotionRingSlide =
+    slide.type === SLIDE_TYPE.CONTENT &&
+    resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
+  const previewSlideOverflowClass = isDataMotionRingSlide
+    ? "overflow-visible"
+    : "overflow-hidden";
 
   const outerClass = cn(
-    "preview-slide-outer flex min-h-0 w-full flex-1 flex-col overflow-hidden",
+    "preview-slide-outer flex min-h-0 w-full flex-1 flex-col",
     isFullscreen
       ? "max-w-none min-h-0 items-center justify-center gap-0 overflow-hidden bg-black"
       : fillExportContainer
-        ? "max-w-none min-w-0 gap-1"
-        : "max-w-7xl gap-1 2xl:max-w-[1600px]",
+        ? cn("max-w-none min-w-0 gap-1", previewSlideOverflowClass)
+        : cn("max-w-7xl gap-1 2xl:max-w-[1600px]", previewSlideOverflowClass),
     toneClass,
   );
 
@@ -94,7 +104,8 @@ export function PreviewSlideContent({
         )}
         <div
           className={cn(
-            "preview-slide relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent",
+            "preview-slide relative flex min-h-0 min-w-0 flex-col bg-transparent",
+            previewSlideOverflowClass,
             isFullscreen
               ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
               : pptxExportFrame
@@ -121,7 +132,11 @@ export function PreviewSlideContent({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className={outerClass}
+      className={cn(
+        outerClass,
+        /* El translateX de la entrada no debe aplanar el subárbol 3D del aro. */
+        isDataMotionRingSlide && "[transform-style:preserve-3d]",
+      )}
     >
       {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
         <div className="shrink-0 self-start px-0.5">
@@ -135,7 +150,8 @@ export function PreviewSlideContent({
       )}
       <div
         className={cn(
-          "preview-slide relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent",
+          "preview-slide relative flex min-h-0 min-w-0 flex-col bg-transparent",
+          previewSlideOverflowClass,
           isFullscreen
             ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
             : "aspect-video max-h-full flex-1",

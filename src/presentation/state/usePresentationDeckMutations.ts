@@ -16,6 +16,7 @@ import {
   normalizePanelContentKind,
 } from "../../domain/panelContent";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
+import { createDefaultDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
 import { patchSlideMediaPanelByElementId } from "../../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import type { Slide } from "../../types";
@@ -56,6 +57,9 @@ export function usePresentationDeckMutations(
           if (normalizePanelContentKind(newType) !== PANEL_CONTENT_KIND.IFRAME_EMBED) {
             delete (o as { iframeEmbedUrl?: string }).iframeEmbedUrl;
           }
+          if (normalizePanelContentKind(newType) !== PANEL_CONTENT_KIND.DATA_MOTION_RING) {
+            delete (o as { dataMotionRing?: unknown }).dataMotionRing;
+          }
           return o;
         },
       );
@@ -67,6 +71,16 @@ export function usePresentationDeckMutations(
             ...m,
             presenter3dDeviceId: m.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
             presenter3dScreenMedia: m.presenter3dScreenMedia ?? "image",
+          }),
+        );
+      }
+      if (newType === PANEL_CONTENT_KIND.DATA_MOTION_RING) {
+        next = patchSlideMediaPanelByElementId(
+          next,
+          d.canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            dataMotionRing: m.dataMotionRing ?? createDefaultDataMotionRingState(),
           }),
         );
       }

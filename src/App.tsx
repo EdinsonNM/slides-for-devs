@@ -7,6 +7,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
+import { EditorSlideUrlSync } from "./components/layout/EditorSlideUrlSync";
 import { usePresentation } from "./context/PresentationContext";
 import {
   hasAnyApiConfiguredSync,
@@ -53,6 +54,7 @@ interface HomeOrRedirectProps {
 
 function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const {
     slides,
@@ -65,7 +67,10 @@ function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
   if (slides.length > 0) {
     return (
       <Navigate
-        to={currentSavedId ? `/editor/${currentSavedId}` : "/editor"}
+        to={{
+          pathname: currentSavedId ? `/editor/${currentSavedId}` : "/editor",
+          search: location.search,
+        }}
         replace
       />
     );
@@ -113,6 +118,7 @@ interface EditorLayoutProps {
 function EditorLayout({ onOpenConfig }: EditorLayoutProps) {
   return (
     <>
+      <EditorSlideUrlSync />
       <EditorShell onOpenConfig={onOpenConfig} />
       <SavedListModal />
       <CharacterCreatorModal />
@@ -142,6 +148,7 @@ function EditorRoute({ onOpenConfig }: EditorRouteProps) {
   const [restoring, setRestoring] = useState(true);
   const triedRestore = useRef(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { presentationId } = useParams<{ presentationId: string }>();
 
   useEffect(() => {
@@ -179,8 +186,11 @@ function EditorRoute({ onOpenConfig }: EditorRouteProps) {
     if (restoring) return;
     if (!currentSavedId) return;
     if (presentationId === currentSavedId) return;
-    navigate(`/editor/${currentSavedId}`, { replace: true });
-  }, [restoring, currentSavedId, presentationId, navigate]);
+    navigate(
+      { pathname: `/editor/${currentSavedId}`, search: location.search },
+      { replace: true },
+    );
+  }, [restoring, currentSavedId, presentationId, navigate, location.search]);
 
   if (restoring) return <LoadingScreen />;
   if (slides.length === 0) return <Navigate to="/" replace />;

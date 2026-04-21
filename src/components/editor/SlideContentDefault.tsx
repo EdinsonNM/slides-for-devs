@@ -17,7 +17,10 @@ import {
   Frame,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
-import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
   compareCanvasElementsByZThenId,
@@ -259,6 +262,9 @@ export function SlideContentDefault() {
   ).showSlideContentIframeEmbedToolbar();
 
   const isPanelFull = currentSlide.contentLayout === "panel-full";
+  const isDataMotionRingPanel =
+    resolveMediaPanelDescriptor(currentSlide).kind ===
+    PANEL_CONTENT_KIND.DATA_MOTION_RING;
 
   const titleW = currentSlide.editorTitleWidthPercent ?? 100;
   const titleH =
@@ -276,7 +282,10 @@ export function SlideContentDefault() {
     return (
       <>
         <div
-          className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 h-full relative"
+          className={cn(
+            "flex-1 flex flex-col min-w-0 min-h-0 h-full relative",
+            isDataMotionRingPanel ? "overflow-visible" : "overflow-hidden",
+          )}
           onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
         >
           <div className="flex shrink-0 items-center gap-1 self-start px-4 pt-4 md:px-7 md:pt-5 lg:px-8 lg:pt-6">
@@ -529,7 +538,12 @@ export function SlideContentDefault() {
           >
             <div className="w-12 h-0.5 bg-stone-300 group-hover/handle:bg-emerald-500 rounded-full" />
           </div>
-          <div className="min-h-0 flex-1 flex flex-col relative overflow-hidden">
+          <div
+            className={cn(
+              "min-h-0 flex-1 flex flex-col relative",
+              isDataMotionRingPanel ? "overflow-visible" : "overflow-hidden",
+            )}
+          >
             <SlideRightPanel fullWidth />
           </div>
         </div>
@@ -539,7 +553,10 @@ export function SlideContentDefault() {
 
   return (
     <div
-      className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden"
+      className={cn(
+        "flex min-h-0 min-w-0 flex-1 flex-row",
+        isDataMotionRingPanel ? "overflow-visible" : "overflow-hidden",
+      )}
       onPointerDownCapture={clearActiveBlockOnSurfacePointerDown}
     >
       <div className="flex-1 p-5 flex flex-col overflow-x-visible overflow-y-hidden min-h-0 md:p-7 lg:p-9 xl:p-11 2xl:p-12">

@@ -1269,6 +1269,10 @@ function CanvasElementEditor({
     kind === "mediaPanel"
       ? slideAppearanceForMediaElement(slide, element)
       : slide;
+  const dataMotionRingOnCanvas =
+    kind === "mediaPanel" &&
+    resolveMediaPanelDescriptor(panelSlide).kind ===
+      PANEL_CONTENT_KIND.DATA_MOTION_RING;
   const rotation = element.rotation ?? 0;
 
   const titleAutoMeasureRef = useRef<HTMLDivElement>(null);
@@ -1824,27 +1828,37 @@ function CanvasElementEditor({
   ) : null;
 
   const shellOverflowVisible =
-    showCanvaChromeFrame || (isHovered && !isSelected);
+    showCanvaChromeFrame ||
+    (isHovered && !isSelected) ||
+    dataMotionRingOnCanvas;
   const outerShellClass = cn(
     "absolute min-h-0 min-w-0 touch-manipulation",
     shellOverflowVisible ? "overflow-visible" : "overflow-hidden",
   );
 
-  const rotatedInner = (className: string, children: ReactNode) => (
-    <div
-      className={cn("relative z-0 min-h-0 min-w-0", className)}
-      style={
-        rotation
-          ? {
-              transform: `rotate(${rotation}deg)`,
-              transformOrigin: "center center",
-            }
-          : undefined
+  const rotatedInner = (
+    className: string,
+    children: ReactNode,
+    opts?: { preserve3d?: boolean },
+  ) => {
+    const style: React.CSSProperties | undefined = (() => {
+      if (!rotation && !opts?.preserve3d) return undefined;
+      const s: React.CSSProperties = {};
+      if (rotation) {
+        s.transform = `rotate(${rotation}deg)`;
+        s.transformOrigin = "center center";
       }
-    >
-      {children}
-    </div>
-  );
+      if (opts?.preserve3d) {
+        s.transformStyle = "preserve-3d";
+      }
+      return s;
+    })();
+    return (
+      <div className={cn("relative z-0 min-h-0 min-w-0", className)} style={style}>
+        {children}
+      </div>
+    );
+  };
 
   switch (kind) {
     case "sectionLabel":
@@ -2142,6 +2156,7 @@ function CanvasElementEditor({
     }
     case "mediaPanel": {
       const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
+      const dataRingPanel = mediaPanelDesc.kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
       const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
       const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
       const rivePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.RIVE;
@@ -2206,7 +2221,10 @@ function CanvasElementEditor({
           }
         >
           {rotatedInner(
-            "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden",
+            cn(
+              "flex h-full min-h-0 w-full min-w-0 flex-col",
+              dataRingPanel ? "overflow-visible" : "overflow-hidden",
+            ),
             usesInteractionDragStrip ? (
               <>
                 <div
@@ -2269,6 +2287,7 @@ function CanvasElementEditor({
                 canvasMediaElementId={id}
               />
             ),
+            dataRingPanel ? { preserve3d: true } : undefined,
           )}
           {canvaChromeEl}
           {showHoverOutline ? <SlideCanvasHoverOutline /> : null}

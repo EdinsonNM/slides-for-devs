@@ -20,6 +20,7 @@ import {
   isSlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../../utils/slideRichText";
+import { normalizeDataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
 
 export type {
   SlideCanvasElementPayload,
@@ -91,6 +92,7 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     presenter3dViewState: slide.presenter3dViewState,
     canvas3dGlbUrl: slide.canvas3dGlbUrl,
     canvas3dViewState: slide.canvas3dViewState,
+    dataMotionRing: slide.dataMotionRing,
   };
 }
 
@@ -122,6 +124,7 @@ const ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND: Record<
     "presenter3dViewState",
   ],
   [PANEL_CONTENT_KIND.CANVAS_3D]: ["canvas3dGlbUrl", "canvas3dViewState"],
+  [PANEL_CONTENT_KIND.DATA_MOTION_RING]: ["dataMotionRing"],
 };
 
 function mergeFirstMediaPanelPayloadFromRoot(
@@ -202,6 +205,16 @@ export function mergeMediaPayloadIntoSlide(
   if (media.canvas3dViewState !== undefined) {
     next.canvas3dViewState = media.canvas3dViewState;
   }
+  if (
+    normalizePanelContentKind(media.contentType) ===
+    PANEL_CONTENT_KIND.DATA_MOTION_RING
+  ) {
+    if (media.dataMotionRing !== undefined) {
+      next.dataMotionRing = normalizeDataMotionRingState(media.dataMotionRing);
+    }
+  } else {
+    delete (next as { dataMotionRing?: unknown }).dataMotionRing;
+  }
   if (media.codeEditorTheme !== undefined) {
     next.codeEditorTheme = media.codeEditorTheme;
   } else {
@@ -229,6 +242,7 @@ function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
     presenter3dViewState: _p3vs,
     canvas3dGlbUrl: _c3g,
     canvas3dViewState: _c3vs,
+    dataMotionRing: _dmr,
     codeEditorTheme: _cet,
     ...rest
   } = slide as Slide;

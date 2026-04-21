@@ -12,6 +12,7 @@ import {
   type SlideCanvasRect,
   type SlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
+import { createDefaultDataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 
 /**
@@ -34,6 +35,13 @@ function mediaPayloadForNewPanel(
   const base: SlideCanvasMediaPayload = { type: "media", contentType };
   if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
     return createFreshPresenter3dMediaPayload();
+  }
+  if (contentType === PANEL_CONTENT_KIND.DATA_MOTION_RING) {
+    return {
+      type: "media",
+      contentType: PANEL_CONTENT_KIND.DATA_MOTION_RING,
+      dataMotionRing: createDefaultDataMotionRingState(),
+    };
   }
   return base;
 }

@@ -21,8 +21,8 @@ import {
   Frame,
   MonitorPlay,
   Box,
+  BarChart3,
   StickyNote,
-  Film,
   type LucideIcon,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -106,9 +106,9 @@ const PANEL_INSERT_MENU_ITEMS: {
     label: "Iframe incrustado",
     Icon: Frame,
   },
-  { id: PANEL_CONTENT_KIND.RIVE, label: "Rive", Icon: Film },
   { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", Icon: MonitorPlay },
   { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", Icon: Box },
+  { id: PANEL_CONTENT_KIND.DATA_MOTION_RING, label: "Aro de datos 3D", Icon: BarChart3 },
 ];
 
 export function EditorFloatingToolbar({

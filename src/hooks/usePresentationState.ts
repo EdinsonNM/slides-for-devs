@@ -542,7 +542,13 @@ export function usePresentationState() {
 
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
-    "slide" | "characters" | "notes" | "theme" | "resources" | "rive" | null
+    | "slide"
+    | "characters"
+    | "notes"
+    | "theme"
+    | "resources"
+    | "dataRing"
+    | null
   >("slide");
 
   const currentSlide = slides[currentIndex];
@@ -619,6 +625,7 @@ export function usePresentationState() {
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
     clearCurrentSlideCanvas3dViewState,
+    setCurrentSlideDataMotionRing,
   } = usePresentationSlideCanvasMutations({
     setSlides,
     currentIndexRef,
@@ -1127,6 +1134,7 @@ export function usePresentationState() {
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
     clearCurrentSlideCanvas3dViewState,
+    setCurrentSlideDataMotionRing,
     handleGenerate,
     homePromptAttachments,
     addHomePromptAttachment,

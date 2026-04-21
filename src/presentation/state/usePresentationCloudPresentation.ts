@@ -25,6 +25,7 @@ import { normalizeDeckVisualTheme } from "../../domain/entities";
 import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import type { SavedPresentation, SavedPresentationMeta } from "../../types";
 import { applySavedPresentationToEditorState } from "./applySavedPresentationToEditorState";
+import { readEditorSlideIndexFromHash } from "../../constants/editorNavigation";
 import type {
   PresentationCloudPresentationDeps,
   PresentationCloudSyncConflict,
@@ -360,7 +361,12 @@ export function usePresentationCloudPresentation(
           id: localId,
           savedAt: pulled.savedAt ?? new Date().toISOString(),
         };
-        applySavedPresentationToEditorState(synthetic, ctx);
+        const urlSlide = readEditorSlideIndexFromHash();
+        applySavedPresentationToEditorState(
+          synthetic,
+          ctx,
+          urlSlide !== null ? { initialSlideIndex: urlSlide } : undefined,
+        );
         ctx.setCurrentSavedId(localId);
         if (!isSharedFromOther && owner === d.user.uid) {
           d.webCloudSessionRef.current = {
