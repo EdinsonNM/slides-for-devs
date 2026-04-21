@@ -23,14 +23,6 @@ import {
   DEFAULT_DECK_NARRATIVE_PRESET_ID,
   buildDeckNarrativeContextForPrompts,
 } from "../constants/presentationNarrativePresets";
-import {
-  DECK_COVER_IMAGE_PROMPT,
-  DECK_COVER_STYLE_PROMPT,
-  buildDeckCoverImageUserPrompt,
-  firstSlideDeckCoverImageUrl,
-  loadSlaimMascotCoverReferenceDataUrl,
-  SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
-} from "../constants/deckCover";
 import { resolveGeneratedPresentationTitle } from "../utils/presentationTitle";
 import { formatMarkdown } from "../utils/markdown";
 import {
@@ -61,6 +53,7 @@ import { usePresentationManualSave } from "../presentation/state/usePresentation
 import { usePresentationCloudPresentation } from "../presentation/state/usePresentationCloudPresentation";
 import type { PresentationCloudResolveRemoteEditorDeps } from "../presentation/state/presentationCloudPresentationDeps";
 import { usePresentationSavedLibrary } from "../presentation/state/usePresentationSavedLibrary";
+import { usePresentationDeckCovers } from "../presentation/state/usePresentationDeckCovers";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import {
   useSavedPresentations,
@@ -508,19 +501,21 @@ export function usePresentationState() {
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
   const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(
-    null,
-  );
-  const [coverImageCache, setCoverImageCache] = useState<
-    Record<string, string>
-  >({});
-  /** `savedAt` de la última portada precargada por id (invalidación al guardar de nuevo). */
-  const coverPrefetchSavedAtRef = useRef<Record<string, string>>({});
-  /**
-   * Invalida precargas in-flight al cambiar lista/ámbito. Evita `return` tras `await`, que
-   * abandonaba el resto del bucle y dejaba sin portada (p. ej. la tarjeta más reciente al final del `for`).
-   */
-  const coverPrefetchGenerationRef = useRef(0);
+  const {
+    generatingCoverId,
+    coverImageCache,
+    setCoverImageCache,
+    coverPrefetchSavedAtRef,
+    handleGenerateCoverForPresentation,
+  } = usePresentationDeckCovers({
+    savedList,
+    localAccountScope,
+    geminiImageModelId,
+    user,
+    autoCloudSyncOnSave,
+    runAutoSyncAfterSaveRef,
+  });
+
   const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
     useState(false);
   const [deletePresentationId, setDeletePresentationId] = useState<string | null>(
@@ -1428,41 +1423,6 @@ export function usePresentationState() {
     setShowExportDeckVideoModal(true);
   }, []);
 
-  /** Portadas del carrusel: sin esto solo se rellenaba la caché al abrir la presentación. */
-  useEffect(() => {
-    const generation = ++coverPrefetchGenerationRef.current;
-    const scope = localAccountScope;
-    const eligible = savedList.filter(
-      (m) =>
-        m.slideCount > 0 &&
-        !m.localBodyCleared &&
-        coverPrefetchSavedAtRef.current[m.id] !== m.savedAt,
-    );
-    if (eligible.length === 0) return;
-
-    void (async () => {
-      for (const meta of eligible) {
-        if (coverPrefetchSavedAtRef.current[meta.id] === meta.savedAt) continue;
-        try {
-          const saved = await loadPresentation(meta.id, scope);
-          if (coverPrefetchGenerationRef.current !== generation) break;
-          if (saved.savedAt !== meta.savedAt) continue;
-          coverPrefetchSavedAtRef.current[meta.id] = saved.savedAt;
-          const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
-          if (coverUrl) {
-            setCoverImageCache((prev) => ({ ...prev, [meta.id]: coverUrl }));
-          }
-        } catch {
-          /* listado ya mostró la tarjeta; fallo al leer portada no bloquea */
-        }
-      }
-    })();
-
-    return () => {
-      coverPrefetchGenerationRef.current += 1;
-    };
-  }, [savedList, localAccountScope]);
-
   useEffect(() => {
     if (slides.length !== 0) return;
     void refreshSavedList();
@@ -1727,89 +1687,6 @@ export function usePresentationState() {
     setIsSaving,
     setSaveMessage,
   });
-
-  const handleGenerateCoverForPresentation = async (id: string) => {
-    setGeneratingCoverId(id);
-    try {
-      try {
-        const list = await listPresentations(localAccountScope);
-        const meta = list.find((p) => p.id === id);
-        if (meta?.localBodyCleared) {
-          alert("Recupera la presentación desde la nube antes de generar la portada.");
-          return;
-        }
-      } catch {
-        /* ignore */
-      }
-      const saved = await loadPresentation(id, localAccountScope);
-      if (!saved.slides.length) {
-        alert("Esta presentación no tiene diapositivas.");
-        return;
-      }
-      const firstSlide = saved.slides[0];
-      const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
-      if (!getGeminiApiKey()?.trim()) {
-        alert(
-          "La portada Slaim se genera con Gemini. Configura tu API key de Gemini en Ajustes de la app.",
-        );
-        return;
-      }
-      const mascotReferenceImageDataUrl =
-        await loadSlaimMascotCoverReferenceDataUrl();
-      const imageUrl = await generateImageUseCase.run({
-        providerId: "gemini",
-        slideContext,
-        userPrompt: buildDeckCoverImageUserPrompt(),
-        stylePrompt: DECK_COVER_STYLE_PROMPT,
-        includeBackground: true,
-        modelId: geminiImageModelId,
-        characterPrompt: SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
-        characterReferenceImageDataUrl: mascotReferenceImageDataUrl,
-        aspectRatio: "16:9",
-      });
-      if (imageUrl) {
-        const updatedSlides = [...saved.slides];
-        updatedSlides[0] = {
-          ...firstSlide,
-          imageUrl,
-          imagePrompt: DECK_COVER_IMAGE_PROMPT,
-        };
-        await updatePresentation(
-          id,
-          {
-            topic: saved.topic,
-            slides: updatedSlides,
-            characterId: saved.characterId,
-            deckVisualTheme: normalizeDeckVisualTheme(saved.deckVisualTheme),
-            deckNarrativePresetId: saved.deckNarrativePresetId,
-            narrativeNotes: saved.narrativeNotes,
-          },
-          localAccountScope,
-        );
-        if (
-          autoCloudSyncOnSave &&
-          user &&
-          typeof window !== "undefined" &&
-          (window as unknown as { __TAURI__?: unknown }).__TAURI__
-        ) {
-          void runAutoSyncAfterSaveRef.current(id);
-        }
-        setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
-        trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
-      } else {
-        alert(
-          "No se pudo generar la portada con Gemini. Comprueba tu API key y el modelo de imagen en Ajustes.",
-        );
-      }
-    } catch (e) {
-      console.error(e);
-      alert(
-        "Error al generar la portada. Comprueba la consola y tu configuración de API.",
-      );
-    } finally {
-      setGeneratingCoverId(null);
-    }
-  };
 
   const goHome = () => {
     slidesUndoRef.current = [];
