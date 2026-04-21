@@ -56,6 +56,11 @@ import { usePresentationEditorKeyboard } from "../presentation/state/usePresenta
 import { usePresentationSlideCanvasMutations } from "../presentation/state/usePresentationSlideCanvasMutations";
 import { usePresentationSlideResizeGestures } from "../presentation/state/usePresentationSlideResizeGestures";
 import { usePresentationHomeCards } from "../presentation/state/usePresentationHomeCards";
+import { usePresentationSavePresentation } from "../presentation/state/usePresentationSavePresentation";
+import {
+  applySavedPresentationToEditorState,
+  type ApplySavedPresentationEditorContext,
+} from "../presentation/state/applySavedPresentationToEditorState";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import {
   useSavedPresentations,
@@ -1499,86 +1504,19 @@ export function usePresentationState() {
 
   runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
 
-  /** Guarda una presentación con el payload dado; si no hay currentSavedId, crea uno y lo asigna. Devuelve el id guardado. */
-  const savePresentationNow = useCallback(
-    async (presentation: {
-      topic: string;
-      slides: Slide[];
-      characterId?: string;
-      deckVisualTheme?: DeckVisualTheme;
-      deckNarrativePresetId?: string;
-      narrativeNotes?: string;
-    }): Promise<string | null> => {
-      if (presentation.slides.length === 0) return null;
-      const full: Presentation = {
-        topic: presentation.topic,
-        slides: presentation.slides,
-        characterId: presentation.characterId,
-        deckVisualTheme:
-          presentation.deckVisualTheme ?? deckVisualTheme,
-        deckNarrativePresetId:
-          presentation.deckNarrativePresetId ?? deckNarrativePresetId,
-        narrativeNotes:
-          presentation.narrativeNotes !== undefined
-            ? presentation.narrativeNotes?.trim() || undefined
-            : narrativeNotes.trim() || undefined,
-      };
-      let savedId: string | null = null;
-      try {
-        if (currentSavedId) {
-          await updatePresentation(
-            currentSavedId,
-            full,
-            localAccountScope,
-          );
-          savedId = currentSavedId;
-          setSaveMessage("Guardado");
-          try {
-            sessionStorage.setItem(lastOpenedSessionKey, currentSavedId);
-          } catch {
-            // ignore
-          }
-        } else {
-          const id = await savePresentation(full, localAccountScope);
-          setCurrentSavedId(id);
-          savedId = id;
-          setSaveMessage("Guardado");
-          try {
-            sessionStorage.setItem(lastOpenedSessionKey, id);
-          } catch {
-            // ignore
-          }
-        }
-        trackEvent(ANALYTICS_EVENTS.PRESENTATION_SAVED);
-        setTimeout(() => setSaveMessage(null), 2000);
-        if (
-          savedId &&
-          autoCloudSyncOnSave &&
-          user &&
-          typeof window !== "undefined" &&
-          (window as unknown as { __TAURI__?: unknown }).__TAURI__
-        ) {
-          void maybeAutoSyncAfterLocalSave(savedId);
-        }
-      } catch (e) {
-        console.error(e);
-        setSaveMessage("Error al guardar");
-        return null;
-      }
-      return savedId;
-    },
-    [
-      currentSavedId,
-      autoCloudSyncOnSave,
-      user,
-      maybeAutoSyncAfterLocalSave,
-      localAccountScope,
-      lastOpenedSessionKey,
-      deckVisualTheme,
-      deckNarrativePresetId,
-      narrativeNotes,
-    ],
-  );
+  const { savePresentationNow } = usePresentationSavePresentation({
+    currentSavedId,
+    setCurrentSavedId,
+    deckVisualTheme,
+    deckNarrativePresetId,
+    narrativeNotes,
+    setSaveMessage,
+    localAccountScope,
+    lastOpenedSessionKey,
+    autoCloudSyncOnSave,
+    user,
+    maybeAutoSyncAfterLocalSave,
+  });
 
   const {
     toggleContentType,
@@ -1988,6 +1926,24 @@ export function usePresentationState() {
     [user, localAccountScope, refreshSavedList],
   );
 
+  const applySavedEditorCtxRef = useRef(
+    {} as ApplySavedPresentationEditorContext,
+  );
+  applySavedEditorCtxRef.current = {
+    slidesUndoRef,
+    slidesRedoRef,
+    setTopic,
+    setSlides,
+    setCurrentIndex,
+    setCurrentSavedId,
+    setSelectedCharacterId,
+    setDeckVisualThemeState,
+    setDeckNarrativePresetId,
+    setNarrativeNotes,
+    coverPrefetchSavedAtRef,
+    setCoverImageCache,
+  };
+
   const maybePullCloudPresentationBeforeLoad = useCallback(
     async (localId: string, meta: SavedPresentationMeta | undefined) => {
       if (!user || !meta) return;
@@ -2051,38 +2007,12 @@ export function usePresentationState() {
         }
       }
       const saved = await loadPresentation(id, localAccountScope);
-      slidesUndoRef.current = [];
-      slidesRedoRef.current = [];
-      setTopic(saved.topic);
-      setSlides(
-        normalizeSlidesCanvasScenes(
-          saved.slides.map((s) => ({
-            ...s,
-            id: crypto.randomUUID(),
-            content: formatMarkdown(s.content ?? ""),
-          })),
-        ),
-      );
-      setCurrentIndex(0);
-      setCurrentSavedId(saved.id);
-      setSelectedCharacterId(saved.characterId ?? null);
-      setDeckVisualThemeState(
-        normalizeDeckVisualTheme(saved.deckVisualTheme),
-      );
-      setDeckNarrativePresetId(
-        saved.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
-      );
-      setNarrativeNotes(saved.narrativeNotes ?? "");
+      applySavedPresentationToEditorState(saved, applySavedEditorCtxRef.current);
       setShowSavedListModal(false);
       try {
         sessionStorage.setItem(lastOpenedSessionKey, id);
       } catch {
         // ignore
-      }
-      coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
-      const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
-      if (coverUrl) {
-        setCoverImageCache((prev) => ({ ...prev, [saved.id]: coverUrl }));
       }
       trackEvent(ANALYTICS_EVENTS.PRESENTATION_OPENED);
     } catch (e) {
@@ -2199,33 +2129,10 @@ export function usePresentationState() {
           }
         }
         const saved = await loadPresentation(id, localAccountScope);
-        slidesUndoRef.current = [];
-        slidesRedoRef.current = [];
-        setTopic(saved.topic);
-        setSlides(
-          normalizeSlidesCanvasScenes(
-            saved.slides.map((s) => ({
-              ...s,
-              id: crypto.randomUUID(),
-              content: formatMarkdown(s.content ?? ""),
-            })),
-          ),
+        applySavedPresentationToEditorState(
+          saved,
+          applySavedEditorCtxRef.current,
         );
-        setCurrentIndex(0);
-        setCurrentSavedId(saved.id);
-        setSelectedCharacterId(saved.characterId ?? null);
-        setDeckVisualThemeState(
-          normalizeDeckVisualTheme(saved.deckVisualTheme),
-        );
-        setDeckNarrativePresetId(
-          saved.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
-        );
-        setNarrativeNotes(saved.narrativeNotes ?? "");
-        coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
-        const coverUrlRestore = firstSlideDeckCoverImageUrl(saved.slides[0]);
-        if (coverUrlRestore) {
-          setCoverImageCache((prev) => ({ ...prev, [saved.id]: coverUrlRestore }));
-        }
         return true;
       } catch {
         try {
@@ -2236,7 +2143,6 @@ export function usePresentationState() {
         return false;
       }
     }, [
-      formatMarkdown,
       lastOpenedSessionKey,
       localAccountScope,
       user,
