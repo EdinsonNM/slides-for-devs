@@ -12,7 +12,6 @@ import type {
   SavedCharacter,
   GeneratedResourceEntry,
   SavedPresentationMeta,
-  Presentation,
 } from "../types";
 import {
   DEFAULT_DECK_VISUAL_THEME,
@@ -23,22 +22,17 @@ import {
   DEFAULT_DECK_NARRATIVE_PRESET_ID,
   buildDeckNarrativeContextForPrompts,
 } from "../constants/presentationNarrativePresets";
-import { resolveGeneratedPresentationTitle } from "../utils/presentationTitle";
 import { formatMarkdown } from "../utils/markdown";
 import {
   AUTO_CLOUD_SYNC_STORAGE_KEY,
   DEFAULT_IMAGE_WIDTH_PERCENT,
   DEFAULT_PANEL_HEIGHT_PERCENT,
-  MAX_SLIDES_UNDO,
 } from "../presentation/state/presentationConstants";
 import {
   LAST_OPENED_PRESENTATION_KEY,
   type HomeTab,
 } from "../presentation/state/presentationTypes";
 import {
-  cloneSlideDeck,
-  applyImageDataUrlToMediaPanelPayload,
-  applyVideoUrlToMediaPanelPayload,
   applyGeneratedImageToMediaPanelPayload,
 } from "../presentation/state/presentationMediaHelpers";
 import { usePresentationSlideEditing } from "../presentation/state/usePresentationSlideEditing";
@@ -60,47 +54,17 @@ import {
   useSavedCharacters,
   useGeneratedResourcesList,
 } from "../queries/presentationQueries";
-import {
-  composeFullDeckModelInput,
-  type PromptAttachment,
-} from "../utils/promptAttachments";
 import { optimizeImageDataUrl } from "../utils/imageOptimize";
+import { generateImage as generateImageUseCase } from "../composition/container";
 import {
-  coerceImageDataUrlForSlideFile,
-  isUsableSlideImageFile,
-} from "../utils/slideImageFile";
-import {
-  generateCodeForSlide as generateCodeForSlideApi,
-  generatePresenterNotes as generatePresenterNotesApi,
-  generateSpeechForSlide as generateSpeechForSlideApi,
-  generateSpeechForAll as generateSpeechForAllApi,
-  refinePresenterNotes as refinePresenterNotesApi,
-} from "../services/gemini";
-import {
-  generatePresentation,
-  splitSlide as splitSlideUseCase,
-  rewriteSlide as rewriteSlideUseCase,
-  generateSlideContent as generateSlideContentUseCase,
-  generateSlideMatrix as generateSlideMatrixUseCase,
-  generateSlideDiagram as generateSlideDiagramUseCase,
-  generateImagePromptAlternatives,
-  generateImage as generateImageUseCase,
-} from "../composition/container";
-import {
-  createEmptySlideMatrixData,
-  normalizeSlideMatrixData,
   SLIDE_TYPE,
-  type SlideCanvasRect,
 } from "../domain/entities";
 import {
   normalizeSlidesCanvasScenes,
-  ensureSlideCanvasScene,
 } from "../domain/slideCanvas/ensureSlideCanvasScene";
 import {
-  defaultCanvasTextEditTargets,
   isSlidePatchedDifferentFromBuffers,
   patchSlideMediaPanelByElementId,
-  replaceFirstMarkdownCanvasBody,
   type CanvasTextEditTargets,
 } from "../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import {
@@ -110,11 +74,6 @@ import {
 } from "../domain/slideCanvas/slideCanvasPayload";
 import { isSlideCanvasTextPayload } from "../domain/entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../utils/slideRichText";
-import { syncSlideRootFromCanvas } from "../domain/slideCanvas/syncSlideRootFromCanvas";
-import {
-  appendCanvasElementToScene,
-  type AppendCanvasElementOptions,
-} from "../domain/slideCanvas/insertCanvasElement";
 import {
   getGeminiApiKey,
   getOpenAIApiKey,
@@ -122,21 +81,14 @@ import {
   getGroqApiKey,
   getCerebrasApiKey,
   getOpenRouterApiKey,
-  hasAnyApiConfiguredSync,
 } from "../services/apiConfig";
-import { notifyApiConfigurationRequired } from "../services/apiConfigurationGate";
 import {
-  savePresentation,
-  updatePresentation,
-  listPresentations,
-  loadPresentation,
   migrateJsonPresentations,
   listCharacters,
   saveCharacter as saveCharacterStorage,
   deleteCharacter as deleteCharacterStorage,
   setCharacterCloudState,
   localAccountScopeForUser,
-  listGeneratedResources,
   addGeneratedResource,
   deleteGeneratedResource,
 } from "../services/storage";
@@ -156,7 +108,6 @@ import { useConfigStore, createConfigSetter } from "../store/useConfigStore";
 import {
   PRESENTATION_MODELS,
   DEFAULT_PRESENTATION_MODEL_ID,
-  usesChatCompletionSlideOps,
 } from "../constants/presentationModels";
 import {
   GEMINI_IMAGE_MODELS,
@@ -164,9 +115,9 @@ import {
 } from "../constants/geminiImageModels";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 import { trackEvent, ANALYTICS_EVENTS } from "../services/analytics";
+import { usePresentationAiModals } from "../presentation/state/usePresentationAiModals";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 import {
-  PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
   Canvas3dMediaPanelDescriptor,
 } from "../domain/panelContent";
@@ -266,11 +217,6 @@ export function usePresentationState() {
   );
   const lastOpenedSessionKey = `${LAST_OPENED_PRESENTATION_KEY}:${localAccountScope}`;
   const prevLocalAccountScopeRef = useRef<string | null>(null);
-  /** Si falla la generación completa iniciada desde el editor, restaurar slides y título. */
-  const generationErrorRestoreRef = useRef<{
-    slides: Slide[];
-    topic: string;
-  } | null>(null);
 
   const queryClient = useQueryClient();
   const savedPresentationsQuery = useSavedPresentations(localAccountScope);
@@ -355,22 +301,6 @@ export function usePresentationState() {
     [deckNarrativePresetId, narrativeNotes],
   );
     const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingPromptAlternatives, setIsGeneratingPromptAlternatives] =
-    useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [generateFullDeckTopic, setGenerateFullDeckTopic] = useState("");
-  const [homePromptAttachments, setHomePromptAttachments] = useState<
-    PromptAttachment[]
-  >([]);
-  const [generateFullDeckAttachments, setGenerateFullDeckAttachments] =
-    useState<PromptAttachment[]>([]);
-  const [generateSlideContentPrompt, setGenerateSlideContentPrompt] =
-    useState("");
-  const [imagePrompt, setImagePrompt] = useState("");
-  const [splitPrompt, setSplitPrompt] = useState("");
-  const [rewritePrompt, setRewritePrompt] = useState("");
-  const [videoUrlInput, setVideoUrlInput] = useState("");
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
     IMAGE_STYLES[0],
   );
@@ -496,11 +426,6 @@ export function usePresentationState() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<HomeTab>("recent");
-  const [speechGeneralPrompt, setSpeechGeneralPrompt] = useState("");
-  const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
-  const [codeGenPrompt, setCodeGenPrompt] = useState("");
-  const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
-  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const {
     generatingCoverId,
     coverImageCache,
@@ -621,18 +546,6 @@ export function usePresentationState() {
   >("slide");
   const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] =
     useState(false);
-  /** Cuando está setado, la presentación se está generando en segundo plano; se muestra modal y al terminar se guarda. */
-  const [pendingGeneration, setPendingGeneration] = useState<{
-    topic: string;
-    /** Texto completo para el modelo; si falta, se usa `topic`. */
-    modelInput?: string;
-    modelId: string;
-    /** Si viene del editor con presentación ya guardada, actualizar este id en lugar de crear otra fila. */
-    reuseSavedId?: string | null;
-    deckNarrativePresetId: string;
-    narrativeNotes?: string;
-  } | null>(null);
-  /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -721,136 +634,6 @@ export function usePresentationState() {
     migrateJsonPresentations().catch(() => {});
   }, []);
 
-  /** Al iniciar/cerrar sesión, vaciar el editor: el listado local es distinto por ámbito. */
-  useEffect(() => {
-    if (prevLocalAccountScopeRef.current === null) {
-      prevLocalAccountScopeRef.current = localAccountScope;
-      return;
-    }
-    if (prevLocalAccountScopeRef.current === localAccountScope) return;
-    prevLocalAccountScopeRef.current = localAccountScope;
-    slidesUndoRef.current = [];
-    slidesRedoRef.current = [];
-    setSlides([]);
-    setTopic("");
-    setHomePromptAttachments([]);
-    setCurrentSavedId(null);
-    setSelectedCharacterId(null);
-    setCurrentIndex(0);
-    clearEditorTabsForGoHome();
-  }, [localAccountScope, clearEditorTabsForGoHome]);
-
-  // Generación en segundo plano: al tener pendingGeneration, llamar API, actualizar slides y guardar.
-  useEffect(() => {
-    const pending = pendingGeneration;
-    if (!pending) return;
-
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const promptForApi = pending.modelInput ?? pending.topic;
-        const generated = await generatePresentation.run(
-          promptForApi,
-          pending.modelId,
-          {
-            narrativePresetId: pending.deckNarrativePresetId,
-            narrativeNotes: pending.narrativeNotes,
-          },
-        );
-        if (cancelled) return;
-        const cleanedSlides = normalizeSlidesCanvasScenes(
-          generated.slides.map((slide) => ({
-            ...slide,
-            id: crypto.randomUUID(),
-            content: formatMarkdown(slide.content),
-          })),
-        );
-        const resolvedTopic = resolveGeneratedPresentationTitle({
-          presentationTitle: generated.presentationTitle,
-          slides: cleanedSlides,
-          fallbackBrief: pending.topic,
-        });
-        slidesUndoRef.current = [];
-        slidesRedoRef.current = [];
-        setSlides(cleanedSlides);
-        setCurrentIndex(0);
-        setTopic(resolvedTopic);
-        setDeckNarrativePresetId(pending.deckNarrativePresetId);
-        setNarrativeNotes(pending.narrativeNotes ?? "");
-        const presentation: Presentation = {
-          topic: resolvedTopic,
-          slides: cleanedSlides,
-          characterId: selectedCharacterId ?? undefined,
-          deckVisualTheme,
-          deckNarrativePresetId: pending.deckNarrativePresetId,
-          narrativeNotes: pending.narrativeNotes?.trim() || undefined,
-        };
-        let id: string;
-        if (pending.reuseSavedId) {
-          await updatePresentation(
-            pending.reuseSavedId,
-            presentation,
-            localAccountScope,
-          );
-          id = pending.reuseSavedId;
-        } else {
-          id = await savePresentation(presentation, localAccountScope);
-        }
-        if (cancelled) return;
-        setCurrentSavedId(id);
-        try {
-          sessionStorage.setItem(lastOpenedSessionKey, id);
-        } catch {
-          // ignore
-        }
-        void queryClient.invalidateQueries({
-          queryKey: presentationQueryKeys.savedPresentations(localAccountScope),
-        });
-        if (
-          autoCloudSyncOnSave &&
-          user &&
-          typeof window !== "undefined" &&
-          (window as unknown as { __TAURI__?: unknown }).__TAURI__
-        ) {
-          void runAutoSyncAfterSaveRef.current(id);
-        }
-        setPendingGeneration(null);
-        trackEvent(ANALYTICS_EVENTS.PRESENTATION_GENERATED, {
-          slide_count: cleanedSlides.length,
-        });
-      } catch (error) {
-        if (cancelled) return;
-        console.error("Error generating presentation:", error);
-        const errorMessage =
-          error instanceof Error && error.message.trim().length > 0
-            ? error.message
-            : "Hubo un error al generar la presentación. Por favor intenta de nuevo.";
-        alert(`Error al generar la presentación:\n${errorMessage}`);
-        setPendingGeneration(null);
-        const restore = generationErrorRestoreRef.current;
-        generationErrorRestoreRef.current = null;
-        if (restore) {
-          setSlides(restore.slides);
-          setTopic(restore.topic);
-        } else {
-          setSlides([]);
-          setTopic("");
-        }
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    pendingGeneration,
-    autoCloudSyncOnSave,
-    user,
-    localAccountScope,
-    deckVisualTheme,
-    queryClient,
-  ]);
-
   usePresentationSlideResizeGestures({
     isResizing,
     setIsResizing,
@@ -874,13 +657,6 @@ export function usePresentationState() {
       setIsEditing(false);
     }
   }, [currentIndex, currentSlide?.id, syncEditFieldsFromSlide]);
-
-  // Al cambiar de diapositiva con el modal de imagen abierto, resetear el prompt al del slide actual
-  useEffect(() => {
-    if (showImageModal && currentSlide) {
-      setImagePrompt(currentSlide.imagePrompt || "");
-    }
-  }, [showImageModal, currentIndex, currentSlide?.id]);
 
   usePresentationEditorKeyboard({
     deckNavigationRef,
@@ -935,490 +711,6 @@ export function usePresentationState() {
     resolvePresenter3dMediaPatchElementId,
   });
 
-  const queueFullDeckGeneration = useCallback(
-    (
-      displayTopic: string,
-      options?: {
-        modelInput?: string;
-        errorRestore?: { slides: Slide[]; topic: string };
-        reuseSavedId?: string | null;
-        deckNarrativePresetId?: string;
-        narrativeNotes?: string;
-      },
-    ): boolean => {
-      const saved = displayTopic.trim();
-      const fullInput = (options?.modelInput ?? saved).trim();
-      if (!fullInput) return false;
-      if (!hasAnyApiConfiguredSync()) {
-        notifyApiConfigurationRequired();
-        return false;
-      }
-      generationErrorRestoreRef.current = options?.errorRestore ?? null;
-      setTopic(saved);
-      const placeholderSlide: Slide = {
-        id: crypto.randomUUID(),
-        type: "content",
-        title: "Generando…",
-        content: "Preparando tu presentación.",
-      };
-      setSlides([placeholderSlide]);
-      setCurrentIndex(0);
-      setPendingGeneration({
-        topic: saved,
-        modelInput: fullInput !== saved ? fullInput : undefined,
-        modelId: presentationModelId,
-        reuseSavedId: options?.reuseSavedId ?? undefined,
-        deckNarrativePresetId:
-          options?.deckNarrativePresetId ?? deckNarrativePresetId,
-        narrativeNotes:
-          options?.narrativeNotes !== undefined
-            ? options.narrativeNotes
-            : narrativeNotes.trim() || undefined,
-      });
-      return true;
-    },
-    [presentationModelId, deckNarrativePresetId, narrativeNotes],
-  );
-
-  const handleGenerate = (e: React.FormEvent): boolean => {
-    e.preventDefault();
-    const { modelInput, displayTopic } = composeFullDeckModelInput(
-      topic,
-      homePromptAttachments,
-    );
-    if (!modelInput) return false;
-    const queued = queueFullDeckGeneration(displayTopic, {
-      modelInput: modelInput !== displayTopic ? modelInput : undefined,
-    });
-    if (queued) setHomePromptAttachments([]);
-    return queued;
-  };
-
-  const openGenerateFullDeckModal = useCallback(() => {
-    setGenerateFullDeckTopic(topic.trim());
-    setGenerateFullDeckAttachments([]);
-    setShowGenerateFullDeckModal(true);
-  }, [topic]);
-
-  const handleConfirmGenerateFullDeck = useCallback(() => {
-    const { modelInput, displayTopic } = composeFullDeckModelInput(
-      generateFullDeckTopic,
-      generateFullDeckAttachments,
-    );
-    if (!modelInput) return;
-    const backupNeeded =
-      slides.length > 1 ||
-      slides.some((s) => {
-        const c = (s.content ?? "").trim();
-        if (c.length > 0) return true;
-        const title = s.title.trim();
-        if (title === "Generando…") return false;
-        return title.length > 0 && title !== "Nueva diapositiva";
-      });
-    const errorRestore = backupNeeded
-      ? { slides: slides.map((s) => ({ ...s })), topic }
-      : undefined;
-    const queued = queueFullDeckGeneration(displayTopic, {
-      modelInput: modelInput !== displayTopic ? modelInput : undefined,
-      errorRestore,
-      reuseSavedId: currentSavedId,
-    });
-    if (!queued) return;
-    setShowGenerateFullDeckModal(false);
-    setGenerateFullDeckTopic("");
-    setGenerateFullDeckAttachments([]);
-  }, [
-    generateFullDeckTopic,
-    generateFullDeckAttachments,
-    slides,
-    topic,
-    currentSavedId,
-    queueFullDeckGeneration,
-  ]);
-
-  const addHomePromptAttachment = useCallback((a: PromptAttachment) => {
-    setHomePromptAttachments((prev) => [...prev, a]);
-  }, []);
-
-  const removeHomePromptAttachment = useCallback((id: string) => {
-    setHomePromptAttachments((prev) => prev.filter((x) => x.id !== id));
-  }, []);
-
-  const addGenerateFullDeckAttachment = useCallback((a: PromptAttachment) => {
-    setGenerateFullDeckAttachments((prev) => [...prev, a]);
-  }, []);
-
-  const removeGenerateFullDeckAttachment = useCallback((id: string) => {
-    setGenerateFullDeckAttachments((prev) => prev.filter((x) => x.id !== id));
-  }, []);
-
-  const handleImageGenerate = async () => {
-    if (!imagePrompt.trim() || !currentSlide) return;
-    const patchMediaPanelElementId =
-      pendingImageGenerateMediaPanelIdRef.current ??
-      canvasTextTargetsRef.current.mediaPanelElementId;
-    pendingImageGenerateMediaPanelIdRef.current = null;
-    setIsGeneratingImage(true);
-    const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
-    const character = selectedCharacterId
-      ? savedCharacters.find((c) => c.id === selectedCharacterId)
-      : undefined;
-    const characterPrompt = character?.description;
-    const characterReferenceImageDataUrl =
-      imageProvider === "gemini" ? character?.referenceImageDataUrl : undefined;
-    const characterReferenceImageForOpenAI =
-      imageProvider === "openai" ? character?.referenceImageDataUrl : undefined;
-    const imageModelId =
-      imageProvider === "gemini"
-        ? geminiImageModelId
-        : DEFAULT_OPENAI_IMAGE_MODEL_ID;
-    try {
-      const imageUrl = await generateImageUseCase.run({
-        providerId: imageProvider,
-        slideContext,
-        userPrompt: imagePrompt,
-        stylePrompt: selectedStyle.prompt,
-        includeBackground,
-        modelId: imageModelId,
-        characterPrompt,
-        characterReferenceImageDataUrl:
-          imageProvider === "openai"
-            ? characterReferenceImageForOpenAI
-            : characterReferenceImageDataUrl,
-      });
-      if (imageUrl) {
-        const promptUsed = imagePrompt.trim();
-        let nextDeck: Slide[] | null = null;
-        setSlides((prev) => {
-          const updated = [...prev];
-          const cur = updated[currentIndex];
-          if (!cur) return prev;
-          updated[currentIndex] = patchSlideMediaPanelByElementId(
-            cur,
-            patchMediaPanelElementId,
-            (m) => applyGeneratedImageToMediaPanelPayload(m, imageUrl, promptUsed),
-          );
-          nextDeck = updated;
-          return updated;
-        });
-        if (nextDeck && nextDeck.length > 0) {
-          const savedId = await savePresentationNow({
-            topic: topic || "Sin título",
-            slides: nextDeck,
-            characterId: selectedCharacterId ?? undefined,
-          });
-          if (!savedId) {
-            alert(
-              "La imagen se aplicó al lienzo pero no se pudo guardar en el almacenamiento local. Revisa el mensaje de estado o pulsa Guardar.",
-            );
-          }
-        }
-        setShowImageModal(false);
-        setImagePrompt("");
-        trackEvent(ANALYTICS_EVENTS.IMAGE_GENERATED);
-        void addGeneratedResource(
-          {
-            kind: "image",
-            payload: imageUrl,
-            prompt: promptUsed,
-            source: imageProvider,
-          },
-          localAccountScope,
-        )
-          .then(() =>
-            queryClient.invalidateQueries({
-              queryKey: presentationQueryKeys.generatedResources(
-                localAccountScope,
-              ),
-            }),
-          )
-          .catch((err) => console.error("Biblioteca de recursos:", err));
-      }
-    } catch (error) {
-      console.error("Error generating image:", error);
-      alert("Error al generar la imagen.");
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  const handleGeneratePromptAlternatives = async () => {
-    if (!currentSlide) return;
-    setIsGeneratingPromptAlternatives(true);
-    const slideContext = `Título: ${currentSlide.title}. Contenido: ${currentSlide.content}`;
-    const characterPrompt = selectedCharacterId
-      ? savedCharacters.find((c) => c.id === selectedCharacterId)?.description
-      : undefined;
-    const modelId = usesChatCompletionSlideOps(
-      presentationModelOption?.provider,
-    )
-      ? presentationModelId
-      : effectiveGeminiModel;
-    try {
-      const alternative = await generateImagePromptAlternatives.run(
-        slideContext,
-        imagePrompt,
-        selectedStyle.name,
-        selectedStyle.prompt,
-        modelId,
-        characterPrompt,
-        includeBackground,
-      );
-      if (alternative) setImagePrompt(alternative);
-    } catch (error) {
-      console.error("Error generating prompt alternatives:", error);
-      alert("No se pudo generar una alternativa de prompt.");
-    } finally {
-      setIsGeneratingPromptAlternatives(false);
-    }
-  };
-
-  const handleSplitSlide = async () => {
-    if (!splitPrompt.trim() || !currentSlide) return;
-    setIsProcessing(true);
-    const modelId = usesChatCompletionSlideOps(
-      presentationModelOption?.provider,
-    )
-      ? presentationModelId
-      : effectiveGeminiModel;
-    try {
-      const newSlides = await splitSlideUseCase.run(
-        currentSlide,
-        splitPrompt,
-        modelId,
-      );
-      if (newSlides.length > 0) {
-        const cleanedNewSlides = normalizeSlidesCanvasScenes(
-          newSlides.map((slide) => ({
-            ...slide,
-            id: crypto.randomUUID(),
-            content: formatMarkdown(slide.content),
-          })),
-        );
-        setSlides((prev) => {
-          const updated = [...prev];
-          updated.splice(currentIndex, 1, ...cleanedNewSlides);
-          return updated;
-        });
-        setShowSplitModal(false);
-        setSplitPrompt("");
-        trackEvent(ANALYTICS_EVENTS.SLIDE_SPLIT, {
-          new_slides_count: cleanedNewSlides.length,
-        });
-      }
-    } catch (error) {
-      console.error("Error splitting slide:", error);
-      alert("Error al dividir la diapositiva.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleRewriteSlide = async () => {
-    if (!rewritePrompt.trim() || !currentSlide) return;
-    setIsProcessing(true);
-    const modelId = usesChatCompletionSlideOps(
-      presentationModelOption?.provider,
-    )
-      ? presentationModelId
-      : effectiveGeminiModel;
-    try {
-      const result = await rewriteSlideUseCase.run(
-        currentSlide,
-        rewritePrompt,
-        modelId,
-        deckNarrativeSlideOptions,
-      );
-      const formattedContent = formatMarkdown(result.content);
-      setSlides((prev) => {
-        const updated = [...prev];
-        const slide = updated[currentIndex];
-        if (!slide) return prev;
-        updated[currentIndex] = replaceFirstMarkdownCanvasBody(
-          {
-            ...slide,
-            title: result.title,
-            content: formattedContent,
-          },
-          formattedContent,
-        );
-        return updated;
-      });
-      setEditTitle(result.title);
-      setEditContent(formattedContent);
-      setEditContentRichHtml("");
-      setEditContentBodyFontScale(1);
-      setShowRewriteModal(false);
-      setRewritePrompt("");
-      trackEvent(ANALYTICS_EVENTS.SLIDE_REWRITTEN);
-    } catch (error) {
-      console.error("Error rewriting slide:", error);
-      alert("Error al replantear la diapositiva.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleGenerateSlideContentAi = async () => {
-    if (!currentSlide) return;
-    const instr = generateSlideContentPrompt.trim();
-    if (!instr) return;
-    const modelId = usesChatCompletionSlideOps(
-      presentationModelOption?.provider,
-    )
-      ? presentationModelId
-      : effectiveGeminiModel;
-
-    if (currentSlide.type === SLIDE_TYPE.MATRIX) {
-      setIsProcessing(true);
-      try {
-        const result = await generateSlideMatrixUseCase.run(
-          topic.trim(),
-          currentSlide,
-          instr,
-          modelId,
-          deckNarrativeSlideOptions,
-        );
-        const formattedContent = formatMarkdown(result.content);
-        const matrixData = normalizeSlideMatrixData({
-          columnHeaders: result.columnHeaders,
-          rows: result.rows,
-        });
-        setSlides((prev) => {
-          const updated = [...prev];
-          const slide = updated[currentIndex];
-          if (!slide || slide.type !== SLIDE_TYPE.MATRIX) return prev;
-          updated[currentIndex] = {
-            ...slide,
-            title: result.title,
-            subtitle: result.subtitle.trim() || undefined,
-            content: formattedContent,
-            matrixData,
-          };
-          return updated;
-        });
-        setEditTitle(result.title);
-        setEditSubtitle(result.subtitle);
-        setEditContent(formattedContent);
-        setShowGenerateSlideContentModal(false);
-        setGenerateSlideContentPrompt("");
-        trackEvent(ANALYTICS_EVENTS.SLIDE_MATRIX_GENERATED);
-      } catch (error) {
-        console.error("Error generating matrix slide:", error);
-        alert("No se pudo generar la tabla con IA.");
-      } finally {
-        setIsProcessing(false);
-      }
-      return;
-    }
-
-    if (currentSlide.type === SLIDE_TYPE.DIAGRAM) {
-      setIsProcessing(true);
-      try {
-        const result = await generateSlideDiagramUseCase.run(
-          topic.trim(),
-          currentSlide,
-          instr,
-          modelId,
-          deckNarrativeSlideOptions,
-        );
-        const notesText = result.content.trim();
-        const formattedNotes = notesText ? formatMarkdown(notesText) : "";
-        setSlides((prev) => {
-          const updated = [...prev];
-          const slide = updated[currentIndex];
-          if (!slide || slide.type !== SLIDE_TYPE.DIAGRAM) return prev;
-          updated[currentIndex] = {
-            ...slide,
-            title: result.title,
-            ...(formattedNotes ? { content: formattedNotes } : {}),
-            excalidrawData: result.excalidrawData,
-          };
-          return updated;
-        });
-        setEditTitle(result.title);
-        if (formattedNotes) setEditContent(formattedNotes);
-        setDiagramRemountToken((n) => n + 1);
-        setShowGenerateSlideContentModal(false);
-        setGenerateSlideContentPrompt("");
-        trackEvent(ANALYTICS_EVENTS.SLIDE_DIAGRAM_GENERATED);
-      } catch (error) {
-        console.error("Error generating diagram slide:", error);
-        const detail =
-          error instanceof Error && error.message
-            ? ` ${error.message}`
-            : "";
-        alert(
-          `No se pudo generar el diagrama con IA.${detail} Prueba un prompt más simple (flujo, arquitectura en cajas y flechas).`,
-        );
-      } finally {
-        setIsProcessing(false);
-      }
-      return;
-    }
-
-    if (currentSlide.type !== SLIDE_TYPE.CONTENT) return;
-    setIsProcessing(true);
-    try {
-      const result = await generateSlideContentUseCase.run(
-        topic.trim(),
-        currentSlide,
-        instr,
-        modelId,
-        deckNarrativeSlideOptions,
-      );
-      const formattedContent = formatMarkdown(result.content);
-      setSlides((prev) => {
-        const updated = [...prev];
-        const slide = updated[currentIndex];
-        if (!slide) return prev;
-        updated[currentIndex] = replaceFirstMarkdownCanvasBody(
-          {
-            ...slide,
-            title: result.title,
-            content: formattedContent,
-          },
-          formattedContent,
-        );
-        return updated;
-      });
-      setEditTitle(result.title);
-      setEditContent(formattedContent);
-      setEditContentRichHtml("");
-      setEditContentBodyFontScale(1);
-      setShowGenerateSlideContentModal(false);
-      setGenerateSlideContentPrompt("");
-      trackEvent(ANALYTICS_EVENTS.SLIDE_CONTENT_GENERATED);
-    } catch (error) {
-      console.error("Error generating slide content:", error);
-      alert("No se pudo generar el contenido de la diapositiva.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleSaveVideoUrl = () => {
-    if (!videoUrlInput.trim() || !currentSlide) return;
-    const patchId =
-      pendingVideoUrlMediaPanelIdRef.current ??
-      canvasTextTargetsRef.current.mediaPanelElementId;
-    pendingVideoUrlMediaPanelIdRef.current = null;
-    setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      updated[currentIndex] = patchSlideMediaPanelByElementId(
-        cur,
-        patchId,
-        (m) => applyVideoUrlToMediaPanelPayload(m, videoUrlInput.trim()),
-      );
-      return updated;
-    });
-    setShowVideoModal(false);
-    setVideoUrlInput("");
-    trackEvent(ANALYTICS_EVENTS.VIDEO_ADDED);
-  };
-
   const openExportDeckVideoModal = useCallback(() => {
     setShowExportDeckVideoModal(true);
   }, []);
@@ -1441,6 +733,142 @@ export function usePresentationState() {
     user,
     maybeAutoSyncAfterLocalSave,
   });
+
+  const {
+    pendingGeneration,
+    clearPendingGeneration,
+    resetHomePromptAttachments,
+    isGeneratingImage,
+    isGeneratingPromptAlternatives,
+    isProcessing,
+    generateFullDeckTopic,
+    setGenerateFullDeckTopic,
+    homePromptAttachments,
+    generateFullDeckAttachments,
+    setGenerateFullDeckAttachments,
+    generateSlideContentPrompt,
+    setGenerateSlideContentPrompt,
+    imagePrompt,
+    setImagePrompt,
+    splitPrompt,
+    setSplitPrompt,
+    rewritePrompt,
+    setRewritePrompt,
+    videoUrlInput,
+    setVideoUrlInput,
+    speechGeneralPrompt,
+    setSpeechGeneralPrompt,
+    isGeneratingSpeech,
+    codeGenPrompt,
+    setCodeGenPrompt,
+    codeGenLanguage,
+    setCodeGenLanguage,
+    isGeneratingCode,
+    handleGenerate,
+    openGenerateFullDeckModal,
+    handleConfirmGenerateFullDeck,
+    addHomePromptAttachment,
+    removeHomePromptAttachment,
+    addGenerateFullDeckAttachment,
+    removeGenerateFullDeckAttachment,
+    handleImageGenerate,
+    handleGeneratePromptAlternatives,
+    handleSplitSlide,
+    handleRewriteSlide,
+    handleGenerateSlideContentAi,
+    handleSaveVideoUrl,
+    openImageModal,
+    openImageUploadModal,
+    openVideoModal,
+    ingestImageFileOnCurrentSlide,
+    handleImageUpload,
+    openCodeGenModal,
+    handleGenerateCode,
+    setPresenterNotesForCurrentSlide,
+    handleGeneratePresenterNotes,
+    handleGenerateSpeechForCurrentSlide,
+    handleRefinePresenterNotes,
+    handleGenerateSpeechForAll,
+  } = usePresentationAiModals({
+    queryClient,
+    localAccountScope,
+    lastOpenedSessionKey,
+    slides,
+    setSlides,
+    slidesUndoRef,
+    slidesRedoRef,
+    topic,
+    setTopic,
+    currentIndex,
+    setCurrentIndex,
+    currentSavedId,
+    setCurrentSavedId,
+    selectedCharacterId,
+    deckVisualTheme,
+    deckNarrativePresetId,
+    narrativeNotes,
+    setDeckNarrativePresetId,
+    setNarrativeNotes,
+    presentationModelId,
+    presentationModelOption,
+    effectiveGeminiModel,
+    modelForGeminiOps,
+    deckNarrativeSlideOptions,
+    currentSlide,
+    slidesRef,
+    currentIndexRef,
+    canvasTextTargetsRef,
+    pendingImageGenerateMediaPanelIdRef,
+    pendingImageUploadMediaPanelIdRef,
+    pendingVideoUrlMediaPanelIdRef,
+    setDiagramRemountToken,
+    setEditTitle,
+    setEditSubtitle,
+    setEditContent,
+    setEditContentRichHtml,
+    setEditContentBodyFontScale,
+    setEditCode,
+    setEditLanguage,
+    savePresentationNow,
+    runAutoSyncAfterSaveRef,
+    user,
+    autoCloudSyncOnSave,
+    showImageModal,
+    setShowImageModal,
+    setShowImageUploadModal,
+    setShowSplitModal,
+    setShowRewriteModal,
+    setShowVideoModal,
+    setShowGenerateFullDeckModal,
+    setShowGenerateSlideContentModal,
+    setShowCodeGenModal,
+    setShowSpeechModal,
+    geminiImageModelId,
+    imageProvider,
+    selectedStyle,
+    includeBackground,
+    savedCharacters,
+    setCanvasMediaPanelEditTarget,
+  });
+
+  /** Al iniciar/cerrar sesión, vaciar el editor: el listado local es distinto por ámbito. */
+  useEffect(() => {
+    if (prevLocalAccountScopeRef.current === null) {
+      prevLocalAccountScopeRef.current = localAccountScope;
+      return;
+    }
+    if (prevLocalAccountScopeRef.current === localAccountScope) return;
+    prevLocalAccountScopeRef.current = localAccountScope;
+    slidesUndoRef.current = [];
+    slidesRedoRef.current = [];
+    setSlides([]);
+    setTopic("");
+    resetHomePromptAttachments();
+    setCurrentSavedId(null);
+    setSelectedCharacterId(null);
+    setCurrentIndex(0);
+    clearEditorTabsForGoHome();
+  }, [localAccountScope, clearEditorTabsForGoHome, resetHomePromptAttachments]);
 
   const {
     toggleContentType,
@@ -1633,8 +1061,7 @@ export function usePresentationState() {
   );
 
   const createBlankPresentation = useCallback(async () => {
-    generationErrorRestoreRef.current = null;
-    setPendingGeneration(null);
+    clearPendingGeneration();
     slidesUndoRef.current = [];
     slidesRedoRef.current = [];
     const blankSlide: Slide = {
@@ -1661,7 +1088,7 @@ export function usePresentationState() {
       narrativeNotes: undefined,
     });
     await refreshSavedList();
-  }, [savePresentationNow, refreshSavedList]);
+  }, [savePresentationNow, refreshSavedList, clearPendingGeneration]);
 
   const { handleSave } = usePresentationManualSave({
     slides,
@@ -1693,7 +1120,7 @@ export function usePresentationState() {
     slidesRedoRef.current = [];
     setSlides([]);
     setTopic("");
-    setHomePromptAttachments([]);
+    resetHomePromptAttachments();
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
@@ -1891,334 +1318,6 @@ export function usePresentationState() {
       });
     } finally {
       setIsGeneratingCharacterPreview(false);
-    }
-  };
-
-  const openImageModal = useCallback(
-    (options?: { mediaPanelElementId?: string | null }) => {
-      const explicit = options?.mediaPanelElementId;
-      pendingImageGenerateMediaPanelIdRef.current =
-        explicit != null && explicit !== ""
-          ? explicit
-          : canvasTextTargetsRef.current.mediaPanelElementId;
-      const slide = slidesRef.current[currentIndexRef.current];
-      setImagePrompt(slide?.imagePrompt || "");
-      setShowImageModal(true);
-    },
-    [],
-  );
-
-  const openImageUploadModal = useCallback(
-    (options?: { mediaPanelElementId?: string | null }) => {
-      const explicit = options?.mediaPanelElementId;
-      pendingImageUploadMediaPanelIdRef.current =
-        explicit != null && explicit !== ""
-          ? explicit
-          : canvasTextTargetsRef.current.mediaPanelElementId;
-      setShowImageUploadModal(true);
-    },
-    [],
-  );
-
-  const openVideoModal = useCallback(
-    (options?: { mediaPanelElementId?: string | null; initialVideoUrl?: string }) => {
-      const explicit = options?.mediaPanelElementId;
-      pendingVideoUrlMediaPanelIdRef.current =
-        explicit != null && explicit !== ""
-          ? explicit
-          : canvasTextTargetsRef.current.mediaPanelElementId;
-      const slide = slidesRef.current[currentIndexRef.current];
-      setVideoUrlInput(options?.initialVideoUrl ?? slide?.videoUrl ?? "");
-      setShowVideoModal(true);
-    },
-    [],
-  );
-
-  /**
-   * Incrusta una imagen en el slide de contenido actual: actualiza el panel de media
-   * objetivo (seleccionado o por defecto), o crea un `mediaPanel` nuevo con rect opcional.
-   */
-  const ingestImageFileOnCurrentSlide = useCallback(
-    (
-      file: File,
-      placement: "patchTargetPanel" | "newPanel",
-      newPanelRect?: SlideCanvasRect,
-      callbacks?: {
-        onAfterApply?: () => void;
-        /** Drop sobre un `mediaPanel` concreto: actualizar ese bloque en lugar del ref. */
-        patchMediaPanelElementId?: string;
-      },
-    ) => {
-      if (!isUsableSlideImageFile(file)) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        void (async () => {
-          let dataUrl = coerceImageDataUrlForSlideFile(
-            reader.result as string,
-            file,
-          );
-          try {
-            dataUrl = await optimizeImageDataUrl(dataUrl);
-          } catch {
-            /* mantener original */
-          }
-          setSlides((prev) => {
-            const index = currentIndexRef.current;
-            const raw = prev[index];
-            if (!raw || raw.type !== SLIDE_TYPE.CONTENT) return prev;
-            const cur = ensureSlideCanvasScene(raw);
-            const scene = cur.canvasScene;
-            if (!scene) return prev;
-
-            if (placement === "newPanel") {
-              const appendOpts: AppendCanvasElementOptions = {
-                mediaContentType: PANEL_CONTENT_KIND.IMAGE,
-                mediaPanelPayloadOverrides: {
-                  imageUrl: dataUrl,
-                  contentType: PANEL_CONTENT_KIND.IMAGE,
-                },
-              };
-              if (newPanelRect) {
-                appendOpts.insertRectOverride = newPanelRect;
-              }
-              const appended = appendCanvasElementToScene(
-                cur,
-                scene.elements,
-                "mediaPanel",
-                appendOpts,
-              );
-              if (!appended) return prev;
-              const { elements: nextElements, created } = appended;
-              const updated = [...prev];
-              updated[index] = syncSlideRootFromCanvas({
-                ...cur,
-                canvasScene: { ...scene, elements: nextElements },
-              });
-              if (created.kind === "mediaPanel") {
-                window.setTimeout(() => {
-                  setCanvasMediaPanelEditTarget(created.id, {
-                    rehydrateCodeBuffers: true,
-                  });
-                }, 0);
-              }
-              return updated;
-            }
-
-            const explicitPatchId = callbacks?.patchMediaPanelElementId?.trim();
-            if (explicitPatchId) {
-              const el = scene.elements.find((x) => x.id === explicitPatchId);
-              if (el?.kind === "mediaPanel") {
-                const updated = [...prev];
-                updated[index] = patchSlideMediaPanelByElementId(
-                  cur,
-                  explicitPatchId,
-                  (m) => applyImageDataUrlToMediaPanelPayload(m, dataUrl),
-                );
-                return updated;
-              }
-            }
-
-            const targetId =
-              canvasTextTargetsRef.current.mediaPanelElementId ??
-              defaultCanvasTextEditTargets(cur).mediaPanelElementId;
-
-            const updated = [...prev];
-            if (targetId) {
-              updated[index] = patchSlideMediaPanelByElementId(
-                cur,
-                targetId,
-                (m) => applyImageDataUrlToMediaPanelPayload(m, dataUrl),
-              );
-              return updated;
-            }
-
-            const appended = appendCanvasElementToScene(
-              cur,
-              scene.elements,
-              "mediaPanel",
-              {
-                mediaContentType: PANEL_CONTENT_KIND.IMAGE,
-                mediaPanelPayloadOverrides: {
-                  imageUrl: dataUrl,
-                  contentType: PANEL_CONTENT_KIND.IMAGE,
-                },
-              },
-            );
-            if (!appended) return prev;
-            const { elements: nextElements, created } = appended;
-            updated[index] = syncSlideRootFromCanvas({
-              ...cur,
-              canvasScene: { ...scene, elements: nextElements },
-            });
-            if (created.kind === "mediaPanel") {
-              window.setTimeout(() => {
-                setCanvasMediaPanelEditTarget(created.id, {
-                  rehydrateCodeBuffers: true,
-                });
-              }, 0);
-            }
-            return updated;
-          });
-          callbacks?.onAfterApply?.();
-        })();
-      };
-      reader.readAsDataURL(file);
-    },
-    [setCanvasMediaPanelEditTarget],
-  );
-
-  const handleImageUpload = (file: File) => {
-    if (!currentSlide) return;
-    const patchId = pendingImageUploadMediaPanelIdRef.current;
-    pendingImageUploadMediaPanelIdRef.current = null;
-    ingestImageFileOnCurrentSlide(file, "patchTargetPanel", undefined, {
-      onAfterApply: () => setShowImageUploadModal(false),
-      patchMediaPanelElementId: patchId ?? undefined,
-    });
-  };
-
-  const openCodeGenModal = () => {
-    setCodeGenLanguage(currentSlide?.language || "javascript");
-    setCodeGenPrompt("");
-    setShowCodeGenModal(true);
-  };
-
-  const handleGenerateCode = async () => {
-    if (!currentSlide) return;
-    setIsGeneratingCode(true);
-    try {
-      const { code } = await generateCodeForSlideApi(
-        currentSlide,
-        codeGenLanguage,
-        codeGenPrompt.trim() || undefined,
-        modelForGeminiOps,
-      );
-      setSlides((prev) => {
-        const updated = [...prev];
-        const cur = updated[currentIndex];
-        if (!cur) return prev;
-        updated[currentIndex] = patchSlideMediaPanelByElementId(
-          cur,
-          canvasTextTargetsRef.current.mediaPanelElementId,
-          (m) => ({
-            ...m,
-            code,
-            language: codeGenLanguage,
-            contentType: PANEL_CONTENT_KIND.CODE,
-          }),
-        );
-        return updated;
-      });
-      setEditCode(code);
-      setEditLanguage(codeGenLanguage);
-      setShowCodeGenModal(false);
-      setCodeGenPrompt("");
-      trackEvent(ANALYTICS_EVENTS.CODE_GENERATED);
-    } catch (error) {
-      console.error("Error generating code:", error);
-      alert("Error al generar el código. Intenta de nuevo.");
-    } finally {
-      setIsGeneratingCode(false);
-    }
-  };
-
-  const setPresenterNotesForCurrentSlide = (notes: string) => {
-    if (!currentSlide) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentIndex] = {
-        ...updated[currentIndex],
-        presenterNotes: notes,
-      };
-      return updated;
-    });
-  };
-
-  const handleGeneratePresenterNotes = async () => {
-    if (!currentSlide) return;
-    setIsProcessing(true);
-    try {
-      const notes = await generatePresenterNotesApi(
-        currentSlide,
-        modelForGeminiOps,
-      );
-      setPresenterNotesForCurrentSlide(notes);
-      trackEvent(ANALYTICS_EVENTS.PRESENTER_NOTES_GENERATED);
-    } catch (e) {
-      console.error(e);
-      alert("Error al generar las notas del presentador.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleGenerateSpeechForCurrentSlide = async (prompt?: string) => {
-    if (!currentSlide) return;
-    setIsGeneratingSpeech(true);
-    try {
-      const text = await generateSpeechForSlideApi(
-        currentSlide,
-        prompt,
-        modelForGeminiOps,
-      );
-      setPresenterNotesForCurrentSlide(text);
-      trackEvent(ANALYTICS_EVENTS.SPEECH_SLIDE_GENERATED);
-    } catch (e) {
-      console.error(e);
-      alert("Error al generar el contenido.");
-    } finally {
-      setIsGeneratingSpeech(false);
-    }
-  };
-
-  const handleRefinePresenterNotes = async () => {
-    if (!currentSlide) return;
-    const current = (currentSlide.presenterNotes ?? "").trim();
-    if (!current) {
-      alert("Escribe o genera primero el contenido para refinar.");
-      return;
-    }
-    setIsGeneratingSpeech(true);
-    try {
-      const refined = await refinePresenterNotesApi(
-        currentSlide,
-        current,
-        modelForGeminiOps,
-      );
-      setPresenterNotesForCurrentSlide(refined);
-    } catch (e) {
-      console.error(e);
-      alert("Error al refinar las notas.");
-    } finally {
-      setIsGeneratingSpeech(false);
-    }
-  };
-
-  const handleGenerateSpeechForAll = async () => {
-    if (slides.length === 0 || !speechGeneralPrompt.trim()) return;
-    setIsGeneratingSpeech(true);
-    try {
-      const results = await generateSpeechForAllApi(
-        slides,
-        speechGeneralPrompt,
-        modelForGeminiOps,
-      );
-      setSlides((prev) =>
-        prev.map((s, i) => ({
-          ...s,
-          presenterNotes: results[i] ?? s.presenterNotes ?? "",
-        })),
-      );
-      setShowSpeechModal(false);
-      setSpeechGeneralPrompt("");
-      trackEvent(ANALYTICS_EVENTS.SPEECH_ALL_GENERATED, {
-        slide_count: slides.length,
-      });
-    } catch (e) {
-      console.error(e);
-      alert("Error al generar para todas las diapositivas.");
-    } finally {
-      setIsGeneratingSpeech(false);
     }
   };
 
