@@ -44,8 +44,6 @@ import {
 import {
   LAST_OPENED_PRESENTATION_KEY,
   type HomeTab,
-  type EditorWorkspaceSnapshot,
-  type EditorTab,
 } from "../presentation/state/presentationTypes";
 import {
   cloneSlideDeck,
@@ -54,6 +52,7 @@ import {
   applyGeneratedImageToMediaPanelPayload,
 } from "../presentation/state/presentationMediaHelpers";
 import { usePresentationSlideEditing } from "../presentation/state/usePresentationSlideEditing";
+import { usePresentationEditorTabs } from "../presentation/state/usePresentationEditorTabs";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import { fetchCloudPresentationSnapshots } from "../presentation/state/usePresentationCloudList";
 import {
@@ -518,21 +517,58 @@ export function usePresentationState() {
     localSlideCount?: number;
     remoteSlideCount?: number;
   } | null>(null);
-  /** Ref que SlideContentDiagram rellena con una función que vacía el diagrama pendiente y devuelve los datos (para guardar/vista previa). */
-  const diagramFlushRef = useRef<(() => string | null) | null>(null);
-  /** Ref que SlideContentIsometricFlow rellena para persistir JSON antes de guardar o capturar pestaña. */
-  const isometricFlowFlushRef = useRef<(() => string | null) | null>(null);
-  /** Incrementar para forzar remount de Excalidraw tras sustituir la escena (p. ej. IA). */
-  const [diagramRemountToken, setDiagramRemountToken] = useState(0);
-  /**
-   * Borrador del título de la presentación mientras el input del header está en edición.
-   * Evita guardar un `topic` obsoleto si se pulsa Guardar antes de que React aplique el blur.
-   */
-  const presentationTitleDraftRef = useRef<string | null>(null);
-  
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
+
+  const {
+    editorTabs,
+    activeEditorTabId,
+    diagramFlushRef,
+    isometricFlowFlushRef,
+    diagramRemountToken,
+    setDiagramRemountToken,
+    presentationTitleDraftRef,
+    captureWorkspaceSnapshot,
+    applyWorkspaceSnapshot,
+    setPresentationTitleDraft,
+    flushDiagramPending,
+    flushIsometricFlowPending,
+    switchEditorTab,
+    addEditorTab,
+    closeEditorTab,
+    clearEditorTabsForGoHome,
+  } = usePresentationEditorTabs({
+    localAccountScope,
+    slides,
+    setSlides,
+    topic,
+    setTopic,
+    currentIndex,
+    setCurrentIndex,
+    currentSavedId,
+    setCurrentSavedId,
+    selectedCharacterId,
+    setSelectedCharacterId,
+    deckVisualTheme,
+    setDeckVisualThemeState,
+    deckNarrativePresetId,
+    setDeckNarrativePresetId,
+    narrativeNotes,
+    setNarrativeNotes,
+    slidesUndoRef,
+    slidesRedoRef,
+    editTitleRef,
+    editSubtitleRef,
+    editContentRef,
+    editContentRichHtmlRef,
+    editContentBodyFontScaleRef,
+    editCodeRef,
+    editLanguageRef,
+    editFontSizeRef,
+    editEditorHeightRef,
+    canvasTextTargetsRef,
+  });
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
     "slide" | "characters" | "notes" | "theme" | "resources" | null
@@ -576,10 +612,6 @@ export function usePresentationState() {
     },
     [],
   );
-
-  const tabSnapshotsRef = useRef<Record<string, EditorWorkspaceSnapshot>>({});
-  const [editorTabs, setEditorTabs] = useState<EditorTab[]>([]);
-  const [activeEditorTabId, setActiveEditorTabId] = useState<string | null>(null);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -684,28 +716,8 @@ export function usePresentationState() {
     setCurrentSavedId(null);
     setSelectedCharacterId(null);
     setCurrentIndex(0);
-    setEditorTabs([]);
-    setActiveEditorTabId(null);
-    tabSnapshotsRef.current = {};
-  }, [localAccountScope]);
-
-  useEffect(() => {
-    if (slides.length === 0) return;
-    if (editorTabs.length > 0) return;
-    const id = crypto.randomUUID();
-    setEditorTabs([{ id, title: (topic || "Sin título").slice(0, 64) }]);
-    setActiveEditorTabId(id);
-  }, [slides.length, editorTabs.length, topic]);
-
-  useEffect(() => {
-    if (!activeEditorTabId || slides.length === 0) return;
-    const label = (topic || "Sin título").slice(0, 64);
-    setEditorTabs((tabs) =>
-      tabs.map((t) =>
-        t.id === activeEditorTabId ? { ...t, title: label } : t,
-      ),
-    );
-  }, [topic, activeEditorTabId, slides.length]);
+    clearEditorTabsForGoHome();
+  }, [localAccountScope, clearEditorTabsForGoHome]);
 
   // Generación en segundo plano: al tener pendingGeneration, llamar API, actualizar slides y guardar.
   useEffect(() => {
@@ -1854,113 +1866,6 @@ export function usePresentationState() {
   const openExportDeckVideoModal = useCallback(() => {
     setShowExportDeckVideoModal(true);
   }, []);
-
-  const flushDiagramPending = useCallback((): string | null => {
-    return diagramFlushRef.current?.() ?? null;
-  }, []);
-
-  const flushIsometricFlowPending = useCallback((): string | null => {
-    return isometricFlowFlushRef.current?.() ?? null;
-  }, []);
-
-  const cloneSlidesForTab = useCallback((list: Slide[]) => {
-    try {
-      return structuredClone(list) as Slide[];
-    } catch {
-      return list.map((s) => ({ ...s }));
-    }
-  }, []);
-
-  const captureWorkspaceSnapshot = useCallback((): EditorWorkspaceSnapshot => {
-    const pending = flushDiagramPending();
-    const pendingIso = flushIsometricFlowPending();
-    const idx = currentIndex;
-    const buffers = {
-      title: editTitleRef.current,
-      subtitle: editSubtitleRef.current,
-      content: editContentRef.current,
-      contentRichHtml: editContentRichHtmlRef.current,
-      contentBodyFontScale: editContentBodyFontScaleRef.current,
-      code: editCodeRef.current,
-      language: editLanguageRef.current,
-      fontSize: editFontSizeRef.current,
-      editorHeight: editEditorHeightRef.current,
-    };
-    const merged = slides.map((sl, i) =>
-      i === idx
-        ? applyEditBuffersToSlide(
-            ensureSlideCanvasScene(sl),
-            buffers,
-            canvasTextTargetsRef.current,
-          )
-        : sl,
-    );
-    let s =
-      pending != null && merged[idx]?.type === SLIDE_TYPE.DIAGRAM
-        ? merged.map((sl, i) =>
-            i === idx ? { ...sl, excalidrawData: pending } : sl,
-          )
-        : merged;
-    s =
-      pendingIso != null && s[idx]?.type === SLIDE_TYPE.ISOMETRIC
-        ? s.map((sl, i) =>
-            i === idx ? { ...sl, isometricFlowData: pendingIso } : sl,
-          )
-        : s;
-    const snapTopic =
-      presentationTitleDraftRef.current !== null
-        ? presentationTitleDraftRef.current.trim() || ""
-        : topic;
-    return {
-      topic: snapTopic,
-      slides: cloneSlidesForTab(s),
-      currentIndex,
-      currentSavedId,
-      selectedCharacterId,
-      deckVisualTheme,
-      deckNarrativePresetId,
-      narrativeNotes,
-    };
-  }, [
-    flushDiagramPending,
-    flushIsometricFlowPending,
-    slides,
-    currentIndex,
-    topic,
-    currentSavedId,
-    selectedCharacterId,
-    deckVisualTheme,
-    deckNarrativePresetId,
-    narrativeNotes,
-    cloneSlidesForTab,
-  ]);
-
-  const setPresentationTitleDraft = useCallback((value: string | null) => {
-    presentationTitleDraftRef.current = value;
-  }, []);
-
-  const applyWorkspaceSnapshot = useCallback(
-    (snap: EditorWorkspaceSnapshot) => {
-      const sl = cloneSlidesForTab(snap.slides);
-      const idx = Math.min(
-        Math.max(0, snap.currentIndex),
-        Math.max(0, sl.length - 1),
-      );
-      slidesUndoRef.current = [];
-      slidesRedoRef.current = [];
-      setTopic(snap.topic);
-      setSlides(sl);
-      setCurrentIndex(idx);
-      setCurrentSavedId(snap.currentSavedId);
-      setSelectedCharacterId(snap.selectedCharacterId);
-      setDeckVisualThemeState(snap.deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME);
-      setDeckNarrativePresetId(
-        snap.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
-      );
-      setNarrativeNotes(snap.narrativeNotes ?? "");
-    },
-    [cloneSlidesForTab],
-  );
 
   const refreshCloudMineSnapshot = useCallback(async () => {
     if (
@@ -3206,74 +3111,6 @@ export function usePresentationState() {
     }
   }, [cloudSyncConflict, user, refreshSavedList, localAccountScope]);
 
-  const switchEditorTab = useCallback(
-    (tabId: string) => {
-      if (tabId === activeEditorTabId) return;
-      if (activeEditorTabId) {
-        tabSnapshotsRef.current[activeEditorTabId] =
-          captureWorkspaceSnapshot();
-      }
-      const incoming = tabSnapshotsRef.current[tabId];
-      if (incoming) {
-        applyWorkspaceSnapshot(incoming);
-        delete tabSnapshotsRef.current[tabId];
-      }
-      setActiveEditorTabId(tabId);
-    },
-    [
-      activeEditorTabId,
-      captureWorkspaceSnapshot,
-      applyWorkspaceSnapshot,
-    ],
-  );
-
-  const addEditorTab = useCallback(() => {
-    if (activeEditorTabId) {
-      tabSnapshotsRef.current[activeEditorTabId] =
-        captureWorkspaceSnapshot();
-    }
-    const newId = crypto.randomUUID();
-    const blankSlide: Slide = {
-      id: crypto.randomUUID(),
-      type: "content",
-      title: "Nueva diapositiva",
-      content: "",
-    };
-    setTopic("");
-    slidesUndoRef.current = [];
-    slidesRedoRef.current = [];
-    setSlides(normalizeSlidesCanvasScenes([blankSlide]));
-    setCurrentIndex(0);
-    setCurrentSavedId(null);
-    setSelectedCharacterId(null);
-    setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
-    setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
-    setNarrativeNotes("");
-    setEditorTabs((tabs) => [...tabs, { id: newId, title: "Sin título" }]);
-    setActiveEditorTabId(newId);
-  }, [activeEditorTabId, captureWorkspaceSnapshot]);
-
-  const closeEditorTab = useCallback(
-    (tabId: string) => {
-      const tabs = editorTabs;
-      if (tabs.length <= 1) return;
-      const idx = tabs.findIndex((t) => t.id === tabId);
-      if (idx < 0) return;
-      delete tabSnapshotsRef.current[tabId];
-      const neighbor = tabs[idx + 1] ?? tabs[idx - 1];
-      if (tabId === activeEditorTabId && neighbor) {
-        const incoming = tabSnapshotsRef.current[neighbor.id];
-        if (incoming) {
-          applyWorkspaceSnapshot(incoming);
-          delete tabSnapshotsRef.current[neighbor.id];
-        }
-        setActiveEditorTabId(neighbor.id);
-      }
-      setEditorTabs((t) => t.filter((x) => x.id !== tabId));
-    },
-    [editorTabs, activeEditorTabId, applyWorkspaceSnapshot],
-  );
-
   const goHome = () => {
     slidesUndoRef.current = [];
     slidesRedoRef.current = [];
@@ -3285,9 +3122,7 @@ export function usePresentationState() {
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
     setNarrativeNotes("");
-    setEditorTabs([]);
-    setActiveEditorTabId(null);
-    tabSnapshotsRef.current = {};
+    clearEditorTabsForGoHome();
     try {
       sessionStorage.removeItem(lastOpenedSessionKey);
     } catch {
