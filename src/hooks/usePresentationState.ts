@@ -66,14 +66,6 @@ import {
 import { isSlideCanvasTextPayload } from "../domain/entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../utils/slideRichText";
 import {
-  getGeminiApiKey,
-  getOpenAIApiKey,
-  getXaiApiKey,
-  getGroqApiKey,
-  getCerebrasApiKey,
-  getOpenRouterApiKey,
-} from "../services/apiConfig";
-import {
   migrateJsonPresentations,
   localAccountScopeForUser,
 } from "../services/storage";
@@ -81,16 +73,13 @@ import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import { createConfigSetter } from "../store/useConfigStore";
 import {
-  PRESENTATION_MODELS,
-  DEFAULT_PRESENTATION_MODEL_ID,
-} from "../constants/presentationModels";
-import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
 import { usePresentationAiModals } from "../presentation/state/usePresentationAiModals";
 import { usePresentationCharactersResources } from "../presentation/state/usePresentationCharactersResources";
 import { usePresentationStoreBridge } from "../presentation/state/usePresentationStoreBridge";
+import { usePresentationModelCatalog } from "../presentation/state/usePresentationModelCatalog";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
@@ -279,6 +268,26 @@ export function usePresentationState() {
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
+
+  const {
+    hasGemini,
+    hasOpenAI,
+    hasXai,
+    presentationModels,
+    presentationModelOption,
+    effectiveGeminiModel,
+    modelForGeminiOps,
+    effectiveGeminiModelLabel,
+    refreshApiKeys,
+  } = usePresentationModelCatalog({
+    presentationModelId,
+    setPresentationModelId,
+    apiKeysVersion,
+    setApiKeysVersion,
+    imageProvider,
+    setImageProvider,
+  });
+
   const slidesUndoRef = useRef<Slide[][]>([]);
   const slidesRedoRef = useRef<Slide[][]>([]);
   const currentIndexRef = useRef(0);
@@ -509,38 +518,6 @@ export function usePresentationState() {
     "slide" | "characters" | "notes" | "theme" | "resources" | null
   >("slide");
 
-  const hasGemini = !!getGeminiApiKey();
-  const hasOpenAI = !!getOpenAIApiKey();
-  const hasXai = !!getXaiApiKey();
-  const hasGroq = !!getGroqApiKey();
-  const hasCerebras = !!getCerebrasApiKey();
-  const hasOpenRouter = !!getOpenRouterApiKey();
-  const presentationModels = useMemo(
-    () =>
-      PRESENTATION_MODELS.filter(
-        (m) =>
-          (m.provider === "gemini" && hasGemini) ||
-          (m.provider === "openai" && hasOpenAI) ||
-          (m.provider === "xai" && hasXai) ||
-          (m.provider === "groq" && hasGroq) ||
-          (m.provider === "cerebras" && hasCerebras) ||
-          (m.provider === "openrouter" && hasOpenRouter),
-      ),
-    [
-      hasGemini,
-      hasOpenAI,
-      hasXai,
-      hasGroq,
-      hasCerebras,
-      hasOpenRouter,
-      apiKeysVersion,
-    ],
-  );
-
-  const refreshApiKeys = useCallback(() => {
-    setApiKeysVersion((v) => v + 1);
-  }, []);
-
   const setAutoCloudSyncOnSave = useCallback((value: boolean) => {
     try {
       localStorage.setItem(AUTO_CLOUD_SYNC_STORAGE_KEY, value ? "1" : "0");
@@ -550,21 +527,6 @@ export function usePresentationState() {
     createConfigSetter("autoCloudSyncOnSave")(value);
   }, []);
 
-  // Modelo para operaciones Gemini (dividir, reescribir, prompt de imagen, código, notas, chat).
-  // Usar siempre el modelo seleccionado en el combo cuando sea Gemini; si el combo tiene OpenAI, usar fallback.
-  const presentationModelOption =
-    presentationModels.find((m) => m.id === presentationModelId) ??
-    PRESENTATION_MODELS.find((m) => m.id === presentationModelId);
-  // Modelo usado para speech, código, notas y chat (si el combo es Gemini; si no, fallback).
-  const effectiveGeminiModel =
-    presentationModelOption?.provider === "gemini"
-      ? presentationModelId
-      : "gemini-2.5-flash";
-  const modelForGeminiOps = effectiveGeminiModel?.trim() || "gemini-2.5-flash";
-  const effectiveGeminiModelLabel =
-    PRESENTATION_MODELS.find((m) => m.id === modelForGeminiOps)?.label ??
-    modelForGeminiOps;
-
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
     currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
@@ -572,24 +534,6 @@ export function usePresentationState() {
     currentSlide?.contentLayout === "panel-full"
       ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
       : DEFAULT_PANEL_HEIGHT_PERCENT;
-
-
-  // Ajustar modelo seleccionado si no está entre los permitidos (solo APIs configuradas)
-  useEffect(() => {
-    const allowedIds = presentationModels.map((m) => m.id);
-    if (
-      presentationModels.length > 0 &&
-      !allowedIds.includes(presentationModelId)
-    ) {
-      setPresentationModelId(presentationModels[0].id);
-    }
-  }, [presentationModels, presentationModelId]);
-
-  // Sincronizar proveedor de imagen con API keys disponibles (no mostrar opción sin key)
-  useEffect(() => {
-    if (imageProvider === "openai" && !hasOpenAI) setImageProvider("gemini");
-    if (imageProvider === "gemini" && !hasGemini) setImageProvider("openai");
-  }, [hasGemini, hasOpenAI]);
 
   // Migrar presentaciones en JSON (formato antiguo) a SQLite una vez al cargar
   useEffect(() => {

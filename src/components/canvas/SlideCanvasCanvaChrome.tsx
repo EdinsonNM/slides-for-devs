@@ -220,7 +220,7 @@ export function SlideCanvasCanvaChrome({
       {toolbar && (
         <div
           className={cn(
-            "pointer-events-auto absolute left-1/2 z-[200] -translate-x-1/2",
+            "pointer-events-auto absolute left-1/2 z-200 -translate-x-1/2",
             toolbarPlacement === "above" && "bottom-full mb-2",
             toolbarPlacement === "below" && "top-full mt-2",
             toolbarPlacement === "inside" && "top-2",
