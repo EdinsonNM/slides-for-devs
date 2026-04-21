@@ -257,8 +257,6 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
     }
   }, []);
 
-  deps.openSavedPresentationRef.current = handleOpenSaved;
-
   return {
     openSavedListModal,
     handleOpenSaved,

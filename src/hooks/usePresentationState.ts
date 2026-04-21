@@ -231,8 +231,7 @@ export function usePresentationState() {
   const generatedResourcesQuery = useGeneratedResourcesList(localAccountScope);
   const generatedResources = generatedResourcesQuery.data ?? [];
 
-      const slidesRef = useRef<Slide[]>(slides);
-  slidesRef.current = slides;
+  const slidesRef = useRef<Slide[]>(slides);
 
   /** Actualizado tras `usePresentationDeckMutations` para que el listener de teclado use la misma navegación que la UI. */
   const deckNavigationRef = useRef<{ nextSlide: () => void; prevSlide: () => void }>(
@@ -800,6 +799,10 @@ export function usePresentationState() {
   });
 
   usePresentationOrchestratorRefSync({
+    slidesRef,
+    slides,
+    openSavedPresentationRef,
+    handleOpenSaved,
     runAutoSyncAfterSaveRef,
     maybeAutoSyncAfterLocalSave,
     deckNavigationRef,

@@ -1,9 +1,14 @@
 import { useLayoutEffect } from "react";
 import type { MutableRefObject } from "react";
+import type { Slide } from "../../types";
 import type { PresentationCloudResolveRemoteEditorDeps } from "./presentationCloudPresentationDeps";
 import type { DeckNavigationActions } from "./usePresentationEditorKeyboard";
 
 export type PresentationOrchestratorRefSyncArgs = {
+  slidesRef: MutableRefObject<Slide[]>;
+  slides: Slide[];
+  openSavedPresentationRef: MutableRefObject<(id: string) => Promise<void>>;
+  handleOpenSaved: (id: string) => Promise<void>;
   runAutoSyncAfterSaveRef: MutableRefObject<(id: string) => Promise<void>>;
   maybeAutoSyncAfterLocalSave: (id: string) => Promise<void>;
   deckNavigationRef: MutableRefObject<DeckNavigationActions>;
@@ -15,8 +20,11 @@ export type PresentationOrchestratorRefSyncArgs = {
 } & PresentationCloudResolveRemoteEditorDeps;
 
 /**
- * Mantiene refs usadas por nube / teclado / callbacks asíncronos con el mismo valor
- * que antes se asignaba durante el render, pero con dependencias explícitas.
+ * Mantiene refs usadas por nube, listados guardados, teclado y callbacks asíncronos
+ * alineadas con el estado actual, con dependencias explícitas.
+ *
+ * Incluye el espejo de `slides` en `slidesRef` y `handleOpenSaved` en
+ * `openSavedPresentationRef` (antes mutados en el render o en sub-hooks).
  *
  * `useLayoutEffect` evita un fotograma con refs obsoletas antes de pintar o de eventos.
  */
@@ -24,6 +32,10 @@ export function usePresentationOrchestratorRefSync(
   args: PresentationOrchestratorRefSyncArgs,
 ) {
   const {
+    slidesRef,
+    slides,
+    openSavedPresentationRef,
+    handleOpenSaved,
     runAutoSyncAfterSaveRef,
     maybeAutoSyncAfterLocalSave,
     deckNavigationRef,
@@ -41,6 +53,14 @@ export function usePresentationOrchestratorRefSync(
     setNarrativeNotes,
     formatMarkdown,
   } = args;
+
+  useLayoutEffect(() => {
+    slidesRef.current = slides;
+  }, [slidesRef, slides]);
+
+  useLayoutEffect(() => {
+    openSavedPresentationRef.current = handleOpenSaved;
+  }, [openSavedPresentationRef, handleOpenSaved]);
 
   useLayoutEffect(() => {
     runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
