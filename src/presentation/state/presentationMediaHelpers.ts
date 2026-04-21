@@ -30,6 +30,17 @@ export function applyImageDataUrlToMediaPanelPayload(
   };
 }
 
+export function applyRiveUrlToMediaPanelPayload(
+  m: SlideCanvasMediaPayload,
+  riveUrl: string,
+): SlideCanvasMediaPayload {
+  return {
+    ...m,
+    contentType: PANEL_CONTENT_KIND.RIVE,
+    riveUrl,
+  };
+}
+
 export function applyVideoUrlToMediaPanelPayload(
   m: SlideCanvasMediaPayload,
   videoUrl: string,

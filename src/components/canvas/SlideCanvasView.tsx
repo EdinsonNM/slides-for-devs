@@ -1,4 +1,9 @@
 import { Image as ImageIcon } from "lucide-react";
+import * as RiveReact from "@rive-app/react-canvas";
+import {
+  SlideRivePlayer,
+  riveStateMachinesFromStoredNames,
+} from "../shared/SlideRivePlayer";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import { getEmbedUrl } from "../../utils/video";
@@ -40,6 +45,13 @@ import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
+
+const { Alignment, Fit, Layout } = RiveReact;
+
+const riveReadonlyLayout = new Layout({
+  fit: Fit.Contain,
+  alignment: Alignment.Center,
+});
 
 export interface SlideCanvasViewProps {
   slide: Slide;
@@ -139,6 +151,35 @@ function mediaBlock(
           />
         </div>
       );
+    case PANEL_CONTENT_KIND.RIVE: {
+      const src = deckSlide.riveUrl?.trim() ?? "";
+      if (!src) {
+        return (
+          <div
+            className={cn(
+              "flex h-full w-full items-center justify-center rounded-xl bg-stone-900/90",
+              deckMutedTextClass(tone),
+            )}
+          >
+            <span className="text-sm italic">Sin animación Rive</span>
+          </div>
+        );
+      }
+      return (
+        <div className="pointer-events-auto relative z-[2] h-full min-h-0 w-full overflow-hidden rounded-xl bg-transparent">
+          <SlideRivePlayer
+            key={`${src}\0${deckSlide.riveStateMachineNames ?? ""}\0${deckSlide.riveArtboard ?? ""}`}
+            src={src}
+            artboard={deckSlide.riveArtboard?.trim() || undefined}
+            stateMachines={riveStateMachinesFromStoredNames(
+              deckSlide.riveStateMachineNames,
+            )}
+            layout={riveReadonlyLayout}
+            className="h-full w-full min-h-[80px] bg-transparent touch-manipulation"
+          />
+        </div>
+      );
+    }
     case PANEL_CONTENT_KIND.IMAGE:
       if (deckSlide.imageUrl) {
         return (

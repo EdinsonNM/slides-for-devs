@@ -46,7 +46,15 @@ export function usePresentationDeckMutations(
       let next = patchSlideMediaPanelByElementId(
         cur,
         d.canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({ ...m, contentType: newType }),
+        (m) => {
+          const o = { ...m, contentType: newType };
+          if (normalizePanelContentKind(newType) !== PANEL_CONTENT_KIND.RIVE) {
+            delete (o as { riveUrl?: string }).riveUrl;
+            delete (o as { riveStateMachineNames?: string }).riveStateMachineNames;
+            delete (o as { riveArtboard?: string }).riveArtboard;
+          }
+          return o;
+        },
       );
       if (newType === PANEL_CONTENT_KIND.PRESENTER_3D) {
         next = patchSlideMediaPanelByElementId(

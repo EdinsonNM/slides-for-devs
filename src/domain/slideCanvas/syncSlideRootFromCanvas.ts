@@ -4,6 +4,10 @@ import {
   type SlideCanvasElement,
 } from "../entities/SlideCanvas";
 import {
+  PANEL_CONTENT_KIND,
+  normalizePanelContentKind,
+} from "../panelContent/panelContentKind";
+import {
   compareCanvasElementsByZThenId,
   readMediaPayloadFromElement,
   readTextMarkdownFromElement,
@@ -66,6 +70,20 @@ export function syncSlideRootFromCanvas(slide: Slide): Slide {
       canvas3dGlbUrl: media.canvas3dGlbUrl,
       canvas3dViewState: media.canvas3dViewState,
     };
+    delete (next as { riveUrl?: unknown }).riveUrl;
+    delete (next as { riveStateMachineNames?: unknown }).riveStateMachineNames;
+    delete (next as { riveArtboard?: unknown }).riveArtboard;
+    if (normalizePanelContentKind(media.contentType) === PANEL_CONTENT_KIND.RIVE) {
+      if (media.riveUrl?.trim()) {
+        next.riveUrl = media.riveUrl;
+      }
+      if (typeof media.riveStateMachineNames === "string" && media.riveStateMachineNames.trim()) {
+        next.riveStateMachineNames = media.riveStateMachineNames.trim();
+      }
+      if (typeof media.riveArtboard === "string" && media.riveArtboard.trim()) {
+        next.riveArtboard = media.riveArtboard.trim();
+      }
+    }
     if (media.codeEditorTheme !== undefined) {
       next.codeEditorTheme = media.codeEditorTheme;
     } else {

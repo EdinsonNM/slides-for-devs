@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Box,
   Code2,
+  Film,
   Image as ImageIcon,
   PencilRuler,
   Smartphone,
@@ -130,6 +131,14 @@ function SidebarMiniMediaBlock({ panelSlide }: { panelSlide: Slide }) {
           Icon={Video}
           surfaceClassName="from-sky-50 to-sky-100/90 dark:from-sky-950/35 dark:to-sky-900/25"
           iconClassName="text-sky-800 dark:text-sky-200"
+        />
+      );
+    case PANEL_CONTENT_KIND.RIVE:
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={Film}
+          surfaceClassName="from-rose-50 to-rose-100/90 dark:from-rose-950/35 dark:to-rose-900/25"
+          iconClassName="text-rose-800 dark:text-rose-200"
         />
       );
     case PANEL_CONTENT_KIND.PRESENTER_3D:

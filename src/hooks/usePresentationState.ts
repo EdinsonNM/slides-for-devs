@@ -505,7 +505,7 @@ export function usePresentationState() {
 
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
-    "slide" | "characters" | "notes" | "theme" | "resources" | null
+    "slide" | "characters" | "notes" | "theme" | "resources" | "rive" | null
   >("slide");
 
   const currentSlide = slides[currentIndex];
@@ -656,6 +656,10 @@ export function usePresentationState() {
     openImageUploadModal,
     openVideoModal,
     ingestImageFileOnCurrentSlide,
+    ingestRiveFileOnCurrentSlide,
+    clearRiveFromCurrentMediaPanel,
+    setCurrentSlideRiveArtboard,
+    setCurrentSlideRiveStateMachineNames,
     handleImageUpload,
     openCodeGenModal,
     handleGenerateCode,
@@ -1131,6 +1135,10 @@ export function usePresentationState() {
     openImageUploadModal,
     handleImageUpload,
     ingestImageFileOnCurrentSlide,
+    ingestRiveFileOnCurrentSlide,
+    clearRiveFromCurrentMediaPanel,
+    setCurrentSlideRiveArtboard,
+    setCurrentSlideRiveStateMachineNames,
     hasGemini,
     hasOpenAI,
     hasXai,

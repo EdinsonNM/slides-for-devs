@@ -129,6 +129,22 @@ export class VideoMediaPanelDescriptor extends MediaPanelDescriptor {
   }
 }
 
+export class RiveMediaPanelDescriptor extends MediaPanelDescriptor {
+  readonly kind = PANEL_CONTENT_KIND.RIVE;
+
+  override splitPanelOccupied(slide: Slide): boolean {
+    return Boolean(slide.riveUrl?.trim());
+  }
+
+  override presenterSummaryBadge(): string | null {
+    return "Rive";
+  }
+
+  override sidebarSplitStripSurfaceClass(): string {
+    return "bg-rose-100/80 dark:bg-rose-900/40";
+  }
+}
+
 export class Presenter3dMediaPanelDescriptor extends MediaPanelDescriptor {
   readonly kind = PANEL_CONTENT_KIND.PRESENTER_3D;
 
@@ -181,6 +197,7 @@ const DESCRIPTORS: Record<PanelContentKind, MediaPanelDescriptor> = {
   [PANEL_CONTENT_KIND.IMAGE]: new ImageMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CODE]: new CodeMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.VIDEO]: new VideoMediaPanelDescriptor(),
+  [PANEL_CONTENT_KIND.RIVE]: new RiveMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.PRESENTER_3D]: new Presenter3dMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CANVAS_3D]: new Canvas3dMediaPanelDescriptor(),
 };

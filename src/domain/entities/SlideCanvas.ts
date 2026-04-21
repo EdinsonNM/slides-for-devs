@@ -55,6 +55,11 @@ export type SlideCanvasMediaPayload = {
   fontSize?: number;
   editorHeight?: number;
   videoUrl?: string;
+  riveUrl?: string;
+  /** Nombres de state machines (coma) para interacción; vacío = auto (todas). */
+  riveStateMachineNames?: string;
+  /** Nombre del artboard; vacío = default del .riv. */
+  riveArtboard?: string;
   presenter3dDeviceId?: string;
   presenter3dScreenMedia?: "image" | "video";
   presenter3dViewState?: Presenter3dViewState;

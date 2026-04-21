@@ -2098,6 +2098,9 @@ function CanvasElementEditor({
       const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
       const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
       const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
+      const rivePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.RIVE;
+      /** Misma UX que 3D: franja para mover el bloque; el resto recibe puntero (orbitar / Rive). */
+      const usesInteractionDragStrip = uses3dOrbitChrome || rivePanelOnCanvas;
       const onMediaPanelDragPointerDown = (
         e: React.PointerEvent<HTMLElement>,
         captureEl: HTMLElement | null,
@@ -2133,13 +2136,13 @@ function CanvasElementEditor({
           data-slide-element-id={id}
           className={cn(
             outerShellClass,
-            codePanelOnCanvas
+            codePanelOnCanvas || rivePanelOnCanvas
               ? "bg-transparent"
               : deckMediaPanelShellClass(tone),
           )}
           {...shellHoverProps}
           onPointerDown={
-            uses3dOrbitChrome
+            usesInteractionDragStrip
               ? undefined
               : (e) => {
                   const cap =
@@ -2152,13 +2155,17 @@ function CanvasElementEditor({
         >
           {rotatedInner(
             "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden",
-            uses3dOrbitChrome ? (
+            usesInteractionDragStrip ? (
               <>
                 <div
                   {...{ [CANVAS_DRAG_STRIP_ATTR]: "true" }}
                   role="group"
                   aria-label="Arrastrar para mover el panel en el lienzo"
-                  title="Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
+                  title={
+                    rivePanelOnCanvas
+                      ? "Arrastra esta franja para mover el bloque; en el área inferior interactúa con la animación Rive"
+                      : "Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
+                  }
                   className={deckMediaPanelDragStripClass(tone)}
                   onPointerDown={(e) => {
                     const cap =
@@ -2174,7 +2181,9 @@ function CanvasElementEditor({
                     aria-hidden
                   />
                   <span className="truncate">
-                    Arrastra aquí para mover · abajo, orbitar el modelo 3D
+                    {rivePanelOnCanvas
+                      ? "Arrastra aquí para mover · abajo, animación Rive"
+                      : "Arrastra aquí para mover · abajo, orbitar el modelo 3D"}
                   </span>
                 </div>
                 <div

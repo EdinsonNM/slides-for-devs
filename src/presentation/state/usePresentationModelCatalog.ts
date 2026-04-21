@@ -87,11 +87,11 @@ export function usePresentationModelCatalog(
     }
   }, [presentationModels, deps.presentationModelId, deps.setPresentationModelId]);
 
+  /** Solo corregir si el proveedor alternativo tiene clave; si no hay ninguna, no alternar (evita bucle infinito). */
   useEffect(() => {
-    if (deps.imageProvider === "openai" && !hasOpenAI) {
+    if (deps.imageProvider === "openai" && !hasOpenAI && hasGemini) {
       deps.setImageProvider("gemini");
-    }
-    if (deps.imageProvider === "gemini" && !hasGemini) {
+    } else if (deps.imageProvider === "gemini" && !hasGemini && hasOpenAI) {
       deps.setImageProvider("openai");
     }
   }, [

@@ -21,6 +21,7 @@ import {
   MonitorPlay,
   Box,
   StickyNote,
+  Film,
   type LucideIcon,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -99,6 +100,7 @@ const PANEL_INSERT_MENU_ITEMS: {
   { id: PANEL_CONTENT_KIND.IMAGE, label: "Imagen", Icon: ImageIcon },
   { id: PANEL_CONTENT_KIND.CODE, label: "Código", Icon: Code2 },
   { id: PANEL_CONTENT_KIND.VIDEO, label: "Video", Icon: Video },
+  { id: PANEL_CONTENT_KIND.RIVE, label: "Rive", Icon: Film },
   { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", Icon: MonitorPlay },
   { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", Icon: Box },
 ];

@@ -13,8 +13,8 @@ export function PreviewToolbar({
   onClose,
 }: PreviewToolbarProps) {
   return (
-    <div className="fixed top-0 left-0 right-0 h-20 z-[110] group/bar">
-      <div className="absolute inset-0 flex items-center justify-end gap-2 pr-6 opacity-0 group-hover/bar:opacity-100 transition-opacity duration-200">
+    <div className="group/bar pointer-events-auto fixed right-2 top-2 z-[110] flex h-16 w-44 items-start justify-end rounded-bl-xl">
+      <div className="pointer-events-none flex items-center gap-2 pr-1 pt-1 opacity-0 transition-opacity duration-200 group-hover/bar:pointer-events-auto group-hover/bar:opacity-100">
         <button
           type="button"
           onClick={onOpenPresenter}

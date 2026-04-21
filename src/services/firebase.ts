@@ -1,7 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
-  signInWithPopup,
   signInWithRedirect,
   signInWithCredential,
   getRedirectResult,
@@ -159,7 +158,7 @@ function isTauri(): boolean {
 
 /**
  * Inicio de sesión con Google.
- * - Web: popup.
+ * - Web: redirect de página completa (evita fallos con COOP y `window.closed` en popups).
  * - Tauri (desktop): abre el navegador del sistema, callback en 127.0.0.1:8765, intercambio por id_token.
  *   Requiere `googleOauthClientId` en firebase_config.json y URI http://127.0.0.1:8765/callback en la consola Google.
  */
@@ -181,8 +180,8 @@ export async function signInWithGoogle(): Promise<User | null> {
       throw e;
     }
   }
-  const result = await signInWithPopup(instance.auth, provider);
-  return result.user;
+  await signInWithRedirect(instance.auth, provider);
+  return null;
 }
 
 /** Procesa el resultado del redirect (Tauri) y devuelve el usuario si hubo login. */

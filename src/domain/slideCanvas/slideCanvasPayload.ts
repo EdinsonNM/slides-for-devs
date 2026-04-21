@@ -82,6 +82,9 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     fontSize: slide.fontSize,
     editorHeight: slide.editorHeight,
     videoUrl: slide.videoUrl,
+    riveUrl: slide.riveUrl,
+    riveStateMachineNames: slide.riveStateMachineNames,
+    riveArtboard: slide.riveArtboard,
     presenter3dDeviceId: slide.presenter3dDeviceId,
     presenter3dScreenMedia: slide.presenter3dScreenMedia,
     presenter3dViewState: slide.presenter3dViewState,
@@ -110,6 +113,7 @@ const ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND: Record<
     "codeEditorTheme",
   ],
   [PANEL_CONTENT_KIND.VIDEO]: ["videoUrl"],
+  [PANEL_CONTENT_KIND.RIVE]: ["riveUrl", "riveStateMachineNames", "riveArtboard"],
   [PANEL_CONTENT_KIND.PRESENTER_3D]: [
     "presenter3dDeviceId",
     "presenter3dScreenMedia",
@@ -152,6 +156,26 @@ export function mergeMediaPayloadIntoSlide(
   if (media.fontSize !== undefined) next.fontSize = media.fontSize;
   if (media.editorHeight !== undefined) next.editorHeight = media.editorHeight;
   if (media.videoUrl !== undefined) next.videoUrl = media.videoUrl;
+  if (normalizePanelContentKind(media.contentType) === PANEL_CONTENT_KIND.RIVE) {
+    if (media.riveUrl !== undefined) {
+      if (media.riveUrl.trim()) next.riveUrl = media.riveUrl;
+      else delete (next as { riveUrl?: unknown }).riveUrl;
+    }
+    if (media.riveStateMachineNames !== undefined) {
+      const t = media.riveStateMachineNames.trim();
+      if (t) next.riveStateMachineNames = media.riveStateMachineNames.trim();
+      else delete (next as { riveStateMachineNames?: unknown }).riveStateMachineNames;
+    }
+    if (media.riveArtboard !== undefined) {
+      const t = media.riveArtboard.trim();
+      if (t) next.riveArtboard = media.riveArtboard.trim();
+      else delete (next as { riveArtboard?: unknown }).riveArtboard;
+    }
+  } else {
+    delete (next as { riveUrl?: unknown }).riveUrl;
+    delete (next as { riveStateMachineNames?: unknown }).riveStateMachineNames;
+    delete (next as { riveArtboard?: unknown }).riveArtboard;
+  }
   if (media.presenter3dDeviceId !== undefined) {
     next.presenter3dDeviceId = media.presenter3dDeviceId;
   }
@@ -183,6 +207,9 @@ function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
     fontSize: _fs,
     editorHeight: _eh,
     videoUrl: _vu,
+    riveUrl: _rv,
+    riveStateMachineNames: _rsm,
+    riveArtboard: _rab,
     presenter3dDeviceId: _p3d,
     presenter3dScreenMedia: _p3sm,
     presenter3dViewState: _p3vs,

@@ -25,12 +25,9 @@ export function usePresentationHomeCards({
   >(null);
 
   const refreshCloudMineSnapshot = useCallback(async () => {
-    if (
-      !user ||
-      firebaseReady !== true ||
-      typeof window === "undefined" ||
-      (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
-    ) {
+    // Listar Firestore en web y en Tauri: en navegador no hay SQLite local, así que
+    // las tarjetas "solo nube" son la única forma de ver decks sincronizados.
+    if (!user || firebaseReady !== true || typeof window === "undefined") {
       setCloudMineSnapshot([]);
       setCloudSharedSnapshot([]);
       setHomeCloudSharedListWarning(null);

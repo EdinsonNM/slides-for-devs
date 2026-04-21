@@ -26,6 +26,7 @@ import { readPersistedCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import {
   PANEL_CONTENT_KIND,
+  normalizePanelContentKind,
   resolveMediaPanelDescriptor,
   Canvas3dMediaPanelDescriptor,
 } from "../../domain/panelContent";
@@ -214,7 +215,15 @@ export function usePresentationSlideCanvasMutations(
         let next = patchSlideMediaPanelByElementId(
           cur,
           d.canvasTextTargetsRef.current.mediaPanelElementId,
-          (m) => ({ ...m, contentType }),
+          (m) => {
+            const o: typeof m = { ...m, contentType };
+            if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.RIVE) {
+              delete (o as { riveUrl?: string }).riveUrl;
+              delete (o as { riveStateMachineNames?: string }).riveStateMachineNames;
+              delete (o as { riveArtboard?: string }).riveArtboard;
+            }
+            return o;
+          },
         );
         if (contentType === PANEL_CONTENT_KIND.PRESENTER_3D) {
           next = patchSlideMediaPanelByElementId(

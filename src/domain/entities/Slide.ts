@@ -40,6 +40,21 @@ export interface Slide {
   editorHeight?: number;
   /** URL de vídeo incrustado cuando el panel de media es de tipo vídeo. */
   videoUrl?: string;
+  /**
+   * URL del recurso Rive (p. ej. `blob:` tras cargar un `.riv` en local, o URL https).
+   * Solo aplica cuando `contentType === PANEL_CONTENT_KIND.RIVE`.
+   */
+  riveUrl?: string;
+  /**
+   * Nombres de state machines para puntero/hover (Rive), separados por coma si hay varias.
+   * Vacío o ausente: el reproductor intenta todas las del artboard.
+   */
+  riveStateMachineNames?: string;
+  /**
+   * Artboard de Rive a cargar (nombre exacto). Vacío = artboard por defecto del archivo.
+   * Ej.: el asset “Expression Grid” del marketplace de Rive usa el artboard Main.
+   */
+  riveArtboard?: string;
   contentType?: SlidePanelContentType;
   /** Modelo GLB del catálogo `DEVICE_3D_CATALOG` cuando el panel es Presentador 3D. */
   presenter3dDeviceId?: string;

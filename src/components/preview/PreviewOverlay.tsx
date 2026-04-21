@@ -30,12 +30,9 @@ function previewNavBtnClass(tone: DeckContentTone): string {
   );
 }
 
-const previewNavEdgeStrip =
-  "pointer-events-auto absolute inset-y-0 z-[106] flex w-14 items-center justify-center md:w-[4.5rem] group/pnav-edge";
-
-/** Solo al pasar el puntero por la franja del borde (el botón no intercepta hasta entonces). */
-const previewNavBtnReveal =
-  "pointer-events-none scale-95 opacity-0 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none group-hover/pnav-edge:pointer-events-auto group-hover/pnav-edge:scale-100 group-hover/pnav-edge:opacity-100";
+/** Botones fijos compactos: no usar franjas a altura completa (z altos) que tapen el lienzo y bloqueen Rive / 3D. */
+const previewNavBtnFixed =
+  "pointer-events-auto fixed top-1/2 z-[106] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full opacity-90 shadow-md transition-opacity hover:opacity-100 motion-reduce:transition-none";
 
 export function PreviewOverlay() {
   const {
@@ -220,7 +217,7 @@ export function PreviewOverlay() {
           onClose={() => setIsPreviewMode(false)}
         />
 
-        <div className="relative z-20 flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-black p-0">
+        <div className="relative z-[50] isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-black p-0 pointer-events-auto">
           <PreviewSlideContent
             layout="fullscreen"
             slide={currentSlide}
@@ -237,26 +234,22 @@ export function PreviewOverlay() {
           {currentIndex + 1}/{slides.length}
         </p>
 
-        <div className={cn(previewNavEdgeStrip, "left-0")}>
-          <button
-            type="button"
-            aria-label="Diapositiva anterior"
-            className={cn(previewNavBtnReveal, previewNavBtnClass(navTone))}
-            onClick={prevSlide}
-          >
-            <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
-          </button>
-        </div>
-        <div className={cn(previewNavEdgeStrip, "right-0")}>
-          <button
-            type="button"
-            aria-label="Diapositiva siguiente"
-            className={cn(previewNavBtnReveal, previewNavBtnClass(navTone))}
-            onClick={nextSlide}
-          >
-            <ChevronRight size={28} strokeWidth={2.25} aria-hidden />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label="Diapositiva anterior"
+          className={cn(previewNavBtnFixed, "left-3 md:left-4", previewNavBtnClass(navTone))}
+          onClick={prevSlide}
+        >
+          <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
+        </button>
+        <button
+          type="button"
+          aria-label="Diapositiva siguiente"
+          className={cn(previewNavBtnFixed, "right-3 md:right-4", previewNavBtnClass(navTone))}
+          onClick={nextSlide}
+        >
+          <ChevronRight size={28} strokeWidth={2.25} aria-hidden />
+        </button>
       </motion.div>
     </AnimatePresence>
   );

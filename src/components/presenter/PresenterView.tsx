@@ -183,7 +183,7 @@ export function PresenterView() {
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
         <section className="relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4">
-          <div className="flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-stone-950 shadow-2xl">
+          <div className="pointer-events-auto relative z-[20] isolate flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-stone-950 shadow-2xl">
             <PreviewSlideContent
               slide={currentSlide}
               imageWidthPercent={imageWidthPercent}

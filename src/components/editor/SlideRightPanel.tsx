@@ -7,6 +7,7 @@ import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
 import { Presenter3DPanel } from "./Presenter3DPanel";
 import { Canvas3DPanel } from "./Canvas3DPanel";
+import { RivePanel } from "./RivePanel";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
@@ -85,6 +86,8 @@ export function SlideRightPanel({
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
         />
+      ) : panelKind === PANEL_CONTENT_KIND.RIVE ? (
+        <RivePanel canvasPanelSlide={canvasPanelSlide} />
       ) : (
         <ImagePanel canvasPanelSlide={canvasPanelSlide} />
       )}

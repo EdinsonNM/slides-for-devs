@@ -31,6 +31,7 @@ import {
   replaceFirstMarkdownCanvasBody,
 } from "../../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import { syncSlideRootFromCanvas } from "../../domain/slideCanvas/syncSlideRootFromCanvas";
+import { readMediaPayloadFromElement } from "../../domain/slideCanvas/slideCanvasPayload";
 import {
   appendCanvasElementToScene,
   type AppendCanvasElementOptions,
@@ -42,6 +43,7 @@ import {
 import { optimizeImageDataUrl } from "../../utils/imageOptimize";
 import {
   applyImageDataUrlToMediaPanelPayload,
+  applyRiveUrlToMediaPanelPayload,
   applyVideoUrlToMediaPanelPayload,
   applyGeneratedImageToMediaPanelPayload,
 } from "./presentationMediaHelpers";
@@ -69,6 +71,7 @@ import { usesChatCompletionSlideOps } from "../../constants/presentationModels";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../../constants/openaiImageModels";
 import {
   PANEL_CONTENT_KIND,
+  normalizePanelContentKind,
 } from "../../domain/panelContent";
 import type { PresentationAiModalsDeps } from "./presentationAiModalsDeps";
 
@@ -898,6 +901,161 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     [],
   );
 
+  const ingestRiveFileOnCurrentSlide = useCallback((file: File) => {
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".riv")) {
+      alert("Elige un archivo con extensión .riv.");
+      return;
+    }
+    const d = depsRef.current;
+    const blobUrl = URL.createObjectURL(file);
+    d.setSlides((prev) => {
+      const index = d.currentIndexRef.current;
+      const raw = prev[index];
+      if (
+        !raw ||
+        (raw.type !== SLIDE_TYPE.CONTENT && raw.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        URL.revokeObjectURL(blobUrl);
+        return prev;
+      }
+      const cur = ensureSlideCanvasScene(raw);
+      const scene = cur.canvasScene;
+      if (!scene) {
+        URL.revokeObjectURL(blobUrl);
+        return prev;
+      }
+      const targetId =
+        d.canvasTextTargetsRef.current.mediaPanelElementId ??
+        defaultCanvasTextEditTargets(cur).mediaPanelElementId;
+      if (!targetId) {
+        URL.revokeObjectURL(blobUrl);
+        return prev;
+      }
+      const el = scene.elements.find((e) => e.id === targetId);
+      if (!el || el.kind !== "mediaPanel") {
+        URL.revokeObjectURL(blobUrl);
+        return prev;
+      }
+      const prevMedia = readMediaPayloadFromElement(cur, el);
+      const old = prevMedia.riveUrl;
+      if (old?.startsWith("blob:")) URL.revokeObjectURL(old);
+      const updated = [...prev];
+      updated[index] = patchSlideMediaPanelByElementId(
+        cur,
+        targetId,
+        (m) => applyRiveUrlToMediaPanelPayload(m, blobUrl),
+      );
+      return updated;
+    });
+  }, []);
+
+  const clearRiveFromCurrentMediaPanel = useCallback(() => {
+    const d = depsRef.current;
+    d.setSlides((prev) => {
+      const index = d.currentIndexRef.current;
+      const raw = prev[index];
+      if (
+        !raw ||
+        (raw.type !== SLIDE_TYPE.CONTENT && raw.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        return prev;
+      }
+      const cur = ensureSlideCanvasScene(raw);
+      const scene = cur.canvasScene;
+      if (!scene) return prev;
+      const targetId =
+        d.canvasTextTargetsRef.current.mediaPanelElementId ??
+        defaultCanvasTextEditTargets(cur).mediaPanelElementId;
+      if (!targetId) return prev;
+      const el = scene.elements.find((e) => e.id === targetId);
+      if (!el || el.kind !== "mediaPanel") return prev;
+      const prevMedia = readMediaPayloadFromElement(cur, el);
+      if (normalizePanelContentKind(prevMedia.contentType) !== PANEL_CONTENT_KIND.RIVE) {
+        return prev;
+      }
+      const old = prevMedia.riveUrl;
+      if (old?.startsWith("blob:")) URL.revokeObjectURL(old);
+      const updated = [...prev];
+      updated[index] = patchSlideMediaPanelByElementId(cur, targetId, (m) => {
+        const next = { ...m, contentType: PANEL_CONTENT_KIND.IMAGE };
+        delete (next as { riveUrl?: string }).riveUrl;
+        delete (next as { riveStateMachineNames?: string }).riveStateMachineNames;
+        delete (next as { riveArtboard?: string }).riveArtboard;
+        return next;
+      });
+      return updated;
+    });
+  }, []);
+
+  const setCurrentSlideRiveArtboard = useCallback((name: string) => {
+    const d = depsRef.current;
+    d.setSlides((prev) => {
+      const index = d.currentIndexRef.current;
+      const raw = prev[index];
+      if (
+        !raw ||
+        (raw.type !== SLIDE_TYPE.CONTENT && raw.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        return prev;
+      }
+      const cur = ensureSlideCanvasScene(raw);
+      const scene = cur.canvasScene;
+      if (!scene) return prev;
+      const targetId =
+        d.canvasTextTargetsRef.current.mediaPanelElementId ??
+        defaultCanvasTextEditTargets(cur).mediaPanelElementId;
+      if (!targetId) return prev;
+      const el = scene.elements.find((e) => e.id === targetId);
+      if (!el || el.kind !== "mediaPanel") return prev;
+      const prevMedia = readMediaPayloadFromElement(cur, el);
+      if (normalizePanelContentKind(prevMedia.contentType) !== PANEL_CONTENT_KIND.RIVE) {
+        return prev;
+      }
+      const updated = [...prev];
+      const trimmed = name.trim();
+      updated[index] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+        ...m,
+        riveArtboard: trimmed.length > 0 ? trimmed : "",
+      }));
+      return updated;
+    });
+  }, []);
+
+  const setCurrentSlideRiveStateMachineNames = useCallback((names: string) => {
+    const d = depsRef.current;
+    d.setSlides((prev) => {
+      const index = d.currentIndexRef.current;
+      const raw = prev[index];
+      if (
+        !raw ||
+        (raw.type !== SLIDE_TYPE.CONTENT && raw.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        return prev;
+      }
+      const cur = ensureSlideCanvasScene(raw);
+      const scene = cur.canvasScene;
+      if (!scene) return prev;
+      const targetId =
+        d.canvasTextTargetsRef.current.mediaPanelElementId ??
+        defaultCanvasTextEditTargets(cur).mediaPanelElementId;
+      if (!targetId) return prev;
+      const el = scene.elements.find((e) => e.id === targetId);
+      if (!el || el.kind !== "mediaPanel") return prev;
+      const prevMedia = readMediaPayloadFromElement(cur, el);
+      if (normalizePanelContentKind(prevMedia.contentType) !== PANEL_CONTENT_KIND.RIVE) {
+        return prev;
+      }
+      const updated = [...prev];
+      const trimmed = names.trim();
+      updated[index] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+        ...m,
+        riveStateMachineNames: trimmed.length > 0 ? trimmed : "",
+      }));
+      return updated;
+    });
+  }, []);
+
   const handleImageUpload = useCallback(
     (file: File) => {
       const d = depsRef.current;
@@ -1114,6 +1272,10 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     openImageUploadModal,
     openVideoModal,
     ingestImageFileOnCurrentSlide,
+    ingestRiveFileOnCurrentSlide,
+    clearRiveFromCurrentMediaPanel,
+    setCurrentSlideRiveArtboard,
+    setCurrentSlideRiveStateMachineNames,
     handleImageUpload,
     openCodeGenModal,
     handleGenerateCode,

@@ -4,17 +4,19 @@ import {
   StickyNote,
   Palette,
   LibraryBig,
+  Film,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideStylePanel } from "./SlideStylePanel";
 import { CharactersPanel } from "./CharactersPanel";
 import { ResourcesPanel } from "./ResourcesPanel";
+import { RiveInspectorPanel } from "./RiveInspectorPanel";
 import { PresenterNotesPanel } from "../editor/PresenterNotesPanel";
 import { RailTooltip } from "../shared/RailTooltip";
 
 const SECTIONS: {
-  id: "slide" | "characters" | "notes" | "theme" | "resources";
+  id: "slide" | "characters" | "notes" | "theme" | "resources" | "rive";
   label: string;
   icon: typeof LayoutTemplate;
 }[] = [
@@ -23,6 +25,7 @@ const SECTIONS: {
   { id: "notes", label: "Notas", icon: StickyNote },
   { id: "theme", label: "Diseño y Tema", icon: Palette },
   { id: "resources", label: "Recursos", icon: LibraryBig },
+  { id: "rive", label: "Rive", icon: Film },
 ];
 
 export function EditorInspector() {
@@ -53,7 +56,7 @@ export function EditorInspector() {
       setShowCharactersPanel(true);
       setShowSlideStylePanel(false);
       setIsNotesPanelOpen(false);
-    } else if (id === "resources") {
+    } else if (id === "resources" || id === "rive") {
       setShowSlideStylePanel(false);
       setShowCharactersPanel(false);
       setIsNotesPanelOpen(false);
@@ -116,6 +119,7 @@ export function EditorInspector() {
           {inspectorSection === "resources" && (
             <ResourcesPanel variant="inspector" />
           )}
+          {inspectorSection === "rive" && <RiveInspectorPanel />}
         </div>
       )}
     </aside>
