@@ -9,7 +9,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import type {
   Slide,
   ImageStyle,
-  SavedCharacter,
   GeneratedResourceEntry,
   SavedPresentationMeta,
 } from "../types";
@@ -32,9 +31,6 @@ import {
   LAST_OPENED_PRESENTATION_KEY,
   type HomeTab,
 } from "../presentation/state/presentationTypes";
-import {
-  applyGeneratedImageToMediaPanelPayload,
-} from "../presentation/state/presentationMediaHelpers";
 import { usePresentationSlideEditing } from "../presentation/state/usePresentationSlideEditing";
 import { usePresentationEditorTabs } from "../presentation/state/usePresentationEditorTabs";
 import { usePresentationDeckMutations } from "../presentation/state/usePresentationDeckMutations";
@@ -54,11 +50,6 @@ import {
   useSavedCharacters,
   useGeneratedResourcesList,
 } from "../queries/presentationQueries";
-import { optimizeImageDataUrl } from "../utils/imageOptimize";
-import { generateImage as generateImageUseCase } from "../composition/container";
-import {
-  SLIDE_TYPE,
-} from "../domain/entities";
 import {
   normalizeSlidesCanvasScenes,
 } from "../domain/slideCanvas/ensureSlideCanvasScene";
@@ -84,21 +75,8 @@ import {
 } from "../services/apiConfig";
 import {
   migrateJsonPresentations,
-  listCharacters,
-  saveCharacter as saveCharacterStorage,
-  deleteCharacter as deleteCharacterStorage,
-  setCharacterCloudState,
   localAccountScopeForUser,
-  addGeneratedResource,
-  deleteGeneratedResource,
 } from "../services/storage";
-import {
-  pushCharacterToCloud,
-  pullAllCharactersFromCloud,
-  deleteCharacterFromCloud,
-  CharacterCloudSyncConflictError,
-} from "../services/charactersCloud";
-import { initFirebase } from "../services/firebase";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import { useUIStore, createUISetter } from "../store/useUIStore";
@@ -113,14 +91,9 @@ import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
-import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
-import { trackEvent, ANALYTICS_EVENTS } from "../services/analytics";
 import { usePresentationAiModals } from "../presentation/state/usePresentationAiModals";
+import { usePresentationCharactersResources } from "../presentation/state/usePresentationCharactersResources";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
-import {
-  resolveMediaPanelDescriptor,
-  Canvas3dMediaPanelDescriptor,
-} from "../domain/panelContent";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
 export {
@@ -441,8 +414,6 @@ export function usePresentationState() {
     runAutoSyncAfterSaveRef,
   });
 
-  const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
-    useState(false);
   const [deletePresentationId, setDeletePresentationId] = useState<string | null>(
     null,
   );
@@ -544,8 +515,6 @@ export function usePresentationState() {
   const [inspectorSection, setInspectorSection] = useState<
     "slide" | "characters" | "notes" | "theme" | "resources" | null
   >("slide");
-  const [isGeneratingCharacterPreview, setIsGeneratingCharacterPreview] =
-    useState(false);
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -871,6 +840,40 @@ export function usePresentationState() {
   }, [localAccountScope, clearEditorTabsForGoHome, resetHomePromptAttachments]);
 
   const {
+    isSyncingCharactersCloud,
+    isGeneratingCharacterPreview,
+    refreshGeneratedResources,
+    refreshSavedCharacters,
+    deleteGeneratedResourceFromLibrary,
+    recordGeneratedModel3d,
+    applyLibraryImageResource,
+    applyLibraryModel3dResource,
+    saveCharacter: handleSaveCharacter,
+    deleteCharacter: handleDeleteCharacter,
+    handlePushAllCharactersToCloud,
+    handlePullCharactersFromCloud,
+    generateCharacterPreview,
+  } = usePresentationCharactersResources({
+    queryClient,
+    localAccountScope,
+    user,
+    autoCloudSyncOnSave,
+    savedCharacters,
+    setSlides,
+    slidesRef,
+    currentIndexRef,
+    canvasTextTargetsRef,
+    topic,
+    selectedCharacterId,
+    setSelectedCharacterId,
+    savePresentationNow,
+    hasGemini,
+    imageProvider,
+    geminiImageModelId,
+    selectedStyle,
+  });
+
+  const {
     toggleContentType,
     setCurrentSlideType,
     deleteSlideAt,
@@ -890,155 +893,6 @@ export function usePresentationState() {
   });
 
   deckNavigationRef.current = { nextSlide, prevSlide };
-
-  const refreshGeneratedResources = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: presentationQueryKeys.generatedResources(localAccountScope),
-    });
-  }, [queryClient, localAccountScope]);
-
-  const deleteGeneratedResourceFromLibrary = useCallback(
-    async (id: string) => {
-      await deleteGeneratedResource(id, localAccountScope);
-      await refreshGeneratedResources();
-    },
-    [localAccountScope, refreshGeneratedResources],
-  );
-
-  const recordGeneratedModel3d = useCallback(
-    async (glbDataUrl: string, prompt: string | null) => {
-      try {
-        await addGeneratedResource(
-          {
-            kind: "model3d",
-            payload: glbDataUrl,
-            ...(prompt?.trim() ? { prompt: prompt.trim() } : {}),
-            source: "meshy",
-          },
-          localAccountScope,
-        );
-        await refreshGeneratedResources();
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    [localAccountScope, refreshGeneratedResources],
-  );
-
-  const applyLibraryImageResource = useCallback(
-    async (imageUrl: string, imagePromptLabel?: string) => {
-      const slide = slidesRef.current[currentIndexRef.current];
-      if (
-        !slide ||
-        (slide.type !== SLIDE_TYPE.CONTENT &&
-          slide.type !== SLIDE_TYPE.CHAPTER)
-      ) {
-        alert(
-          "Abre una diapositiva (Contenido o Capítulo) para aplicar una imagen desde Recursos.",
-        );
-        return;
-      }
-      if (
-        resolveMediaPanelDescriptor(slide) instanceof
-        Canvas3dMediaPanelDescriptor
-      ) {
-        alert(
-          "El bloque seleccionado es Canvas 3D. Cambia a imagen (o otro panel) o usa un modelo 3D desde la sección inferior de Recursos.",
-        );
-        return;
-      }
-      const patchMediaPanelElementId =
-        canvasTextTargetsRef.current.mediaPanelElementId;
-      const label = (imagePromptLabel?.trim() || "Desde biblioteca").slice(
-        0,
-        2000,
-      );
-      let nextDeck: Slide[] | null = null;
-      setSlides((prev) => {
-        const updated = [...prev];
-        const cur = updated[currentIndexRef.current];
-        if (!cur) return prev;
-        updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
-          cur,
-          patchMediaPanelElementId,
-          (m) => applyGeneratedImageToMediaPanelPayload(m, imageUrl, label),
-        );
-        nextDeck = updated;
-        return updated;
-      });
-      if (nextDeck && nextDeck.length > 0) {
-        const savedId = await savePresentationNow({
-          topic: topic || "Sin título",
-          slides: nextDeck,
-          characterId: selectedCharacterId ?? undefined,
-        });
-        if (!savedId) {
-          alert(
-            "La imagen se aplicó pero no se pudo guardar la presentación. Pulsa Guardar si lo necesitas.",
-          );
-        }
-      }
-    },
-    [savePresentationNow, topic, selectedCharacterId],
-  );
-
-  const applyLibraryModel3dResource = useCallback(
-    async (glbUrl: string) => {
-      const slide = slidesRef.current[currentIndexRef.current];
-      if (
-        !slide ||
-        (slide.type !== SLIDE_TYPE.CONTENT &&
-          slide.type !== SLIDE_TYPE.CHAPTER)
-      ) {
-        alert(
-          "Abre una diapositiva (Contenido o Capítulo) para aplicar un modelo 3D desde Recursos.",
-        );
-        return;
-      }
-      if (
-        !(
-          resolveMediaPanelDescriptor(slide) instanceof
-          Canvas3dMediaPanelDescriptor
-        )
-      ) {
-        alert(
-          "Selecciona un bloque Canvas 3D (o cambia el panel a Canvas 3D) para cargar un modelo guardado.",
-        );
-        return;
-      }
-      const trimmed = glbUrl.trim();
-      let nextDeck: Slide[] | null = null;
-      setSlides((prev) => {
-        const updated = [...prev];
-        const cur = updated[currentIndexRef.current];
-        if (!cur) return prev;
-        updated[currentIndexRef.current] = patchSlideMediaPanelByElementId(
-          cur,
-          canvasTextTargetsRef.current.mediaPanelElementId,
-          (m) => ({
-            ...m,
-            canvas3dGlbUrl: trimmed || undefined,
-            canvas3dViewState: undefined,
-          }),
-        );
-        nextDeck = updated;
-        return updated;
-      });
-      if (nextDeck && nextDeck.length > 0) {
-        const savedId = await savePresentationNow({
-          topic: topic || "Sin título",
-          slides: nextDeck,
-          characterId: selectedCharacterId ?? undefined,
-        });
-        if (!savedId) {
-          alert(
-            "El modelo se aplicó pero no se pudo guardar la presentación. Pulsa Guardar si lo necesitas.",
-          );
-        }
-      }
-    },
-    [savePresentationNow, topic, selectedCharacterId],
-  );
 
   const applyDeckVisualTheme = useCallback(
     async (theme: DeckVisualTheme) => {
@@ -1131,193 +985,6 @@ export function usePresentationState() {
       sessionStorage.removeItem(lastOpenedSessionKey);
     } catch {
       // ignore
-    }
-  };
-
-  const refreshSavedCharacters = useCallback(() => {
-    void queryClient.invalidateQueries({
-      queryKey: presentationQueryKeys.savedCharacters(localAccountScope),
-    });
-  }, [queryClient, localAccountScope]);
-
-  const handleSaveCharacter = async (incoming: SavedCharacter) => {
-    const existing = savedCharacters.find((c) => c.id === incoming.id);
-    let referenceImageDataUrl = incoming.referenceImageDataUrl;
-    if (referenceImageDataUrl?.startsWith("data:")) {
-      try {
-        referenceImageDataUrl = await optimizeImageDataUrl(
-          referenceImageDataUrl,
-        );
-      } catch {
-        /* mantener */
-      }
-    }
-    const toSave: SavedCharacter = {
-      ...incoming,
-      referenceImageDataUrl,
-      cloudRevision: incoming.cloudRevision ?? existing?.cloudRevision,
-      cloudSyncedAt: incoming.cloudSyncedAt ?? existing?.cloudSyncedAt,
-    };
-    await saveCharacterStorage(toSave, localAccountScope);
-    refreshSavedCharacters();
-    trackEvent(ANALYTICS_EVENTS.CHARACTER_SAVED);
-
-    if (
-      autoCloudSyncOnSave &&
-      user &&
-      typeof window !== "undefined" &&
-      (window as unknown as { __TAURI__?: unknown }).__TAURI__
-    ) {
-      const fb = await initFirebase();
-      if (fb?.firestore) {
-        try {
-          const list = await listCharacters(localAccountScope);
-          const c = list.find((x) => x.id === toSave.id) ?? toSave;
-          const { syncedAt, newRevision } = await pushCharacterToCloud(
-            user.uid,
-            c,
-            { localExpectedRevision: c.cloudRevision ?? null },
-          );
-          await setCharacterCloudState(
-            c.id,
-            syncedAt,
-            newRevision,
-            localAccountScope,
-          );
-          void queryClient.invalidateQueries({
-            queryKey: presentationQueryKeys.savedCharacters(localAccountScope),
-          });
-        } catch (e) {
-          if (e instanceof CharacterCloudSyncConflictError) {
-            console.warn(
-              "Auto-sync personaje: conflicto de revisión",
-              e.characterId,
-            );
-          } else {
-            console.error("Auto-sync personaje:", e);
-          }
-        }
-      }
-    }
-  };
-
-  const handleDeleteCharacter = async (id: string) => {
-    const char = savedCharacters.find((c) => c.id === id);
-    if (
-      user &&
-      (char?.cloudRevision != null || char?.cloudSyncedAt) &&
-      typeof window !== "undefined" &&
-      (window as unknown as { __TAURI__?: unknown }).__TAURI__
-    ) {
-      try {
-        await deleteCharacterFromCloud(user.uid, id);
-      } catch (e) {
-        console.error("Eliminar personaje en la nube:", e);
-      }
-    }
-    await deleteCharacterStorage(id, localAccountScope);
-    if (selectedCharacterId === id) setSelectedCharacterId(null);
-    refreshSavedCharacters();
-  };
-
-  const handlePushAllCharactersToCloud = useCallback(async () => {
-    if (!user) return;
-    setIsSyncingCharactersCloud(true);
-    try {
-      const chars = await listCharacters(localAccountScope);
-      let ok = 0;
-      const conflicts: string[] = [];
-      for (const c of chars) {
-        try {
-          const { syncedAt, newRevision } = await pushCharacterToCloud(
-            user.uid,
-            c,
-            { localExpectedRevision: c.cloudRevision ?? null },
-          );
-          await setCharacterCloudState(
-            c.id,
-            syncedAt,
-            newRevision,
-            localAccountScope,
-          );
-          ok++;
-        } catch (e) {
-          if (e instanceof CharacterCloudSyncConflictError) {
-            conflicts.push(c.name);
-          } else {
-            throw e;
-          }
-        }
-      }
-      refreshSavedCharacters();
-      if (conflicts.length) {
-        alert(
-          `Subidos ${ok} personaje(s). Conflicto de versión en: ${conflicts.join(", ")}. Trae desde la nube o vuelve a subir tras alinear.`,
-        );
-      } else if (ok > 0) {
-        alert(`Subidos ${ok} personaje(s) a la nube.`);
-      } else {
-        alert("No hay personajes locales para subir.");
-      }
-    } catch (e) {
-      console.error(e);
-      alert(
-        `Error al subir personajes: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    } finally {
-      setIsSyncingCharactersCloud(false);
-    }
-  }, [user, refreshSavedCharacters, localAccountScope]);
-
-  const handlePullCharactersFromCloud = useCallback(async () => {
-    if (!user) return;
-    setIsSyncingCharactersCloud(true);
-    try {
-      const remote = await pullAllCharactersFromCloud(user.uid);
-      for (const r of remote) {
-        await saveCharacterStorage(r, localAccountScope);
-      }
-      refreshSavedCharacters();
-      alert(
-        remote.length
-          ? `Actualizados ${remote.length} personaje(s) desde la nube (por id). Los que solo existían localmente se mantienen.`
-          : "No hay personajes en la nube.",
-      );
-    } catch (e) {
-      console.error(e);
-      alert(
-        `Error al traer personajes: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    } finally {
-      setIsSyncingCharactersCloud(false);
-    }
-  }, [user, refreshSavedCharacters, localAccountScope]);
-
-  /** Genera una vista previa del personaje (solo la imagen, sin asignar a slide). Contexto fijo para personaje aislado. */
-  const generateCharacterPreview = async (
-    characterDescription: string,
-  ): Promise<string | undefined> => {
-    if (!characterDescription.trim()) return undefined;
-    setIsGeneratingCharacterPreview(true);
-    try {
-      const context =
-        "Personaje aislado (avatar de referencia) para presentaciones: un solo diseño coherente en todas las escenas. Imagen sobre fondo blanco liso (sin rejilla de transparencia ni cuadritos); sin texto ni elementos decorativos de interfaz alrededor.";
-      const providerId = hasGemini ? "gemini" : imageProvider;
-      const imageModelId =
-        providerId === "gemini"
-          ? geminiImageModelId
-          : DEFAULT_OPENAI_IMAGE_MODEL_ID;
-      return generateImageUseCase.run({
-        providerId,
-        slideContext: context,
-        userPrompt: characterDescription.trim(),
-        stylePrompt: selectedStyle.prompt,
-        includeBackground: true,
-        modelId: imageModelId,
-        characterPreviewOnly: true,
-      });
-    } finally {
-      setIsGeneratingCharacterPreview(false);
     }
   };
 
