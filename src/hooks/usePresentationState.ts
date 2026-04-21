@@ -17,10 +17,7 @@ import {
   normalizeDeckVisualTheme,
   type DeckVisualTheme,
 } from "../domain/entities";
-import {
-  DEFAULT_DECK_NARRATIVE_PRESET_ID,
-  buildDeckNarrativeContextForPrompts,
-} from "../constants/presentationNarrativePresets";
+import { DEFAULT_DECK_NARRATIVE_PRESET_ID } from "../constants/presentationNarrativePresets";
 import { formatMarkdown } from "../utils/markdown";
 import {
   DEFAULT_IMAGE_WIDTH_PERCENT,
@@ -77,6 +74,8 @@ import { usePresentationStoreBridge } from "../presentation/state/usePresentatio
 import { usePresentationModelCatalog } from "../presentation/state/usePresentationModelCatalog";
 import { usePresentationBootstrapPersistence } from "../presentation/state/usePresentationBootstrapPersistence";
 import { usePresentationEditorLifecycleEffects } from "../presentation/state/usePresentationEditorLifecycleEffects";
+import { useDeckNarrativeSlideOptions } from "../presentation/state/useDeckNarrativeSlideOptions";
+import { usePresentationOrchestratorRefSync } from "../presentation/state/usePresentationOrchestratorRefSync";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
@@ -227,8 +226,6 @@ export function usePresentationState() {
     cloudSyncConflict,
   } = cloudPresentation;
 
-  runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
-
   const savedCharactersQuery = useSavedCharacters(localAccountScope);
   const savedCharacters = savedCharactersQuery.data ?? [];
   const generatedResourcesQuery = useGeneratedResourcesList(localAccountScope);
@@ -245,14 +242,9 @@ export function usePresentationState() {
     },
   );
 
-  const deckNarrativeSlideOptions = useMemo(
-    () => ({
-      deckNarrativeContext: buildDeckNarrativeContextForPrompts(
-        deckNarrativePresetId,
-        narrativeNotes,
-      ),
-    }),
-    [deckNarrativePresetId, narrativeNotes],
+  const deckNarrativeSlideOptions = useDeckNarrativeSlideOptions(
+    deckNarrativePresetId,
+    narrativeNotes,
   );
   const [isLoading, setIsLoading] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
@@ -807,7 +799,24 @@ export function usePresentationState() {
     savePresentationNow,
   });
 
-  deckNavigationRef.current = { nextSlide, prevSlide };
+  usePresentationOrchestratorRefSync({
+    runAutoSyncAfterSaveRef,
+    maybeAutoSyncAfterLocalSave,
+    deckNavigationRef,
+    nextSlide,
+    prevSlide,
+    cloudResolveRemoteEditorDepsRef,
+    currentSavedId,
+    setTopic,
+    slidesUndoRef,
+    slidesRedoRef,
+    setSlides,
+    setSelectedCharacterId,
+    setDeckVisualThemeState,
+    setDeckNarrativePresetId,
+    setNarrativeNotes,
+    formatMarkdown,
+  });
 
   const applyDeckVisualTheme = useCallback(
     async (theme: DeckVisualTheme) => {
@@ -901,19 +910,6 @@ export function usePresentationState() {
     } catch {
       // ignore
     }
-  };
-
-  cloudResolveRemoteEditorDepsRef.current = {
-    currentSavedId,
-    setTopic,
-    slidesUndoRef,
-    slidesRedoRef,
-    setSlides,
-    setSelectedCharacterId,
-    setDeckVisualThemeState,
-    setDeckNarrativePresetId,
-    setNarrativeNotes,
-    formatMarkdown,
   };
 
   return {
