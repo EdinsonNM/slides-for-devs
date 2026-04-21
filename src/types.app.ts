@@ -77,6 +77,8 @@ export type HomePresentationCard =
       topic: string;
       savedAt: string;
       updatedAt: string | null;
+      /** Portada Slaim en nube (`deckCoverImageFile`), URL firmada. */
+      homePreviewImageUrl?: string;
     }
   | {
       kind: "cloud_only_shared";
@@ -85,6 +87,7 @@ export type HomePresentationCard =
       topic: string;
       savedAt: string;
       updatedAt: string | null;
+      homePreviewImageUrl?: string;
     };
 
 export function homePresentationCardKey(card: HomePresentationCard): string {

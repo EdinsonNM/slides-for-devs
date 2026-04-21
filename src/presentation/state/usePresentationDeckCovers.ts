@@ -4,7 +4,7 @@ import {
   DECK_COVER_IMAGE_PROMPT,
   DECK_COVER_STYLE_PROMPT,
   buildDeckCoverImageUserPrompt,
-  firstSlideDeckCoverImageUrl,
+  firstSlideHomePreviewImageUrl,
   loadSlaimMascotCoverReferenceDataUrl,
   SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
 } from "../../constants/deckCover";
@@ -47,7 +47,7 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           if (coverPrefetchGenerationRef.current !== generation) break;
           if (saved.savedAt !== meta.savedAt) continue;
           coverPrefetchSavedAtRef.current[meta.id] = saved.savedAt;
-          const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
+          const coverUrl = firstSlideHomePreviewImageUrl(saved.slides[0]);
           if (coverUrl) {
             setCoverImageCache((prev) => ({ ...prev, [meta.id]: coverUrl }));
           }
@@ -123,12 +123,7 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           },
           d.localAccountScope,
         );
-        if (
-          d.autoCloudSyncOnSave &&
-          d.user &&
-          typeof window !== "undefined" &&
-          (window as unknown as { __TAURI__?: unknown }).__TAURI__
-        ) {
+        if (d.autoCloudSyncOnSave && d.user) {
           void d.runAutoSyncAfterSaveRef.current(id);
         }
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));

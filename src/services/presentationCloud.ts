@@ -29,6 +29,10 @@ import {
   type FirebaseStorage,
 } from "firebase/storage";
 import type { Slide } from "../types";
+import {
+  DECK_COVER_CLOUD_STORAGE_BASENAME,
+  isPersistedSlaimDeckCoverSlide,
+} from "../constants/deckCover";
 import { normalizeDeckVisualTheme } from "../domain/entities";
 import {
   isSlideCanvasScene,
@@ -272,6 +276,11 @@ export interface CloudPresentationListItem {
   updatedAt: string | null;
   /** Presentación propia sincronizada vs compartida por otro usuario. */
   source: "mine" | "shared";
+  /**
+   * URL firmada de la portada Slaim en Storage (`deckCoverImageFile` en el doc principal), no del panel `slide_0.*`.
+   * Se rellena al listar.
+   */
+  homePreviewImageUrl?: string;
 }
 
 function userPresentationsRef(db: import("firebase/firestore").Firestore, uid: string) {
@@ -288,6 +297,50 @@ function presentationDoc(
 
 function storagePrefix(uid: string, cloudId: string) {
   return `users/${uid}/presentations/${cloudId}`;
+}
+
+function safeStorageLeafName(raw: string | undefined | null): string | undefined {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s || s.includes("..") || s.includes("/")) return undefined;
+  return s;
+}
+
+async function deckCoverPreviewDownloadUrl(
+  st: FirebaseStorage,
+  ownerUid: string,
+  cloudId: string,
+  mainDocData: Record<string, unknown>,
+): Promise<string | undefined> {
+  const leaf = safeStorageLeafName(String(mainDocData.deckCoverImageFile ?? ""));
+  if (!leaf) return undefined;
+  try {
+    return await getDownloadURL(ref(st, `${storagePrefix(ownerUid, cloudId)}/${leaf}`));
+  } catch {
+    return undefined;
+  }
+}
+
+async function enrichCloudPresentationItemsWithDeckCoverPreview(
+  db: Firestore,
+  st: FirebaseStorage,
+  items: CloudPresentationListItem[],
+  /** `ownerUid::cloudId` → datos del doc principal (evita getDoc duplicado). */
+  mainDocByOwnerCloud?: Map<string, Record<string, unknown>>,
+): Promise<CloudPresentationListItem[]> {
+  return Promise.all(
+    items.map(async (item) => {
+      if (item.homePreviewImageUrl) return item;
+      const key = `${item.ownerUid}::${item.cloudId}`;
+      let main = mainDocByOwnerCloud?.get(key);
+      if (!main) {
+        const snap = await getDoc(presentationDoc(db, item.ownerUid, item.cloudId));
+        if (!snap.exists()) return item;
+        main = snap.data() as Record<string, unknown>;
+      }
+      const url = await deckCoverPreviewDownloadUrl(st, item.ownerUid, item.cloudId, main);
+      return url ? { ...item, homePreviewImageUrl: url } : item;
+    }),
+  );
 }
 
 function slidesSubcollection(db: Firestore, uid: string, cloudId: string) {
@@ -330,12 +383,15 @@ async function deleteKnownPresentationFiles(
   st: FirebaseStorage,
   prefix: string,
   slideImagePaths: Record<string, string>,
-  excalidrawPaths: Record<string, string>
+  excalidrawPaths: Record<string, string>,
+  deckCoverImageFile?: string | null,
 ): Promise<void> {
   const names = new Set<string>([
     ...Object.values(slideImagePaths),
     ...Object.values(excalidrawPaths),
   ]);
+  const deckLeaf = safeStorageLeafName(deckCoverImageFile ?? undefined);
+  if (deckLeaf) names.add(deckLeaf);
   await Promise.all(
     [...names].map((name) => {
       if (!name || name.includes("..") || name.includes("/")) return Promise.resolve();
@@ -552,6 +608,7 @@ export async function pushPresentationToCloud(
   /* ── 2. Subida de medios + escritura individual de cada slide ── */
   const slideImagePaths: Record<string, string> = {};
   const excalidrawPaths: Record<string, string> = {};
+  let deckCoverImageFile: string | null = null;
   const slidesCol = slidesSubcollection(db, uid, cloudId);
   let slidesWritten = 0;
 
@@ -559,6 +616,9 @@ export async function pushPresentationToCloud(
     const slide = saved.slides[i]!;
     const plain = slideToPlain(slide);
     let imageUrl: string | undefined = slide.imageUrl;
+
+    const useDeckCoverStorage =
+      i === 0 && isPersistedSlaimDeckCoverSlide(slide);
 
     if (slide.imageUrl?.startsWith("data:")) {
       let payload = await dataUrlToCloudImagePayload(slide.imageUrl);
@@ -569,9 +629,15 @@ export async function pushPresentationToCloud(
         }
       }
       if (payload) {
-        const name = `slide_${i}.${payload.ext}`;
+        const name = useDeckCoverStorage
+          ? `${DECK_COVER_CLOUD_STORAGE_BASENAME}.${payload.ext}`
+          : `slide_${i}.${payload.ext}`;
         await uploadBytes(ref(st, `${prefix}/${name}`), payload.bytes, { contentType: payload.contentType });
-        slideImagePaths[String(i)] = name;
+        if (useDeckCoverStorage) {
+          deckCoverImageFile = name;
+        } else {
+          slideImagePaths[String(i)] = name;
+        }
         imageUrl = undefined;
       }
     } else if (slide.imageUrl?.startsWith("http://") || slide.imageUrl?.startsWith("https://")) {
@@ -579,9 +645,15 @@ export async function pushPresentationToCloud(
       if (fetched) {
         const opt = await optimizeRasterBytesForCloud(fetched.bytes, fetched.contentType);
         const use = opt ?? { bytes: fetched.bytes, contentType: fetched.contentType, ext: fetched.ext };
-        const name = `slide_${i}.${use.ext}`;
+        const name = useDeckCoverStorage
+          ? `${DECK_COVER_CLOUD_STORAGE_BASENAME}.${use.ext}`
+          : `slide_${i}.${use.ext}`;
         await uploadBytes(ref(st, `${prefix}/${name}`), use.bytes, { contentType: use.contentType });
-        slideImagePaths[String(i)] = name;
+        if (useDeckCoverStorage) {
+          deckCoverImageFile = name;
+        } else {
+          slideImagePaths[String(i)] = name;
+        }
         imageUrl = undefined;
       }
     }
@@ -618,6 +690,8 @@ export async function pushPresentationToCloud(
     narrativeNotes: saved.narrativeNotes ?? null,
     slideImagePaths,
     excalidrawPaths,
+    /** Portada Slaim dedicada en Storage (no `slide_0.*`). */
+    deckCoverImageFile: deckCoverImageFile ?? null,
     slideCount: slidesWritten,
     cloudSyncedAtClient: syncedAt,
   };
@@ -678,9 +752,16 @@ export async function pushPresentationToCloud(
     const oldExcPaths = (pd.excalidrawPaths as Record<string, string>) ?? {};
     const staleImgs = Object.entries(oldImgPaths).filter(([k]) => !(k in slideImagePaths));
     const staleExc = Object.entries(oldExcPaths).filter(([k]) => !(k in excalidrawPaths));
+    const prevDeckLeaf = safeStorageLeafName(String(pd.deckCoverImageFile ?? ""));
+    const nextDeckLeaf = deckCoverImageFile ? deckCoverImageFile.trim() : "";
+    const deckStale =
+      prevDeckLeaf && prevDeckLeaf !== nextDeckLeaf
+        ? [deleteObject(ref(st, `${prefix}/${prevDeckLeaf}`)).catch(() => undefined)]
+        : [];
     await Promise.all([
       ...staleImgs.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
       ...staleExc.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
+      ...deckStale,
     ]);
   }
 
@@ -737,7 +818,8 @@ export async function deleteOwnerPresentationFromCloud(
     st,
     prefix,
     (data.slideImagePaths as Record<string, string>) ?? {},
-    (data.excalidrawPaths as Record<string, string>) ?? {}
+    (data.excalidrawPaths as Record<string, string>) ?? {},
+    data.deckCoverImageFile as string | null | undefined,
   );
 
   const slidesCol = slidesSubcollection(db, uid, cloudId.trim());
@@ -769,7 +851,10 @@ export async function listCloudPresentations(
   }
   const db = inst.firestore;
   const snap = await getDocs(userPresentationsRef(db, uid));
-  const out: CloudPresentationListItem[] = snap.docs.map((d) => {
+  const mainByOwnerCloud = new Map(
+    snap.docs.map((d) => [`${uid}::${d.id}`, d.data() as Record<string, unknown>]),
+  );
+  let out: CloudPresentationListItem[] = snap.docs.map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
       cloudId: d.id,
@@ -785,6 +870,14 @@ export async function listCloudPresentations(
     const tb = b.updatedAt || b.savedAt || "";
     return tb.localeCompare(ta);
   });
+  if (inst.storage) {
+    out = await enrichCloudPresentationItemsWithDeckCoverPreview(
+      db,
+      inst.storage,
+      out,
+      mainByOwnerCloud,
+    );
+  }
   return out;
 }
 
@@ -931,12 +1024,15 @@ export async function listCloudPresentationsSharedWithMe(
     const k = `${row.ownerUid}::${row.cloudId}`;
     if (!byKey.has(k)) byKey.set(k, row);
   }
-  const out = [...byKey.values()];
+  let out = [...byKey.values()];
   out.sort((a, b) => {
     const ta = a.updatedAt || a.savedAt || "";
     const tb = b.updatedAt || b.savedAt || "";
     return tb.localeCompare(ta);
   });
+  if (inst.storage) {
+    out = await enrichCloudPresentationItemsWithDeckCoverPreview(db, inst.storage, out);
+  }
   return out;
 }
 
@@ -1108,6 +1204,7 @@ export async function pullPresentationFromCloud(
   const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (data.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (data.excalidrawPaths as Record<string, string>) ?? {};
+  const deckCoverLeaf = safeStorageLeafName(String(data.deckCoverImageFile ?? ""));
 
   const inlineSlides = data.slides;
   const isV1 = Array.isArray(inlineSlides) && inlineSlides.length > 0;
@@ -1143,7 +1240,10 @@ export async function pullPresentationFromCloud(
 
       const [imageUrl, excalidrawData] = await Promise.all([
         (async (): Promise<string | undefined> => {
-          const imgName = slideImagePaths[String(i)];
+          const fromSlidePaths = slideImagePaths[String(i)]?.trim();
+          const imgName =
+            fromSlidePaths ||
+            (i === 0 && deckCoverLeaf ? deckCoverLeaf : undefined);
           if (!imgName) return base.imageUrl;
           const path = `${prefix}/${imgName}`;
           try {

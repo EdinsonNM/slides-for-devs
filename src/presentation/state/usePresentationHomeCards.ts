@@ -79,6 +79,9 @@ export function usePresentationHomeCards({
         topic: item.topic,
         savedAt: item.savedAt,
         updatedAt: item.updatedAt,
+        ...(item.homePreviewImageUrl
+          ? { homePreviewImageUrl: item.homePreviewImageUrl }
+          : {}),
       }));
 
     const cloudOnlyShared: HomePresentationCard[] = cloudSharedSnapshot
@@ -94,6 +97,9 @@ export function usePresentationHomeCards({
         topic: item.topic,
         savedAt: item.savedAt,
         updatedAt: item.updatedAt,
+        ...(item.homePreviewImageUrl
+          ? { homePreviewImageUrl: item.homePreviewImageUrl }
+          : {}),
       }));
 
     const merged = [...locals, ...cloudOnlyMine, ...cloudOnlyShared];

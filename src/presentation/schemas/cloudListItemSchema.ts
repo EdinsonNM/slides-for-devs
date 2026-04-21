@@ -9,6 +9,7 @@ export const cloudPresentationListItemSchema = z.object({
   savedAt: z.string(),
   updatedAt: z.string().nullable(),
   source: z.enum(["mine", "shared"]),
+  homePreviewImageUrl: z.string().optional(),
 });
 
 export function parseCloudPresentationListItems(

@@ -136,6 +136,8 @@ export function HomePresentationCardTile({
       card.updatedAt != null && card.updatedAt !== ""
         ? new Date(card.updatedAt)
         : new Date(card.savedAt);
+    const cloudHeroUrl = card.homePreviewImageUrl?.trim();
+    const hasCloudHero = !!cloudHeroUrl;
 
     return (
       <motion.div
@@ -156,15 +158,31 @@ export function HomePresentationCardTile({
         )}
         style={mergedFrameStyle}
       >
-        <HeroCardMediaLayer gradientClass={CLOUD_ONLY_GRADIENT} />
-        <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
+        {hasCloudHero ? (
+          <HeroCardMediaLayer coverUrl={cloudHeroUrl} />
+        ) : (
+          <HeroCardMediaLayer gradientClass={CLOUD_ONLY_GRADIENT} />
+        )}
+        {hasCloudHero ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+            aria-hidden
+          />
+        ) : (
+          <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
+        )}
         <button
           type="button"
           disabled={isBusy}
           onClick={() =>
             onDownloadFromCloud(card.cloudId, card.ownerUid)
           }
-          className="absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:ring-inset z-0 disabled:cursor-wait"
+          className={cn(
+            "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-0 disabled:cursor-wait",
+            hasCloudHero
+              ? "focus:ring-sky-500/40 focus:ring-white/25"
+              : "focus:ring-sky-500/50",
+          )}
         >
           <div className="flex-1" />
           <div className="text-white text-left">
@@ -210,6 +228,8 @@ export function HomePresentationCardTile({
       card.updatedAt != null && card.updatedAt !== ""
         ? new Date(card.updatedAt)
         : new Date(card.savedAt);
+    const cloudHeroUrl = card.homePreviewImageUrl?.trim();
+    const hasCloudHero = !!cloudHeroUrl;
 
     return (
       <motion.div
@@ -230,15 +250,31 @@ export function HomePresentationCardTile({
         )}
         style={mergedFrameStyle}
       >
-        <HeroCardMediaLayer gradientClass={SHARED_ONLY_GRADIENT} />
-        <div className="absolute inset-0 bg-linear-to-t from-black/78 via-black/25 to-transparent pointer-events-none" />
+        {hasCloudHero ? (
+          <HeroCardMediaLayer coverUrl={cloudHeroUrl} />
+        ) : (
+          <HeroCardMediaLayer gradientClass={SHARED_ONLY_GRADIENT} />
+        )}
+        {hasCloudHero ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+            aria-hidden
+          />
+        ) : (
+          <div className="absolute inset-0 bg-linear-to-t from-black/78 via-black/25 to-transparent pointer-events-none" />
+        )}
         <button
           type="button"
           disabled={isBusy}
           onClick={() =>
             onDownloadFromCloud(card.cloudId, card.ownerUid)
           }
-          className="absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:ring-inset z-0 disabled:cursor-wait"
+          className={cn(
+            "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-0 disabled:cursor-wait",
+            hasCloudHero
+              ? "focus:ring-violet-500/40 focus:ring-white/25"
+              : "focus:ring-violet-500/50",
+          )}
         >
           <div className="flex-1" />
           <div className="text-white text-left">

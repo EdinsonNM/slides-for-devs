@@ -9,6 +9,12 @@ export const DECK_COVER_IMAGE_PROMPT_TAG = "[DECK_COVER_SLAIM]";
 /** Valor persistido en `slide.imagePrompt` para portadas Slaim (no es el prompt largo enviado al modelo). */
 export const DECK_COVER_IMAGE_PROMPT = `${DECK_COVER_IMAGE_PROMPT_TAG} Portada Slaim (lista de inicio).`;
 
+/**
+ * Raster de portada en Firebase Storage (`users/.../presentations/{cloudId}/deck_cover.ext`).
+ * No reutiliza `slide_0.*`: la portada de lista es un recurso aparte del panel de imagen del slide.
+ */
+export const DECK_COVER_CLOUD_STORAGE_BASENAME = "deck_cover";
+
 export const SLAIM_MASCOT_COVER_REFERENCE_FILENAME = "slaim-mascot-cover-reference.png";
 
 /**
@@ -29,6 +35,37 @@ export function firstSlideDeckCoverImageUrl(first?: Slide): string | undefined {
   if (!url) return undefined;
   if (first.imagePrompt === DECK_COVER_IMAGE_PROMPT) return url;
   if (first.imagePrompt === LEGACY_DECK_COVER_IMAGE_PROMPT) return url;
+  return undefined;
+}
+
+/** El slide tiene portada Slaim persistida (mismo criterio que en nube / SQLite). */
+export function isPersistedSlaimDeckCoverSlide(slide: Slide | undefined): boolean {
+  if (!slide) return false;
+  const p = slide.imagePrompt?.trim();
+  return p === DECK_COVER_IMAGE_PROMPT || p === LEGACY_DECK_COVER_IMAGE_PROMPT;
+}
+
+/** URLs que el home puede usar en `background-image` / `<img>` sin protocolos opacos. */
+export function isHomePreviewableSlideImageUrl(url: string): boolean {
+  const u = url.trim();
+  if (!u) return false;
+  return (
+    u.startsWith("data:") ||
+    u.startsWith("blob:") ||
+    u.startsWith("http://") ||
+    u.startsWith("https://")
+  );
+}
+
+/**
+ * Portada Slaim si aplica; si no, la imagen del primer slide (misma URL que en el editor).
+ * Así el carrusel del home muestra miniatura aunque no exista portada generada.
+ */
+export function firstSlideHomePreviewImageUrl(first?: Slide): string | undefined {
+  const slaim = firstSlideDeckCoverImageUrl(first);
+  if (slaim) return slaim;
+  const raw = first?.imageUrl?.trim();
+  if (raw && isHomePreviewableSlideImageUrl(raw)) return raw;
   return undefined;
 }
 

@@ -4,7 +4,7 @@ import { normalizeDeckVisualTheme } from "../../domain/entities";
 import { DEFAULT_DECK_NARRATIVE_PRESET_ID } from "../../constants/presentationNarrativePresets";
 import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { formatMarkdown } from "../../utils/markdown";
-import { firstSlideDeckCoverImageUrl } from "../../constants/deckCover";
+import { firstSlideHomePreviewImageUrl } from "../../constants/deckCover";
 import type { SavedPresentation, Slide } from "../../types";
 
 export type ApplySavedPresentationEditorContext = {
@@ -59,7 +59,7 @@ export function applySavedPresentationToEditorState(
   );
   ctx.setNarrativeNotes(saved.narrativeNotes ?? "");
   ctx.coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
-  const coverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
+  const coverUrl = firstSlideHomePreviewImageUrl(saved.slides[0]);
   if (coverUrl) {
     ctx.setCoverImageCache((prev) => ({ ...prev, [saved.id]: coverUrl }));
   }
