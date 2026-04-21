@@ -23,7 +23,6 @@ import {
 } from "../constants/presentationNarrativePresets";
 import { formatMarkdown } from "../utils/markdown";
 import {
-  AUTO_CLOUD_SYNC_STORAGE_KEY,
   DEFAULT_IMAGE_WIDTH_PERCENT,
   DEFAULT_PANEL_HEIGHT_PERCENT,
 } from "../presentation/state/presentationConstants";
@@ -65,13 +64,9 @@ import {
 } from "../domain/slideCanvas/slideCanvasPayload";
 import { isSlideCanvasTextPayload } from "../domain/entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../utils/slideRichText";
-import {
-  migrateJsonPresentations,
-  localAccountScopeForUser,
-} from "../services/storage";
+import { localAccountScopeForUser } from "../services/storage";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
-import { createConfigSetter } from "../store/useConfigStore";
 import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
@@ -80,6 +75,7 @@ import { usePresentationAiModals } from "../presentation/state/usePresentationAi
 import { usePresentationCharactersResources } from "../presentation/state/usePresentationCharactersResources";
 import { usePresentationStoreBridge } from "../presentation/state/usePresentationStoreBridge";
 import { usePresentationModelCatalog } from "../presentation/state/usePresentationModelCatalog";
+import { usePresentationBootstrapPersistence } from "../presentation/state/usePresentationBootstrapPersistence";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
@@ -164,6 +160,8 @@ export function usePresentationState() {
     showSlideStylePanel,
     setShowSlideStylePanel,
   } = usePresentationStoreBridge();
+
+  const { setAutoCloudSyncOnSave } = usePresentationBootstrapPersistence();
 
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
@@ -518,15 +516,6 @@ export function usePresentationState() {
     "slide" | "characters" | "notes" | "theme" | "resources" | null
   >("slide");
 
-  const setAutoCloudSyncOnSave = useCallback((value: boolean) => {
-    try {
-      localStorage.setItem(AUTO_CLOUD_SYNC_STORAGE_KEY, value ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-    createConfigSetter("autoCloudSyncOnSave")(value);
-  }, []);
-
   const currentSlide = slides[currentIndex];
   const imageWidthPercent =
     currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT;
@@ -534,11 +523,6 @@ export function usePresentationState() {
     currentSlide?.contentLayout === "panel-full"
       ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
       : DEFAULT_PANEL_HEIGHT_PERCENT;
-
-  // Migrar presentaciones en JSON (formato antiguo) a SQLite una vez al cargar
-  useEffect(() => {
-    migrateJsonPresentations().catch(() => {});
-  }, []);
 
   usePresentationSlideResizeGestures({
     isResizing,
