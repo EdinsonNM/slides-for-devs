@@ -12,7 +12,6 @@ import type {
   SavedCharacter,
   GeneratedResourceEntry,
   SavedPresentationMeta,
-  HomePresentationCard,
   Presentation,
 } from "../types";
 import {
@@ -56,8 +55,8 @@ import { usePresentationDeckMutations } from "../presentation/state/usePresentat
 import { usePresentationEditorKeyboard } from "../presentation/state/usePresentationEditorKeyboard";
 import { usePresentationSlideCanvasMutations } from "../presentation/state/usePresentationSlideCanvasMutations";
 import { usePresentationSlideResizeGestures } from "../presentation/state/usePresentationSlideResizeGestures";
+import { usePresentationHomeCards } from "../presentation/state/usePresentationHomeCards";
 import { presentationQueryKeys } from "../presentation/queryKeys";
-import { fetchCloudPresentationSnapshots } from "../presentation/state/usePresentationCloudList";
 import {
   useSavedPresentations,
   useSavedCharacters,
@@ -162,13 +161,9 @@ import {
   CloudSyncConflictError,
   getCloudPresentationRevision,
   resolvePresentationCloudRef,
-  type CloudPresentationListItem,
 } from "../services/presentationCloud";
-import { getFirebaseConfig, initFirebase } from "../services/firebase";
-import {
-  formatCloudSharedListError,
-  formatCloudSyncUserMessage,
-} from "../utils/cloudSyncErrors";
+import { initFirebase } from "../services/firebase";
+import { formatCloudSyncUserMessage } from "../utils/cloudSyncErrors";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import { useUIStore, createUISetter } from "../store/useUIStore";
@@ -461,15 +456,6 @@ export function usePresentationState() {
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
-  const [cloudMineSnapshot, setCloudMineSnapshot] = useState<
-    CloudPresentationListItem[]
-  >([]);
-  const [cloudSharedSnapshot, setCloudSharedSnapshot] = useState<
-    CloudPresentationListItem[]
-  >([]);
-  const [homeCloudSharedListWarning, setHomeCloudSharedListWarning] = useState<
-    string | null
-  >(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<HomeTab>("recent");
@@ -1396,34 +1382,15 @@ export function usePresentationState() {
     setShowExportDeckVideoModal(true);
   }, []);
 
-  const refreshCloudMineSnapshot = useCallback(async () => {
-    if (
-      !user ||
-      firebaseReady !== true ||
-      typeof window === "undefined" ||
-      (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
-    ) {
-      setCloudMineSnapshot([]);
-      setCloudSharedSnapshot([]);
-      setHomeCloudSharedListWarning(null);
-      return;
-    }
-    setHomeCloudSharedListWarning(null);
-    const { mine, shared, sharedListError } =
-      await fetchCloudPresentationSnapshots(user.uid);
-    setCloudMineSnapshot(mine);
-    setCloudSharedSnapshot(shared);
-    if (sharedListError) {
-      console.warn(
-        "Listado de presentaciones compartidas (home):",
-        sharedListError,
-      );
-      const cfg = await getFirebaseConfig();
-      setHomeCloudSharedListWarning(
-        formatCloudSharedListError(sharedListError, cfg?.projectId),
-      );
-    }
-  }, [user, firebaseReady]);
+  const {
+    homeCloudSharedListWarning,
+    refreshCloudMineSnapshot,
+    homePresentationCards,
+  } = usePresentationHomeCards({
+    user,
+    firebaseReady,
+    savedList,
+  });
 
   const refreshSavedList = useCallback(async () => {
     await queryClient.invalidateQueries({
@@ -1431,63 +1398,6 @@ export function usePresentationState() {
     });
     void refreshCloudMineSnapshot();
   }, [queryClient, localAccountScope, refreshCloudMineSnapshot]);
-
-  const homePresentationCards = useMemo((): HomePresentationCard[] => {
-    const hasAnyLocalForCloud = (cloudId: string) =>
-      savedList.some((p) => p.cloudId === cloudId);
-
-    const sharedSourceKey = (ownerUid: string, cloudId: string) =>
-      `${ownerUid}::${cloudId}`;
-
-    const hasLocalForSharedCloud = (ownerUid: string, cloudId: string) =>
-      savedList.some(
-        (p) => p.sharedCloudSource === sharedSourceKey(ownerUid, cloudId),
-      );
-
-    const locals: HomePresentationCard[] = savedList.map((meta) => ({
-      kind: "local",
-      meta,
-    }));
-
-    const cloudOnlyMine: HomePresentationCard[] = cloudMineSnapshot
-      .filter(
-        (item) =>
-          item.source === "mine" && !hasAnyLocalForCloud(item.cloudId),
-      )
-      .map((item) => ({
-        kind: "cloud_only_mine" as const,
-        cloudId: item.cloudId,
-        ownerUid: item.ownerUid,
-        topic: item.topic,
-        savedAt: item.savedAt,
-        updatedAt: item.updatedAt,
-      }));
-
-    const cloudOnlyShared: HomePresentationCard[] = cloudSharedSnapshot
-      .filter(
-        (item) =>
-          item.source === "shared" &&
-          !hasLocalForSharedCloud(item.ownerUid, item.cloudId),
-      )
-      .map((item) => ({
-        kind: "cloud_only_shared" as const,
-        cloudId: item.cloudId,
-        ownerUid: item.ownerUid,
-        topic: item.topic,
-        savedAt: item.savedAt,
-        updatedAt: item.updatedAt,
-      }));
-
-    const merged = [...locals, ...cloudOnlyMine, ...cloudOnlyShared];
-    merged.sort((a, b) => {
-      const ta =
-        a.kind === "local" ? a.meta.savedAt : a.updatedAt || a.savedAt;
-      const tb =
-        b.kind === "local" ? b.meta.savedAt : b.updatedAt || b.savedAt;
-      return tb.localeCompare(ta);
-    });
-    return merged;
-  }, [savedList, cloudMineSnapshot, cloudSharedSnapshot]);
 
   /** Portadas del carrusel: sin esto solo se rellenaba la caché al abrir la presentación. */
   useEffect(() => {
