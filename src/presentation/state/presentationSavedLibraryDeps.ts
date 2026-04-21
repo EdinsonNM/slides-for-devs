@@ -19,6 +19,11 @@ export type PresentationSavedLibraryDeps = {
   setShowSavedListModal: (open: boolean) => void;
   deletePresentationId: string | null;
   setDeletePresentationId: (id: string | null) => void;
+  /** Metadatos capturados al abrir el modal de borrado (evita título genérico si la lista se refresca). */
+  deletePresentationSnapshot: SavedPresentationMeta | null;
+  setDeletePresentationSnapshot: (
+    meta: SavedPresentationMeta | null,
+  ) => void;
   currentSavedId: string | null;
   setCurrentSavedId: (
     id: string | null | ((prev: string | null) => string | null),

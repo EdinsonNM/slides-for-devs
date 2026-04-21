@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  AnimatePresence,
   animate,
   motion,
   useMotionValue,
@@ -236,8 +237,6 @@ export function HomePresentationDeckCarousel({
     [count, goNext, goPrev, moveTo],
   );
 
-  if (count === 0) return null;
-
   const canDrag = count > 1 && !reduceMotion;
   const maxOffset = step > 0 ? Math.max(0, (count - 1) * step) : 0;
 
@@ -263,6 +262,7 @@ export function HomePresentationDeckCarousel({
           className={cn(
             "flex h-full min-h-0 flex-row items-center py-3 sm:py-5",
             canDrag && "cursor-grab active:cursor-grabbing",
+            count === 0 && "min-h-[min(280px,42vh)] justify-center",
           )}
           style={{
             x,
@@ -277,7 +277,8 @@ export function HomePresentationDeckCarousel({
           dragElastic={0.08}
           onDragEnd={onDragEnd}
         >
-          {homePresentationCards.map((card, index) => {
+          <AnimatePresence initial={false} mode="popLayout">
+            {homePresentationCards.map((card, index) => {
               const isActive = index === activeIndex;
               const side = index < activeIndex ? "left" : index > activeIndex ? "right" : "center";
               return (
@@ -314,6 +315,21 @@ export function HomePresentationDeckCarousel({
                             z: -12,
                           }
                   }
+                  exit={
+                    reduceMotion
+                      ? { opacity: 0, transition: { duration: 0.14, ease: "easeIn" } }
+                      : {
+                          opacity: 0,
+                          scale: 0.92,
+                          rotateY: -10,
+                          z: -28,
+                          filter: "blur(5px)",
+                          transition: {
+                            duration: 0.3,
+                            ease: [0.22, 1, 0.36, 1],
+                          },
+                        }
+                  }
                   transition={
                     reduceMotion
                       ? { duration: 0 }
@@ -348,7 +364,8 @@ export function HomePresentationDeckCarousel({
                   />
                 </motion.div>
               );
-          })}
+            })}
+          </AnimatePresence>
         </motion.div>
 
         {count > 1 && (

@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, X } from "lucide-react";
 import type { SavedPresentationMeta } from "../../types";
 
 export interface DeletePresentationModalProps {
@@ -15,6 +16,12 @@ export function DeletePresentationModal({
   onClose,
   onDeleteEverywhere,
 }: DeletePresentationModalProps) {
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) setBusy(false);
+  }, [open]);
+
   if (!open || !meta) return null;
 
   return (
@@ -54,15 +61,33 @@ export function DeletePresentationModal({
         <div className="p-4 pt-0 flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => void onDeleteEverywhere()}
-            className="w-full py-2.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void (async () => {
+                try {
+                  await onDeleteEverywhere();
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70"
           >
-            Eliminar
+            {busy ? (
+              <>
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                Eliminando…
+              </>
+            ) : (
+              "Eliminar"
+            )}
           </button>
           <button
             type="button"
+            disabled={busy}
             onClick={onClose}
-            className="w-full py-2.5 rounded-lg text-sm font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
+            className="w-full rounded-lg py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 dark:text-stone-400 dark:hover:bg-stone-800"
           >
             Cancelar
           </button>

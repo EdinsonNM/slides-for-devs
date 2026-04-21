@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import {
   Trash2,
   X,
@@ -60,14 +61,23 @@ export function SavedListModal() {
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {savedList.map((p) => (
-                <div
-                  key={p.id}
-                  className={cn(
-                    "flex flex-col rounded-xl bg-stone-50 dark:bg-surface overflow-hidden hover:shadow-md transition-all",
-                    presentationListCardBorderClass(p),
-                  )}
-                >
+              <AnimatePresence initial={false} mode="popLayout">
+                {savedList.map((p) => (
+                  <motion.div
+                    key={p.id}
+                    layout
+                    initial={false}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.94,
+                      filter: "blur(3px)",
+                      transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] },
+                    }}
+                    className={cn(
+                      "flex flex-col rounded-xl bg-stone-50 dark:bg-surface overflow-hidden hover:shadow-md transition-shadow",
+                      presentationListCardBorderClass(p),
+                    )}
+                  >
                   <button
                     type="button"
                     onClick={() => handleOpenSaved(p.id)}
@@ -160,8 +170,9 @@ export function SavedListModal() {
                       <Trash2 size={18} />
                     </button>
                   </div>
-                </div>
-              ))}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePresentation } from "../../context/PresentationContext";
 import { isTauriRuntime } from "../../utils/isTauriRuntime";
 import { HomeEmptyState } from "./HomeEmptyState";
@@ -61,77 +62,109 @@ export function HomeScreen(props: HomeScreenProps) {
     setNarrativeNotes,
   } = usePresentation();
 
+  const reduceMotion = useReducedMotion();
+
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
   const generate = onGenerateProp ?? handleGenerate;
   const createBlank = onCreateBlankProp;
   const hasItems = homePresentationCards.length > 0;
   const cloudOnlyCardActionMode = isTauriRuntime() ? "download" : "open";
 
-  if (!hasItems) {
-    return (
-      <div className="flex min-h-dvh flex-col">
-        <HomeEmptyState
-        onOpenConfig={onOpenConfig}
-        onCheckUpdates={onCheckUpdates}
-        topic={topic}
-        setTopic={setTopic}
-        isLoading={isLoading}
-        onGenerate={generate}
-        onCreateBlank={createBlank}
-        presentationModelId={presentationModelId}
-        setPresentationModelId={setPresentationModelId}
-        presentationModels={presentationModels}
-        promptAttachments={homePromptAttachments}
-        onAddPromptAttachment={addHomePromptAttachment}
-        onRemovePromptAttachment={removeHomePromptAttachment}
-        deckNarrativePresetId={deckNarrativePresetId}
-        onDeckNarrativePresetIdChange={setDeckNarrativePresetId}
-        narrativeNotes={narrativeNotes}
-        onNarrativeNotesChange={setNarrativeNotes}
-      />
-      </div>
-    );
-  }
-
   return (
-    <div className="h-dvh min-h-0 flex flex-col overflow-hidden">
-      <HomeWithCarousel
-        onOpenConfig={onOpenConfig}
-        topic={topic}
-        setTopic={setTopic}
-        isLoading={isLoading}
-        onGenerate={generate}
-        onCreateBlank={createBlank}
-        presentationModelId={presentationModelId}
-        setPresentationModelId={setPresentationModelId}
-        presentationModels={presentationModels}
-        homePresentationCards={homePresentationCards}
-        onOpenSaved={openSaved}
-        onDeleteSaved={requestDeletePresentation}
-        onGenerateCover={handleGenerateCoverForPresentation}
-        generatingCoverId={generatingCoverId}
-        coverImageCache={coverImageCache}
-        homeFirstSlideReplicaBySavedId={homeFirstSlideReplicaBySavedId}
-        homeFirstSlideReplicaDeckThemeBySavedId={
-          homeFirstSlideReplicaDeckThemeBySavedId
-        }
-        cloudSyncAvailable={cloudSyncAvailable}
-        onSyncToCloud={handleSyncPresentationToCloud}
-        syncingToCloudId={syncingToCloudId}
-        homeCloudSharedListWarning={homeCloudSharedListWarning}
-        onSharePresentation={openSharePresentationModal}
-        onDownloadFromCloud={handleDownloadFromCloud}
-        onDeleteCloudOnlyMine={handleDeleteCloudOnlyMine}
-        downloadingCloudKey={downloadingCloudKey}
-        cloudOnlyCardActionMode={cloudOnlyCardActionMode}
-        promptAttachments={homePromptAttachments}
-        onAddPromptAttachment={addHomePromptAttachment}
-        onRemovePromptAttachment={removeHomePromptAttachment}
-        deckNarrativePresetId={deckNarrativePresetId}
-        onDeckNarrativePresetIdChange={setDeckNarrativePresetId}
-        narrativeNotes={narrativeNotes}
-        onNarrativeNotesChange={setNarrativeNotes}
-      />
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      {hasItems ? (
+        <motion.div
+          key="home-with-deck"
+          className="h-dvh min-h-0 flex flex-col overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={
+            reduceMotion
+              ? { opacity: 0, transition: { duration: 0.16 } }
+              : {
+                  opacity: 0,
+                  scale: 0.992,
+                  transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] },
+                }
+          }
+          transition={
+            reduceMotion ? { duration: 0.12 } : { duration: 0.22, ease: "easeOut" }
+          }
+        >
+          <HomeWithCarousel
+            onOpenConfig={onOpenConfig}
+            topic={topic}
+            setTopic={setTopic}
+            isLoading={isLoading}
+            onGenerate={generate}
+            onCreateBlank={createBlank}
+            presentationModelId={presentationModelId}
+            setPresentationModelId={setPresentationModelId}
+            presentationModels={presentationModels}
+            homePresentationCards={homePresentationCards}
+            onOpenSaved={openSaved}
+            onDeleteSaved={requestDeletePresentation}
+            onGenerateCover={handleGenerateCoverForPresentation}
+            generatingCoverId={generatingCoverId}
+            coverImageCache={coverImageCache}
+            homeFirstSlideReplicaBySavedId={homeFirstSlideReplicaBySavedId}
+            homeFirstSlideReplicaDeckThemeBySavedId={
+              homeFirstSlideReplicaDeckThemeBySavedId
+            }
+            cloudSyncAvailable={cloudSyncAvailable}
+            onSyncToCloud={handleSyncPresentationToCloud}
+            syncingToCloudId={syncingToCloudId}
+            homeCloudSharedListWarning={homeCloudSharedListWarning}
+            onSharePresentation={openSharePresentationModal}
+            onDownloadFromCloud={handleDownloadFromCloud}
+            onDeleteCloudOnlyMine={handleDeleteCloudOnlyMine}
+            downloadingCloudKey={downloadingCloudKey}
+            cloudOnlyCardActionMode={cloudOnlyCardActionMode}
+            promptAttachments={homePromptAttachments}
+            onAddPromptAttachment={addHomePromptAttachment}
+            onRemovePromptAttachment={removeHomePromptAttachment}
+            deckNarrativePresetId={deckNarrativePresetId}
+            onDeckNarrativePresetIdChange={setDeckNarrativePresetId}
+            narrativeNotes={narrativeNotes}
+            onNarrativeNotesChange={setNarrativeNotes}
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="home-empty"
+          className="flex min-h-dvh flex-col"
+          initial={
+            reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }
+          }
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: reduceMotion ? 0.12 : 0.16 } }}
+          transition={
+            reduceMotion
+              ? { duration: 0.12 }
+              : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }
+          }
+        >
+          <HomeEmptyState
+            onOpenConfig={onOpenConfig}
+            onCheckUpdates={onCheckUpdates}
+            topic={topic}
+            setTopic={setTopic}
+            isLoading={isLoading}
+            onGenerate={generate}
+            onCreateBlank={createBlank}
+            presentationModelId={presentationModelId}
+            setPresentationModelId={setPresentationModelId}
+            presentationModels={presentationModels}
+            promptAttachments={homePromptAttachments}
+            onAddPromptAttachment={addHomePromptAttachment}
+            onRemovePromptAttachment={removeHomePromptAttachment}
+            deckNarrativePresetId={deckNarrativePresetId}
+            onDeckNarrativePresetIdChange={setDeckNarrativePresetId}
+            narrativeNotes={narrativeNotes}
+            onNarrativeNotesChange={setNarrativeNotes}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

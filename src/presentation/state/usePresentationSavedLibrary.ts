@@ -139,26 +139,43 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
     }, []);
 
   const requestDeletePresentation = useCallback((id: string) => {
-    depsRef.current.setDeletePresentationId(id);
+    const x = depsRef.current;
+    const meta = x.savedList.find((p) => p.id === id);
+    x.setDeletePresentationSnapshot(
+      meta ?? {
+        id,
+        topic: "Presentación",
+        savedAt: new Date().toISOString(),
+        slideCount: 0,
+      },
+    );
+    x.setDeletePresentationId(id);
   }, []);
 
   const closeDeletePresentationModal = useCallback(() => {
-    depsRef.current.setDeletePresentationId(null);
+    const x = depsRef.current;
+    x.setDeletePresentationId(null);
+    x.setDeletePresentationSnapshot(null);
   }, []);
 
   const deletePresentationTarget = useMemo((): SavedPresentationMeta | null => {
     const id = deps.deletePresentationId;
     if (!id) return null;
+    const snap = deps.deletePresentationSnapshot;
+    if (snap && snap.id === id) return snap;
     const fromList = deps.savedList.find((p) => p.id === id);
     if (fromList) return fromList;
-    // Fallback para evitar que el modal "desaparezca" si la lista se refresca justo tras el click.
     return {
       id,
       topic: "Presentación",
       savedAt: new Date().toISOString(),
       slideCount: 0,
     };
-  }, [deps.deletePresentationId, deps.savedList]);
+  }, [
+    deps.deletePresentationId,
+    deps.deletePresentationSnapshot,
+    deps.savedList,
+  ]);
 
   const confirmDeletePresentationLocalOnly = useCallback(async () => {
     const x = depsRef.current;
@@ -190,6 +207,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
       alert("Error al eliminar.");
     } finally {
       x.setDeletePresentationId(null);
+      x.setDeletePresentationSnapshot(null);
     }
   }, []);
 
@@ -223,6 +241,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
       );
     } finally {
       x.setDeletePresentationId(null);
+      x.setDeletePresentationSnapshot(null);
     }
   }, []);
 
@@ -231,12 +250,15 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
     const id = x.deletePresentationId;
     if (!id) return;
     try {
-      let cloudId: string | null = null;
-      try {
-        const list = await listPresentations(x.localAccountScope);
-        cloudId = list.find((p) => p.id === id)?.cloudId?.trim() ?? null;
-      } catch {
-        /* ignore */
+      const snapCloud = x.deletePresentationSnapshot?.cloudId?.trim();
+      let cloudId: string | null = snapCloud ?? null;
+      if (!cloudId) {
+        try {
+          const list = await listPresentations(x.localAccountScope);
+          cloudId = list.find((p) => p.id === id)?.cloudId?.trim() ?? null;
+        } catch {
+          /* ignore */
+        }
       }
       if (cloudId && x.user) {
         await deleteOwnerPresentationFromCloud(x.user.uid, cloudId);
@@ -266,6 +288,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
       alert(`Error al eliminar: ${formatCloudSyncUserMessage(e)}`);
     } finally {
       x.setDeletePresentationId(null);
+      x.setDeletePresentationSnapshot(null);
     }
   }, []);
 

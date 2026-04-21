@@ -438,6 +438,8 @@ export function usePresentationState() {
   const [deletePresentationId, setDeletePresentationId] = useState<string | null>(
     null,
   );
+  const [deletePresentationSnapshot, setDeletePresentationSnapshot] =
+    useState<SavedPresentationMeta | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
@@ -504,6 +506,8 @@ export function usePresentationState() {
     setShowSavedListModal,
     deletePresentationId,
     setDeletePresentationId,
+    deletePresentationSnapshot,
+    setDeletePresentationSnapshot,
     currentSavedId,
     setCurrentSavedId,
     setTopic,

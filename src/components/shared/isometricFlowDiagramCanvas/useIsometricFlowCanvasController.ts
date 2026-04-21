@@ -22,6 +22,8 @@ import {
   CELL,
   HIT_R,
   ICON_PICKER_PAGE_SIZE,
+  LABEL_PILL_H,
+  LABEL_STACK,
   LINK_HIT_PX,
   MARQUEE_ACTIVATE_PX,
   ORIGIN_X,
@@ -40,6 +42,7 @@ import {
   groupIconPickerEntriesByHeading,
   insertWaypointOnCanonicalSegment,
   isoNodeMarqueeBounds,
+  labelPillWidth,
   linkCanonicalFullGridPath,
   linkPolylinePoints,
   normalizeSimpleIconHex,
@@ -600,6 +603,28 @@ export function useIsometricFlowCanvasController({
 
   const pickNodeAt = useCallback(
     (sx: number, sy: number): IsometricFlowNode | null => {
+      const depthKey = (n: IsometricFlowNode) => n.gx + n.gy;
+      const sortedByDepth = [...data.nodes].sort(
+        (a, b) => depthKey(a) - depthKey(b),
+      );
+      for (let i = sortedByDepth.length - 1; i >= 0; i--) {
+        const n = sortedByDepth[i]!;
+        const { x: cx, y: cy } = nodeFoot(n.gx, n.gy, CELL, ORIGIN_X, ORIGIN_Y);
+        const labelForPill =
+          editingId === n.id ? n.label : n.label.slice(0, 24);
+        const pillW = labelPillWidth(labelForPill);
+        const pillLeft = cx - pillW / 2;
+        const pillTop = cy - LABEL_STACK - LABEL_PILL_H;
+        if (
+          sx >= pillLeft &&
+          sx <= pillLeft + pillW &&
+          sy >= pillTop &&
+          sy <= pillTop + LABEL_PILL_H
+        ) {
+          return n;
+        }
+      }
+
       let best: IsometricFlowNode | null = null;
       let bestD = HIT_R;
       for (const n of data.nodes) {
@@ -612,7 +637,7 @@ export function useIsometricFlowCanvasController({
       }
       return best;
     },
-    [data.nodes],
+    [data.nodes, editingId],
   );
 
   const pickLinkAt = useCallback(
@@ -703,6 +728,31 @@ export function useIsometricFlowCanvasController({
       onEditorSurfacePointerDown?.();
       const svg = svgRef.current;
       if (!svg) return;
+
+      if (!readOnly && editingId !== null) {
+        const { x: sx, y: sy } = clientToSvg(svg, e.clientX, e.clientY);
+        const node = data.nodes.find((nn) => nn.id === editingId);
+        if (!node) {
+          setEditingId(null);
+        } else {
+          const { x: cx, y: cy } = nodeFoot(
+            node.gx,
+            node.gy,
+            CELL,
+            ORIGIN_X,
+            ORIGIN_Y,
+          );
+          const pillW = labelPillWidth(node.label);
+          const pillLeft = cx - pillW / 2;
+          const pillTop = cy - LABEL_STACK - LABEL_PILL_H;
+          const inPill =
+            sx >= pillLeft &&
+            sx <= pillLeft + pillW &&
+            sy >= pillTop &&
+            sy <= pillTop + LABEL_PILL_H;
+          if (!inPill) setEditingId(null);
+        }
+      }
 
       const startPan = (pointerId: number) => {
         const vr = viewRectRef.current;
@@ -849,11 +899,13 @@ export function useIsometricFlowCanvasController({
       readOnly,
       connectFrom,
       data,
+      editingId,
       emit,
       onEditorSurfacePointerDown,
       pickLinkAt,
       pickNodeAt,
       selectedNodeIds,
+      setEditingId,
     ],
   );
 
@@ -977,7 +1029,25 @@ export function useIsometricFlowCanvasController({
       const svg = svgRef.current;
       if (!svg) return;
       const { x, y } = clientToSvg(svg, e.clientX, e.clientY);
-      if (pickNodeAt(x, y)) return;
+      const hit = pickNodeAt(x, y);
+      if (hit) {
+        const { x: cx, y: cy } = nodeFoot(hit.gx, hit.gy, CELL, ORIGIN_X, ORIGIN_Y);
+        const labelForPill =
+          editingId === hit.id ? hit.label : hit.label.slice(0, 24);
+        const pillW = labelPillWidth(labelForPill);
+        const pillLeft = cx - pillW / 2;
+        const pillTop = cy - LABEL_STACK - LABEL_PILL_H;
+        const onLabelPill =
+          x >= pillLeft &&
+          x <= pillLeft + pillW &&
+          y >= pillTop &&
+          y <= pillTop + LABEL_PILL_H;
+        if (onLabelPill) {
+          setEditingId(hit.id);
+          setSelectedNodeIds([hit.id]);
+        }
+        return;
+      }
       const { gx, gy } = canvasToIsoGrid(x, y, CELL, ORIGIN_X, ORIGIN_Y);
       const id = crypto.randomUUID();
       emit({
@@ -997,7 +1067,7 @@ export function useIsometricFlowCanvasController({
       setSelectedNodeIds([id]);
       setSelectedLinkId(null);
     },
-    [readOnly, editingId, data, emit, pickNodeAt],
+    [readOnly, editingId, data, emit, pickNodeAt, setEditingId, setSelectedNodeIds],
   );
 
   const setLinkStrokeColor = useCallback(

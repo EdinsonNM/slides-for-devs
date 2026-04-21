@@ -17,8 +17,14 @@ export function deckSlideContentWrapperClass(tone: DeckContentTone): string {
     "text-stone-900",
     "[&_.prose]:text-stone-700",
     "[&_textarea]:text-stone-900 [&_textarea]:placeholder:text-stone-400",
+    /* En app `dark`, el fondo del slide puede alinearse a `--color-surface` (DeckBackdrop).
+     * `dark:text-stone-100` en el textarea pierde a veces frente a `[&_textarea]:text-stone-900`
+     * del padre; repetimos el color en el selector del wrapper para igualar títulos (h2). */
+    "dark:[&_textarea]:text-stone-100 dark:[&_textarea]:placeholder:text-stone-500",
     "[&_[data-code-panel]_textarea]:text-inherit [&_[data-code-panel]_textarea]:placeholder:text-inherit",
+    "dark:[&_[data-code-panel]_textarea]:text-inherit dark:[&_[data-code-panel]_textarea]:placeholder:text-inherit",
     "[&_input]:text-stone-900 [&_input]:placeholder:text-stone-400",
+    "dark:[&_input]:text-stone-100 dark:[&_input]:placeholder:text-stone-500",
   );
 }
 
