@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
+import { useLatestRef } from "./useLatestRef";
 import {
   clearPresentationLocalBody,
   deletePresentation,
@@ -18,26 +19,24 @@ import type { SavedPresentationMeta } from "../../types";
 import type { PresentationSavedLibraryDeps } from "./presentationSavedLibraryDeps";
 
 export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
-  const applySavedEditorCtxRef = useRef(
-    {} as ApplySavedPresentationEditorContext,
+  const applySavedEditorCtxRef = useLatestRef<ApplySavedPresentationEditorContext>(
+    {
+      slidesUndoRef: deps.slidesUndoRef,
+      slidesRedoRef: deps.slidesRedoRef,
+      setTopic: deps.setTopic,
+      setSlides: deps.setSlides,
+      setCurrentIndex: deps.setCurrentIndex,
+      setCurrentSavedId: deps.setCurrentSavedId,
+      setSelectedCharacterId: deps.setSelectedCharacterId,
+      setDeckVisualThemeState: deps.setDeckVisualThemeState,
+      setDeckNarrativePresetId: deps.setDeckNarrativePresetId,
+      setNarrativeNotes: deps.setNarrativeNotes,
+      coverPrefetchSavedAtRef: deps.coverPrefetchSavedAtRef,
+      setCoverImageCache: deps.setCoverImageCache,
+    },
   );
-  applySavedEditorCtxRef.current = {
-    slidesUndoRef: deps.slidesUndoRef,
-    slidesRedoRef: deps.slidesRedoRef,
-    setTopic: deps.setTopic,
-    setSlides: deps.setSlides,
-    setCurrentIndex: deps.setCurrentIndex,
-    setCurrentSavedId: deps.setCurrentSavedId,
-    setSelectedCharacterId: deps.setSelectedCharacterId,
-    setDeckVisualThemeState: deps.setDeckVisualThemeState,
-    setDeckNarrativePresetId: deps.setDeckNarrativePresetId,
-    setNarrativeNotes: deps.setNarrativeNotes,
-    coverPrefetchSavedAtRef: deps.coverPrefetchSavedAtRef,
-    setCoverImageCache: deps.setCoverImageCache,
-  };
 
   const openSavedListModal = useCallback(async () => {
     const x = depsRef.current;

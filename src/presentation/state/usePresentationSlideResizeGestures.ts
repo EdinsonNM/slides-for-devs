@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useLatestRef } from "./useLatestRef";
 import type { PresentationSlideResizeGesturesDeps } from "./presentationSlideResizeGesturesDeps";
 
 const SLIDE_CONTAINER_ID = "slide-container";
@@ -10,8 +11,7 @@ const SLIDE_CONTAINER_ID = "slide-container";
 export function usePresentationSlideResizeGestures(
   deps: PresentationSlideResizeGesturesDeps,
 ) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   useEffect(() => {
     if (!deps.isResizing) {

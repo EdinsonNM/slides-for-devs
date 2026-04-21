@@ -1,4 +1,5 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useLatestRef } from "./useLatestRef";
 import {
   SLIDE_TYPE,
   createEmptySlideMatrixData,
@@ -23,8 +24,7 @@ import type { PresentationDeckMutationsDeps } from "./presentationDeckMutationsD
 export function usePresentationDeckMutations(
   deps: PresentationDeckMutationsDeps,
 ) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const toggleContentType = useCallback(() => {
     const d = depsRef.current;

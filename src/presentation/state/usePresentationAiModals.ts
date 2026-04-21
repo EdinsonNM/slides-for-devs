@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLatestRef } from "./useLatestRef";
 import type { Slide, Presentation } from "../../types";
 import { formatMarkdown } from "../../utils/markdown";
 import {
@@ -81,8 +82,7 @@ export type PendingGenerationState = {
 } | null;
 
 export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const [pendingGeneration, setPendingGeneration] =
     useState<PendingGenerationState>(null);

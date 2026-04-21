@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useLatestRef } from "./useLatestRef";
 import {
   importSavedPresentation,
   listPresentations,
@@ -28,8 +29,7 @@ import { DEFAULT_DECK_NARRATIVE_PRESET_ID } from "../../constants/presentationNa
 export function usePresentationCloudPresentation(
   deps: PresentationCloudPresentationDeps,
 ) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
   const [downloadingCloudKey, setDownloadingCloudKey] = useState<string | null>(
@@ -40,10 +40,7 @@ export function usePresentationCloudPresentation(
   >(null);
   const [cloudSyncConflict, setCloudSyncConflict] =
     useState<PresentationCloudSyncConflict | null>(null);
-  const cloudSyncConflictRef = useRef<PresentationCloudSyncConflict | null>(
-    null,
-  );
-  cloudSyncConflictRef.current = cloudSyncConflict;
+  const cloudSyncConflictRef = useLatestRef(cloudSyncConflict);
 
   const conflictResolvingRef = useRef(false);
   const presentationCloudPushTailRef = useRef(

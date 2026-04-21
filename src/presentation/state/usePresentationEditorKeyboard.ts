@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useLatestRef } from "./useLatestRef";
 import type { MutableRefObject } from "react";
 
 export type DeckNavigationActions = {
@@ -23,8 +24,7 @@ export type PresentationEditorKeyboardDeps = {
 export function usePresentationEditorKeyboard(
   deps: PresentationEditorKeyboardDeps,
 ) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

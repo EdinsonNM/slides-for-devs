@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLatestRef } from "./useLatestRef";
 import {
   DECK_COVER_IMAGE_PROMPT,
   DECK_COVER_STYLE_PROMPT,
@@ -15,8 +16,7 @@ import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
 import type { PresentationDeckCoversDeps } from "./presentationDeckCoversDeps";
 
 export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(
     null,

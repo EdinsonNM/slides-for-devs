@@ -1,4 +1,5 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useLatestRef } from "./useLatestRef";
 import {
   SLIDE_TYPE,
   createEmptySlideMatrixData,
@@ -35,8 +36,7 @@ import type { PresentationSlideCanvasMutationsDeps } from "./presentationSlideCa
 export function usePresentationSlideCanvasMutations(
   deps: PresentationSlideCanvasMutationsDeps,
 ) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const patchCurrentSlideMatrix = useCallback(
     (updater: (prev: SlideMatrixData) => SlideMatrixData) => {

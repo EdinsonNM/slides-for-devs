@@ -1,4 +1,5 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useLatestRef } from "./useLatestRef";
 import {
   savePresentation,
   updatePresentation,
@@ -11,8 +12,7 @@ import type { PresentationSavePresentationDeps } from "./presentationSavePresent
 export function usePresentationSavePresentation(
   deps: PresentationSavePresentationDeps,
 ) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const savePresentationNow = useCallback(
     async (presentation: SavePresentationNowPayload): Promise<string | null> => {

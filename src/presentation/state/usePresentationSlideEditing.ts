@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
+import { useLatestRef } from "./useLatestRef";
 import type { Slide } from "../../types";
 import { formatMarkdown } from "../../utils/markdown";
 import { plainTextFromRichHtml } from "../../utils/slideRichText";
@@ -25,8 +26,7 @@ import { MAX_SLIDES_UNDO } from "./presentationConstants";
 import type { PresentationSlideEditingDeps } from "./presentationSlideEditingDeps";
 
 export function usePresentationSlideEditing(deps: PresentationSlideEditingDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   useEffect(() => {
     depsRef.current.currentIndexRef.current = deps.currentIndex;

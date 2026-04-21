@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLatestRef } from "./useLatestRef";
 import { DEFAULT_DECK_VISUAL_THEME, SLIDE_TYPE } from "../../domain/entities";
 import { DEFAULT_DECK_NARRATIVE_PRESET_ID } from "../../constants/presentationNarrativePresets";
 import {
@@ -18,8 +19,7 @@ function cloneSlidesForTab(list: Slide[]): Slide[] {
 }
 
 export function usePresentationEditorTabs(deps: PresentationEditorTabsDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const tabSnapshotsRef = useRef<Record<string, EditorWorkspaceSnapshot>>({});
   const [editorTabs, setEditorTabs] = useState<EditorTab[]>([]);

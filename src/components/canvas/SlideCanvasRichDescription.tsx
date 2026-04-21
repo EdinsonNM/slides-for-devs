@@ -49,8 +49,8 @@ export type SlideCanvasRichDescriptionProps = {
   shellClassName?: string;
   onRequestEdit?: () => void;
   /**
-   * Sustituye el tamaño base en vista (y en el editor) cuando el contenedor ya define escala
-   * (p. ej. miniatura del sidebar: `var(--slide-body)`).
+   * Sustituye el tamaño base en vista (y en el editor). Por defecto: `calc(var(--slide-body) * …)`
+   * para que escale con el lienzo (mismo criterio que el título vía `--slide-title` / `cqw`).
    */
   viewTypographySize?: string;
 };
@@ -175,13 +175,13 @@ export const SlideCanvasRichDescription = forwardRef<
   );
 
   const editorFontSize =
-    viewTypographySize ?? `calc(1rem * ${fontScale})`;
+    viewTypographySize ?? `calc(var(--slide-body) * ${fontScale})`;
 
   const viewFontSize =
     viewTypographySize ??
     (display.kind === "html"
-      ? `calc(1rem * ${display.scale})`
-      : `calc(1rem * ${fontScale})`);
+      ? `calc(var(--slide-body) * ${display.scale})`
+      : `calc(var(--slide-body) * ${fontScale})`);
 
   const syncFromEditor = useCallback(() => {
     const el = editorRef.current;

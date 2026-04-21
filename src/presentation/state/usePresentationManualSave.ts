@@ -1,12 +1,12 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useLatestRef } from "./useLatestRef";
 import { SLIDE_TYPE } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import { applyEditBuffersToSlide } from "../../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import type { PresentationManualSaveDeps } from "./presentationManualSaveDeps";
 
 export function usePresentationManualSave(deps: PresentationManualSaveDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useLatestRef(deps);
 
   const handleSave = useCallback(async () => {
     const d = depsRef.current;
