@@ -8,7 +8,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import type {
   Slide,
-  SlideType,
   ImageStyle,
   SavedCharacter,
   GeneratedResourceEntry,
@@ -53,6 +52,7 @@ import {
 } from "../presentation/state/presentationMediaHelpers";
 import { usePresentationSlideEditing } from "../presentation/state/usePresentationSlideEditing";
 import { usePresentationEditorTabs } from "../presentation/state/usePresentationEditorTabs";
+import { usePresentationDeckMutations } from "../presentation/state/usePresentationDeckMutations";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import { fetchCloudPresentationSnapshots } from "../presentation/state/usePresentationCloudList";
 import {
@@ -97,10 +97,6 @@ import {
   type SlideCodeEditorTheme,
   type SlideMatrixData,
 } from "../domain/entities";
-import {
-  createDefaultIsometricFlowDiagram,
-  serializeIsometricFlowDiagram,
-} from "../domain/entities/IsometricFlowDiagram";
 import {
   normalizeSlidesCanvasScenes,
   ensureSlideCanvasScene,
@@ -199,8 +195,6 @@ import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 import type { Presenter3dViewState } from "../utils/presenter3dView";
 import {
   PANEL_CONTENT_KIND,
-  PANEL_CONTENT_TOGGLE_ORDER,
-  normalizePanelContentKind,
   resolveMediaPanelDescriptor,
   Canvas3dMediaPanelDescriptor,
 } from "../domain/panelContent";
@@ -986,89 +980,6 @@ export function usePresentationState() {
           (m) => ({ ...m, editorHeight: clamped }),
         );
       }
-      return updated;
-    });
-  };
-
-  const toggleContentType = () => {
-    if (!currentSlide) return;
-    const curKind = normalizePanelContentKind(currentSlide.contentType);
-    let idx = PANEL_CONTENT_TOGGLE_ORDER.indexOf(curKind);
-    if (idx < 0) idx = 0;
-    const newType =
-      PANEL_CONTENT_TOGGLE_ORDER[(idx + 1) % PANEL_CONTENT_TOGGLE_ORDER.length]!;
-
-    setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[currentIndex];
-      if (!cur) return prev;
-      let next = patchSlideMediaPanelByElementId(
-        cur,
-        canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({ ...m, contentType: newType }),
-      );
-      if (newType === PANEL_CONTENT_KIND.PRESENTER_3D) {
-        next = patchSlideMediaPanelByElementId(
-          next,
-          canvasTextTargetsRef.current.mediaPanelElementId,
-          (m) => ({
-            ...m,
-            presenter3dDeviceId: m.presenter3dDeviceId ?? DEFAULT_DEVICE_3D_ID,
-            presenter3dScreenMedia: m.presenter3dScreenMedia ?? "image",
-          }),
-        );
-      }
-      updated[currentIndex] = next;
-      return updated;
-    });
-  };
-
-  /** Cambia el tipo de la diapositiva actual: capítulo, contenido, diagrama o matriz. */
-  const setCurrentSlideType = (type: SlideType) => {
-    if (!currentSlide || currentSlide.type === type) return;
-    setSlides((prev) => {
-      const updated = [...prev];
-      const next: Slide = { ...currentSlide, type };
-      delete (next as Slide).canvasScene;
-
-      if (type === SLIDE_TYPE.DIAGRAM) {
-        delete (next as Slide).contentType;
-        delete (next as Slide).contentLayout;
-        delete (next as Slide).matrixData;
-        delete (next as Slide).isometricFlowData;
-        if (!next.excalidrawData) next.excalidrawData = "{}";
-      } else if (type === SLIDE_TYPE.ISOMETRIC) {
-        delete (next as Slide).contentType;
-        delete (next as Slide).contentLayout;
-        delete (next as Slide).matrixData;
-        delete (next as Slide).excalidrawData;
-        if (!next.isometricFlowData) {
-          next.isometricFlowData = serializeIsometricFlowDiagram(
-            createDefaultIsometricFlowDiagram(),
-          );
-        }
-      } else {
-        delete (next as Slide).excalidrawData;
-        delete (next as Slide).isometricFlowData;
-      }
-
-      if (type === SLIDE_TYPE.CHAPTER) {
-        delete (next as Slide).contentType;
-        delete (next as Slide).contentLayout;
-        delete (next as Slide).matrixData;
-      } else if (type === SLIDE_TYPE.MATRIX) {
-        delete (next as Slide).contentType;
-        delete (next as Slide).contentLayout;
-        next.matrixData = normalizeSlideMatrixData(
-          next.matrixData ?? createEmptySlideMatrixData(),
-        );
-      } else if (type === SLIDE_TYPE.CONTENT) {
-        delete (next as Slide).matrixData;
-        if (!next.contentType) next.contentType = PANEL_CONTENT_KIND.IMAGE;
-        if (!next.contentLayout) next.contentLayout = "split";
-      }
-
-      updated[currentIndex] = next;
       return updated;
     });
   };
@@ -2140,6 +2051,25 @@ export function usePresentationState() {
       narrativeNotes,
     ],
   );
+
+  const {
+    toggleContentType,
+    setCurrentSlideType,
+    deleteSlideAt,
+    insertSlideAfter,
+    moveSlide,
+    nextSlide,
+    prevSlide,
+  } = usePresentationDeckMutations({
+    slides,
+    setSlides,
+    currentIndex,
+    setCurrentIndex,
+    topic,
+    selectedCharacterId,
+    canvasTextTargetsRef,
+    savePresentationNow,
+  });
 
   const refreshGeneratedResources = useCallback(async () => {
     await queryClient.invalidateQueries({
@@ -3315,80 +3245,6 @@ export function usePresentationState() {
     } finally {
       setIsGeneratingCharacterPreview(false);
     }
-  };
-
-  const deleteSlideAt = (index: number) => {
-    if (index < 0 || index >= slides.length || slides.length <= 1) return;
-    setSlides((prev) => prev.filter((_, i) => i !== index));
-    setCurrentIndex((prev) => {
-      if (prev === index) return Math.max(0, index - 1);
-      if (prev > index) return prev - 1;
-      return prev;
-    });
-  };
-
-  const insertSlideAfter = (index: number) => {
-    const newSlide: Slide = {
-      id: crypto.randomUUID(),
-      type: "content",
-      title: "Nueva diapositiva",
-      content: "",
-    };
-    const next = normalizeSlidesCanvasScenes([
-      ...slides.slice(0, index + 1),
-      newSlide,
-      ...slides.slice(index + 1),
-    ]);
-    setSlides(next);
-    setCurrentIndex(index + 1);
-    savePresentationNow({
-      topic: topic || "Sin título",
-      slides: next,
-      characterId: selectedCharacterId ?? undefined,
-    });
-  };
-
-  const moveSlide = (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
-    let nextDeck: Slide[] | null = null;
-    setSlides((prev) => {
-      if (
-        fromIndex < 0 ||
-        toIndex < 0 ||
-        fromIndex >= prev.length ||
-        toIndex >= prev.length
-      ) {
-        return prev;
-      }
-      const copy = [...prev];
-      const [item] = copy.splice(fromIndex, 1);
-      copy.splice(toIndex, 0, item);
-      nextDeck = normalizeSlidesCanvasScenes(copy);
-      return nextDeck;
-    });
-    if (!nextDeck) return;
-    setCurrentIndex((prev) => {
-      if (prev === fromIndex) return toIndex;
-      if (fromIndex < toIndex) {
-        if (prev > fromIndex && prev <= toIndex) return prev - 1;
-      } else if (fromIndex > toIndex) {
-        if (prev >= toIndex && prev < fromIndex) return prev + 1;
-      }
-      return prev;
-    });
-    void savePresentationNow({
-      topic: topic || "Sin título",
-      slides: nextDeck,
-      characterId: selectedCharacterId ?? undefined,
-    });
-  };
-
-  const nextSlide = () => {
-    if (currentIndex < slides.length - 1) setCurrentIndex(currentIndex + 1);
-  };
-
-  const prevSlide = () => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
   };
 
   const openImageModal = useCallback(
