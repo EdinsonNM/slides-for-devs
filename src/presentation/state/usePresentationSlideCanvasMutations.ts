@@ -222,6 +222,9 @@ export function usePresentationSlideCanvasMutations(
               delete (o as { riveStateMachineNames?: string }).riveStateMachineNames;
               delete (o as { riveArtboard?: string }).riveArtboard;
             }
+            if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.IFRAME_EMBED) {
+              delete (o as { iframeEmbedUrl?: string }).iframeEmbedUrl;
+            }
             return o;
           },
         );

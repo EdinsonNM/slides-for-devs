@@ -47,6 +47,7 @@ export type PresentationAiModalsDeps = {
   pendingImageGenerateMediaPanelIdRef: MutableRefObject<string | null>;
   pendingImageUploadMediaPanelIdRef: MutableRefObject<string | null>;
   pendingVideoUrlMediaPanelIdRef: MutableRefObject<string | null>;
+  pendingIframeEmbedUrlMediaPanelIdRef: MutableRefObject<string | null>;
   setDiagramRemountToken: (fn: (n: number) => number) => void;
   setEditTitle: (value: string | ((prev: string) => string)) => void;
   setEditSubtitle: (value: string | ((prev: string) => string)) => void;
@@ -67,6 +68,7 @@ export type PresentationAiModalsDeps = {
   setShowSplitModal: (open: boolean) => void;
   setShowRewriteModal: (open: boolean) => void;
   setShowVideoModal: (open: boolean) => void;
+  setShowIframeEmbedModal: (open: boolean) => void;
   setShowGenerateFullDeckModal: (open: boolean) => void;
   setShowGenerateSlideContentModal: (open: boolean) => void;
   setShowCodeGenModal: (open: boolean) => void;

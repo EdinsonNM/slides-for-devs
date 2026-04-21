@@ -53,6 +53,9 @@ export function usePresentationDeckMutations(
             delete (o as { riveStateMachineNames?: string }).riveStateMachineNames;
             delete (o as { riveArtboard?: string }).riveArtboard;
           }
+          if (normalizePanelContentKind(newType) !== PANEL_CONTENT_KIND.IFRAME_EMBED) {
+            delete (o as { iframeEmbedUrl?: string }).iframeEmbedUrl;
+          }
           return o;
         },
       );

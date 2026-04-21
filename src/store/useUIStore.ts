@@ -3,6 +3,7 @@ import { create } from "zustand";
 export interface UIState {
   showImageModal: boolean;
   showVideoModal: boolean;
+  showIframeEmbedModal: boolean;
   showSpeechModal: boolean;
   showCodeGenModal: boolean;
   showSplitModal: boolean;
@@ -25,6 +26,7 @@ export interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   showImageModal: false,
   showVideoModal: false,
+  showIframeEmbedModal: false,
   showSpeechModal: false,
   showCodeGenModal: false,
   showSplitModal: false,

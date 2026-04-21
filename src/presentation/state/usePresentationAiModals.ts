@@ -45,6 +45,7 @@ import {
   applyImageDataUrlToMediaPanelPayload,
   applyRiveUrlToMediaPanelPayload,
   applyVideoUrlToMediaPanelPayload,
+  applyIframeEmbedUrlToMediaPanelPayload,
   applyGeneratedImageToMediaPanelPayload,
 } from "./presentationMediaHelpers";
 import {
@@ -66,6 +67,7 @@ import {
   refinePresenterNotes as refinePresenterNotesApi,
 } from "../../services/gemini";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
+import { sanitizeIframeEmbedSrc } from "../../utils/iframeEmbedUrl";
 import { resolveGeneratedPresentationTitle } from "../../utils/presentationTitle";
 import { usesChatCompletionSlideOps } from "../../constants/presentationModels";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../../constants/openaiImageModels";
@@ -110,6 +112,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
   const [splitPrompt, setSplitPrompt] = useState("");
   const [rewritePrompt, setRewritePrompt] = useState("");
   const [videoUrlInput, setVideoUrlInput] = useState("");
+  const [iframeEmbedUrlInput, setIframeEmbedUrlInput] = useState("");
   const [speechGeneralPrompt, setSpeechGeneralPrompt] = useState("");
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
@@ -726,6 +729,34 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     trackEvent(ANALYTICS_EVENTS.VIDEO_ADDED);
   }, [videoUrlInput]);
 
+  const handleSaveIframeEmbedUrl = useCallback(() => {
+    const d = depsRef.current;
+    if (!iframeEmbedUrlInput.trim() || !d.currentSlide) return;
+    const safe = sanitizeIframeEmbedSrc(iframeEmbedUrlInput);
+    if (!safe) {
+      alert("URL no válida. Usa una dirección http o https completa.");
+      return;
+    }
+    const patchId =
+      d.pendingIframeEmbedUrlMediaPanelIdRef.current ??
+      d.canvasTextTargetsRef.current.mediaPanelElementId;
+    d.pendingIframeEmbedUrlMediaPanelIdRef.current = null;
+    d.setSlides((prev) => {
+      const updated = [...prev];
+      const cur = updated[d.currentIndex];
+      if (!cur) return prev;
+      updated[d.currentIndex] = patchSlideMediaPanelByElementId(
+        cur,
+        patchId,
+        (m) => applyIframeEmbedUrlToMediaPanelPayload(m, safe),
+      );
+      return updated;
+    });
+    d.setShowIframeEmbedModal(false);
+    setIframeEmbedUrlInput("");
+    trackEvent(ANALYTICS_EVENTS.IFRAME_EMBED_ADDED);
+  }, [iframeEmbedUrlInput]);
+
   const openImageModal = useCallback(
     (options?: { mediaPanelElementId?: string | null }) => {
       const d = depsRef.current;
@@ -768,6 +799,26 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
       const slide = d.slidesRef.current[d.currentIndexRef.current];
       setVideoUrlInput(options?.initialVideoUrl ?? slide?.videoUrl ?? "");
       d.setShowVideoModal(true);
+    },
+    [],
+  );
+
+  const openIframeEmbedModal = useCallback(
+    (options?: {
+      mediaPanelElementId?: string | null;
+      initialIframeEmbedUrl?: string;
+    }) => {
+      const d = depsRef.current;
+      const explicit = options?.mediaPanelElementId;
+      d.pendingIframeEmbedUrlMediaPanelIdRef.current =
+        explicit != null && explicit !== ""
+          ? explicit
+          : d.canvasTextTargetsRef.current.mediaPanelElementId;
+      const slide = d.slidesRef.current[d.currentIndexRef.current];
+      setIframeEmbedUrlInput(
+        options?.initialIframeEmbedUrl ?? slide?.iframeEmbedUrl ?? "",
+      );
+      d.setShowIframeEmbedModal(true);
     },
     [],
   );
@@ -1246,6 +1297,8 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     setRewritePrompt,
     videoUrlInput,
     setVideoUrlInput,
+    iframeEmbedUrlInput,
+    setIframeEmbedUrlInput,
     speechGeneralPrompt,
     setSpeechGeneralPrompt,
     isGeneratingSpeech,
@@ -1268,9 +1321,11 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     handleRewriteSlide,
     handleGenerateSlideContentAi,
     handleSaveVideoUrl,
+    handleSaveIframeEmbedUrl,
     openImageModal,
     openImageUploadModal,
     openVideoModal,
+    openIframeEmbedModal,
     ingestImageFileOnCurrentSlide,
     ingestRiveFileOnCurrentSlide,
     clearRiveFromCurrentMediaPanel,

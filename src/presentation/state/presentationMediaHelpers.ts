@@ -34,11 +34,15 @@ export function applyRiveUrlToMediaPanelPayload(
   m: SlideCanvasMediaPayload,
   riveUrl: string,
 ): SlideCanvasMediaPayload {
-  return {
+  const next: SlideCanvasMediaPayload = {
     ...m,
     contentType: PANEL_CONTENT_KIND.RIVE,
     riveUrl,
   };
+  /* Nuevo archivo: no reutilizar artboard/SM del .riv anterior (rompe carga e interacción). */
+  delete (next as { riveArtboard?: string }).riveArtboard;
+  delete (next as { riveStateMachineNames?: string }).riveStateMachineNames;
+  return next;
 }
 
 export function applyVideoUrlToMediaPanelPayload(
@@ -56,6 +60,17 @@ export function applyVideoUrlToMediaPanelPayload(
     ...m,
     videoUrl,
     contentType: PANEL_CONTENT_KIND.VIDEO,
+  };
+}
+
+export function applyIframeEmbedUrlToMediaPanelPayload(
+  m: SlideCanvasMediaPayload,
+  iframeEmbedUrl: string,
+): SlideCanvasMediaPayload {
+  return {
+    ...m,
+    iframeEmbedUrl,
+    contentType: PANEL_CONTENT_KIND.IFRAME_EMBED,
   };
 }
 

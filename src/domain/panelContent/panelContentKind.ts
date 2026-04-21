@@ -10,6 +10,8 @@ export const PANEL_CONTENT_KIND = {
   RIVE: "rive",
   PRESENTER_3D: "presenter3d",
   CANVAS_3D: "canvas3d",
+  /** Página o recurso incrustado vía `<iframe>` (URL https recomendada). */
+  IFRAME_EMBED: "iframeEmbed",
 } as const;
 
 export type PanelContentKind =
@@ -23,6 +25,7 @@ export const PANEL_CONTENT_TOGGLE_ORDER: readonly PanelContentKind[] = [
   PANEL_CONTENT_KIND.VIDEO,
   PANEL_CONTENT_KIND.RIVE,
   PANEL_CONTENT_KIND.IMAGE,
+  PANEL_CONTENT_KIND.IFRAME_EMBED,
   PANEL_CONTENT_KIND.PRESENTER_3D,
   PANEL_CONTENT_KIND.CANVAS_3D,
 ] as const;

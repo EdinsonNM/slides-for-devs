@@ -6,6 +6,7 @@ export { SavedListModal } from "./modals/SavedListModal";
 export { ImageGenerationModal } from "./modals/ImageGenerationModal";
 export { ImageUploadModal } from "./modals/ImageUploadModal";
 export { VideoUrlModal } from "./modals/VideoUrlModal";
+export { IframeEmbedUrlModal } from "./modals/IframeEmbedUrlModal";
 export { ExportDeckVideoModal } from "./modals/ExportDeckVideoModal";
 export { SplitSlideModal } from "./modals/SplitSlideModal";
 export { RewriteSlideModal } from "./modals/RewriteSlideModal";

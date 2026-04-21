@@ -18,6 +18,7 @@ import {
   UnfoldVertical,
   Upload,
   Video,
+  Frame,
 } from "lucide-react";
 import {
   useCallback,
@@ -76,6 +77,8 @@ export interface SlideCanvasCanvaChromeProps {
     onUseImage?: () => void;
     /** Panel multimedia en modo vídeo: abre el modal de URL (YouTube, Vimeo, directa). */
     onOpenVideoModal?: () => void;
+    /** Panel iframe: abre el modal de URL https. */
+    onOpenIframeEmbedModal?: () => void;
     onEdit?: () => void;
     onDuplicate?: () => void;
     onDelete?: () => void;
@@ -262,6 +265,18 @@ export function SlideCanvasCanvaChrome({
                 onClick={() => toolbar.onOpenVideoModal?.()}
               >
                 <Video size={16} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            {toolbar.onOpenIframeEmbedModal ? (
+              <button
+                type="button"
+                className={slideCanvasToolbarIconBtnClass}
+                title="Añadir o cambiar iframe (URL https)"
+                aria-label="Añadir o cambiar iframe incrustado"
+                onPointerDown={stop}
+                onClick={() => toolbar.onOpenIframeEmbedModal?.()}
+              >
+                <Frame size={16} strokeWidth={2} aria-hidden />
               </button>
             ) : null}
             {toolbar.codeActions ? (

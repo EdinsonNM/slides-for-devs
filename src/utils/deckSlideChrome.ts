@@ -122,13 +122,14 @@ export function deckIaToolbarBtnClass(tone: DeckContentTone): string {
 
 export function deckIaToolbarHoverClass(
   tone: DeckContentTone,
-  variant: "emerald" | "amber" | "sky",
+  variant: "emerald" | "amber" | "sky" | "slate",
 ): string {
   if (tone === "light") {
     const map = {
       emerald: "hover:text-emerald-300",
       amber: "hover:text-amber-300",
       sky: "hover:text-sky-300",
+      slate: "hover:text-slate-200",
     } as const;
     return map[variant];
   }
@@ -136,6 +137,7 @@ export function deckIaToolbarHoverClass(
     emerald: "hover:text-emerald-600 dark:hover:text-emerald-400",
     amber: "hover:text-amber-600 dark:hover:text-amber-400",
     sky: "hover:text-sky-600 dark:hover:text-sky-400",
+    slate: "hover:text-slate-700 dark:hover:text-slate-300",
   } as const;
   return map[variant];
 }

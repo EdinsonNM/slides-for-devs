@@ -87,6 +87,11 @@ export function usePresentationStoreBridge() {
   );
   const showVideoModal = uiState.showVideoModal;
   const setShowVideoModal = useCallback(createUISetter("showVideoModal"), []);
+  const showIframeEmbedModal = uiState.showIframeEmbedModal;
+  const setShowIframeEmbedModal = useCallback(
+    createUISetter("showIframeEmbedModal"),
+    [],
+  );
   const showExportDeckVideoModal = uiState.showExportDeckVideoModal;
   const setShowExportDeckVideoModal = useCallback(
     createUISetter("showExportDeckVideoModal"),
@@ -166,6 +171,8 @@ export function usePresentationStoreBridge() {
     setShowGenerateSlideContentModal,
     showVideoModal,
     setShowVideoModal,
+    showIframeEmbedModal,
+    setShowIframeEmbedModal,
     showExportDeckVideoModal,
     setShowExportDeckVideoModal,
     showSavedListModal,

@@ -55,6 +55,7 @@ export type SlideCanvasMediaPayload = {
   fontSize?: number;
   editorHeight?: number;
   videoUrl?: string;
+  iframeEmbedUrl?: string;
   riveUrl?: string;
   /** Nombres de state machines (coma) para interacción; vacío = auto (todas). */
   riveStateMachineNames?: string;

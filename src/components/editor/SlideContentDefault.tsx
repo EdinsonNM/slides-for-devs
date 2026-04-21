@@ -14,6 +14,7 @@ import {
   Split,
   Sparkles,
   Video,
+  Frame,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { resolveMediaPanelDescriptor } from "../../domain/panelContent";
@@ -64,6 +65,7 @@ export function SlideContentDefault() {
     isResizingPanelHeight,
     setIsResizingPanelHeight,
     openVideoModal,
+    openIframeEmbedModal,
     deckVisualTheme,
     editContentRichHtml,
     setEditContentRichHtml,
@@ -252,6 +254,9 @@ export function SlideContentDefault() {
   const showPanelVideoToolbarBtn = resolveMediaPanelDescriptor(
     currentSlide,
   ).showSlideContentVideoToolbar();
+  const showPanelIframeToolbarBtn = resolveMediaPanelDescriptor(
+    currentSlide,
+  ).showSlideContentIframeEmbedToolbar();
 
   const isPanelFull = currentSlide.contentLayout === "panel-full";
 
@@ -318,6 +323,29 @@ export function SlideContentDefault() {
                   <Video size={16} />
                 </button>
               </>
+            ) : null}
+            {showPanelIframeToolbarBtn ? (
+              <button
+                type="button"
+                onClick={() => {
+                  openIframeEmbedModal({
+                    initialIframeEmbedUrl: currentSlide.iframeEmbedUrl || "",
+                  });
+                }}
+                className={cn(iaToolbarBtnClass, "hover:text-slate-700 dark:hover:text-slate-300")}
+                title={
+                  currentSlide.iframeEmbedUrl?.trim()
+                    ? "Cambiar URL del iframe"
+                    : "Añadir iframe (URL https)"
+                }
+                aria-label={
+                  currentSlide.iframeEmbedUrl?.trim()
+                    ? "Cambiar iframe del panel"
+                    : "Añadir iframe al panel"
+                }
+              >
+                <Frame size={16} />
+              </button>
             ) : null}
           </div>
           <div
@@ -559,6 +587,29 @@ export function SlideContentDefault() {
                 <Video size={16} />
               </button>
             </>
+          ) : null}
+          {showPanelIframeToolbarBtn ? (
+            <button
+              type="button"
+              onClick={() => {
+                openIframeEmbedModal({
+                  initialIframeEmbedUrl: currentSlide.iframeEmbedUrl || "",
+                });
+              }}
+              className={cn(iaToolbarBtnClass, "hover:text-slate-700 dark:hover:text-slate-300")}
+              title={
+                currentSlide.iframeEmbedUrl?.trim()
+                  ? "Cambiar URL del iframe"
+                  : "Añadir iframe (URL https)"
+              }
+              aria-label={
+                currentSlide.iframeEmbedUrl?.trim()
+                  ? "Cambiar iframe del panel"
+                  : "Añadir iframe al panel"
+              }
+            >
+              <Frame size={16} />
+            </button>
           ) : null}
         </div>
         <div className="mb-4 shrink-0 flex items-start justify-between gap-3 overflow-visible md:mb-6 lg:mb-8 md:gap-4">

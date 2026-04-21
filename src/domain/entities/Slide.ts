@@ -41,6 +41,11 @@ export interface Slide {
   /** URL de vídeo incrustado cuando el panel de media es de tipo vídeo. */
   videoUrl?: string;
   /**
+   * URL del documento a incrustar cuando `contentType === PANEL_CONTENT_KIND.IFRAME_EMBED`.
+   * Debe ser `http:` o `https:` (validación en guardado).
+   */
+  iframeEmbedUrl?: string;
+  /**
    * URL del recurso Rive (p. ej. `blob:` tras cargar un `.riv` en local, o URL https).
    * Solo aplica cuando `contentType === PANEL_CONTENT_KIND.RIVE`.
    */

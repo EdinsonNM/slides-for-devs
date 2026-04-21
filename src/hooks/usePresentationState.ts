@@ -144,6 +144,8 @@ export function usePresentationState() {
     setShowGenerateSlideContentModal,
     showVideoModal,
     setShowVideoModal,
+    showIframeEmbedModal,
+    setShowIframeEmbedModal,
     showExportDeckVideoModal,
     setShowExportDeckVideoModal,
     showSavedListModal,
@@ -410,6 +412,7 @@ export function usePresentationState() {
   const pendingImageUploadMediaPanelIdRef = useRef<string | null>(null);
   const pendingImageGenerateMediaPanelIdRef = useRef<string | null>(null);
   const pendingVideoUrlMediaPanelIdRef = useRef<string | null>(null);
+  const pendingIframeEmbedUrlMediaPanelIdRef = useRef<string | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingPanelHeight, setIsResizingPanelHeight] = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
@@ -666,6 +669,8 @@ export function usePresentationState() {
     setRewritePrompt,
     videoUrlInput,
     setVideoUrlInput,
+    iframeEmbedUrlInput,
+    setIframeEmbedUrlInput,
     speechGeneralPrompt,
     setSpeechGeneralPrompt,
     isGeneratingSpeech,
@@ -687,9 +692,11 @@ export function usePresentationState() {
     handleRewriteSlide,
     handleGenerateSlideContentAi,
     handleSaveVideoUrl,
+    handleSaveIframeEmbedUrl,
     openImageModal,
     openImageUploadModal,
     openVideoModal,
+    openIframeEmbedModal,
     ingestImageFileOnCurrentSlide,
     ingestRiveFileOnCurrentSlide,
     clearRiveFromCurrentMediaPanel,
@@ -735,6 +742,7 @@ export function usePresentationState() {
     pendingImageGenerateMediaPanelIdRef,
     pendingImageUploadMediaPanelIdRef,
     pendingVideoUrlMediaPanelIdRef,
+    pendingIframeEmbedUrlMediaPanelIdRef,
     setDiagramRemountToken,
     setEditTitle,
     setEditSubtitle,
@@ -753,6 +761,7 @@ export function usePresentationState() {
     setShowSplitModal,
     setShowRewriteModal,
     setShowVideoModal,
+    setShowIframeEmbedModal,
     setShowGenerateFullDeckModal,
     setShowGenerateSlideContentModal,
     setShowCodeGenModal,
@@ -1003,6 +1012,9 @@ export function usePresentationState() {
     showVideoModal,
     setShowVideoModal,
     openVideoModal,
+    showIframeEmbedModal,
+    setShowIframeEmbedModal,
+    openIframeEmbedModal,
     showExportDeckVideoModal,
     setShowExportDeckVideoModal,
     openExportDeckVideoModal,
@@ -1014,6 +1026,8 @@ export function usePresentationState() {
     setRewritePrompt,
     videoUrlInput,
     setVideoUrlInput,
+    iframeEmbedUrlInput,
+    setIframeEmbedUrlInput,
     selectedStyle,
     setSelectedStyle,
     imageProvider,
@@ -1137,6 +1151,7 @@ export function usePresentationState() {
     handleSplitSlide,
     handleRewriteSlide,
     handleSaveVideoUrl,
+    handleSaveIframeEmbedUrl,
     handleSave,
     openSavedListModal,
     handleOpenSaved,

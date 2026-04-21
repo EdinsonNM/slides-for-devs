@@ -9,6 +9,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import {
+  Frame,
   GripVertical,
   RefreshCw,
   Sparkles,
@@ -273,6 +274,7 @@ export function SlideCanvasSlide() {
     setVideoUrlInput,
     setShowVideoModal,
     openVideoModal: queueVideoUrlModal,
+    openIframeEmbedModal: queueIframeEmbedModal,
     setCurrentSlidePresenter3dScreenMedia,
     deckVisualTheme,
     setCanvasTextEditTarget,
@@ -877,6 +879,9 @@ export function SlideCanvasSlide() {
   const showPanelVideoToolbarBtn =
     showIaToolbar &&
     resolveMediaPanelDescriptor(slide).showSlideContentVideoToolbar();
+  const showPanelIframeToolbarBtn =
+    showIaToolbar &&
+    resolveMediaPanelDescriptor(slide).showSlideContentIframeEmbedToolbar();
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
 
   return (
@@ -965,6 +970,32 @@ export function SlideCanvasSlide() {
               </button>
             </>
           ) : null}
+          {showPanelIframeToolbarBtn ? (
+            <button
+              type="button"
+              onClick={() => {
+                queueIframeEmbedModal({
+                  initialIframeEmbedUrl: slide.iframeEmbedUrl || "",
+                });
+              }}
+              className={cn(
+                deckIaToolbarBtnClass(deckVisualTheme.contentTone),
+                deckIaToolbarHoverClass(deckVisualTheme.contentTone, "slate"),
+              )}
+              title={
+                slide.iframeEmbedUrl?.trim()
+                  ? "Cambiar URL del iframe"
+                  : "Añadir iframe (URL https)"
+              }
+              aria-label={
+                slide.iframeEmbedUrl?.trim()
+                  ? "Cambiar iframe del panel"
+                  : "Añadir iframe al panel"
+              }
+            >
+              <Frame size={16} />
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -1052,6 +1083,13 @@ export function SlideCanvasSlide() {
               initialVideoUrl: panelSlide.videoUrl || "",
             });
           }}
+          openIframeEmbedModal={() => {
+            const panelSlide = slideAppearanceForMediaElement(slide, el);
+            queueIframeEmbedModal({
+              mediaPanelElementId: el.id,
+              initialIframeEmbedUrl: panelSlide.iframeEmbedUrl || "",
+            });
+          }}
           setCurrentSlidePresenter3dScreenMedia={setCurrentSlidePresenter3dScreenMedia}
           setCanvasTextEditTarget={setCanvasTextEditTarget}
           editLanguage={editLanguage}
@@ -1115,6 +1153,7 @@ function CanvasElementEditor({
   openImageModal,
   openImageUploadModal,
   openVideoModal,
+  openIframeEmbedModal,
   setCurrentSlidePresenter3dScreenMedia,
   editLanguage,
   setEditLanguage,
@@ -1202,6 +1241,7 @@ function CanvasElementEditor({
     mediaPanelElementId?: string | null;
     initialVideoUrl?: string;
   }) => void;
+  openIframeEmbedModal: () => void;
   setCurrentSlidePresenter3dScreenMedia: (
     m: "image" | "video",
     explicitMediaPanelElementId?: string | null,
@@ -1443,6 +1483,8 @@ function CanvasElementEditor({
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCodeActions();
   const showMediaPanelVideoActions =
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarVideoModal();
+  const showMediaPanelIframeEmbedActions =
+    kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarIframeEmbedModal();
   const showMediaPanelCanvas3dActions =
     kind === "mediaPanel" && mediaPanelDesc.showCanvasToolbarCanvas3dActions();
   const showPresenter3dTextureLoads =
@@ -1641,6 +1683,9 @@ function CanvasElementEditor({
                   openVideoModal();
                 }
               : undefined,
+          onOpenIframeEmbedModal: showMediaPanelIframeEmbedActions
+            ? () => openIframeEmbedModal()
+            : undefined,
           codeActions: showMediaPanelCodeActions
             ? {
                 fontSize:
@@ -1675,6 +1720,7 @@ function CanvasElementEditor({
             showMediaPanelImageActions ||
             showMediaPanelCodeActions ||
             showMediaPanelVideoActions ||
+            showMediaPanelIframeEmbedActions ||
             showMediaPanelCanvas3dActions ||
             showPresenter3dTextureLoads
             ? undefined
@@ -2099,8 +2145,14 @@ function CanvasElementEditor({
       const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
       const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
       const rivePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.RIVE;
-      /** Misma UX que 3D: franja para mover el bloque; el resto recibe puntero (orbitar / Rive). */
-      const usesInteractionDragStrip = uses3dOrbitChrome || rivePanelOnCanvas;
+      const iframePanelOnCanvas =
+        mediaPanelDesc.kind === PANEL_CONTENT_KIND.IFRAME_EMBED;
+      /**
+       * Franja superior para mover el bloque: Rive/WebGL/orbit capturan puntero;
+       * un iframe genérico también, así que misma UX.
+       */
+      const usesInteractionDragStrip =
+        uses3dOrbitChrome || rivePanelOnCanvas || iframePanelOnCanvas;
       const onMediaPanelDragPointerDown = (
         e: React.PointerEvent<HTMLElement>,
         captureEl: HTMLElement | null,
@@ -2136,7 +2188,7 @@ function CanvasElementEditor({
           data-slide-element-id={id}
           className={cn(
             outerShellClass,
-            codePanelOnCanvas || rivePanelOnCanvas
+            codePanelOnCanvas || rivePanelOnCanvas || iframePanelOnCanvas
               ? "bg-transparent"
               : deckMediaPanelShellClass(tone),
           )}
@@ -2164,7 +2216,9 @@ function CanvasElementEditor({
                   title={
                     rivePanelOnCanvas
                       ? "Arrastra esta franja para mover el bloque; en el área inferior interactúa con la animación Rive"
-                      : "Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
+                      : iframePanelOnCanvas
+                        ? "Arrastra esta franja para mover el bloque; debajo está el iframe (scroll y clics van al sitio incrustado)"
+                        : "Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
                   }
                   className={deckMediaPanelDragStripClass(tone)}
                   onPointerDown={(e) => {
@@ -2183,7 +2237,9 @@ function CanvasElementEditor({
                   <span className="truncate">
                     {rivePanelOnCanvas
                       ? "Arrastra aquí para mover · abajo, animación Rive"
-                      : "Arrastra aquí para mover · abajo, orbitar el modelo 3D"}
+                      : iframePanelOnCanvas
+                        ? "Arrastra aquí para mover · abajo, página incrustada"
+                        : "Arrastra aquí para mover · abajo, orbitar el modelo 3D"}
                   </span>
                 </div>
                 <div

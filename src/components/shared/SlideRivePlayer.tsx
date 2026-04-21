@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
-import * as RiveReact from "@rive-app/react-canvas";
-import type { Layout } from "@rive-app/react-canvas";
+import * as RiveReact from "@rive-app/react-webgl2";
+import type { Layout } from "@rive-app/react-webgl2";
+import { inferImplicitRiveAutoplayReset } from "../../utils/rivePlaybackInference";
 
 const { Alignment, Fit, Layout: RiveLayoutClass, useRive } = RiveReact;
 
@@ -25,10 +26,14 @@ export function riveStateMachinesFromStoredNames(
 
 const defaultUseRiveOptions = {
   shouldResizeCanvasToContainer: true,
+  /**
+   * WebGL offscreen puede afectar alineación puntero↔artboard en layouts complejos;
+   * un canvas WebGL por instancia evita sorpresas en el editor de slides.
+   */
   useOffscreenRenderer: false,
   /**
-   * Si queda en true, al salir del viewport el runtime puede parar el render y
-   * los listeners de puntero dejan de llegar al canvas (vista previa / overlay).
+   * Si fuera true, al salir del viewport el runtime puede parar el render y los
+   * listeners de puntero dejan de llegar al canvas (vista previa / overlay).
    */
   shouldUseIntersectionObserver: false,
 } as const;
@@ -79,6 +84,7 @@ export function SlideRivePlayer({
       shouldDisableRiveListeners: false,
       enableMultiTouch: true,
       isTouchScrollEnabled: true,
+      dispatchPointerExit: true,
     },
     defaultUseRiveOptions,
   );
@@ -97,31 +103,79 @@ export function SlideRivePlayer({
       }
     };
 
-    // Si el `.riv` tiene animaciones lineales y también state machines, el
-    // runtime solo instancia la primera animación (`atLeastOne`). Sin SM en
-    // reproducción con listeners, `setupRiveListeners` no registra puntero.
+    const resolveStateMachinesToPlay = (): string[] => {
+      const all = rive.stateMachineNames;
+      if (stateMachinesProp == null) {
+        return [...all];
+      }
+      const wanted =
+        typeof stateMachinesProp === "string"
+          ? [stateMachinesProp]
+          : [...stateMachinesProp];
+      const ok = wanted.map((s) => s.trim()).filter((n) => n && all.includes(n));
+      return ok.length > 0 ? ok : [...all];
+    };
+
     safe(() => {
-      const smNames = rive.stateMachineNames;
-      if (smNames.length > 0) {
-        rive.play(smNames);
+      rive.resizeDrawingSurfaceToCanvas();
+      rive.resizeToCanvas();
+    });
+
+    let contents: unknown;
+    safe(() => {
+      contents = rive.contents;
+    });
+
+    const implicit = inferImplicitRiveAutoplayReset({
+      contents,
+      artboardProp: artboardTrimmed,
+      stateMachinesProp: stateMachinesProp ?? null,
+    });
+
+    /*
+     * `rive.reset` con SM explícitas evita `atLeastOne` solo con animación lineal.
+     * Tras `reset` el runtime no vuelve a llamar a `setupRiveListeners` como en el
+     * primer load; hay que registrar puntero aquí.
+     */
+    safe(() => {
+      if (implicit) {
+        rive.reset({
+          artboard: implicit.artboard,
+          stateMachines: implicit.stateMachines,
+          autoplay: true,
+        });
+        rive.resizeDrawingSurfaceToCanvas();
+        rive.resizeToCanvas();
+        rive.setupRiveListeners({ isTouchScrollEnabled: true });
+        rive.startRendering();
+        rive.drawFrame();
+        return;
+      }
+
+      /*
+       * Sin `animations`/`stateMachines` en el constructor, Rive usa `atLeastOne`:
+       * si hay animación lineal, instancia esa y puede ignorar las SM. Las
+       * interacciones en canvas solo enlazan SM en reproducción con Listeners.
+       * `rive.play` ya llama a `setupRiveListeners` en el runtime.
+       */
+      const smPlay = resolveStateMachinesToPlay();
+      if (smPlay.length > 0) {
+        const linear = [...rive.animationNames];
+        if (linear.length > 0) {
+          rive.stop(linear);
+        }
+        rive.play(smPlay);
+      } else {
+        rive.startRendering();
+        rive.setupRiveListeners({ isTouchScrollEnabled: true });
       }
     });
 
-    queueMicrotask(() => {
-      if (cancelled) return;
+    rafRef.current = requestAnimationFrame(() => {
       safe(() => {
         rive.resizeDrawingSurfaceToCanvas();
         rive.resizeToCanvas();
-        rive.startRendering();
-        rive.setupRiveListeners({ isTouchScrollEnabled: true });
-      });
-      rafRef.current = requestAnimationFrame(() => {
-        safe(() => {
-          rive.resizeDrawingSurfaceToCanvas();
-          rive.resizeToCanvas();
-          rive.setupRiveListeners({ isTouchScrollEnabled: true });
-          rive.drawFrame();
-        });
+        rive.drawFrame();
       });
     });
 
@@ -129,7 +183,7 @@ export function SlideRivePlayer({
       cancelled = true;
       cancelAnimationFrame(rafRef.current);
     };
-  }, [rive, src, artboardTrimmed, stateMachinesDep]);
+  }, [rive, src, artboardTrimmed, stateMachinesDep, stateMachinesProp]);
 
   return (
     <RiveComponent

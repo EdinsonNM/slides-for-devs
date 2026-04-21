@@ -5,6 +5,7 @@ import type { Slide } from "../../types";
 import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
+import { IframeEmbedPanel } from "./IframeEmbedPanel";
 import { Presenter3DPanel } from "./Presenter3DPanel";
 import { Canvas3DPanel } from "./Canvas3DPanel";
 import { RivePanel } from "./RivePanel";
@@ -75,6 +76,8 @@ export function SlideRightPanel({
         />
       ) : panelKind === PANEL_CONTENT_KIND.VIDEO ? (
         <VideoPanel canvasPanelSlide={canvasPanelSlide} />
+      ) : panelKind === PANEL_CONTENT_KIND.IFRAME_EMBED ? (
+        <IframeEmbedPanel canvasPanelSlide={canvasPanelSlide} />
       ) : panelKind === PANEL_CONTENT_KIND.PRESENTER_3D ? (
         <Presenter3DPanel
           embeddedInCanvas={embeddedInCanvas}

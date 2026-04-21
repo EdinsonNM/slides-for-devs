@@ -84,6 +84,15 @@ export function syncSlideRootFromCanvas(slide: Slide): Slide {
         next.riveArtboard = media.riveArtboard.trim();
       }
     }
+    if (normalizePanelContentKind(media.contentType) === PANEL_CONTENT_KIND.IFRAME_EMBED) {
+      if (media.iframeEmbedUrl?.trim()) {
+        next.iframeEmbedUrl = media.iframeEmbedUrl.trim();
+      } else {
+        delete (next as { iframeEmbedUrl?: unknown }).iframeEmbedUrl;
+      }
+    } else {
+      delete (next as { iframeEmbedUrl?: unknown }).iframeEmbedUrl;
+    }
     if (media.codeEditorTheme !== undefined) {
       next.codeEditorTheme = media.codeEditorTheme;
     } else {

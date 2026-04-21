@@ -104,55 +104,6 @@ export function RiveInspectorPanel() {
                     setCurrentSlideRiveStateMachineNames(sm);
                   }}
                 />
-                <div className="space-y-1">
-                  <label
-                    htmlFor="rive-artboard-name"
-                    className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400"
-                  >
-                    Artboard
-                  </label>
-                  <input
-                    id="rive-artboard-name"
-                    type="text"
-                    value={currentSlide.riveArtboard ?? ""}
-                    onChange={(e) => setCurrentSlideRiveArtboard(e.target.value)}
-                    placeholder="Vacío = default del .riv; Expression Grid → Main"
-                    className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-800 placeholder:text-stone-400 dark:border-border dark:bg-surface-elevated dark:text-stone-100 dark:placeholder:text-stone-500"
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                  <p className="text-[10px] leading-snug text-stone-400 dark:text-stone-500">
-                    Opcional: solo si el artboard por defecto del .riv no es el que
-                    quieres. Arriba puedes rellenar con un clic desde “Detectado en
-                    el .riv”.
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <label
-                    htmlFor="rive-state-machine-names"
-                    className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400"
-                  >
-                    State machines (reproducción / puntero)
-                  </label>
-                  <input
-                    id="rive-state-machine-names"
-                    type="text"
-                    value={currentSlide.riveStateMachineNames ?? ""}
-                    onChange={(e) =>
-                      setCurrentSlideRiveStateMachineNames(e.target.value)
-                    }
-                    placeholder="Vacío = todas; suele ser State Machine 1"
-                    className="w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-800 placeholder:text-stone-400 dark:border-border dark:bg-surface-elevated dark:text-stone-100 dark:placeholder:text-stone-500"
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                  <p className="text-[10px] leading-snug text-stone-400 dark:text-stone-500">
-                    Es el nombre del recurso <span className="italic">State Machine</span>{" "}
-                    en Rive (lista inferior), no los inputs de la columna “data” del
-                    marketplace. Varias SM: sepáralas por coma. Vacío = el reproductor
-                    intenta todas las del artboard.
-                  </p>
-                </div>
                 <button
                   type="button"
                   onClick={() => clearRiveFromCurrentMediaPanel()}

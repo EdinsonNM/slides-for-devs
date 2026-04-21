@@ -35,6 +35,8 @@ export const ANALYTICS_EVENTS = {
   SLIDE_DIAGRAM_GENERATED: "slide_diagram_generated",
   /** Usuario añadió un video a una diapositiva. */
   VIDEO_ADDED: "video_added",
+  /** Usuario configuró un iframe incrustado en el panel de media. */
+  IFRAME_EMBED_ADDED: "iframe_embed_added",
   /** Usuario generó portada para una presentación guardada. */
   COVER_GENERATED: "cover_generated",
 } as const;

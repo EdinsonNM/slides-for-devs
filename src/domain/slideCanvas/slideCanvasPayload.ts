@@ -82,6 +82,7 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     fontSize: slide.fontSize,
     editorHeight: slide.editorHeight,
     videoUrl: slide.videoUrl,
+    iframeEmbedUrl: slide.iframeEmbedUrl,
     riveUrl: slide.riveUrl,
     riveStateMachineNames: slide.riveStateMachineNames,
     riveArtboard: slide.riveArtboard,
@@ -113,6 +114,7 @@ const ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND: Record<
     "codeEditorTheme",
   ],
   [PANEL_CONTENT_KIND.VIDEO]: ["videoUrl"],
+  [PANEL_CONTENT_KIND.IFRAME_EMBED]: ["iframeEmbedUrl"],
   [PANEL_CONTENT_KIND.RIVE]: ["riveUrl", "riveStateMachineNames", "riveArtboard"],
   [PANEL_CONTENT_KIND.PRESENTER_3D]: [
     "presenter3dDeviceId",
@@ -176,6 +178,17 @@ export function mergeMediaPayloadIntoSlide(
     delete (next as { riveStateMachineNames?: unknown }).riveStateMachineNames;
     delete (next as { riveArtboard?: unknown }).riveArtboard;
   }
+  if (
+    normalizePanelContentKind(media.contentType) === PANEL_CONTENT_KIND.IFRAME_EMBED
+  ) {
+    if (media.iframeEmbedUrl !== undefined) {
+      const t = media.iframeEmbedUrl.trim();
+      if (t) next.iframeEmbedUrl = media.iframeEmbedUrl.trim();
+      else delete (next as { iframeEmbedUrl?: unknown }).iframeEmbedUrl;
+    }
+  } else {
+    delete (next as { iframeEmbedUrl?: unknown }).iframeEmbedUrl;
+  }
   if (media.presenter3dDeviceId !== undefined) {
     next.presenter3dDeviceId = media.presenter3dDeviceId;
   }
@@ -207,6 +220,7 @@ function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
     fontSize: _fs,
     editorHeight: _eh,
     videoUrl: _vu,
+    iframeEmbedUrl: _ieu,
     riveUrl: _rv,
     riveStateMachineNames: _rsm,
     riveArtboard: _rab,

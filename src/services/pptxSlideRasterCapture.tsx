@@ -69,6 +69,9 @@ function extraPaintDelayMs(slide: Slide): number {
   }
   if (kind === PANEL_CONTENT_KIND.PRESENTER_3D) return 550;
   if (kind === PANEL_CONTENT_KIND.VIDEO && slide.videoUrl?.trim()) return 280;
+  if (kind === PANEL_CONTENT_KIND.IFRAME_EMBED && slide.iframeEmbedUrl?.trim()) {
+    return 500;
+  }
   if (kind === PANEL_CONTENT_KIND.RIVE && slide.riveUrl?.trim()) return 520;
   return 220;
 }

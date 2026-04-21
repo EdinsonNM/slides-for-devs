@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useRive } from "@rive-app/react-canvas";
-import { Alignment, Fit, Layout } from "@rive-app/react-canvas";
+import { useRive } from "@rive-app/react-webgl2";
+import { Alignment, Fit, Layout } from "@rive-app/react-webgl2";
 
 const layout = new Layout({
   fit: Fit.Contain,
@@ -85,8 +85,12 @@ export function RiveInspectorDiscoveredHints({
         </p>
         <p className="mt-1 text-[10px] leading-snug text-stone-500 dark:text-stone-500">
           Los nombres salen del archivo al cargarlo (no de la página del
-          marketplace). La columna “data” / View Model es otra cosa: son inputs
-          para código, no el nombre de la state machine del runtime.
+          marketplace). Si no ves hover o clic en el lienzo, en Rive Editor la
+          interacción va con componentes <span className="font-medium">Listener</span>{" "}
+          en la state machine; sin listeners el runtime no enlaza puntero al canvas.
+          En el lienzo, si el .riv incluye una SM llamada{" "}
+          <span className="font-mono">Grid</span> (p. ej. Expression Grid), el
+          reproductor intenta ese artboard y esa SM automáticamente.
         </p>
         {error ? (
           <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
@@ -131,17 +135,9 @@ export function RiveInspectorDiscoveredHints({
                               onUseArtboardAndStateMachine(ab.name, sm.name)
                             }
                           >
-                            Usar artboard + esta SM
+                            Fijar este artboard y SM
                           </button>
                         </div>
-                        {sm.inputs.length > 0 ? (
-                          <p className="mt-0.5 pl-0.5 text-[9px] leading-relaxed text-stone-400 dark:text-stone-500">
-                            Inputs:{" "}
-                            {sm.inputs
-                              .map((i) => `${i.name} (${String(i.type)})`)
-                              .join(", ")}
-                          </p>
-                        ) : null}
                       </li>
                     ))}
                   </ul>

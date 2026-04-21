@@ -25,6 +25,11 @@ export abstract class MediaPanelDescriptor {
     return false;
   }
 
+  /** Barra IA / layout: acceso rápido a URL del iframe. */
+  showSlideContentIframeEmbedToolbar(): boolean {
+    return false;
+  }
+
   /** Lienzo flotante: acciones de imagen en la barra del bloque media. */
   showCanvasToolbarImageActions(): boolean {
     return false;
@@ -35,6 +40,10 @@ export abstract class MediaPanelDescriptor {
   }
 
   showCanvasToolbarVideoModal(): boolean {
+    return false;
+  }
+
+  showCanvasToolbarIframeEmbedModal(): boolean {
     return false;
   }
 
@@ -129,6 +138,30 @@ export class VideoMediaPanelDescriptor extends MediaPanelDescriptor {
   }
 }
 
+export class IframeEmbedMediaPanelDescriptor extends MediaPanelDescriptor {
+  readonly kind = PANEL_CONTENT_KIND.IFRAME_EMBED;
+
+  override showSlideContentIframeEmbedToolbar(): boolean {
+    return true;
+  }
+
+  override showCanvasToolbarIframeEmbedModal(): boolean {
+    return true;
+  }
+
+  override splitPanelOccupied(slide: Slide): boolean {
+    return Boolean(slide.iframeEmbedUrl?.trim());
+  }
+
+  override presenterSummaryBadge(): string | null {
+    return "Iframe";
+  }
+
+  override sidebarSplitStripSurfaceClass(): string {
+    return "bg-slate-200/90 dark:bg-slate-800/55";
+  }
+}
+
 export class RiveMediaPanelDescriptor extends MediaPanelDescriptor {
   readonly kind = PANEL_CONTENT_KIND.RIVE;
 
@@ -197,6 +230,7 @@ const DESCRIPTORS: Record<PanelContentKind, MediaPanelDescriptor> = {
   [PANEL_CONTENT_KIND.IMAGE]: new ImageMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CODE]: new CodeMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.VIDEO]: new VideoMediaPanelDescriptor(),
+  [PANEL_CONTENT_KIND.IFRAME_EMBED]: new IframeEmbedMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.RIVE]: new RiveMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.PRESENTER_3D]: new Presenter3dMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CANVAS_3D]: new Canvas3dMediaPanelDescriptor(),

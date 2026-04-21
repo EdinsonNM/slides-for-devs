@@ -1,5 +1,5 @@
 import { Image as ImageIcon } from "lucide-react";
-import * as RiveReact from "@rive-app/react-canvas";
+import * as RiveReact from "@rive-app/react-webgl2";
 import {
   SlideRivePlayer,
   riveStateMachinesFromStoredNames,
@@ -7,6 +7,7 @@ import {
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import { getEmbedUrl } from "../../utils/video";
+import { sanitizeIframeEmbedSrc } from "../../utils/iframeEmbedUrl";
 import type { Slide } from "../../types";
 import {
   SLIDE_TYPE,
@@ -98,6 +99,25 @@ function mediaBlock(
           )}
         </div>
       );
+    case PANEL_CONTENT_KIND.IFRAME_EMBED: {
+      const iframeSrc = sanitizeIframeEmbedSrc(deckSlide.iframeEmbedUrl ?? "");
+      return (
+        <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-white dark:border-stone-300/40 dark:bg-stone-100">
+          {iframeSrc ? (
+            <iframe
+              src={iframeSrc}
+              className="h-full w-full border-0"
+              title="Contenido incrustado"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          ) : (
+            <span className={cn("italic", deckMutedTextClass(tone))}>
+              Sin URL de iframe
+            </span>
+          )}
+        </div>
+      );
+    }
     case PANEL_CONTENT_KIND.PRESENTER_3D: {
       const fullSlide = presenterCanvas?.slide ?? deckSlide;
       const el = presenterCanvas?.element;
