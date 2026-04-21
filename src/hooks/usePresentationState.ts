@@ -76,6 +76,7 @@ import { usePresentationCharactersResources } from "../presentation/state/usePre
 import { usePresentationStoreBridge } from "../presentation/state/usePresentationStoreBridge";
 import { usePresentationModelCatalog } from "../presentation/state/usePresentationModelCatalog";
 import { usePresentationBootstrapPersistence } from "../presentation/state/usePresentationBootstrapPersistence";
+import { usePresentationEditorLifecycleEffects } from "../presentation/state/usePresentationEditorLifecycleEffects";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
@@ -533,20 +534,18 @@ export function usePresentationState() {
     setSlides,
   });
 
-  useEffect(() => {
-    const prevIdx = prevSlideIndexForFlushRef.current;
-    if (prevIdx !== currentIndex && isEditingRef.current) {
-      flushEditsToSlideIndex(prevIdx);
-    }
-    prevSlideIndexForFlushRef.current = currentIndex;
-  }, [currentIndex, flushEditsToSlideIndex]);
-
-  useEffect(() => {
-    if (currentSlide) {
-      syncEditFieldsFromSlide(currentSlide);
-      setIsEditing(false);
-    }
-  }, [currentIndex, currentSlide?.id, syncEditFieldsFromSlide]);
+  usePresentationEditorLifecycleEffects({
+    currentIndex,
+    prevSlideIndexForFlushRef,
+    isEditingRef,
+    flushEditsToSlideIndex,
+    currentSlide,
+    syncEditFieldsFromSlide,
+    setIsEditing,
+    slidesLength: slides.length,
+    localAccountScope,
+    refreshSavedList,
+  });
 
   usePresentationEditorKeyboard({
     deckNavigationRef,
@@ -604,11 +603,6 @@ export function usePresentationState() {
   const openExportDeckVideoModal = useCallback(() => {
     setShowExportDeckVideoModal(true);
   }, []);
-
-  useEffect(() => {
-    if (slides.length !== 0) return;
-    void refreshSavedList();
-  }, [slides.length, localAccountScope, refreshSavedList]);
 
   const { savePresentationNow } = usePresentationSavePresentation({
     currentSavedId,
