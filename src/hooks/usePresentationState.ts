@@ -79,10 +79,7 @@ import {
 } from "../services/storage";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
-import { useUIStore, createUISetter } from "../store/useUIStore";
-import { useSlidesStore, createSlidesSetter } from "../store/useSlidesStore";
-import { useEditorStore, createEditorSetter } from "../store/useEditorStore";
-import { useConfigStore, createConfigSetter } from "../store/useConfigStore";
+import { createConfigSetter } from "../store/useConfigStore";
 import {
   PRESENTATION_MODELS,
   DEFAULT_PRESENTATION_MODEL_ID,
@@ -93,6 +90,7 @@ import {
 } from "../constants/geminiImageModels";
 import { usePresentationAiModals } from "../presentation/state/usePresentationAiModals";
 import { usePresentationCharactersResources } from "../presentation/state/usePresentationCharactersResources";
+import { usePresentationStoreBridge } from "../presentation/state/usePresentationStoreBridge";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
@@ -104,85 +102,80 @@ export {
 } from "../presentation/state/presentationTypes";
 
 export function usePresentationState() {
-  
-  const slidesState = useSlidesStore();
-  const topic = slidesState.topic;
-  const setTopic = useCallback(createSlidesSetter("topic"), []);
-  const slides = slidesState.slides;
-  const setSlides = useCallback(createSlidesSetter("slides"), []);
-  const currentIndex = slidesState.currentIndex;
-  const setCurrentIndex = useCallback(createSlidesSetter("currentIndex"), []);
+  const {
+    topic,
+    setTopic,
+    slides,
+    setSlides,
+    currentIndex,
+    setCurrentIndex,
+    isEditing,
+    setIsEditing,
+    editTitle,
+    setEditTitleState,
+    editSubtitle,
+    setEditSubtitleState,
+    editContent,
+    setEditContentState,
+    editContentRichHtml,
+    setEditContentRichHtmlState,
+    editCode,
+    setEditCode,
+    editLanguage,
+    setEditLanguage,
+    editFontSize,
+    setEditFontSizeState,
+    editEditorHeight,
+    setEditEditorHeight,
+    clipboardElement,
+    setClipboardElement,
+    canvasMediaPanelElementId,
+    setCanvasMediaPanelElementId,
+    deckVisualTheme,
+    setDeckVisualThemeState,
+    deckNarrativePresetId,
+    setDeckNarrativePresetId,
+    narrativeNotes,
+    setNarrativeNotes,
+    presentationModelId,
+    setPresentationModelId,
+    autoCloudSyncOnSave,
+    apiKeysVersion,
+    setApiKeysVersion,
+    showImageModal,
+    setShowImageModal,
+    showImageUploadModal,
+    setShowImageUploadModal,
+    showSplitModal,
+    setShowSplitModal,
+    showRewriteModal,
+    setShowRewriteModal,
+    showGenerateFullDeckModal,
+    setShowGenerateFullDeckModal,
+    showGenerateSlideContentModal,
+    setShowGenerateSlideContentModal,
+    showVideoModal,
+    setShowVideoModal,
+    showExportDeckVideoModal,
+    setShowExportDeckVideoModal,
+    showSavedListModal,
+    setShowSavedListModal,
+    showSpeechModal,
+    setShowSpeechModal,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    isNotesPanelOpen,
+    setIsNotesPanelOpen,
+    showCodeGenModal,
+    setShowCodeGenModal,
+    showCharacterCreatorModal,
+    setShowCharacterCreatorModal,
+    showCharactersPanel,
+    setShowCharactersPanel,
+    showSlideStylePanel,
+    setShowSlideStylePanel,
+  } = usePresentationStoreBridge();
 
-  const editorState = useEditorStore();
-  const isEditing = editorState.isEditing;
-  const setIsEditing = useCallback(createEditorSetter("isEditing"), []);
-  const editTitle = editorState.editTitle;
-  const setEditTitleState = useCallback(createEditorSetter("editTitle"), []);
-  const editSubtitle = editorState.editSubtitle;
-  const setEditSubtitleState = useCallback(createEditorSetter("editSubtitle"), []);
-  const editContent = editorState.editContent;
-  const setEditContentState = useCallback(createEditorSetter("editContent"), []);
-  const editContentRichHtml = editorState.editContentRichHtml;
-  const setEditContentRichHtmlState = useCallback(createEditorSetter("editContentRichHtml"), []);
-  const editCode = editorState.editCode;
-  const setEditCode = useCallback(createEditorSetter("editCode"), []);
-  const editLanguage = editorState.editLanguage;
-  const setEditLanguage = useCallback(createEditorSetter("editLanguage"), []);
-  const editFontSize = editorState.editFontSize;
-  const setEditFontSizeState = useCallback(createEditorSetter("editFontSize"), []);
-  const editEditorHeight = editorState.editEditorHeight;
-  const setEditEditorHeight = useCallback(createEditorSetter("editEditorHeight"), []);
-  const clipboardElement = editorState.clipboardElement;
-  const setClipboardElement = useCallback(createEditorSetter("clipboardElement"), []);
-  const canvasMediaPanelElementId = editorState.canvasMediaPanelElementId;
-  const setCanvasMediaPanelElementId = useCallback(createEditorSetter("canvasMediaPanelElementId"), []);
-
-  const configState = useConfigStore();
-  const deckVisualTheme = configState.deckVisualTheme;
-  const setDeckVisualThemeState = useCallback(createConfigSetter("deckVisualTheme"), []);
-  const deckNarrativePresetId = configState.deckNarrativePresetId;
-  const setDeckNarrativePresetId = useCallback(createConfigSetter("deckNarrativePresetId"), []);
-  const narrativeNotes = configState.narrativeNotes;
-  const setNarrativeNotes = useCallback(createConfigSetter("narrativeNotes"), []);
-  const presentationModelId = configState.presentationModelId;
-  const setPresentationModelId = useCallback(createConfigSetter("presentationModelId"), []);
-  const autoCloudSyncOnSave = configState.autoCloudSyncOnSave;
-  const apiKeysVersion = configState.apiKeysVersion;
-  const setApiKeysVersion = useCallback(createConfigSetter("apiKeysVersion"), []);
-
-  const uiState = useUIStore();
-  const showImageModal = uiState.showImageModal;
-  const setShowImageModal = useCallback(createUISetter("showImageModal"), []);
-  const showImageUploadModal = uiState.showImageUploadModal;
-  const setShowImageUploadModal = useCallback(createUISetter("showImageUploadModal"), []);
-  const showSplitModal = uiState.showSplitModal;
-  const setShowSplitModal = useCallback(createUISetter("showSplitModal"), []);
-  const showRewriteModal = uiState.showRewriteModal;
-  const setShowRewriteModal = useCallback(createUISetter("showRewriteModal"), []);
-  const showGenerateFullDeckModal = uiState.showGenerateFullDeckModal;
-  const setShowGenerateFullDeckModal = useCallback(createUISetter("showGenerateFullDeckModal"), []);
-  const showGenerateSlideContentModal = uiState.showGenerateSlideContentModal;
-  const setShowGenerateSlideContentModal = useCallback(createUISetter("showGenerateSlideContentModal"), []);
-  const showVideoModal = uiState.showVideoModal;
-  const setShowVideoModal = useCallback(createUISetter("showVideoModal"), []);
-  const showExportDeckVideoModal = uiState.showExportDeckVideoModal;
-  const setShowExportDeckVideoModal = useCallback(createUISetter("showExportDeckVideoModal"), []);
-  const showSavedListModal = uiState.showSavedListModal;
-  const setShowSavedListModal = useCallback(createUISetter("showSavedListModal"), []);
-  const showSpeechModal = uiState.showSpeechModal;
-  const setShowSpeechModal = useCallback(createUISetter("showSpeechModal"), []);
-  const isSidebarOpen = uiState.isSidebarOpen;
-  const setIsSidebarOpen = useCallback(createUISetter("isSidebarOpen"), []);
-  const isNotesPanelOpen = uiState.isNotesPanelOpen;
-  const setIsNotesPanelOpen = useCallback(createUISetter("isNotesPanelOpen"), []);
-  const showCodeGenModal = uiState.showCodeGenModal;
-  const setShowCodeGenModal = useCallback(createUISetter("showCodeGenModal"), []);
-  const showCharacterCreatorModal = uiState.showCharacterCreatorModal;
-  const setShowCharacterCreatorModal = useCallback(createUISetter("showCharacterCreatorModal"), []);
-  const showCharactersPanel = uiState.showCharactersPanel;
-  const setShowCharactersPanel = useCallback(createUISetter("showCharactersPanel"), []);
-  const showSlideStylePanel = uiState.showSlideStylePanel;
-  const setShowSlideStylePanel = useCallback(createUISetter("showSlideStylePanel"), []);
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
     () => localAccountScopeForUser(user?.uid),
@@ -273,7 +266,7 @@ export function usePresentationState() {
     }),
     [deckNarrativePresetId, narrativeNotes],
   );
-    const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>(
     IMAGE_STYLES[0],
   );
@@ -285,8 +278,8 @@ export function usePresentationState() {
   );
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-            const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
-          const slidesUndoRef = useRef<Slide[][]>([]);
+  const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
+  const slidesUndoRef = useRef<Slide[][]>([]);
   const slidesRedoRef = useRef<Slide[][]>([]);
   const currentIndexRef = useRef(0);
   const prevSlideIndexForFlushRef = useRef(0);
