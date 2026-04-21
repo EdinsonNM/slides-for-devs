@@ -58,6 +58,8 @@ import { usePresentationSlideResizeGestures } from "../presentation/state/usePre
 import { usePresentationHomeCards } from "../presentation/state/usePresentationHomeCards";
 import { usePresentationSavePresentation } from "../presentation/state/usePresentationSavePresentation";
 import { usePresentationManualSave } from "../presentation/state/usePresentationManualSave";
+import { usePresentationCloudPresentation } from "../presentation/state/usePresentationCloudPresentation";
+import type { PresentationCloudResolveRemoteEditorDeps } from "../presentation/state/presentationCloudPresentationDeps";
 import {
   applySavedPresentationToEditorState,
   type ApplySavedPresentationEditorContext,
@@ -144,9 +146,6 @@ import {
   listCharacters,
   saveCharacter as saveCharacterStorage,
   deleteCharacter as deleteCharacterStorage,
-  importSavedPresentation,
-  setPresentationCloudState,
-  setPresentationSharedCloudSource,
   setCharacterCloudState,
   localAccountScopeForUser,
   listGeneratedResources,
@@ -159,14 +158,7 @@ import {
   deleteCharacterFromCloud,
   CharacterCloudSyncConflictError,
 } from "../services/charactersCloud";
-import {
-  pushPresentationToCloud,
-  pullPresentationFromCloud,
-  deleteOwnerPresentationFromCloud,
-  CloudSyncConflictError,
-  getCloudPresentationRevision,
-  resolvePresentationCloudRef,
-} from "../services/presentationCloud";
+import { deleteOwnerPresentationFromCloud } from "../services/presentationCloud";
 import { initFirebase } from "../services/firebase";
 import { formatCloudSyncUserMessage } from "../utils/cloudSyncErrors";
 import { useAuth } from "../context/AuthContext";
@@ -297,6 +289,60 @@ export function usePresentationState() {
   const queryClient = useQueryClient();
   const savedPresentationsQuery = useSavedPresentations(localAccountScope);
   const savedList = savedPresentationsQuery.data ?? [];
+  const openSavedPresentationRef = useRef<(id: string) => Promise<void>>(
+    async () => {},
+  );
+  const cloudResolveRemoteEditorDepsRef =
+    useRef<PresentationCloudResolveRemoteEditorDeps | null>(null);
+  const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
+    async () => {},
+  );
+
+  const {
+    homeCloudSharedListWarning,
+    refreshCloudMineSnapshot,
+    homePresentationCards,
+  } = usePresentationHomeCards({
+    user,
+    firebaseReady,
+    savedList,
+  });
+
+  const refreshSavedList = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: presentationQueryKeys.savedPresentations(localAccountScope),
+    });
+    void refreshCloudMineSnapshot();
+  }, [queryClient, localAccountScope, refreshCloudMineSnapshot]);
+
+  const cloudPresentation = usePresentationCloudPresentation({
+    user,
+    localAccountScope,
+    autoCloudSyncOnSave,
+    savedList,
+    refreshSavedList,
+    openSavedPresentationRef,
+    resolveRemoteEditorDepsRef: cloudResolveRemoteEditorDepsRef,
+  });
+
+  const {
+    maybeAutoSyncAfterLocalSave,
+    handleSyncPresentationToCloud,
+    maybePullCloudPresentationBeforeLoad,
+    handleDownloadFromCloud,
+    openSharePresentationModal,
+    closeSharePresentationModal,
+    dismissCloudSyncConflict,
+    resolveCloudConflictUseRemote,
+    resolveCloudConflictForceLocal,
+    syncingToCloudId,
+    downloadingCloudKey,
+    sharePresentationLocalId,
+    cloudSyncConflict,
+  } = cloudPresentation;
+
+  runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
+
   const savedCharactersQuery = useSavedCharacters(localAccountScope);
   const savedCharacters = savedCharactersQuery.data ?? [];
   const generatedResourcesQuery = useGeneratedResourcesList(localAccountScope);
@@ -482,26 +528,11 @@ export function usePresentationState() {
    * abandonaba el resto del bucle y dejaba sin portada (p. ej. la tarjeta más reciente al final del `for`).
    */
   const coverPrefetchGenerationRef = useRef(0);
-  const [syncingToCloudId, setSyncingToCloudId] = useState<string | null>(null);
   const [isSyncingCharactersCloud, setIsSyncingCharactersCloud] =
     useState(false);
-  const [downloadingCloudKey, setDownloadingCloudKey] = useState<string | null>(
-    null,
-  );
-  const [sharePresentationLocalId, setSharePresentationLocalId] = useState<
-    string | null
-  >(null);
   const [deletePresentationId, setDeletePresentationId] = useState<string | null>(
     null,
   );
-    const [cloudSyncConflict, setCloudSyncConflict] = useState<{
-    localId: string;
-    cloudId: string;
-    expectedRevision: number;
-    remoteRevision: number;
-    localSlideCount?: number;
-    remoteSlideCount?: number;
-  } | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
@@ -572,31 +603,6 @@ export function usePresentationState() {
     narrativeNotes?: string;
   } | null>(null);
   /** Bump para forzar re-lectura de API keys y actualizar listado de modelos al guardar en el modal. */
-  
-  const runAutoSyncAfterSaveRef = useRef<(id: string) => Promise<void>>(
-    async () => {},
-  );
-  /** Suprime auto-sync mientras se resuelve un conflicto para evitar re-conflicto por race condition. */
-  const conflictResolvingRef = useRef(false);
-
-  /**
-   * Serializa subidas por id local. Sin esto, dos autosync o un autosync + manual
-   * en paralelo pueden leer `cloudId` aún null y crear dos documentos en «Mías».
-   */
-  const presentationCloudPushTailRef = useRef(
-    new Map<string, Promise<void>>(),
-  );
-
-  const enqueuePresentationCloudPush = useCallback(
-    (localId: string, task: () => Promise<void>): Promise<void> => {
-      const map = presentationCloudPushTailRef.current;
-      const prev = map.get(localId) ?? Promise.resolve();
-      const next = prev.catch(() => {}).then(() => task());
-      map.set(localId, next);
-      return next;
-    },
-    [],
-  );
 
   const hasGemini = !!getGeminiApiKey();
   const hasOpenAI = !!getOpenAIApiKey();
@@ -1387,23 +1393,6 @@ export function usePresentationState() {
     setShowExportDeckVideoModal(true);
   }, []);
 
-  const {
-    homeCloudSharedListWarning,
-    refreshCloudMineSnapshot,
-    homePresentationCards,
-  } = usePresentationHomeCards({
-    user,
-    firebaseReady,
-    savedList,
-  });
-
-  const refreshSavedList = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: presentationQueryKeys.savedPresentations(localAccountScope),
-    });
-    void refreshCloudMineSnapshot();
-  }, [queryClient, localAccountScope, refreshCloudMineSnapshot]);
-
   /** Portadas del carrusel: sin esto solo se rellenaba la caché al abrir la presentación. */
   useEffect(() => {
     const generation = ++coverPrefetchGenerationRef.current;
@@ -1443,66 +1432,6 @@ export function usePresentationState() {
     if (slides.length !== 0) return;
     void refreshSavedList();
   }, [slides.length, localAccountScope, refreshSavedList]);
-
-  const maybeAutoSyncAfterLocalSave = useCallback(
-    async (localId: string) => {
-      if (!autoCloudSyncOnSave || !user) return;
-      if (conflictResolvingRef.current) return;
-      if (
-        typeof window === "undefined" ||
-        (window as unknown as { __TAURI__?: unknown }).__TAURI__ === undefined
-      )
-        return;
-      const fb = await initFirebase();
-      if (!fb?.firestore) return;
-      void enqueuePresentationCloudPush(localId, async () => {
-        try {
-          const list = await listPresentations(localAccountScope);
-          const meta = list.find((p) => p.id === localId);
-          if (!meta || meta.slideCount === 0 || meta.localBodyCleared) return;
-          const saved = await loadPresentation(localId, localAccountScope);
-          const existingCloudId = meta?.cloudId ?? null;
-          const { cloudId, syncedAt, newRevision } =
-            await pushPresentationToCloud(user.uid, saved, existingCloudId, {
-              localExpectedRevision:
-                existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
-            });
-          await setPresentationCloudState(localId, cloudId, syncedAt, newRevision, localAccountScope);
-          await refreshSavedList();
-        } catch (e) {
-          if (e instanceof CloudSyncConflictError) {
-            try {
-              const list2 = await listPresentations(localAccountScope);
-              const meta2 = list2.find((p) => p.id === localId);
-              const cid = meta2?.cloudId;
-              if (!cid) return;
-              const saved = await loadPresentation(localId, localAccountScope);
-              const { cloudId, syncedAt, newRevision } =
-                await pushPresentationToCloud(user.uid, saved, cid, {
-                  localExpectedRevision: 0,
-                  force: true,
-                });
-              await setPresentationCloudState(localId, cloudId, syncedAt, newRevision, localAccountScope);
-              await refreshSavedList();
-            } catch (retryErr) {
-              console.error("Auto-sync retry tras conflicto:", retryErr);
-            }
-          } else {
-            console.error("Auto-sync nube:", e);
-          }
-        }
-      });
-    },
-    [
-      user,
-      autoCloudSyncOnSave,
-      refreshSavedList,
-      localAccountScope,
-      enqueuePresentationCloudPush,
-    ],
-  );
-
-  runAutoSyncAfterSaveRef.current = maybeAutoSyncAfterLocalSave;
 
   const { savePresentationNow } = usePresentationSavePresentation({
     currentSavedId,
@@ -1764,81 +1693,6 @@ export function usePresentationState() {
     setSaveMessage,
   });
 
-  const handleSyncPresentationToCloud = useCallback(
-    async (localId: string) => {
-      if (!user) {
-        alert("Inicia sesión para sincronizar con la nube.");
-        return;
-      }
-      const fb = await initFirebase();
-      if (!fb?.firestore) {
-        alert("Firebase no está configurado.");
-        return;
-      }
-      try {
-        const listPre = await listPresentations(localAccountScope);
-        const preMeta = listPre.find((p) => p.id === localId);
-        if (preMeta?.localBodyCleared) {
-          alert(
-            "Recupera la copia local desde la nube (abre la tarjeta) antes de sincronizar.",
-          );
-          return;
-        }
-      } catch {
-        /* continuar; el push volverá a leer */
-      }
-      try {
-        await enqueuePresentationCloudPush(localId, async () => {
-          setSyncingToCloudId(localId);
-          try {
-            const list = await listPresentations(localAccountScope);
-            const meta = list.find((p) => p.id === localId);
-            const saved = await loadPresentation(localId, localAccountScope);
-            const existingCloudId = meta?.cloudId ?? null;
-            const { cloudId, syncedAt, newRevision } =
-              await pushPresentationToCloud(user.uid, saved, existingCloudId, {
-                localExpectedRevision:
-                  existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
-              });
-            await setPresentationCloudState(
-              localId,
-              cloudId,
-              syncedAt,
-              newRevision,
-              localAccountScope,
-            );
-            await refreshSavedList();
-          } catch (e) {
-            if (e instanceof CloudSyncConflictError) {
-              const list = await listPresentations(localAccountScope).catch(
-                () => [],
-              );
-              const meta = list.find((p) => p.id === localId);
-              setCloudSyncConflict({
-                localId,
-                cloudId: meta?.cloudId ?? "",
-                expectedRevision: e.expectedRevision,
-                remoteRevision: e.remoteRevision,
-                localSlideCount: meta?.slideCount,
-                remoteSlideCount: e.remoteSlideCount,
-              });
-            } else {
-              console.error(e);
-              alert(
-                `No se pudo sincronizar: ${formatCloudSyncUserMessage(e)}`,
-              );
-            }
-          } finally {
-            setSyncingToCloudId(null);
-          }
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    [user, refreshSavedList, localAccountScope, enqueuePresentationCloudPush],
-  );
-
   const openSavedListModal = async () => {
     setShowSavedListModal(true);
     try {
@@ -1847,48 +1701,6 @@ export function usePresentationState() {
       console.error(e);
     }
   };
-
-  const rehydratePresentationFromMyCloud = useCallback(
-    async (localId: string, cloudId: string, presentationOwnerUid?: string) => {
-      if (!user) {
-        throw new Error("Inicia sesión para recuperar desde la nube.");
-      }
-      const owner = presentationOwnerUid ?? user.uid;
-      const { presentation: pulled, cloudRevision } =
-        await pullPresentationFromCloud(owner, cloudId);
-      await importSavedPresentation(
-        {
-          ...pulled,
-          id: localId,
-        },
-        localAccountScope,
-      );
-      if (owner !== user.uid) {
-        await setPresentationCloudState(
-          localId,
-          null,
-          new Date().toISOString(),
-          cloudRevision,
-          localAccountScope,
-        );
-        await setPresentationSharedCloudSource(
-          localId,
-          `${owner}::${cloudId}`,
-          localAccountScope,
-        );
-      } else {
-        await setPresentationCloudState(
-          localId,
-          cloudId,
-          new Date().toISOString(),
-          cloudRevision,
-          localAccountScope,
-        );
-      }
-      await refreshSavedList();
-    },
-    [user, localAccountScope, refreshSavedList],
-  );
 
   const applySavedEditorCtxRef = useRef(
     {} as ApplySavedPresentationEditorContext,
@@ -1908,41 +1720,7 @@ export function usePresentationState() {
     setCoverImageCache,
   };
 
-  const maybePullCloudPresentationBeforeLoad = useCallback(
-    async (localId: string, meta: SavedPresentationMeta | undefined) => {
-      if (!user || !meta) return;
-      const ref = resolvePresentationCloudRef(meta, user.uid);
-      if (!ref) return;
-      try {
-        if (meta.localBodyCleared) {
-          await rehydratePresentationFromMyCloud(
-            localId,
-            ref.cloudId,
-            ref.ownerUid === user.uid ? undefined : ref.ownerUid,
-          );
-          return;
-        }
-        const remoteRev = await getCloudPresentationRevision(
-          ref.ownerUid,
-          ref.cloudId,
-        );
-        const localRev = meta.cloudRevision ?? 0;
-        if (remoteRev > localRev) {
-          await rehydratePresentationFromMyCloud(
-            localId,
-            ref.cloudId,
-            ref.ownerUid === user.uid ? undefined : ref.ownerUid,
-          );
-        }
-      } catch (e) {
-        if (meta.localBodyCleared) throw e;
-        console.warn("No se pudo comprobar o bajar la versión en la nube al abrir:", e);
-      }
-    },
-    [user, rehydratePresentationFromMyCloud],
-  );
-
-  const handleOpenSaved = async (id: string) => {
+  const handleOpenSaved = useCallback(async (id: string) => {
     try {
       let metaOpen: SavedPresentationMeta | undefined;
       try {
@@ -1983,89 +1761,16 @@ export function usePresentationState() {
       console.error(e);
       alert("No se pudo abrir la presentación.");
     }
-  };
+  }, [
+    localAccountScope,
+    savedList,
+    user,
+    queryClient,
+    lastOpenedSessionKey,
+    maybePullCloudPresentationBeforeLoad,
+  ]);
 
-  const handleDownloadFromCloud = useCallback(
-    async (cloudId: string, ownerUid?: string) => {
-      if (!user) return;
-      const owner = ownerUid ?? user.uid;
-      const isSharedFromOther = owner !== user.uid;
-      const existing =
-        !isSharedFromOther && savedList.find((p) => p.cloudId === cloudId);
-      if (existing) {
-        try {
-          await rehydratePresentationFromMyCloud(existing.id, cloudId);
-        } catch (e) {
-          console.error(e);
-          alert(
-            `No se pudo recuperar: ${formatCloudSyncUserMessage(e)}`,
-          );
-          return;
-        }
-        await handleOpenSaved(existing.id);
-        return;
-      }
-      const dlKey = `${owner}::${cloudId}`;
-      setDownloadingCloudKey(dlKey);
-      try {
-        const { presentation: pulled, cloudRevision } =
-          await pullPresentationFromCloud(owner, cloudId);
-        const localId = crypto.randomUUID();
-        await importSavedPresentation(
-          {
-            ...pulled,
-            id: localId,
-          },
-          localAccountScope,
-        );
-        if (isSharedFromOther) {
-          await setPresentationCloudState(
-            localId,
-            null,
-            null,
-            null,
-            localAccountScope,
-          );
-          await setPresentationSharedCloudSource(
-            localId,
-            `${owner}::${cloudId}`,
-            localAccountScope,
-          );
-        } else {
-          await setPresentationCloudState(
-            localId,
-            cloudId,
-            new Date().toISOString(),
-            cloudRevision,
-            localAccountScope,
-          );
-        }
-        await refreshSavedList();
-        await handleOpenSaved(localId);
-      } catch (e) {
-        console.error(e);
-        alert(`Error al descargar: ${formatCloudSyncUserMessage(e)}`);
-      } finally {
-        setDownloadingCloudKey(null);
-      }
-    },
-    [
-      user,
-      savedList,
-      refreshSavedList,
-      handleOpenSaved,
-      localAccountScope,
-      rehydratePresentationFromMyCloud,
-    ],
-  );
-
-  const openSharePresentationModal = useCallback((localId: string) => {
-    setSharePresentationLocalId(localId);
-  }, []);
-
-  const closeSharePresentationModal = useCallback(() => {
-    setSharePresentationLocalId(null);
-  }, []);
+  openSavedPresentationRef.current = handleOpenSaved;
 
   /** Restaura la última presentación abierta (desde sessionStorage). Usado al cargar /editor tras refresco. */
   const restoreLastOpenedPresentation =
@@ -2320,126 +2025,6 @@ export function usePresentationState() {
       setGeneratingCoverId(null);
     }
   };
-
-  const dismissCloudSyncConflict = useCallback(
-    () => setCloudSyncConflict(null),
-    [],
-  );
-
-  const resolveCloudConflictUseRemote = useCallback(async () => {
-    if (!cloudSyncConflict || !user) return;
-    const { localId, cloudId } = cloudSyncConflict;
-    if (!cloudId) {
-      alert("No hay vínculo con la nube. Sincroniza manualmente primero.");
-      setCloudSyncConflict(null);
-      return;
-    }
-    setCloudSyncConflict(null);
-    conflictResolvingRef.current = true;
-    try {
-      const { presentation, cloudRevision } =
-        await pullPresentationFromCloud(user.uid, cloudId);
-      await updatePresentation(
-        localId,
-        {
-          topic: presentation.topic,
-          slides: presentation.slides,
-          characterId: presentation.characterId,
-          deckVisualTheme: normalizeDeckVisualTheme(
-            presentation.deckVisualTheme,
-          ),
-          deckNarrativePresetId: presentation.deckNarrativePresetId,
-          narrativeNotes: presentation.narrativeNotes,
-        },
-        localAccountScope,
-      );
-      await setPresentationCloudState(
-        localId,
-        cloudId,
-        new Date().toISOString(),
-        cloudRevision,
-        localAccountScope,
-      );
-      if (currentSavedId === localId) {
-        setTopic(presentation.topic);
-        slidesUndoRef.current = [];
-        slidesRedoRef.current = [];
-        setSlides(
-          normalizeSlidesCanvasScenes(
-            presentation.slides.map((s) => ({
-              ...s,
-              id: crypto.randomUUID(),
-              content: formatMarkdown(s.content ?? ""),
-            })),
-          ),
-        );
-        setSelectedCharacterId(presentation.characterId ?? null);
-        setDeckVisualThemeState(
-          normalizeDeckVisualTheme(presentation.deckVisualTheme),
-        );
-        setDeckNarrativePresetId(
-          presentation.deckNarrativePresetId ??
-            DEFAULT_DECK_NARRATIVE_PRESET_ID,
-        );
-        setNarrativeNotes(presentation.narrativeNotes ?? "");
-      }
-      await refreshSavedList();
-    } catch (e) {
-      console.error(e);
-      alert(
-        `No se pudo traer la versión de la nube: ${formatCloudSyncUserMessage(e)}`,
-      );
-    } finally {
-      conflictResolvingRef.current = false;
-    }
-  }, [
-    cloudSyncConflict,
-    user,
-    currentSavedId,
-    formatMarkdown,
-    refreshSavedList,
-    localAccountScope,
-  ]);
-
-  const resolveCloudConflictForceLocal = useCallback(async () => {
-    if (!cloudSyncConflict || !user) return;
-    const { localId, cloudId } = cloudSyncConflict;
-    setCloudSyncConflict(null);
-    conflictResolvingRef.current = true;
-    try {
-      const saved = await loadPresentation(localId, localAccountScope);
-      const cid =
-        cloudId ||
-        (await listPresentations(localAccountScope)).find(
-          (p) => p.id === localId,
-        )?.cloudId;
-      if (!cid) {
-        alert("Falta vínculo con la nube.");
-        return;
-      }
-      const {
-        cloudId: outId,
-        syncedAt,
-        newRevision,
-      } = await pushPresentationToCloud(user.uid, saved, cid, {
-        localExpectedRevision: 0,
-        force: true,
-      });
-      await setPresentationCloudState(
-        localId,
-        outId,
-        syncedAt,
-        newRevision,
-        localAccountScope,
-      );
-      await refreshSavedList();
-    } catch (e) {
-      console.error(e);
-      alert(`No se pudo forzar la subida: ${formatCloudSyncUserMessage(e)}`);
-    } finally {
-      conflictResolvingRef.current = false;
-    }
-  }, [cloudSyncConflict, user, refreshSavedList, localAccountScope]);
 
   const goHome = () => {
     slidesUndoRef.current = [];
@@ -2973,6 +2558,19 @@ export function usePresentationState() {
     } finally {
       setIsGeneratingSpeech(false);
     }
+  };
+
+  cloudResolveRemoteEditorDepsRef.current = {
+    currentSavedId,
+    setTopic,
+    slidesUndoRef,
+    slidesRedoRef,
+    setSlides,
+    setSelectedCharacterId,
+    setDeckVisualThemeState,
+    setDeckNarrativePresetId,
+    setNarrativeNotes,
+    formatMarkdown,
   };
 
   return {
