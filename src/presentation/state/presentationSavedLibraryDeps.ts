@@ -2,6 +2,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { SavedPresentationMeta, Slide } from "../../types";
 import type { DeckVisualTheme } from "../../domain/entities";
+import type { WebCloudEditSession } from "./webCloudSession";
 
 export type PresentationSavedLibraryDeps = {
   queryClient: QueryClient;
@@ -38,4 +39,5 @@ export type PresentationSavedLibraryDeps = {
   coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
   setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
   refreshSavedList: () => Promise<void>;
+  webCloudSessionRef: MutableRefObject<WebCloudEditSession | null>;
 };

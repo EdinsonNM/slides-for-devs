@@ -1,6 +1,8 @@
 import type { MutableRefObject } from "react";
 import type { SavedPresentationMeta, Slide } from "../../types";
 import type { DeckVisualTheme } from "../../domain/entities";
+import type { ApplySavedPresentationEditorContext } from "./applySavedPresentationToEditorState";
+import type { WebCloudEditSession } from "./webCloudSession";
 
 export type PresentationCloudSyncConflict = {
   localId: string;
@@ -34,4 +36,10 @@ export type PresentationCloudPresentationDeps = {
   /** `handleOpenSaved` del orquestador (se asigna al ref cada render). */
   openSavedPresentationRef: MutableRefObject<(id: string) => Promise<void>>;
   resolveRemoteEditorDepsRef: MutableRefObject<PresentationCloudResolveRemoteEditorDeps | null>;
+  /** Contexto para volcar una pull de nube al editor en navegador (sin SQLite). */
+  applySavedPresentationForCloudWebRef: MutableRefObject<
+    ApplySavedPresentationEditorContext | null
+  >;
+  /** Revisión y vínculo Firestore tras abrir “solo nube” en web. */
+  webCloudSessionRef: MutableRefObject<WebCloudEditSession | null>;
 };

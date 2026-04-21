@@ -68,6 +68,7 @@ export interface HomePresentationDeckCarouselProps {
   onSharePresentation?: (id: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid: string) => void;
   downloadingCloudKey: string | null;
+  cloudOnlyCardActionMode?: "download" | "open";
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -87,6 +88,7 @@ export function HomePresentationDeckCarousel({
   onSharePresentation,
   onDownloadFromCloud,
   downloadingCloudKey,
+  cloudOnlyCardActionMode = "download",
 }: HomePresentationDeckCarouselProps) {
   const reduceMotion = useReducedMotion();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -325,6 +327,7 @@ export function HomePresentationDeckCarousel({
                     onSharePresentation={onSharePresentation}
                     onDownloadFromCloud={onDownloadFromCloud}
                     downloadingCloudKey={downloadingCloudKey}
+                    cloudOnlyCardActionMode={cloudOnlyCardActionMode}
                     listLayout="carousel"
                     frameClassName="flex w-full min-h-0 flex-col shadow-md shadow-stone-900/10 dark:shadow-black/35"
                   />

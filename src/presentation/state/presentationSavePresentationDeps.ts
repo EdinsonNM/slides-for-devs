@@ -1,5 +1,7 @@
+import type { MutableRefObject } from "react";
 import type { User } from "firebase/auth";
 import type { DeckVisualTheme } from "../../domain/entities";
+import type { WebCloudEditSession } from "./webCloudSession";
 
 export type PresentationSavePresentationDeps = {
   currentSavedId: string | null;
@@ -15,4 +17,6 @@ export type PresentationSavePresentationDeps = {
   autoCloudSyncOnSave: boolean;
   user: User | null;
   maybeAutoSyncAfterLocalSave: (localId: string) => Promise<void>;
+  /** Solo web: push a Firestore sin fila SQLite. */
+  webCloudSessionRef: MutableRefObject<WebCloudEditSession | null>;
 };

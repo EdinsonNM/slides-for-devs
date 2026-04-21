@@ -1,4 +1,5 @@
 import { usePresentation } from "../../context/PresentationContext";
+import { isTauriRuntime } from "../../utils/isTauriRuntime";
 import { HomeEmptyState } from "./HomeEmptyState";
 import { HomeWithCarousel } from "./HomeWithCarousel";
 
@@ -61,6 +62,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const generate = onGenerateProp ?? handleGenerate;
   const createBlank = onCreateBlankProp;
   const hasItems = homePresentationCards.length > 0;
+  const cloudOnlyCardActionMode = isTauriRuntime() ? "download" : "open";
 
   if (!hasItems) {
     return (
@@ -113,6 +115,7 @@ export function HomeScreen(props: HomeScreenProps) {
         onSharePresentation={openSharePresentationModal}
         onDownloadFromCloud={handleDownloadFromCloud}
         downloadingCloudKey={downloadingCloudKey}
+        cloudOnlyCardActionMode={cloudOnlyCardActionMode}
         promptAttachments={homePromptAttachments}
         onAddPromptAttachment={addHomePromptAttachment}
         onRemovePromptAttachment={removeHomePromptAttachment}

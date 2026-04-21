@@ -39,6 +39,8 @@ export interface HomeWithCarouselProps {
   onSharePresentation?: (localId: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid?: string) => void;
   downloadingCloudKey: string | null;
+  /** En web las tarjetas solo-nube abren en el editor sin “descargar”. */
+  cloudOnlyCardActionMode?: "download" | "open";
 }
 
 /**
@@ -69,6 +71,7 @@ export function HomeWithCarousel({
   onSharePresentation,
   onDownloadFromCloud,
   downloadingCloudKey,
+  cloudOnlyCardActionMode = "download",
   promptAttachments,
   onAddPromptAttachment,
   onRemovePromptAttachment,
@@ -161,6 +164,7 @@ export function HomeWithCarousel({
                 onSharePresentation={onSharePresentation}
                 onDownloadFromCloud={onDownloadFromCloud}
                 downloadingCloudKey={downloadingCloudKey}
+                cloudOnlyCardActionMode={cloudOnlyCardActionMode}
               />
             </div>
           </motion.div>

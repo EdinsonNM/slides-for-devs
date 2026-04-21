@@ -1,7 +1,8 @@
 import { useLayoutEffect } from "react";
-import type { MutableRefObject } from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { Slide } from "../../types";
 import type { PresentationCloudResolveRemoteEditorDeps } from "./presentationCloudPresentationDeps";
+import type { ApplySavedPresentationEditorContext } from "./applySavedPresentationToEditorState";
 import type { DeckNavigationActions } from "./usePresentationEditorKeyboard";
 
 export type PresentationOrchestratorRefSyncArgs = {
@@ -17,6 +18,15 @@ export type PresentationOrchestratorRefSyncArgs = {
   cloudResolveRemoteEditorDepsRef: MutableRefObject<
     PresentationCloudResolveRemoteEditorDeps | null
   >;
+  applySavedPresentationForCloudWebRef: MutableRefObject<
+    ApplySavedPresentationEditorContext | null
+  >;
+  setCurrentIndex: (index: number | ((prev: number) => number)) => void;
+  setCurrentSavedId: (
+    id: string | null | ((prev: string | null) => string | null),
+  ) => void;
+  coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
+  setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
 } & PresentationCloudResolveRemoteEditorDeps;
 
 /**
@@ -42,8 +52,13 @@ export function usePresentationOrchestratorRefSync(
     nextSlide,
     prevSlide,
     cloudResolveRemoteEditorDepsRef,
+    applySavedPresentationForCloudWebRef,
+    setCurrentIndex,
+    coverPrefetchSavedAtRef,
+    setCoverImageCache,
     currentSavedId,
     setTopic,
+    setCurrentSavedId,
     slidesUndoRef,
     slidesRedoRef,
     setSlides,
@@ -95,5 +110,36 @@ export function usePresentationOrchestratorRefSync(
     setDeckNarrativePresetId,
     setNarrativeNotes,
     formatMarkdown,
+  ]);
+
+  useLayoutEffect(() => {
+    applySavedPresentationForCloudWebRef.current = {
+      slidesUndoRef,
+      slidesRedoRef,
+      setTopic,
+      setSlides,
+      setCurrentIndex,
+      setCurrentSavedId,
+      setSelectedCharacterId,
+      setDeckVisualThemeState,
+      setDeckNarrativePresetId,
+      setNarrativeNotes,
+      coverPrefetchSavedAtRef,
+      setCoverImageCache,
+    };
+  }, [
+    applySavedPresentationForCloudWebRef,
+    slidesUndoRef,
+    slidesRedoRef,
+    setTopic,
+    setSlides,
+    setCurrentIndex,
+    setCurrentSavedId,
+    setSelectedCharacterId,
+    setDeckVisualThemeState,
+    setDeckNarrativePresetId,
+    setNarrativeNotes,
+    coverPrefetchSavedAtRef,
+    setCoverImageCache,
   ]);
 }

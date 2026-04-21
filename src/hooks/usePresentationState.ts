@@ -76,6 +76,8 @@ import { usePresentationBootstrapPersistence } from "../presentation/state/usePr
 import { usePresentationEditorLifecycleEffects } from "../presentation/state/usePresentationEditorLifecycleEffects";
 import { useDeckNarrativeSlideOptions } from "../presentation/state/useDeckNarrativeSlideOptions";
 import { usePresentationOrchestratorRefSync } from "../presentation/state/usePresentationOrchestratorRefSync";
+import type { ApplySavedPresentationEditorContext } from "../presentation/state/applySavedPresentationToEditorState";
+import type { WebCloudEditSession } from "../presentation/state/webCloudSession";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
@@ -168,6 +170,10 @@ export function usePresentationState() {
     () => localAccountScopeForUser(user?.uid),
     [user?.uid],
   );
+  const webCloudSessionRef = useRef<WebCloudEditSession | null>(null);
+  const applySavedPresentationForCloudWebRef = useRef<
+    ApplySavedPresentationEditorContext | null
+  >(null);
   const lastOpenedSessionKey = `${LAST_OPENED_PRESENTATION_KEY}:${localAccountScope}`;
   const prevLocalAccountScopeRef = useRef<string | null>(null);
 
@@ -208,6 +214,8 @@ export function usePresentationState() {
     refreshSavedList,
     openSavedPresentationRef,
     resolveRemoteEditorDepsRef: cloudResolveRemoteEditorDepsRef,
+    applySavedPresentationForCloudWebRef,
+    webCloudSessionRef,
   });
 
   const {
@@ -489,6 +497,7 @@ export function usePresentationState() {
     coverPrefetchSavedAtRef,
     setCoverImageCache,
     refreshSavedList,
+    webCloudSessionRef,
   });
 
   const {
@@ -607,6 +616,7 @@ export function usePresentationState() {
     autoCloudSyncOnSave,
     user,
     maybeAutoSyncAfterLocalSave,
+    webCloudSessionRef,
   });
 
   const {
@@ -813,8 +823,13 @@ export function usePresentationState() {
     nextSlide,
     prevSlide,
     cloudResolveRemoteEditorDepsRef,
+    applySavedPresentationForCloudWebRef,
+    setCurrentIndex,
+    coverPrefetchSavedAtRef,
+    setCoverImageCache,
     currentSavedId,
     setTopic,
+    setCurrentSavedId,
     slidesUndoRef,
     slidesRedoRef,
     setSlides,
@@ -846,6 +861,7 @@ export function usePresentationState() {
   );
 
   const createBlankPresentation = useCallback(async () => {
+    webCloudSessionRef.current = null;
     clearPendingGeneration();
     slidesUndoRef.current = [];
     slidesRedoRef.current = [];
@@ -901,6 +917,7 @@ export function usePresentationState() {
   });
 
   const goHome = () => {
+    webCloudSessionRef.current = null;
     slidesUndoRef.current = [];
     slidesRedoRef.current = [];
     setSlides([]);

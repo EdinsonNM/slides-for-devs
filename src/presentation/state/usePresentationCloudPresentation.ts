@@ -14,12 +14,15 @@ import {
   CloudSyncConflictError,
   getCloudPresentationRevision,
   resolvePresentationCloudRef,
+  type PulledPresentation,
 } from "../../services/presentationCloud";
 import { initFirebase } from "../../services/firebase";
 import { formatCloudSyncUserMessage } from "../../utils/cloudSyncErrors";
+import { isTauriRuntime } from "../../utils/isTauriRuntime";
 import { normalizeDeckVisualTheme } from "../../domain/entities";
 import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlideCanvasScene";
-import type { SavedPresentationMeta } from "../../types";
+import type { SavedPresentation, SavedPresentationMeta } from "../../types";
+import { applySavedPresentationToEditorState } from "./applySavedPresentationToEditorState";
 import type {
   PresentationCloudPresentationDeps,
   PresentationCloudSyncConflict,
@@ -286,7 +289,52 @@ export function usePresentationCloudPresentation(
       const existing =
         !isSharedFromOther &&
         d.savedList.find((p) => p.cloudId === cloudId);
+
+      const applyPulledToWebEditor = (
+        pulled: PulledPresentation,
+        cloudRevision: number,
+      ) => {
+        const ctx = d.applySavedPresentationForCloudWebRef.current;
+        if (!ctx) {
+          throw new Error(
+            "El editor aún no está listo. Espera un segundo y vuelve a intentarlo.",
+          );
+        }
+        const synthetic: SavedPresentation = {
+          ...pulled,
+          id: crypto.randomUUID(),
+          savedAt: pulled.savedAt ?? new Date().toISOString(),
+        };
+        applySavedPresentationToEditorState(synthetic, ctx);
+        ctx.setCurrentSavedId(null);
+        if (!isSharedFromOther && owner === d.user.uid) {
+          d.webCloudSessionRef.current = {
+            ownerUid: owner,
+            cloudId,
+            cloudRevision,
+          };
+        } else {
+          d.webCloudSessionRef.current = null;
+        }
+      };
+
       if (existing) {
+        if (!isTauriRuntime()) {
+          const dlKey = `${owner}::${cloudId}`;
+          setDownloadingCloudKey(dlKey);
+          try {
+            const { presentation: pulled, cloudRevision } =
+              await pullPresentationFromCloud(owner, cloudId);
+            applyPulledToWebEditor(pulled, cloudRevision);
+            await d.refreshSavedList();
+          } catch (e) {
+            console.error(e);
+            alert(`Error al abrir: ${formatCloudSyncUserMessage(e)}`);
+          } finally {
+            setDownloadingCloudKey(null);
+          }
+          return;
+        }
         try {
           await rehydratePresentationFromMyCloud(existing.id, cloudId);
         } catch (e) {
@@ -302,6 +350,11 @@ export function usePresentationCloudPresentation(
       try {
         const { presentation: pulled, cloudRevision } =
           await pullPresentationFromCloud(owner, cloudId);
+        if (!isTauriRuntime()) {
+          applyPulledToWebEditor(pulled, cloudRevision);
+          await d.refreshSavedList();
+          return;
+        }
         const localId = crypto.randomUUID();
         await importSavedPresentation(
           {
@@ -336,7 +389,11 @@ export function usePresentationCloudPresentation(
         await d.openSavedPresentationRef.current(localId);
       } catch (e) {
         console.error(e);
-        alert(`Error al descargar: ${formatCloudSyncUserMessage(e)}`);
+        alert(
+          isTauriRuntime()
+            ? `Error al descargar: ${formatCloudSyncUserMessage(e)}`
+            : `Error al abrir: ${formatCloudSyncUserMessage(e)}`,
+        );
       } finally {
         setDownloadingCloudKey(null);
       }

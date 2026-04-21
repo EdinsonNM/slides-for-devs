@@ -4,8 +4,14 @@ import {
   savePresentation,
   updatePresentation,
 } from "../../services/storage";
+import {
+  pushPresentationToCloud,
+  CloudSyncConflictError,
+} from "../../services/presentationCloud";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
-import type { Presentation } from "../../types";
+import { formatCloudSyncUserMessage } from "../../utils/cloudSyncErrors";
+import { isTauriRuntime } from "../../utils/isTauriRuntime";
+import type { Presentation, SavedPresentation } from "../../types";
 import type { SavePresentationNowPayload } from "./presentationDeckMutationsDeps";
 import type { PresentationSavePresentationDeps } from "./presentationSavePresentationDeps";
 
@@ -34,6 +40,13 @@ export function usePresentationSavePresentation(
       let savedId: string | null = null;
       try {
         if (d.currentSavedId) {
+          if (!isTauriRuntime()) {
+            d.setSaveMessage(
+              "En el navegador no hay copia local de esta presentación. Usa la app de escritorio o abre el deck desde la nube.",
+            );
+            setTimeout(() => d.setSaveMessage(null), 4200);
+            return null;
+          }
           await updatePresentation(
             d.currentSavedId,
             full,
@@ -50,6 +63,51 @@ export function usePresentationSavePresentation(
             /* ignore */
           }
         } else {
+          const ws = d.webCloudSessionRef.current;
+          if (!isTauriRuntime() && ws && d.user?.uid === ws.ownerUid) {
+            const saved: SavedPresentation = {
+              ...full,
+              id: `${d.user.uid}::${ws.cloudId}`,
+              savedAt: new Date().toISOString(),
+            };
+            try {
+              const { cloudId, newRevision } = await pushPresentationToCloud(
+                d.user.uid,
+                saved,
+                ws.cloudId,
+                {
+                  localExpectedRevision: ws.cloudRevision,
+                },
+              );
+              d.webCloudSessionRef.current = {
+                ownerUid: ws.ownerUid,
+                cloudId,
+                cloudRevision: newRevision,
+              };
+            } catch (e) {
+              if (e instanceof CloudSyncConflictError) {
+                d.setSaveMessage(
+                  `Conflicto con la nube: remoto rev. ${e.remoteRevision}. Recarga la página o abre de nuevo desde el inicio.`,
+                );
+              } else {
+                console.error(e);
+                d.setSaveMessage(
+                  `Error al guardar en la nube: ${formatCloudSyncUserMessage(e)}`,
+                );
+              }
+              setTimeout(() => d.setSaveMessage(null), 4500);
+              return null;
+            }
+            d.setSaveMessage("Guardado en la nube");
+            try {
+              sessionStorage.removeItem(d.lastOpenedSessionKey);
+            } catch {
+              /* ignore */
+            }
+            trackEvent(ANALYTICS_EVENTS.PRESENTATION_SAVED);
+            setTimeout(() => d.setSaveMessage(null), 2000);
+            return null;
+          }
           const id = await savePresentation(full, d.localAccountScope);
           d.setCurrentSavedId(id);
           savedId = id;
@@ -66,14 +124,25 @@ export function usePresentationSavePresentation(
           savedId &&
           d.autoCloudSyncOnSave &&
           d.user &&
-          typeof window !== "undefined" &&
-          (window as unknown as { __TAURI__?: unknown }).__TAURI__
+          isTauriRuntime()
         ) {
           void d.maybeAutoSyncAfterLocalSave(savedId);
         }
       } catch (e) {
         console.error(e);
-        d.setSaveMessage("Error al guardar");
+        if (
+          !isTauriRuntime() &&
+          !d.currentSavedId &&
+          !d.webCloudSessionRef.current
+        ) {
+          d.setSaveMessage(
+            "En el navegador no se guarda en disco. Abre una presentación desde la nube o usa Slaim en escritorio.",
+          );
+          setTimeout(() => d.setSaveMessage(null), 4500);
+        } else {
+          d.setSaveMessage("Error al guardar");
+          setTimeout(() => d.setSaveMessage(null), 2500);
+        }
         return null;
       }
       return savedId;

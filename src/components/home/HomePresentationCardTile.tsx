@@ -6,6 +6,7 @@ import {
   CloudUpload,
   Share2,
   Download,
+  ExternalLink,
   CloudOff,
   Users,
 } from "lucide-react";
@@ -91,6 +92,8 @@ export interface HomePresentationCardTileProps {
   onSharePresentation?: (id: string) => void;
   onDownloadFromCloud: (cloudId: string, ownerUid: string) => void;
   downloadingCloudKey: string | null;
+  /** En navegador: abrir en memoria; en Tauri: importar a SQLite. */
+  cloudOnlyCardActionMode?: "download" | "open";
   listLayout?: "grid" | "carousel";
   frameClassName?: string;
   style?: React.CSSProperties;
@@ -110,6 +113,7 @@ export function HomePresentationCardTile({
   onSharePresentation,
   onDownloadFromCloud,
   downloadingCloudKey,
+  cloudOnlyCardActionMode = "download",
   listLayout = "grid",
   frameClassName,
   style,
@@ -125,6 +129,7 @@ export function HomePresentationCardTile({
     listLayout === "carousel" ? { ...style } : { minHeight: 280, ...style };
 
   if (card.kind === "cloud_only_mine") {
+    const openInBrowser = cloudOnlyCardActionMode === "open";
     const dlKey = `${card.ownerUid}::${card.cloudId}`;
     const isBusy = downloadingCloudKey === dlKey;
     const when =
@@ -170,7 +175,11 @@ export function HomePresentationCardTile({
             <h3 className="text-lg font-bold leading-snug line-clamp-2">
               {card.topic || "Sin título"}
             </h3>
-            <p className="text-sm text-white/85 mt-1">Toca para descargar</p>
+            <p className="text-sm text-white/85 mt-1">
+              {openInBrowser
+                ? "Toca para abrir en el editor"
+                : "Toca para descargar en este equipo"}
+            </p>
             <p className="text-xs text-white/70 mt-0.5">
               {when.toLocaleDateString()}
             </p>
@@ -178,7 +187,11 @@ export function HomePresentationCardTile({
         </button>
         <div className="absolute top-5 right-5 z-30 pointer-events-none flex items-center gap-1.5 text-white/90">
           <CloudOff size={18} className="opacity-85" aria-hidden />
-          <Download size={20} className="opacity-80" aria-hidden />
+          {openInBrowser ? (
+            <ExternalLink size={20} className="opacity-85" aria-hidden />
+          ) : (
+            <Download size={20} className="opacity-80" aria-hidden />
+          )}
         </div>
         {isBusy && (
           <div className="absolute inset-0 bg-black/45 rounded-2xl flex items-center justify-center z-20">
@@ -190,6 +203,7 @@ export function HomePresentationCardTile({
   }
 
   if (card.kind === "cloud_only_shared") {
+    const openInBrowser = cloudOnlyCardActionMode === "open";
     const dlKey = `${card.ownerUid}::${card.cloudId}`;
     const isBusy = downloadingCloudKey === dlKey;
     const when =
@@ -236,7 +250,9 @@ export function HomePresentationCardTile({
               {card.topic || "Sin título"}
             </h3>
             <p className="text-sm text-white/85 mt-1">
-              Toca para copiar en este equipo
+              {openInBrowser
+                ? "Toca para ver en el editor (solo lectura al guardar)"
+                : "Toca para copiar en este equipo"}
             </p>
             <p className="text-xs text-white/70 mt-0.5">
               {when.toLocaleDateString()}
@@ -245,7 +261,11 @@ export function HomePresentationCardTile({
         </button>
         <div className="absolute top-5 right-5 z-30 pointer-events-none flex items-center gap-1.5 text-white/90">
           <Users size={18} className="text-violet-200 opacity-95" aria-hidden />
-          <Download size={20} className="opacity-80" aria-hidden />
+          {openInBrowser ? (
+            <ExternalLink size={20} className="opacity-85" aria-hidden />
+          ) : (
+            <Download size={20} className="opacity-80" aria-hidden />
+          )}
         </div>
         {isBusy && (
           <div className="absolute inset-0 bg-black/45 rounded-2xl flex items-center justify-center z-20">

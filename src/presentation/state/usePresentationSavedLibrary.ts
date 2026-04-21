@@ -50,6 +50,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
 
   const handleOpenSaved = useCallback(async (id: string) => {
     const x = depsRef.current;
+    x.webCloudSessionRef.current = null;
     try {
       let metaOpen: SavedPresentationMeta | undefined;
       try {
@@ -95,6 +96,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
   const restoreLastOpenedPresentation =
     useCallback(async (): Promise<boolean> => {
       const x = depsRef.current;
+      x.webCloudSessionRef.current = null;
       let id: string | null = null;
       try {
         id = sessionStorage.getItem(x.lastOpenedSessionKey);
