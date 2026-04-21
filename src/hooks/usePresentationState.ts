@@ -60,10 +60,7 @@ import { usePresentationSavePresentation } from "../presentation/state/usePresen
 import { usePresentationManualSave } from "../presentation/state/usePresentationManualSave";
 import { usePresentationCloudPresentation } from "../presentation/state/usePresentationCloudPresentation";
 import type { PresentationCloudResolveRemoteEditorDeps } from "../presentation/state/presentationCloudPresentationDeps";
-import {
-  applySavedPresentationToEditorState,
-  type ApplySavedPresentationEditorContext,
-} from "../presentation/state/applySavedPresentationToEditorState";
+import { usePresentationSavedLibrary } from "../presentation/state/usePresentationSavedLibrary";
 import { presentationQueryKeys } from "../presentation/queryKeys";
 import {
   useSavedPresentations,
@@ -140,8 +137,6 @@ import {
   updatePresentation,
   listPresentations,
   loadPresentation,
-  deletePresentation,
-  clearPresentationLocalBody,
   migrateJsonPresentations,
   listCharacters,
   saveCharacter as saveCharacterStorage,
@@ -158,9 +153,7 @@ import {
   deleteCharacterFromCloud,
   CharacterCloudSyncConflictError,
 } from "../services/charactersCloud";
-import { deleteOwnerPresentationFromCloud } from "../services/presentationCloud";
 import { initFirebase } from "../services/firebase";
-import { formatCloudSyncUserMessage } from "../utils/cloudSyncErrors";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import { useUIStore, createUISetter } from "../store/useUIStore";
@@ -585,6 +578,48 @@ export function usePresentationState() {
     editEditorHeightRef,
     canvasTextTargetsRef,
   });
+
+  const savedLibrary = usePresentationSavedLibrary({
+    queryClient,
+    localAccountScope,
+    savedList,
+    user,
+    lastOpenedSessionKey,
+    maybePullCloudPresentationBeforeLoad,
+    openSavedPresentationRef,
+    refetchSavedPresentationsForModal: () =>
+      savedPresentationsQuery.refetch(),
+    setShowSavedListModal,
+    deletePresentationId,
+    setDeletePresentationId,
+    currentSavedId,
+    setCurrentSavedId,
+    setTopic,
+    setSlides,
+    slidesUndoRef,
+    slidesRedoRef,
+    setCurrentIndex,
+    setSelectedCharacterId,
+    setDeckVisualThemeState,
+    setDeckNarrativePresetId,
+    setNarrativeNotes,
+    coverPrefetchSavedAtRef,
+    setCoverImageCache,
+    refreshSavedList,
+  });
+
+  const {
+    openSavedListModal,
+    handleOpenSaved,
+    restoreLastOpenedPresentation,
+    requestDeletePresentation,
+    closeDeletePresentationModal,
+    deletePresentationTarget,
+    confirmDeletePresentationLocalOnly,
+    confirmClearPresentationLocalKeepCloud,
+    confirmDeletePresentationLocalAndCloud,
+  } = savedLibrary;
+
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
     "slide" | "characters" | "notes" | "theme" | "resources" | null
@@ -1692,256 +1727,6 @@ export function usePresentationState() {
     setIsSaving,
     setSaveMessage,
   });
-
-  const openSavedListModal = async () => {
-    setShowSavedListModal(true);
-    try {
-      await savedPresentationsQuery.refetch();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const applySavedEditorCtxRef = useRef(
-    {} as ApplySavedPresentationEditorContext,
-  );
-  applySavedEditorCtxRef.current = {
-    slidesUndoRef,
-    slidesRedoRef,
-    setTopic,
-    setSlides,
-    setCurrentIndex,
-    setCurrentSavedId,
-    setSelectedCharacterId,
-    setDeckVisualThemeState,
-    setDeckNarrativePresetId,
-    setNarrativeNotes,
-    coverPrefetchSavedAtRef,
-    setCoverImageCache,
-  };
-
-  const handleOpenSaved = useCallback(async (id: string) => {
-    try {
-      let metaOpen: SavedPresentationMeta | undefined;
-      try {
-        const listFresh = await listPresentations(localAccountScope);
-        metaOpen = listFresh.find((p) => p.id === id);
-        queryClient.setQueryData(
-          presentationQueryKeys.savedPresentations(localAccountScope),
-          listFresh,
-        );
-      } catch {
-        metaOpen = savedList.find((p) => p.id === id);
-      }
-      if (metaOpen?.localBodyCleared && !user) {
-        alert("Inicia sesión para recuperar la copia desde la nube.");
-        return;
-      }
-      try {
-        await maybePullCloudPresentationBeforeLoad(id, metaOpen);
-      } catch (e) {
-        if (metaOpen?.localBodyCleared) {
-          console.error(e);
-          alert(
-            `No se pudo recuperar desde la nube: ${formatCloudSyncUserMessage(e)}`,
-          );
-          return;
-        }
-      }
-      const saved = await loadPresentation(id, localAccountScope);
-      applySavedPresentationToEditorState(saved, applySavedEditorCtxRef.current);
-      setShowSavedListModal(false);
-      try {
-        sessionStorage.setItem(lastOpenedSessionKey, id);
-      } catch {
-        // ignore
-      }
-      trackEvent(ANALYTICS_EVENTS.PRESENTATION_OPENED);
-    } catch (e) {
-      console.error(e);
-      alert("No se pudo abrir la presentación.");
-    }
-  }, [
-    localAccountScope,
-    savedList,
-    user,
-    queryClient,
-    lastOpenedSessionKey,
-    maybePullCloudPresentationBeforeLoad,
-  ]);
-
-  openSavedPresentationRef.current = handleOpenSaved;
-
-  /** Restaura la última presentación abierta (desde sessionStorage). Usado al cargar /editor tras refresco. */
-  const restoreLastOpenedPresentation =
-    useCallback(async (): Promise<boolean> => {
-      let id: string | null = null;
-      try {
-        id = sessionStorage.getItem(lastOpenedSessionKey);
-      } catch {
-        return false;
-      }
-      if (!id) return false;
-      try {
-        if (user) {
-          let metaRestore: SavedPresentationMeta | undefined;
-          try {
-            const list = await listPresentations(localAccountScope);
-            metaRestore = list.find((p) => p.id === id);
-          } catch {
-            metaRestore = undefined;
-          }
-          try {
-            await maybePullCloudPresentationBeforeLoad(id, metaRestore);
-          } catch {
-            /* cuerpo vacío: sin sesión o fallo de red; se sigue con copia local si existe */
-          }
-        }
-        const saved = await loadPresentation(id, localAccountScope);
-        applySavedPresentationToEditorState(
-          saved,
-          applySavedEditorCtxRef.current,
-        );
-        return true;
-      } catch {
-        try {
-          sessionStorage.removeItem(lastOpenedSessionKey);
-        } catch {
-          // ignore
-        }
-        return false;
-      }
-    }, [
-      lastOpenedSessionKey,
-      localAccountScope,
-      user,
-      maybePullCloudPresentationBeforeLoad,
-    ]);
-
-  const requestDeletePresentation = useCallback((id: string) => {
-    setDeletePresentationId(id);
-  }, []);
-
-  const closeDeletePresentationModal = useCallback(() => {
-    setDeletePresentationId(null);
-  }, []);
-
-  const deletePresentationTarget = useMemo((): SavedPresentationMeta | null => {
-    if (!deletePresentationId) return null;
-    return savedList.find((p) => p.id === deletePresentationId) ?? null;
-  }, [savedList, deletePresentationId]);
-
-  const confirmDeletePresentationLocalOnly = useCallback(async () => {
-    const id = deletePresentationId;
-    if (!id) return;
-    try {
-      await deletePresentation(id, localAccountScope);
-      if (currentSavedId === id) {
-        setCurrentSavedId(null);
-        setTopic("");
-        slidesUndoRef.current = [];
-        slidesRedoRef.current = [];
-        setSlides([]);
-        setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
-      }
-      queryClient.setQueryData(
-        presentationQueryKeys.savedPresentations(localAccountScope),
-        (prev: SavedPresentationMeta[] | undefined) =>
-          (prev ?? []).filter((p) => p.id !== id),
-      );
-      delete coverPrefetchSavedAtRef.current[id];
-      setCoverImageCache((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    } catch (e) {
-      console.error(e);
-      alert("Error al eliminar.");
-    } finally {
-      setDeletePresentationId(null);
-    }
-  }, [deletePresentationId, currentSavedId, queryClient, localAccountScope]);
-
-  const confirmClearPresentationLocalKeepCloud = useCallback(async () => {
-    const id = deletePresentationId;
-    if (!id) return;
-    try {
-      await clearPresentationLocalBody(id, localAccountScope);
-      await refreshSavedList();
-      if (currentSavedId === id) {
-        setCurrentSavedId(null);
-        setTopic("");
-        slidesUndoRef.current = [];
-        slidesRedoRef.current = [];
-        setSlides([]);
-        setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
-      }
-      delete coverPrefetchSavedAtRef.current[id];
-      setCoverImageCache((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    } catch (e) {
-      console.error(e);
-      alert(
-        e instanceof Error && e.message
-          ? e.message
-          : "No se pudo quitar la copia local.",
-      );
-    } finally {
-      setDeletePresentationId(null);
-    }
-  }, [deletePresentationId, currentSavedId, refreshSavedList, localAccountScope]);
-
-  const confirmDeletePresentationLocalAndCloud = useCallback(async () => {
-    const id = deletePresentationId;
-    if (!id) return;
-    try {
-      let cloudId: string | null = null;
-      try {
-        const list = await listPresentations(localAccountScope);
-        cloudId = list.find((p) => p.id === id)?.cloudId?.trim() ?? null;
-      } catch {
-        /* ignore */
-      }
-      if (cloudId && user) {
-        await deleteOwnerPresentationFromCloud(user.uid, cloudId);
-      }
-      await deletePresentation(id, localAccountScope);
-      if (currentSavedId === id) {
-        setCurrentSavedId(null);
-        setTopic("");
-        slidesUndoRef.current = [];
-        slidesRedoRef.current = [];
-        setSlides([]);
-        setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
-      }
-      queryClient.setQueryData(
-        presentationQueryKeys.savedPresentations(localAccountScope),
-        (prev: SavedPresentationMeta[] | undefined) =>
-          (prev ?? []).filter((p) => p.id !== id),
-      );
-      delete coverPrefetchSavedAtRef.current[id];
-      setCoverImageCache((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    } catch (e) {
-      console.error(e);
-      alert(`Error al eliminar: ${formatCloudSyncUserMessage(e)}`);
-    } finally {
-      setDeletePresentationId(null);
-    }
-  }, [
-    deletePresentationId,
-    user,
-    currentSavedId,
-    localAccountScope,
-    queryClient,
-  ]);
 
   const handleGenerateCoverForPresentation = async (id: string) => {
     setGeneratingCoverId(id);
