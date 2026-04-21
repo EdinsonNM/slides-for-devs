@@ -68,7 +68,7 @@ export function deckSubtitleTextareaClass(
   opts?: { center?: boolean },
 ): string {
   return cn(
-    "box-border min-h-18 w-full min-w-0 resize-y rounded-md border-0 bg-transparent text-sm shadow-none focus:outline-none focus:ring-0 whitespace-pre-wrap wrap-break-word",
+    "box-border min-h-18 w-full min-w-0 resize-y rounded-md border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 whitespace-pre-wrap wrap-break-word",
     deckPrimaryTextClass(tone),
     tone === "light"
       ? "placeholder:text-slate-500"

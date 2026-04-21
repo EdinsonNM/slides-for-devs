@@ -29,6 +29,48 @@ import {
 
 const EDIT_FIELD_ATTR = "data-slide-edit-field";
 
+/** Contenedor que define `--slide-body` / `--slide-title` en `index.css`. */
+function findSlideTypographicHost(el: HTMLElement | null): HTMLElement | null {
+  if (!el) return null;
+  return (
+    el.closest(".slide-content") ??
+    el.closest(".preview-slide") ??
+    el.closest(".sidebar-slide-canvas-mini")
+  );
+}
+
+/**
+ * Resuelve `font-size: var(--…)` en el mismo contexto que el lienzo (p. ej. `cqw` en las custom props).
+ * Evita depender de `calc(var(--slide-body)*…)` en nodos donde el motor no enlaza bien el query container.
+ */
+function measureSlideCssVarFontPx(
+  host: HTMLElement,
+  varName: "--slide-body" | "--slide-title",
+): number {
+  const probe = document.createElement("span");
+  probe.setAttribute("aria-hidden", "true");
+  probe.textContent = "\u200b";
+  probe.style.cssText = [
+    "position:absolute",
+    "left:0",
+    "top:0",
+    "visibility:hidden",
+    "pointer-events:none",
+    "white-space:nowrap",
+    `font-size:var(${varName})`,
+    "line-height:1",
+    "margin:0",
+    "padding:0",
+    "border:0",
+    "width:auto",
+    "height:auto",
+  ].join(";");
+  host.appendChild(probe);
+  const px = parseFloat(getComputedStyle(probe).fontSize);
+  probe.remove();
+  return Number.isFinite(px) && px > 0 ? px : 0;
+}
+
 export type SlideCanvasRichDescriptionHandle = {
   selectAllAndBold: () => void;
   selectAllAndItalic: () => void;
@@ -168,6 +210,8 @@ export const SlideCanvasRichDescription = forwardRef<
     top: number;
     left: number;
   } | null>(null);
+  /** Tamaño final en px (incluye `bodyFontScale` / escala HTML); `null` = usar fallback `calc(var(--slide-body)*…)`. */
+  const [resolvedFontPx, setResolvedFontPx] = useState<number | null>(null);
 
   const wrapClass = cn(
     "slide-rich-wrap min-h-0 min-w-0 max-w-none font-sans leading-relaxed",
@@ -182,6 +226,89 @@ export const SlideCanvasRichDescription = forwardRef<
     (display.kind === "html"
       ? `calc(var(--slide-body) * ${display.scale})`
       : `calc(var(--slide-body) * ${fontScale})`);
+
+  const scaleForMeasure = isEditing
+    ? fontScale
+    : display.kind === "html"
+      ? display.scale
+      : fontScale;
+
+  useLayoutEffect(() => {
+    if (viewTypographySize) {
+      setResolvedFontPx(null);
+      return;
+    }
+
+    let cancelled = false;
+    const root = () =>
+      isEditing ? editorRef.current : viewRootRef.current;
+
+    const resolveHost = (): HTMLElement | null =>
+      findSlideTypographicHost(root());
+
+    const run = () => {
+      if (cancelled) return;
+      const host = resolveHost();
+      if (!host || host.getBoundingClientRect().width < 2) {
+        setResolvedFontPx(null);
+        return;
+      }
+      const bodyPx = measureSlideCssVarFontPx(host, "--slide-body");
+      if (bodyPx < 1) {
+        setResolvedFontPx(null);
+        return;
+      }
+      const scaled = bodyPx * scaleForMeasure;
+      setResolvedFontPx(scaled);
+    };
+
+    run();
+    let ro: ResizeObserver | null = null;
+    const attach = (host: HTMLElement) => {
+      ro = new ResizeObserver(() => {
+        requestAnimationFrame(run);
+      });
+      ro.observe(host);
+    };
+
+    let host0 = resolveHost();
+    if (host0) {
+      attach(host0);
+    } else {
+      const id = requestAnimationFrame(() => {
+        if (cancelled) return;
+        run();
+        host0 = resolveHost();
+        if (!host0 || cancelled) return;
+        attach(host0);
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(id);
+        ro?.disconnect();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+    };
+  }, [
+    viewTypographySize,
+    isEditing,
+    elementId,
+    display.kind,
+    display.kind === "html" ? display.html.length : display.source.length,
+    scaleForMeasure,
+  ]);
+
+  const appliedFontSize =
+    viewTypographySize ??
+    (resolvedFontPx != null
+      ? `${resolvedFontPx}px`
+      : isEditing
+        ? editorFontSize
+        : viewFontSize);
 
   const syncFromEditor = useCallback(() => {
     const el = editorRef.current;
@@ -391,8 +518,8 @@ export const SlideCanvasRichDescription = forwardRef<
       return (
         <div
           ref={viewRootRef}
-          className={cn(wrapClass, "select-none", shellClassName)}
-          style={{ fontSize: viewFontSize }}
+          className={cn(wrapClass, "slide-rich-view select-none", shellClassName)}
+          style={{ fontSize: appliedFontSize }}
           onDoubleClick={(e) => {
             if (onRequestEditRef.current) {
               e.stopPropagation();
@@ -415,8 +542,8 @@ export const SlideCanvasRichDescription = forwardRef<
     return (
       <div
         ref={viewRootRef}
-        className={cn(wrapClass, "select-none", shellClassName)}
-        style={{ fontSize: viewFontSize }}
+        className={cn(wrapClass, "slide-rich-view select-none", shellClassName)}
+        style={{ fontSize: appliedFontSize }}
         onDoubleClick={(e) => {
           if (onRequestEditRef.current) {
             e.stopPropagation();
@@ -425,7 +552,9 @@ export const SlideCanvasRichDescription = forwardRef<
         }}
       >
         {src.trim() ? (
-          <SlideMarkdown contentTone={tone}>{src}</SlideMarkdown>
+          <SlideMarkdown contentTone={tone} style={{ fontSize: appliedFontSize }}>
+            {src}
+          </SlideMarkdown>
         ) : (
           <p className={cn("italic", deckMutedTextClass(tone))}>
             Doble clic para editar…
@@ -479,7 +608,7 @@ export const SlideCanvasRichDescription = forwardRef<
             ? "caret-sky-600"
             : "caret-emerald-600 dark:caret-emerald-400",
         )}
-        style={{ fontSize: editorFontSize }}
+        style={{ fontSize: appliedFontSize }}
         onInput={() => {
           syncFromEditor();
           updateToolbarFromSelection();
