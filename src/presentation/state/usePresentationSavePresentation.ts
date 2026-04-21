@@ -57,27 +57,43 @@ export function usePresentationSavePresentation(
           }
         } else {
           const ws = d.webCloudSessionRef.current;
-          if (!isTauriRuntime() && ws && d.user?.uid === ws.ownerUid) {
+          if (!isTauriRuntime() && d.user) {
+            const provisionalCloudId =
+              ws?.cloudId ??
+              (typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
+            const createdOptimisticSession = !ws?.cloudId;
+            if (createdOptimisticSession) {
+              d.webCloudSessionRef.current = {
+                ownerUid: d.user.uid,
+                cloudId: provisionalCloudId,
+                cloudRevision: 0,
+              };
+            }
             const saved: SavedPresentation = {
               ...full,
-              id: `${d.user.uid}::${ws.cloudId}`,
+              id: `${d.user.uid}::${provisionalCloudId}`,
               savedAt: new Date().toISOString(),
             };
             try {
               const { cloudId, newRevision } = await pushPresentationToCloud(
                 d.user.uid,
                 saved,
-                ws.cloudId,
+                provisionalCloudId,
                 {
-                  localExpectedRevision: ws.cloudRevision,
+                  localExpectedRevision: ws?.cloudRevision ?? null,
                 },
               );
               d.webCloudSessionRef.current = {
-                ownerUid: ws.ownerUid,
+                ownerUid: d.user.uid,
                 cloudId,
                 cloudRevision: newRevision,
               };
             } catch (e) {
+              if (createdOptimisticSession) {
+                d.webCloudSessionRef.current = null;
+              }
               if (e instanceof CloudSyncConflictError) {
                 d.setSaveMessage(
                   `Conflicto con la nube: remoto rev. ${e.remoteRevision}. Recarga la página o abre de nuevo desde el inicio.`,
@@ -128,9 +144,7 @@ export function usePresentationSavePresentation(
           !d.currentSavedId &&
           !d.webCloudSessionRef.current
         ) {
-          d.setSaveMessage(
-            "En el navegador no se guarda en disco. Abre una presentación desde la nube o usa Slaim en escritorio.",
-          );
+          d.setSaveMessage("Error al guardar en la nube.");
           setTimeout(() => d.setSaveMessage(null), 4500);
         } else {
           d.setSaveMessage("Error al guardar");

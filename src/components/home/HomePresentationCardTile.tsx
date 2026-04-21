@@ -190,7 +190,7 @@ export function HomePresentationCardTile({
         )}
         {cloudHasHeroVisual ? (
           <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-1 h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
             aria-hidden
           />
         ) : (
@@ -203,7 +203,7 @@ export function HomePresentationCardTile({
             onDownloadFromCloud(card.cloudId, card.ownerUid)
           }
           className={cn(
-            "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-0 disabled:cursor-wait",
+            "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-2 disabled:cursor-wait",
             cloudHasHeroVisual
               ? "focus:ring-sky-500/40 focus:ring-white/25"
               : "focus:ring-sky-500/50",
@@ -211,19 +211,19 @@ export function HomePresentationCardTile({
         >
           <div className="flex-1" />
           <div className="text-white text-left">
-            <p className="flex items-center gap-2 text-xs font-medium text-sky-100/95 mb-1">
+            <p className="flex items-center gap-2 text-xs font-medium text-white/95 mb-1">
               <CloudOff size={14} className="shrink-0 opacity-90" />
               Solo en la nube
             </p>
             <h3 className="text-lg font-bold leading-snug line-clamp-2">
               {card.topic || "Sin título"}
             </h3>
-            <p className="text-sm text-white/85 mt-1">
+            <p className="text-sm text-white/92 mt-1">
               {openInBrowser
                 ? "Toca para abrir en el editor"
                 : "Toca para descargar en este equipo"}
             </p>
-            <p className="text-xs text-white/70 mt-0.5">
+            <p className="text-xs text-white/82 mt-0.5">
               {when.toLocaleDateString()}
             </p>
           </div>
@@ -294,7 +294,7 @@ export function HomePresentationCardTile({
         )}
         {cloudHasHeroVisual ? (
           <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-1 h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
             aria-hidden
           />
         ) : (
@@ -307,7 +307,7 @@ export function HomePresentationCardTile({
             onDownloadFromCloud(card.cloudId, card.ownerUid)
           }
           className={cn(
-            "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-0 disabled:cursor-wait",
+            "absolute inset-0 w-full h-full flex flex-col p-6 pt-14 focus:outline-none focus:ring-2 focus:ring-inset z-2 disabled:cursor-wait",
             cloudHasHeroVisual
               ? "focus:ring-violet-500/40 focus:ring-white/25"
               : "focus:ring-violet-500/50",
@@ -315,19 +315,19 @@ export function HomePresentationCardTile({
         >
           <div className="flex-1" />
           <div className="text-white text-left">
-            <p className="flex items-center gap-2 text-xs font-semibold text-violet-100 mb-1">
+            <p className="flex items-center gap-2 text-xs font-semibold text-white/95 mb-1">
               <Users size={15} className="shrink-0 opacity-95" aria-hidden />
               Compartida contigo
             </p>
             <h3 className="text-lg font-bold leading-snug line-clamp-2">
               {card.topic || "Sin título"}
             </h3>
-            <p className="text-sm text-white/85 mt-1">
+            <p className="text-sm text-white/92 mt-1">
               {openInBrowser
                 ? "Toca para ver en el editor (solo lectura al guardar)"
                 : "Toca para copiar en este equipo"}
             </p>
-            <p className="text-xs text-white/70 mt-0.5">
+            <p className="text-xs text-white/82 mt-0.5">
               {when.toLocaleDateString()}
             </p>
           </div>
@@ -402,17 +402,17 @@ export function HomePresentationCardTile({
       )}
       {hasHeroVisual ? (
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-1 h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
           aria-hidden
         />
       ) : (
-        <div className="pointer-events-none absolute inset-0 z-[1] bg-linear-to-t from-black/70 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 z-1 bg-linear-to-t from-black/70 via-transparent to-transparent" />
       )}
       <button
         type="button"
         onClick={() => onOpenSaved(p.id)}
         className={cn(
-          "absolute inset-0 z-[2] flex h-full w-full flex-col p-6 pt-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset text-white",
+          "absolute inset-0 z-2 flex h-full w-full flex-col p-6 pt-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset text-white",
           hasHeroVisual
             ? "focus-visible:ring-white/40"
             : "focus-visible:ring-white/35",

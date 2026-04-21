@@ -554,6 +554,24 @@ async function fetchUrlAsBytes(url: string): Promise<{ bytes: Uint8Array; conten
   }
 }
 
+function stripUndefinedDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) =>
+      entry === undefined ? null : stripUndefinedDeep(entry),
+    );
+  }
+  if (value && typeof value === "object") {
+    const input = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(input)) {
+      if (entry === undefined) continue;
+      out[key] = stripUndefinedDeep(entry);
+    }
+    return out;
+  }
+  return value;
+}
+
 function slideToPlain(s: Slide): Record<string, unknown> {
   return {
     id: s.id,
@@ -745,20 +763,23 @@ export async function pushPresentationToCloud(
         imageUrl = undefined;
       }
     } else if (slide.imageUrl?.startsWith("http://") || slide.imageUrl?.startsWith("https://")) {
-      const fetched = await fetchUrlAsBytes(slide.imageUrl);
-      if (fetched) {
-        const opt = await optimizeRasterBytesForCloud(fetched.bytes, fetched.contentType);
-        const use = opt ?? { bytes: fetched.bytes, contentType: fetched.contentType, ext: fetched.ext };
-        const name = useDeckCoverStorage
-          ? `${DECK_COVER_CLOUD_STORAGE_BASENAME}.${use.ext}`
-          : `slide_${i}.${use.ext}`;
-        await uploadBytes(ref(st, `${prefix}/${name}`), use.bytes, { contentType: use.contentType });
-        if (useDeckCoverStorage) {
-          deckCoverImageFile = name;
-        } else {
-          slideImagePaths[String(i)] = name;
+      // Evita CORS en localhost al re-descargar URLs firmadas de Firebase Storage.
+      if (!/^https:\/\/firebasestorage\.googleapis\.com\//i.test(slide.imageUrl)) {
+        const fetched = await fetchUrlAsBytes(slide.imageUrl);
+        if (fetched) {
+          const opt = await optimizeRasterBytesForCloud(fetched.bytes, fetched.contentType);
+          const use = opt ?? { bytes: fetched.bytes, contentType: fetched.contentType, ext: fetched.ext };
+          const name = useDeckCoverStorage
+            ? `${DECK_COVER_CLOUD_STORAGE_BASENAME}.${use.ext}`
+            : `slide_${i}.${use.ext}`;
+          await uploadBytes(ref(st, `${prefix}/${name}`), use.bytes, { contentType: use.contentType });
+          if (useDeckCoverStorage) {
+            deckCoverImageFile = name;
+          } else {
+            slideImagePaths[String(i)] = name;
+          }
+          imageUrl = undefined;
         }
-        imageUrl = undefined;
       }
     }
 
@@ -778,7 +799,8 @@ export async function pushPresentationToCloud(
       isometricFlowData: slide.isometricFlowData ?? null,
     };
 
-    await setDocWithRetry(doc(slidesCol, String(i)), slideData);
+    const safeSlideData = stripUndefinedDeep(slideData) as Record<string, unknown>;
+    await setDocWithRetry(doc(slidesCol, String(i)), safeSlideData);
     slidesWritten += 1;
   }
 
@@ -799,6 +821,7 @@ export async function pushPresentationToCloud(
     slideCount: slidesWritten,
     cloudSyncedAtClient: syncedAt,
   };
+  const safeMainPayload = stripUndefinedDeep(mainPayload) as Record<string, unknown>;
 
   const {
     newRevision,
@@ -832,7 +855,7 @@ export async function pushPresentationToCloud(
 
     const nextRev = snap.exists() ? remoteRev + 1 : 1;
     transaction.set(docRef, {
-      ...mainPayload,
+      ...safeMainPayload,
       sharedWith: preservedSharedWith,
       shareInviteEmails: preservedShareInviteEmails,
       revision: nextRev,
