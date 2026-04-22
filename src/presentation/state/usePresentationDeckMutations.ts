@@ -11,6 +11,10 @@ import {
   serializeIsometricFlowDiagram,
 } from "../../domain/entities/IsometricFlowDiagram";
 import {
+  createDefaultSlideMapData,
+  serializeSlideMapData,
+} from "../../domain/entities/SlideMapData";
+import {
   PANEL_CONTENT_KIND,
   PANEL_CONTENT_TOGGLE_ORDER,
   normalizePanelContentKind,
@@ -120,6 +124,20 @@ export function usePresentationDeckMutations(
       } else {
         delete (next as Slide).excalidrawData;
         delete (next as Slide).isometricFlowData;
+      }
+
+      if (type !== SLIDE_TYPE.MAPS) {
+        delete (next as Slide).mapData;
+      }
+
+      if (type === SLIDE_TYPE.MAPS) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        delete (next as Slide).matrixData;
+        delete (next as Slide).mindMapData;
+        if (!next.mapData) {
+          next.mapData = serializeSlideMapData(createDefaultSlideMapData());
+        }
       }
 
       if (type === SLIDE_TYPE.CHAPTER) {

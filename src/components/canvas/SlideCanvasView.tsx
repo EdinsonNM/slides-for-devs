@@ -39,6 +39,8 @@ import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas
 import { parseMindMapDiagram } from "../../domain/entities/MindMapDiagram";
 import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
+import { parseSlideMapData } from "../../domain/entities/SlideMapData";
+import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
@@ -51,6 +53,10 @@ import {
 
 const { Alignment, Fit, Layout } = RiveReact;
 
+const MAPBOX_ENV_TOKEN = (
+  import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined
+)?.trim();
+
 const riveReadonlyLayout = new Layout({
   fit: Fit.Contain,
   alignment: Alignment.Center,
@@ -62,6 +68,11 @@ export interface SlideCanvasViewProps {
   className?: string;
   /** Contraste de tipografía con el fondo del deck (por defecto texto oscuro). */
   deckContentTone?: DeckContentTone;
+  /**
+   * Clave opcional para forzar re-sincronización de viewports R3F (3D) cuando el layout cambia
+   * sin resize CSS (p. ej. presentación con transforms).
+   */
+  r3fHostMeasureKey?: string;
 }
 
 function mediaBlock(
@@ -69,6 +80,7 @@ function mediaBlock(
   tone: DeckContentTone,
   /** Presentador 3D: slide + elemento para leer solo el `payload` del bloque (sin espejo raíz). */
   presenterCanvas?: { slide: Slide; element: SlideCanvasElement },
+  r3fHostMeasureKey?: string,
 ) {
   const panel = resolveMediaPanelDescriptor(deckSlide);
   switch (panel.kind) {
@@ -157,6 +169,7 @@ function mediaBlock(
             }
             showInteractionHint={false}
             className="h-full min-h-[120px]"
+            hostMeasureKey={r3fHostMeasureKey}
           />
         </div>
       );
@@ -170,6 +183,7 @@ function mediaBlock(
             viewState={deckSlide.canvas3dViewState}
             showInteractionHint
             className="h-full min-h-[120px]"
+            hostMeasureKey={r3fHostMeasureKey}
           />
         </div>
       );
@@ -241,10 +255,12 @@ function CanvasElementReadOnly({
   element,
   slide,
   deckContentTone,
+  r3fHostMeasureKey,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
   deckContentTone: DeckContentTone;
+  r3fHostMeasureKey?: string;
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -370,7 +386,7 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "h-full p-1 md:p-2",
-            mediaBlock(panelSlide, tone, { slide, element }),
+            mediaBlock(panelSlide, tone, { slide, element }, r3fHostMeasureKey),
           )}
         </div>
       );
@@ -465,6 +481,37 @@ function CanvasElementReadOnly({
           )}
         </div>
       );
+    case "mapboxMap":
+      if (slide.type !== SLIDE_TYPE.MAPS) return null;
+      if (!MAPBOX_ENV_TOKEN) {
+        return (
+          <div
+            style={box}
+            className={cn(
+              shell,
+              "flex items-center justify-center bg-slate-900 px-2 text-center text-[11px] text-slate-400",
+            )}
+          >
+            Mapbox: configura VITE_MAPBOX_ACCESS_TOKEN para ver el mapa.
+          </div>
+        );
+      }
+      return (
+        <div style={box} className={shell}>
+          {rotated(
+            "absolute inset-0 min-h-0",
+            <SlideMapboxCanvas
+              key={`${slide.id}-map`}
+              mapData={parseSlideMapData(slide.mapData)}
+              accessToken={MAPBOX_ENV_TOKEN}
+              readOnly
+              persistViewportOnMoveEnd={false}
+              registerViewportCaptureBridge={false}
+              className="h-full w-full"
+            />,
+          )}
+        </div>
+      );
     default:
       return null;
   }
@@ -475,6 +522,7 @@ export function SlideCanvasView({
   slide,
   className,
   deckContentTone = "dark",
+  r3fHostMeasureKey,
 }: SlideCanvasViewProps) {
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
@@ -488,6 +536,7 @@ export function SlideCanvasView({
           element={el}
           slide={ensured}
           deckContentTone={deckContentTone}
+          r3fHostMeasureKey={r3fHostMeasureKey}
         />
       ))}
     </div>

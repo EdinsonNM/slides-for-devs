@@ -46,6 +46,10 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           )
         ) : slide.type === SLIDE_TYPE.DIAGRAM ? (
           <p className="text-stone-400 text-xs">Diagrama editable</p>
+        ) : slide.type === SLIDE_TYPE.MIND_MAP ? (
+          <p className="text-stone-400 text-xs">Mapa mental</p>
+        ) : slide.type === SLIDE_TYPE.MAPS ? (
+          <p className="text-stone-400 text-xs">Mapa Mapbox</p>
         ) : slide.type === SLIDE_TYPE.ISOMETRIC ? (
           <>
             {slide.subtitle?.trim() ? (
@@ -94,6 +98,11 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           {slide.type === SLIDE_TYPE.ISOMETRIC && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Isométrico
+            </span>
+          )}
+          {slide.type === SLIDE_TYPE.MAPS && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              Mapas
             </span>
           )}
           {slide.type === SLIDE_TYPE.MATRIX && (

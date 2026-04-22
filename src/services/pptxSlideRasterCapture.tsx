@@ -60,6 +60,7 @@ function extraPaintDelayMs(slide: Slide): number {
   if (slide.type === SLIDE_TYPE.DIAGRAM) return 450;
   /** Iconos SVG remotos + manifiestos: necesita más tiempo que un slide de texto. */
   if (slide.type === SLIDE_TYPE.ISOMETRIC) return 2400;
+  if (slide.type === SLIDE_TYPE.MAPS) return 1400;
   if (slide.type === SLIDE_TYPE.MATRIX) return 180;
   if (slide.type === SLIDE_TYPE.CHAPTER) return 120;
   if (slide.type !== SLIDE_TYPE.CONTENT) return 200;

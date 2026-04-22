@@ -91,6 +91,7 @@ const INSERT_BLOCK_UI: Record<
   excalidraw: undefined,
   isometricFlow: undefined,
   mindMap: undefined,
+  mapboxMap: undefined,
 };
 
 const PANEL_INSERT_MENU_ITEMS: {

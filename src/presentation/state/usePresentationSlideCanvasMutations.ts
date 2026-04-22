@@ -187,6 +187,20 @@ export function usePresentationSlideCanvasMutations(
     });
   }, []);
 
+  const setCurrentSlideMapData = useCallback((data: string) => {
+    const d = depsRef.current;
+    const idx = d.currentIndexRef.current;
+    const slide = d.slidesRef.current[idx];
+    if (!slide || slide.type !== SLIDE_TYPE.MAPS) return;
+    d.setSlides((prev) => {
+      const cur = prev[idx];
+      if (!cur || cur.type !== SLIDE_TYPE.MAPS) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...cur, mapData: data };
+      return updated;
+    });
+  }, []);
+
   const setCurrentSlideContentLayout = useCallback(
     (contentLayout: "split" | "full" | "panel-full") => {
       const d = depsRef.current;
@@ -465,6 +479,7 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideExcalidrawData,
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
+    setCurrentSlideMapData,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,

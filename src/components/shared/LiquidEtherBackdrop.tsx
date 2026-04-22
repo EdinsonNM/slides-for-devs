@@ -45,8 +45,9 @@ void main() {
   vec3 glow = vec3(0.15, 0.45, 0.55);
   vec3 col = mix(deep, mid, smoothstep(0.2, 0.65, f));
   col = mix(col, glow, smoothstep(0.55, 1.0, f) * 0.85);
-  float vign = 1.0 - pow(length(vUv - 0.5) * 1.15, 2.2);
-  col *= 0.55 + 0.45 * vign;
+  /* Sin viñeta: en modo presentador/preview full-bleed los bordes deben
+   * mantener la misma luminosidad que el centro. */
+  col *= 1.0;
   gl_FragColor = vec4(col, 1.0);
 }
 `;

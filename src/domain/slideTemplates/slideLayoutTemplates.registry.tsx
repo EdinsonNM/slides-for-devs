@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Boxes, Image as ImageIcon, PencilRuler, Table2 } from "lucide-react";
+import { Boxes, Image as ImageIcon, Map as MapIcon, PencilRuler, Table2 } from "lucide-react";
 import {
   SLIDE_LAYOUT_TEMPLATE_ID,
   type SlideLayoutTemplateId,
@@ -107,6 +107,19 @@ function PreviewMindMap() {
   );
 }
 
+function PreviewMaps() {
+  return (
+    <div className="w-full aspect-video rounded-lg border border-stone-200 bg-sky-100/80 dark:border-border dark:bg-sky-950/50 overflow-hidden relative">
+      <div className="absolute inset-0 opacity-40 bg-[linear-gradient(105deg,transparent_45%,#0ea5e9_48%,transparent_52%)]" />
+      <div className="absolute bottom-2 left-2 right-2 top-6 rounded border border-sky-300/60 bg-sky-50/90 dark:border-sky-700/50 dark:bg-sky-900/40 flex items-end justify-center gap-3 pb-2">
+        <MapIcon className="w-4 h-4 text-sky-600 dark:text-sky-400" strokeWidth={2} />
+        <div className="h-1 w-8 rounded-full bg-sky-500/50" />
+        <div className="size-2 rounded-full bg-emerald-500 shadow-sm" />
+      </div>
+    </div>
+  );
+}
+
 function PreviewMatrix() {
   return (
     <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col p-1 gap-0.5">
@@ -161,5 +174,10 @@ export const SLIDE_LAYOUT_TEMPLATE_REGISTRY: readonly SlideLayoutTemplateDefinit
     id: SLIDE_LAYOUT_TEMPLATE_ID.MIND_MAP,
     label: "Mapa Mental",
     Preview: PreviewMindMap,
+  },
+  {
+    id: SLIDE_LAYOUT_TEMPLATE_ID.MAPS,
+    label: "Mapas",
+    Preview: PreviewMaps,
   },
 ];

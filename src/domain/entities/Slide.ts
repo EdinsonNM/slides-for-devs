@@ -13,6 +13,8 @@ export const SLIDE_TYPE = {
   ISOMETRIC: "isometric",
   MIND_MAP: "mind-map",
   MATRIX: "matrix",
+  /** Mapa interactivo Mapbox (marcadores y rutas). */
+  MAPS: "maps",
 } as const;
 
 export type SlideType = (typeof SLIDE_TYPE)[keyof typeof SLIDE_TYPE];
@@ -97,6 +99,8 @@ export interface Slide {
   isometricFlowData?: string;
   /** JSON `MindMapDiagram` cuando `type === SLIDE_TYPE.MIND_MAP`. */
   mindMapData?: string;
+  /** JSON `SlideMapData` cuando `type === SLIDE_TYPE.MAPS`. */
+  mapData?: string;
   /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
   matrixData?: SlideMatrixData;
   /** Posicionamiento libre de bloques en el lienzo (% del área del slide). */

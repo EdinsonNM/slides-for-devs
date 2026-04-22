@@ -29,6 +29,9 @@ export function applySlideLayoutTemplate(
     case SLIDE_LAYOUT_TEMPLATE_ID.MIND_MAP:
       api.setCurrentSlideType(SLIDE_TYPE.MIND_MAP);
       return;
+    case SLIDE_LAYOUT_TEMPLATE_ID.MAPS:
+      api.setCurrentSlideType(SLIDE_TYPE.MAPS);
+      return;
     case SLIDE_LAYOUT_TEMPLATE_ID.MATRIX:
       api.setCurrentSlideType(SLIDE_TYPE.MATRIX);
       return;

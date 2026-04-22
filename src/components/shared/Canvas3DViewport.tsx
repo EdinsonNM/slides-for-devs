@@ -24,6 +24,10 @@ import {
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
 import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
+import {
+  R3fViewportResizeToHost,
+  useHostElementSize,
+} from "./r3fHostViewportSync";
 
 function disposeClonedGeometries(root: THREE.Object3D) {
   root.traverse((obj) => {
@@ -152,6 +156,11 @@ export interface Canvas3DViewportProps {
   showInteractionHint?: boolean;
   className?: string;
   boundsMargin?: number;
+  /**
+   * Clave opcional para forzar re-medición del host cuando el layout cambia sin resize CSS
+   * (p. ej. presentación con transforms).
+   */
+  hostMeasureKey?: string;
 }
 
 /**
@@ -166,9 +175,13 @@ export function Canvas3DViewport({
   showInteractionHint = true,
   className,
   boundsMargin = 1.25,
+  hostMeasureKey,
 }: Canvas3DViewportProps) {
   const trimmed = glbUrl?.trim() ?? "";
   const controlKey = `${slideId}|${trimmed}`;
+  const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}`;
+  const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
+  const boundsRefreshKey = `${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
 
   let sceneBody: ReactNode;
   if (!trimmed) {
@@ -179,7 +192,7 @@ export function Canvas3DViewport({
         <group key={trimmed}>
           <ArbitraryGLTF glbUrl={trimmed} />
         </group>
-        <BoundsAutoRefresh refreshKey={controlKey} />
+        <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
       </Bounds>
     );
   } else {
@@ -193,6 +206,7 @@ export function Canvas3DViewport({
   return (
     <div
       key={slideId}
+      ref={hostRef}
       className={cn(
         "relative min-h-[200px] h-full w-full bg-transparent",
         className,
@@ -222,6 +236,11 @@ export function Canvas3DViewport({
           gl.toneMappingExposure = 0.75;
         }}
       >
+        <R3fViewportResizeToHost
+          width={hostSize.width}
+          height={hostSize.height}
+          syncKey={hostObserveKey}
+        />
         <Canvas3DOrbitControls
           controlKey={controlKey}
           viewState={viewState ?? null}

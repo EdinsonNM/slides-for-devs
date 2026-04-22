@@ -8,50 +8,15 @@ import type {
   GeneratedResourceEntry,
   GeneratedResourceKind,
 } from "../types";
+import {
+  readWebPresentationRecords,
+  writeWebPresentationRecords,
+  type WebPresentationRecord,
+} from "./webPresentationsBrowserStorage";
 
 const CHARACTERS_STORAGE_KEY = "slides-for-devs-characters";
 const GENERATED_RESOURCES_STORAGE_PREFIX = "slides-for-devs-generated-resources";
-const PRESENTATIONS_WEB_STORAGE_PREFIX = "slides-for-devs-presentations";
 const MAX_WEB_GENERATED_RESOURCES = 100;
-
-/** Copia local en navegador: cuerpo + metadatos de nube en un solo JSON por ámbito. */
-type WebPresentationRecord = SavedPresentation & {
-  cloudId?: string;
-  cloudSyncedAt?: string;
-  cloudRevision?: number;
-  localBodyCleared?: boolean;
-  sharedCloudSource?: string;
-  dirtySlideIds?: string[];
-  syncStatus?: "synced" | "pending" | "offline" | "conflict";
-  lastSyncedRevision?: number;
-};
-
-function presentationsWebStorageKey(accountScope: string): string {
-  return `${PRESENTATIONS_WEB_STORAGE_PREFIX}:${accountScope}`;
-}
-
-function readWebPresentationRecords(
-  accountScope: string,
-): WebPresentationRecord[] {
-  const raw = localStorage.getItem(presentationsWebStorageKey(accountScope));
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as WebPresentationRecord[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeWebPresentationRecords(
-  accountScope: string,
-  records: WebPresentationRecord[],
-): void {
-  localStorage.setItem(
-    presentationsWebStorageKey(accountScope),
-    JSON.stringify(records),
-  );
-}
 
 function recordToMeta(r: WebPresentationRecord): SavedPresentationMeta {
   return {
@@ -127,7 +92,7 @@ function readWebGeneratedResources(
   }
 }
 
-/** Guarda la presentación en SQLite (Tauri) o localStorage (navegador) y devuelve su id */
+/** Guarda la presentación en SQLite (Tauri) o IndexedDB (navegador) y devuelve su id */
 export async function savePresentation(
   presentation: Presentation,
   accountScope: string
@@ -143,8 +108,8 @@ export async function savePresentation(
       id,
       savedAt,
     };
-    const prev = readWebPresentationRecords(accountScope);
-    writeWebPresentationRecords(accountScope, [record, ...prev]);
+    const prev = await readWebPresentationRecords(accountScope);
+    await writeWebPresentationRecords(accountScope, [record, ...prev]);
     return id;
   }
   return invoke<string>("save_presentation", {
@@ -160,7 +125,7 @@ export async function updatePresentation(
   accountScope: string
 ): Promise<void> {
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
+    const prev = await readWebPresentationRecords(accountScope);
     const idx = prev.findIndex((p) => p.id === id);
     if (idx < 0) {
       throw new Error("Presentation not found");
@@ -183,7 +148,7 @@ export async function updatePresentation(
     };
     const merged = [...prev];
     merged[idx] = next;
-    writeWebPresentationRecords(accountScope, merged);
+    await writeWebPresentationRecords(accountScope, merged);
     return;
   }
   await invoke("update_presentation", {
@@ -198,7 +163,8 @@ export async function listPresentations(
   accountScope: string
 ): Promise<SavedPresentationMeta[]> {
   if (!isTauriRuntime()) {
-    return sortPresentationMetasDesc(readWebPresentationRecords(accountScope));
+    const records = await readWebPresentationRecords(accountScope);
+    return sortPresentationMetasDesc(records);
   }
   const list = await invoke<SavedPresentationMeta[]>("list_presentations", {
     accountScope,
@@ -212,7 +178,8 @@ export async function loadPresentation(
   accountScope: string
 ): Promise<SavedPresentation> {
   if (!isTauriRuntime()) {
-    const rec = readWebPresentationRecords(accountScope).find((p) => p.id === id);
+    const records = await readWebPresentationRecords(accountScope);
+    const rec = records.find((p) => p.id === id);
     if (!rec) {
       throw new Error("Presentation not found");
     }
@@ -239,8 +206,8 @@ export async function deletePresentation(
   accountScope: string
 ): Promise<void> {
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
-    writeWebPresentationRecords(
+    const prev = await readWebPresentationRecords(accountScope);
+    await writeWebPresentationRecords(
       accountScope,
       prev.filter((p) => p.id !== id),
     );
@@ -299,7 +266,7 @@ export async function clearPresentationLocalBody(
   accountScope: string
 ): Promise<void> {
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
+    const prev = await readWebPresentationRecords(accountScope);
     const idx = prev.findIndex((p) => p.id === id);
     if (idx < 0) {
       throw new Error("Presentation not found");
@@ -312,7 +279,7 @@ export async function clearPresentationLocalBody(
       savedAt: new Date().toISOString(),
       syncStatus: "pending",
     };
-    writeWebPresentationRecords(accountScope, prev);
+    await writeWebPresentationRecords(accountScope, prev);
     return;
   }
   await invoke("clear_presentation_local_body", { id, accountScope });
@@ -324,7 +291,7 @@ export async function importSavedPresentation(
   accountScope: string
 ): Promise<void> {
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
+    const prev = await readWebPresentationRecords(accountScope);
     const without = prev.filter((p) => p.id !== saved.id);
     const record: WebPresentationRecord = {
       ...saved,
@@ -332,7 +299,7 @@ export async function importSavedPresentation(
       dirtySlideIds: [],
       syncStatus: "synced",
     };
-    writeWebPresentationRecords(accountScope, [record, ...without]);
+    await writeWebPresentationRecords(accountScope, [record, ...without]);
     return;
   }
   await invoke("import_saved_presentation", {
@@ -349,7 +316,7 @@ export async function setPresentationCloudState(
   accountScope: string
 ): Promise<void> {
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
+    const prev = await readWebPresentationRecords(accountScope);
     const idx = prev.findIndex((p) => p.id === id);
     if (idx < 0) {
       throw new Error("Presentation not found");
@@ -376,7 +343,7 @@ export async function setPresentationCloudState(
       next.syncStatus = cloudId ? "synced" : next.syncStatus;
     }
     prev[idx] = next;
-    writeWebPresentationRecords(accountScope, prev);
+    await writeWebPresentationRecords(accountScope, prev);
     return;
   }
   await invoke("set_presentation_cloud_state", {
@@ -399,7 +366,7 @@ export async function setPresentationSyncState(
 ): Promise<void> {
   const normalizedDirtySlideIds = normalizeDirtySlideIds(patch.dirtySlideIds);
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
+    const prev = await readWebPresentationRecords(accountScope);
     const idx = prev.findIndex((p) => p.id === id);
     if (idx < 0) {
       throw new Error("Presentation not found");
@@ -417,7 +384,7 @@ export async function setPresentationSyncState(
       next.lastSyncedRevision = patch.lastSyncedRevision;
     }
     prev[idx] = next;
-    writeWebPresentationRecords(accountScope, prev);
+    await writeWebPresentationRecords(accountScope, prev);
     return;
   }
   await invoke("set_presentation_sync_state", {
@@ -439,7 +406,7 @@ export async function setPresentationSharedCloudSource(
   accountScope: string
 ): Promise<void> {
   if (!isTauriRuntime()) {
-    const prev = readWebPresentationRecords(accountScope);
+    const prev = await readWebPresentationRecords(accountScope);
     const idx = prev.findIndex((p) => p.id === id);
     if (idx < 0) {
       throw new Error("Presentation not found");
@@ -452,7 +419,7 @@ export async function setPresentationSharedCloudSource(
       next.sharedCloudSource = sharedCloudSource;
     }
     prev[idx] = next;
-    writeWebPresentationRecords(accountScope, prev);
+    await writeWebPresentationRecords(accountScope, prev);
     return;
   }
   await invoke("set_presentation_shared_cloud_source", {

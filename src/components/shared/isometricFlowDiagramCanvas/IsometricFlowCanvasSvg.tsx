@@ -58,7 +58,7 @@ export function IsometricFlowCanvasSvg({ ctrl }: IsometricFlowCanvasSvgProps) {
         "h-full w-full touch-none select-none text-slate-900 dark:text-slate-100",
         panDrag ? "cursor-grabbing" : marqueeRect ? "cursor-crosshair" : "cursor-default",
       )}
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio={readOnly ? "xMidYMid slice" : "xMidYMid meet"}
       onPointerDown={onSvgPointerDown}
       onPointerMove={(e) => {
         const svg = svgRef.current;

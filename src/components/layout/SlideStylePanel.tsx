@@ -6,6 +6,8 @@ import { SLIDE_LAYOUT_TEMPLATE_REGISTRY } from "../../domain/slideTemplates/slid
 import { inferSlideLayoutTemplateId } from "../../domain/slideTemplates/inferSlideLayoutTemplateId";
 import { applySlideLayoutTemplate } from "../../domain/slideTemplates/slideLayoutTemplateApply";
 import { DECK_THEME_PRESETS } from "../../constants/deckVisualThemes";
+import { SLIDE_TYPE } from "../../domain/entities";
+import { MapSlideInspectorSection } from "./MapSlideInspectorSection";
 
 interface SlideStylePanelProps {
   variant?: "toolbar" | "inspector";
@@ -197,6 +199,9 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {isTheme ? deckThemesRow : null}
         {!isTheme ? header : null}
         {!isTheme ? templatesRow : null}
+        {!isTheme && currentSlide?.type === SLIDE_TYPE.MAPS ? (
+          <MapSlideInspectorSection />
+        ) : null}
       </div>
     );
   }
@@ -213,6 +218,7 @@ export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
         {header}
         {deckThemesRow}
         {templatesRow}
+        {currentSlide?.type === SLIDE_TYPE.MAPS ? <MapSlideInspectorSection /> : null}
       </motion.div>
     </AnimatePresence>
   );

@@ -10,6 +10,7 @@ export const SLIDE_LAYOUT_TEMPLATE_ID = {
   ISOMETRIC_FLOW: "isometric-flow",
   MIND_MAP: "mind-map",
   MATRIX: "matrix",
+  MAPS: "maps",
 } as const;
 
 export type SlideLayoutTemplateId =
