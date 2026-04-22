@@ -80,6 +80,11 @@ import { usePresentationOrchestratorRefSync } from "../presentation/state/usePre
 import type { ApplySavedPresentationEditorContext } from "../presentation/state/applySavedPresentationToEditorState";
 import type { WebCloudEditSession } from "../presentation/state/webCloudSession";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
+import {
+  PRESENTER_MODE_STORAGE_KEY,
+  PRESENTER_MODES,
+  isPresenterMode,
+} from "../constants/presenterModes";
 
 /** Re-export público para consumidores que importaban desde este archivo. */
 export {
@@ -284,6 +289,11 @@ export function usePresentationState() {
   );
   const [includeBackground, setIncludeBackground] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [presenterMode, setPresenterMode] = useState(() => {
+    if (typeof window === "undefined") return PRESENTER_MODES.POWERPOINT;
+    const stored = window.localStorage.getItem(PRESENTER_MODE_STORAGE_KEY);
+    return isPresenterMode(stored) ? stored : PRESENTER_MODES.POWERPOINT;
+  });
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
 
   const {
@@ -608,6 +618,11 @@ export function usePresentationState() {
       return updated;
     });
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(PRESENTER_MODE_STORAGE_KEY, presenterMode);
+  }, [presenterMode]);
 
   const {
     patchCurrentSlideMatrix,
@@ -1069,6 +1084,8 @@ export function usePresentationState() {
     generateCharacterPreview,
     isPreviewMode,
     setIsPreviewMode,
+    presenterMode,
+    setPresenterMode,
     diagramFlushRef,
     isometricFlowFlushRef,
     diagramRemountToken,
