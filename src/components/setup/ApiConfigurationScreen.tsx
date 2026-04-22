@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeft,
@@ -44,9 +44,6 @@ import {
   readStoredMeshyAiModelId,
   writeStoredMeshyAiModelId,
 } from "../../constants/meshyModels";
-
-const REQUIRED_HEADLINE =
-  "Activa la IA en un minuto: una clave de Gemini u OpenAI y empiezas a crear.";
 
 const GENERATE_HINT =
   "Pega tu clave abajo y vuelve a generar: Slaim no almacena tus keys en sus servidores.";
@@ -315,239 +312,6 @@ function ProviderCredentialCard({
   );
 }
 
-function SlaimSubscriptionPricingReference({
-  context,
-  slaimBillingTier,
-  setSlaimBillingTier,
-  sectionClassName,
-}: {
-  context: "onboarding" | "settings";
-  slaimBillingTier: SlaimBillingTier;
-  setSlaimBillingTier: (t: SlaimBillingTier) => void;
-  sectionClassName?: string;
-}) {
-  const headingId =
-    context === "onboarding" ? "sub-detail-heading" : "sub-detail-heading-settings";
-
-  return (
-    <section
-      aria-labelledby={headingId}
-      className={cn(
-        "rounded-2xl border border-stone-200/80 dark:border-border bg-white/90 dark:bg-surface-elevated/90 shadow-sm p-5 sm:p-8",
-        sectionClassName ?? "mb-8",
-      )}
-    >
-      <h2
-        id={headingId}
-        className="text-lg font-semibold text-stone-900 dark:text-foreground mb-2"
-      >
-        Opciones de pago (soles)
-      </h2>
-      {context === "onboarding" ? (
-        <p className="text-sm text-stone-600 dark:text-stone-400 mb-4 max-w-2xl">
-          La tienda en la app está en camino. Mientras tanto, elige{" "}
-          <strong className="text-stone-800 dark:text-stone-200">Tu API</strong>{" "}
-          arriba y crea sin esperar.
-        </p>
-      ) : (
-        <p className="text-sm text-stone-600 dark:text-stone-400 mb-4 max-w-2xl">
-          Precios en soles para cuando activemos el cobro en la app. Hoy sigues
-          con tus claves de API arriba.
-        </p>
-      )}
-      <ul className="space-y-2 text-sm text-stone-700 dark:text-stone-300 mb-6">
-        <li className="flex gap-2">
-          <Check
-            size={16}
-            className="shrink-0 mt-0.5 text-stone-500 dark:text-stone-400"
-            aria-hidden
-          />
-          Misma app: aquí pagas un pack Slaim en lugar de APIs sueltas.
-        </li>
-        <li className="flex gap-2">
-          <Check
-            size={16}
-            className="shrink-0 mt-0.5 text-stone-500 dark:text-stone-400"
-            aria-hidden
-          />
-          Pensado para equipos que quieren una sola línea en el presupuesto.
-        </li>
-      </ul>
-      <p className="text-xs font-medium text-stone-600 dark:text-stone-400 mb-3">
-        Elige periodicidad. El pago en la app llegará en una próxima versión.
-      </p>
-      <div
-        className="max-w-4xl space-y-5"
-        role="radiogroup"
-        aria-label="Opciones de pago del plan Slaim"
-      >
-        <div
-          className="rounded-2xl border-2 border-dashed border-amber-300/70 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/20 p-4 sm:p-5"
-          aria-labelledby="slaim-one-time-heading"
-        >
-          <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <h3
-              id="slaim-one-time-heading"
-              className="text-xs font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200"
-            >
-              Pago único
-            </h3>
-            <span className="text-[11px] text-amber-900/80 dark:text-amber-200/80">
-              Un solo cobro. No se renueva solo al terminar el periodo.
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={slaimBillingTier === "day"}
-              onClick={() => setSlaimBillingTier("day")}
-              className={cn(
-                "relative rounded-xl border-2 px-3 py-3 text-left transition-all bg-white/90 dark:bg-stone-950/40",
-                slaimBillingTier === "day"
-                  ? "border-amber-500 bg-amber-50/90 dark:bg-amber-950/35 ring-1 ring-amber-500/30"
-                  : "border-amber-200/80 dark:border-amber-800/40 hover:border-amber-400/70",
-              )}
-            >
-              <span className="inline-block rounded-md bg-amber-100/90 dark:bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100 mb-1.5">
-                Pago único
-              </span>
-              <span className="block text-sm font-medium text-stone-800 dark:text-stone-200">
-                1 día
-              </span>
-              <span className="mt-1 block text-lg font-semibold text-amber-950 dark:text-amber-200 tabular-nums">
-                S/ {formatAmount2(SLAI_PRICE_DAY)}
-              </span>
-              <p className="mt-1 text-[11px] text-stone-600 dark:text-stone-400 leading-snug">
-                Acceso a funciones premium con IA durante 24 horas. Al terminar
-                el periodo, no se pierden tus documentos creados.
-              </p>
-            </button>
-
-            <button
-              type="button"
-              role="radio"
-              aria-checked={slaimBillingTier === "week"}
-              onClick={() => setSlaimBillingTier("week")}
-              className={cn(
-                "relative rounded-xl border-2 px-3 py-3 text-left transition-all bg-white/90 dark:bg-stone-950/40",
-                slaimBillingTier === "week"
-                  ? "border-amber-500 bg-amber-50/90 dark:bg-amber-950/35 ring-1 ring-amber-500/30"
-                  : "border-amber-200/80 dark:border-amber-800/40 hover:border-amber-400/70",
-              )}
-            >
-              <span className="inline-block rounded-md bg-amber-100/90 dark:bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100 mb-1.5">
-                Pago único
-              </span>
-              <span className="block text-sm font-medium text-stone-800 dark:text-stone-200">
-                1 semana
-              </span>
-              <span className="mt-1 block text-lg font-semibold text-amber-950 dark:text-amber-200 tabular-nums">
-                S/ {formatAmount2(SLAI_PRICE_WEEK_ONE_TIME)}
-              </span>
-              <p className="mt-1 text-[11px] text-stone-600 dark:text-stone-400 leading-snug">
-                Si buscas más flexibilidad que un solo día, puedes elegir este
-                plan: acceso premium con IA durante 7 días. Pago único, sin
-                renovación automática.
-              </p>
-            </button>
-          </div>
-        </div>
-
-        <div
-          className="rounded-2xl border-2 border-teal-400/45 dark:border-teal-600/40 bg-teal-50/35 dark:bg-teal-950/25 p-4 sm:p-5"
-          aria-labelledby="slaim-recurring-heading"
-        >
-          <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <h3
-              id="slaim-recurring-heading"
-              className="text-xs font-bold uppercase tracking-wide text-teal-900 dark:text-teal-200"
-            >
-              Suscripción recurrente
-            </h3>
-            <span className="text-[11px] text-teal-900/85 dark:text-teal-200/80">
-              Cobro automático cada periodo hasta que canceles.
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={slaimBillingTier === "month"}
-              onClick={() => setSlaimBillingTier("month")}
-              className={cn(
-                "relative rounded-xl border-2 px-3 py-3 text-left transition-all bg-white/90 dark:bg-stone-950/40",
-                slaimBillingTier === "month"
-                  ? "border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 ring-1 ring-teal-500/25"
-                  : "border-teal-200/70 dark:border-teal-800/45 hover:border-teal-400/70",
-              )}
-            >
-              <span className="inline-block rounded-md bg-teal-100/90 dark:bg-teal-900/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-900 dark:text-teal-100 mb-1.5">
-                Recurrente
-              </span>
-              <span className="block text-sm font-medium text-stone-800 dark:text-stone-200">
-                Mensual
-              </span>
-              <span className="mt-1 block text-lg font-semibold text-teal-800 dark:text-teal-300 tabular-nums">
-                S/ {formatAmount2(SLAI_PRICE_MONTH_RECURRING)}
-              </span>
-              <p className="mt-1 text-[11px] text-stone-600 dark:text-stone-400 leading-snug">
-                S/ {formatAmount2(SLAI_PRICE_MONTH_RECURRING)} al mes · renovación
-                automática cada mes hasta que canceles.
-              </p>
-            </button>
-
-            <button
-              type="button"
-              role="radio"
-              aria-checked={slaimBillingTier === "year"}
-              onClick={() => setSlaimBillingTier("year")}
-              className={cn(
-                "relative rounded-xl border-2 px-3 py-3 text-left transition-all bg-white/90 dark:bg-stone-950/40",
-                slaimBillingTier === "year"
-                  ? "border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 ring-1 ring-teal-500/25"
-                  : "border-teal-200/70 dark:border-teal-800/45 hover:border-teal-400/70",
-              )}
-            >
-              <span className="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wide rounded-full bg-emerald-600 text-white px-2 py-0.5 shadow-sm">
-                Mejor oferta
-              </span>
-              <span className="inline-block rounded-md bg-teal-100/90 dark:bg-teal-900/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-900 dark:text-teal-100 mb-1.5">
-                Recurrente
-              </span>
-              <span className="block text-sm font-medium text-stone-800 dark:text-stone-200 pr-16">
-                Anual
-              </span>
-              <span className="mt-1 block text-lg font-semibold text-teal-800 dark:text-teal-300 tabular-nums">
-                S/ {formatAmount2(SLAI_PRICE_YEAR)}
-              </span>
-              <p className="mt-1 text-[11px] text-stone-600 dark:text-stone-400 leading-snug">
-                S/ {formatAmount2(SLAI_PRICE_YEAR)} al año · renovación automática
-                anual hasta que canceles.
-              </p>
-              <p className="mt-1.5 text-[11px] text-emerald-800 dark:text-emerald-300/95 font-medium leading-snug">
-                ≈{SLAI_YEAR_SAVINGS_PERCENT}% menos vs. 12 × mensual (~S/{" "}
-                {formatAmount2(SLAI_YEAR_EFFECTIVE_MONTHLY)}/mes).
-              </p>
-            </button>
-          </div>
-        </div>
-      </div>
-      {context === "onboarding" ? (
-        <p className="mt-6 text-sm text-amber-800 dark:text-amber-200/90 rounded-lg border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/90 dark:bg-amber-950/35 px-3 py-2.5">
-          Para usar Slaim hoy, vuelve arriba a <strong>Tu API</strong> y pega al menos
-          una clave.
-        </p>
-      ) : (
-        <p className="mt-6 text-sm text-stone-600 dark:text-stone-400 rounded-lg border border-stone-200/80 dark:border-border bg-stone-50/80 dark:bg-stone-900/40 px-3 py-2.5">
-          Cuando activemos la tienda, podrás contratar el plan desde esta misma
-          pantalla.
-        </p>
-      )}
-    </section>
-  );
-}
-
 const SETTINGS_PATH_HUB = "/configure-ai?mode=settings";
 const SETTINGS_PATH_KEYS = "/configure-ai?mode=settings&view=keys";
 const SETTINGS_PATH_SUBSCRIBE = "/configure-ai?mode=settings&view=subscribe";
@@ -681,17 +445,14 @@ export interface ApiConfigurationScreenProps {
 export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const mode = searchParams.get("mode") === "settings" ? "settings" : "onboarding";
   const reasonGenerate = searchParams.get("reason") === "generate";
   const settingsViewParam = searchParams.get("view");
   const settingsView: "hub" | "keys" | "subscribe" =
-    mode === "settings"
-      ? settingsViewParam === "keys"
-        ? "keys"
-        : settingsViewParam === "subscribe"
-          ? "subscribe"
-          : "hub"
-      : "hub";
+    settingsViewParam === "keys"
+      ? "keys"
+      : settingsViewParam === "subscribe"
+        ? "subscribe"
+        : "hub";
 
   const {
     setPresentationModelId,
@@ -830,13 +591,10 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
   };
 
   const pageTitle = useMemo(() => {
-    if (mode === "settings") {
-      if (settingsView === "keys") return "Claves y proveedores";
-      if (settingsView === "subscribe") return "Plan Slaim";
-      return "Configura Slaim";
-    }
-    return "Conecta tu IA";
-  }, [mode, settingsView]);
+    if (settingsView === "keys") return "Claves y proveedores";
+    if (settingsView === "subscribe") return "Plan Slaim";
+    return "Configura Slaim";
+  }, [settingsView]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -861,21 +619,14 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
       await setOpenRouterApiKey(openrouterKey);
       await setMeshyApiKey(meshyKey);
       onSaved();
-      if (mode === "settings") {
-        navigate(SETTINGS_PATH_HUB);
-      } else {
-        navigate("/", { replace: true });
-      }
+      navigate(SETTINGS_PATH_HUB);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleBack = () => {
-    if (
-      mode === "settings" &&
-      (settingsView === "keys" || settingsView === "subscribe")
-    ) {
+    if (settingsView === "keys" || settingsView === "subscribe") {
       navigate(SETTINGS_PATH_HUB);
       return;
     }
@@ -891,55 +642,41 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-24">
         <div className="flex items-center gap-3 mb-8">
-          {mode === "settings" ? (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-teal-800 dark:hover:text-teal-300 transition-colors"
-            >
-              <ArrowLeft size={18} aria-hidden />
-              Volver
-            </button>
-          ) : (
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/80 dark:bg-surface-elevated/80 px-3 py-1 text-xs font-medium text-teal-800 dark:text-teal-200 border border-teal-200/60 dark:border-teal-800/50 shadow-sm">
-              <KeyRound size={14} className="shrink-0" aria-hidden />
-              Paso 1 de 1
-            </span>
-          )}
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-teal-800 dark:hover:text-teal-300 transition-colors"
+          >
+            <ArrowLeft size={18} aria-hidden />
+            Volver
+          </button>
         </div>
 
         <header className="mb-10 sm:mb-12">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-stone-900 dark:text-foreground">
             {pageTitle}
           </h1>
-          {mode === "onboarding" && (
-            <div className="mt-6 space-y-4">
-              <p className="text-lg sm:text-xl text-stone-700 dark:text-stone-200 leading-relaxed max-w-3xl">
-                {REQUIRED_HEADLINE}
-              </p>
-              {reasonGenerate && (
-                <p
-                  role="status"
-                  className="text-base text-teal-900 dark:text-teal-100/90 max-w-3xl rounded-xl border border-teal-200/80 dark:border-teal-800/60 bg-teal-50/90 dark:bg-teal-950/40 px-4 py-3"
-                >
-                  {GENERATE_HINT}
-                </p>
-              )}
-            </div>
+          {reasonGenerate && (
+            <p
+              role="status"
+              className="mt-4 text-base text-teal-900 dark:text-teal-100/90 max-w-3xl rounded-xl border border-teal-200/80 dark:border-teal-800/60 bg-teal-50/90 dark:bg-teal-950/40 px-4 py-3"
+            >
+              {GENERATE_HINT}
+            </p>
           )}
-          {mode === "settings" && settingsView === "hub" && (
+          {settingsView === "hub" && (
             <p className="mt-3 text-stone-600 dark:text-stone-400 max-w-2xl leading-relaxed">
               Elige cómo quieres usar la IA en Slaim: configúralo en modo gratuito
               con tus propias APIs o adquiere el plan Slaim.
             </p>
           )}
-          {mode === "settings" && settingsView === "keys" && (
+          {settingsView === "keys" && (
             <p className="mt-3 text-stone-600 dark:text-stone-400 max-w-2xl leading-relaxed">
               Edita proveedores, imágenes, Meshy y sync. Todo queda en tu
               dispositivo.
             </p>
           )}
-          {mode === "settings" && settingsView === "subscribe" && (
+          {settingsView === "subscribe" && (
             <p className="mt-3 text-stone-600 dark:text-stone-400 max-w-2xl leading-relaxed">
               Precios en soles. El cobro desde la app llegará en una próxima
               versión.
@@ -947,7 +684,7 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
           )}
         </header>
 
-        {mode === "settings" && settingsView === "hub" ? (
+        {settingsView === "hub" ? (
           <section
             aria-labelledby="settings-ia-options-heading"
             className="mb-6 sm:mb-8"
@@ -1154,7 +891,7 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
           </section>
         ) : null}
 
-        {mode === "settings" && settingsView === "subscribe" ? (
+        {settingsView === "subscribe" ? (
           <section
             aria-labelledby="subscribe-plans-heading"
             className="mb-8 space-y-6"
@@ -1177,121 +914,7 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
           </section>
         ) : null}
 
-        {mode === "onboarding" ? (
-          <section aria-labelledby="planes-heading" className="mb-8 sm:mb-10">
-            <h2
-              id="planes-heading"
-              className="text-sm font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300 mb-3"
-            >
-              Cómo quieres pagar la IA
-            </h2>
-            <div
-              className="flex flex-col gap-3 sm:flex-row sm:items-stretch rounded-2xl border border-stone-200/90 dark:border-border bg-white/80 dark:bg-surface-elevated/70 p-1.5 sm:p-2 shadow-sm"
-              role="radiogroup"
-              aria-label="Modo de uso de la IA"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={planMode === "free"}
-                onClick={() => setPlanMode("free")}
-                className={cn(
-                  "relative flex-1 text-left rounded-xl px-4 py-3.5 transition-all",
-                  planMode === "free"
-                    ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"
-                    : "text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800/60",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles
-                    size={18}
-                    className={cn(
-                      "shrink-0",
-                      planMode === "free"
-                        ? "text-white"
-                        : "text-teal-600 dark:text-teal-400",
-                    )}
-                    aria-hidden
-                  />
-                  <span className="font-semibold">Tu API</span>
-                  <span
-                    className={cn(
-                      "ml-auto text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5",
-                      planMode === "free"
-                        ? "bg-white/20 text-white"
-                        : "bg-teal-100 text-teal-800 dark:bg-teal-900/70 dark:text-teal-200",
-                    )}
-                  >
-                    Recomendado
-                  </span>
-                </div>
-                <p
-                  className={cn(
-                    "mt-1.5 text-xs leading-snug",
-                    planMode === "free"
-                      ? "text-white/90"
-                      : "text-stone-600 dark:text-stone-400",
-                  )}
-                >
-                  Slaim no cobra la generación: pagas a Google, OpenAI u otros
-                  según tu uso. Mismas funciones creativas.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                role="radio"
-                aria-checked={planMode === "subscription"}
-                onClick={() => setPlanMode("subscription")}
-                className={cn(
-                  "relative flex-1 text-left rounded-xl px-4 py-3.5 transition-all border border-transparent",
-                  planMode === "subscription"
-                    ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-md"
-                    : "text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800/60",
-                )}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <CreditCard
-                    size={18}
-                    className={cn(
-                      "shrink-0",
-                      planMode === "subscription"
-                        ? "text-white dark:text-stone-800"
-                        : "text-stone-500 dark:text-stone-400",
-                    )}
-                    aria-hidden
-                  />
-                  <span className="font-semibold">Plan Slaim</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide rounded-full bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-2 py-0.5">
-                    Pronto
-                  </span>
-                </div>
-                <p
-                  className={cn(
-                    "mt-1.5 text-xs leading-snug",
-                    planMode === "subscription"
-                      ? "text-white/85 dark:text-stone-700"
-                      : "text-stone-600 dark:text-stone-400",
-                  )}
-                >
-                  Un precio en soles, sin pelear con facturas de terceros. Hoy
-                  sigue en camino: usa Tu API para empezar ya.
-                </p>
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        {planMode === "subscription" && mode === "onboarding" ? (
-          <SlaimSubscriptionPricingReference
-            context="onboarding"
-            slaimBillingTier={slaimBillingTier}
-            setSlaimBillingTier={setSlaimBillingTier}
-          />
-        ) : null}
-
-        {(mode === "onboarding" && planMode === "free") ||
-        (mode === "settings" && settingsView === "keys") ? (
+        {settingsView === "keys" ? (
           <section
             id="proveedores"
             aria-labelledby="claves-heading"
@@ -1547,26 +1170,13 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
               )}
 
               <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2 max-w-2xl">
-                {mode === "settings" ? (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="sm:flex-1 py-3 px-4 rounded-xl border border-stone-200 dark:border-border text-stone-600 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface transition-colors text-sm font-medium"
-                  >
-                    Cancelar
-                  </button>
-                ) : (
-                  <p className="sm:flex-1 text-xs text-stone-500 dark:text-stone-500 self-center">
-                    Guarda y vuelve al inicio para generar decks. Sin clave la IA
-                    no arranca.{" "}
-                    <Link
-                      to="/"
-                      className="text-teal-700 dark:text-teal-400 hover:underline font-medium"
-                    >
-                      Ir al inicio
-                    </Link>
-                  </p>
-                )}
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="sm:flex-1 py-3 px-4 rounded-xl border border-stone-200 dark:border-border text-stone-600 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface transition-colors text-sm font-medium"
+                >
+                  Cancelar
+                </button>
                 <button
                   type="submit"
                   disabled={!canSaveFree || isSaving}
