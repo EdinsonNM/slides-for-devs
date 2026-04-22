@@ -1,0 +1,8 @@
+# Netlify: el bundle (Vite + dependencias pesadas) supera el heap por defecto de Node (~2 GiB).
+# Ver https://ntl.fyi/exit-code-134 y documentación de NODE_OPTIONS.
+[build]
+  command = "pnpm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_OPTIONS = "--max-old-space-size=4096"
