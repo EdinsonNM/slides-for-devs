@@ -4,18 +4,30 @@ import { migrateLegacySlideToCanvas } from "./migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 import { upgradeSlideToBlockModel } from "./upgradeSlideToBlockModel";
 
-function isometricFlowNotFullBleed(iso: { rect: { x: number; y: number; w: number; h: number } }): boolean {
+function canvasFullBleedElementNotFull(
+  iso: { rect: { x: number; y: number; w: number; h: number } },
+): boolean {
   const { x, y, w, h } = iso.rect;
   return x > 0.5 || y > 0.5 || w < 99 || h < 99;
 }
 
 /** Diagrama isométrico no a pantalla completa (p. ej. layout antiguo): restaura rect y z sin borrar bloques de texto. */
 function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
-  if (slide.type !== SLIDE_TYPE.ISOMETRIC && slide.type !== SLIDE_TYPE.MIND_MAP) return slide;
+  if (
+    slide.type !== SLIDE_TYPE.ISOMETRIC &&
+    slide.type !== SLIDE_TYPE.MIND_MAP &&
+    slide.type !== SLIDE_TYPE.MAPS
+  )
+    return slide;
   const cs = slide.canvasScene;
   if (!isSlideCanvasScene(cs)) return slide;
-  
-  const expectedKind = slide.type === SLIDE_TYPE.ISOMETRIC ? "isometricFlow" : "mindMap";
+
+  const expectedKind =
+    slide.type === SLIDE_TYPE.ISOMETRIC
+      ? "isometricFlow"
+      : slide.type === SLIDE_TYPE.MIND_MAP
+        ? "mindMap"
+        : "mapboxMap";
   const iso = cs.elements.find((e) => e.kind === expectedKind);
 
   if (!iso) {
@@ -30,7 +42,7 @@ function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
     return { ...slide, canvasScene: { ...cs, elements } };
   }
 
-  if (!isometricFlowNotFullBleed(iso)) return slide;
+  if (!canvasFullBleedElementNotFull(iso)) return slide;
 
   const others = cs.elements.filter((e) => e.kind !== expectedKind);
   const isoFixed = {

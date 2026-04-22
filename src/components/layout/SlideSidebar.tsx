@@ -6,6 +6,8 @@ import {
   Plus,
   Table2,
   GripVertical,
+  Map,
+  Network,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
@@ -273,6 +275,30 @@ export function SlideSidebar() {
                       <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0 flex items-center gap-0.5">
                         <Table2 className="w-2.5 h-2.5" strokeWidth={2} />
                         Matriz
+                      </span>
+                    </div>
+                  ) : slide.type === SLIDE_TYPE.MIND_MAP ? (
+                    <div className="flex-1 flex flex-col gap-1 min-h-0">
+                      <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
+                        {slide.title || "Mapa mental"}
+                      </span>
+                      <div className="flex-1 min-h-0 flex items-center justify-center rounded border border-dashed border-stone-200 bg-stone-900/90 dark:border-stone-600">
+                        <Network className="w-5 h-5 text-sky-400/90" strokeWidth={1.5} />
+                      </div>
+                      <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
+                        Mapa mental
+                      </span>
+                    </div>
+                  ) : slide.type === SLIDE_TYPE.MAPS ? (
+                    <div className="flex-1 flex flex-col gap-1 min-h-0">
+                      <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
+                        {slide.title || "Mapa"}
+                      </span>
+                      <div className="flex-1 min-h-0 flex items-center justify-center rounded border border-stone-200 bg-linear-to-br from-sky-100 to-sky-50 dark:border-stone-600 dark:from-sky-950/80 dark:to-slate-900">
+                        <Map className="w-5 h-5 text-sky-600 dark:text-sky-400" strokeWidth={1.5} />
+                      </div>
+                      <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
+                        Mapas
                       </span>
                     </div>
                   ) : slide.type === SLIDE_TYPE.CONTENT ? (

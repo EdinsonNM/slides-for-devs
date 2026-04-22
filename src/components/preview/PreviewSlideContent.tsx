@@ -72,6 +72,10 @@ export function PreviewSlideContent({
   const sectionLabelClass = deckSectionLabelClass(deckVisualTheme.contentTone);
   const isFullscreen = layout === "fullscreen";
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
+  const hideDeckBackdropBehindCanvas =
+    isIsometricSlide ||
+    slide.type === SLIDE_TYPE.MIND_MAP ||
+    slide.type === SLIDE_TYPE.MAPS;
   const isDataMotionRingSlide =
     slide.type === SLIDE_TYPE.CONTENT &&
     resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
@@ -112,10 +116,13 @@ export function PreviewSlideContent({
                 ? "h-full w-full min-h-0 flex-1"
                 : "aspect-video max-h-full flex-1",
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
-            isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+            (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
+              "bg-slate-50 dark:bg-slate-950",
           )}
         >
-          {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
+          {!hideDeckBackdropBehindCanvas && (
+            <DeckBackdrop theme={deckVisualTheme} />
+          )}
           <SlideCanvasView
             slide={slide}
             className="relative z-[1] min-h-0 flex-1"
@@ -156,10 +163,13 @@ export function PreviewSlideContent({
             ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
             : "aspect-video max-h-full flex-1",
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
-          isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+          (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
+            "bg-slate-50 dark:bg-slate-950",
         )}
       >
-        {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
+        {!hideDeckBackdropBehindCanvas && (
+          <DeckBackdrop theme={deckVisualTheme} />
+        )}
         <SlideCanvasView
           slide={slide}
           className="relative z-[1] min-h-0 flex-1"

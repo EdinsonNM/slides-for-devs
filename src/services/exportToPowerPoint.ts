@@ -405,6 +405,29 @@ async function addSlideToPptx(
     return;
   }
 
+  if (slide.type === SLIDE_TYPE.MAPS) {
+    s.addText(slide.title || "Mapa", {
+      x: 0.5,
+      y: 0.3,
+      w: "90%",
+      h: 0.6,
+      fontSize: 28,
+      bold: true,
+      fontFace: "Arial",
+    });
+    s.addText("(Mapa Mapbox – revisar en la app; exporta imagen si hay token y carga de teselas)", {
+      x: 0.5,
+      y: 2.5,
+      w: "90%",
+      h: 0.5,
+      fontSize: 14,
+      color: "7F7F7F",
+      align: "center",
+      fontFace: "Arial",
+    });
+    return;
+  }
+
   if (slide.type === SLIDE_TYPE.ISOMETRIC) {
     let y = 0.3;
     s.addText(slide.title || "Diagrama isométrico", {

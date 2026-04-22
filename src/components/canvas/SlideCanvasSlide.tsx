@@ -66,6 +66,7 @@ import { SlideRightPanel } from "../editor/SlideRightPanel";
 import { SlideContentDiagram } from "../editor/SlideContentDiagram";
 import { SlideContentIsometricFlow } from "../editor/SlideContentIsometricFlow";
 import { SlideContentMindMap } from "../editor/SlideContentMindMap";
+import { SlideContentMapbox } from "../editor/SlideContentMapbox";
 import type { SlideMatrixData } from "../../domain/entities";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import { SlideCanvasAlignmentGuides } from "./SlideCanvasAlignmentGuides";
@@ -883,6 +884,7 @@ export function SlideCanvasSlide() {
     showIaToolbar &&
     resolveMediaPanelDescriptor(slide).showSlideContentIframeEmbedToolbar();
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
+  const isMapsSlide = slide.type === SLIDE_TYPE.MAPS;
 
   return (
     <div
@@ -892,7 +894,7 @@ export function SlideCanvasSlide() {
       className={cn(
         "relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
         deckSlideContentWrapperClass(deckVisualTheme.contentTone),
-        isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+        (isIsometricSlide || isMapsSlide) && "bg-slate-50 dark:bg-slate-950",
         slide.type === SLIDE_TYPE.CONTENT &&
           isDragOverImageFile &&
           "ring-2 ring-emerald-500/60 ring-inset",
@@ -905,7 +907,10 @@ export function SlideCanvasSlide() {
       {slide.type === SLIDE_TYPE.MIND_MAP && (
         <SlideContentMindMap />
       )}
-      {!isIsometricSlide && slide.type !== SLIDE_TYPE.MIND_MAP && <DeckBackdrop theme={deckVisualTheme} />}
+      {slide.type === SLIDE_TYPE.MAPS && <SlideContentMapbox />}
+      {!isIsometricSlide &&
+        slide.type !== SLIDE_TYPE.MIND_MAP &&
+        slide.type !== SLIDE_TYPE.MAPS && <DeckBackdrop theme={deckVisualTheme} />}
       {alignmentGuides ? (
         <SlideCanvasAlignmentGuides
           vertical={alignmentGuides.vertical}
@@ -1007,6 +1012,9 @@ export function SlideCanvasSlide() {
             return false;
           }
           if (slide.type === SLIDE_TYPE.MIND_MAP && el.kind === "mindMap") {
+            return false;
+          }
+          if (slide.type === SLIDE_TYPE.MAPS && el.kind === "mapboxMap") {
             return false;
           }
           return true;

@@ -39,6 +39,8 @@ import { IsometricFlowDiagramCanvas } from "../shared/IsometricFlowDiagramCanvas
 import { parseMindMapDiagram } from "../../domain/entities/MindMapDiagram";
 import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
+import { parseSlideMapData } from "../../domain/entities/SlideMapData";
+import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
@@ -50,6 +52,10 @@ import {
 } from "../../domain/panelContent";
 
 const { Alignment, Fit, Layout } = RiveReact;
+
+const MAPBOX_ENV_TOKEN = (
+  import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined
+)?.trim();
 
 const riveReadonlyLayout = new Layout({
   fit: Fit.Contain,
@@ -460,6 +466,37 @@ function CanvasElementReadOnly({
               key={`${slide.id}-${slide.mindMapData ? "m" : "empty"}`}
               data={parseMindMapDiagram(slide.mindMapData)}
               readOnly
+              className="h-full w-full"
+            />,
+          )}
+        </div>
+      );
+    case "mapboxMap":
+      if (slide.type !== SLIDE_TYPE.MAPS) return null;
+      if (!MAPBOX_ENV_TOKEN) {
+        return (
+          <div
+            style={box}
+            className={cn(
+              shell,
+              "flex items-center justify-center bg-slate-900 px-2 text-center text-[11px] text-slate-400",
+            )}
+          >
+            Mapbox: configura VITE_MAPBOX_ACCESS_TOKEN para ver el mapa.
+          </div>
+        );
+      }
+      return (
+        <div style={box} className={shell}>
+          {rotated(
+            "absolute inset-0 min-h-0",
+            <SlideMapboxCanvas
+              key={`${slide.id}-map`}
+              mapData={parseSlideMapData(slide.mapData)}
+              accessToken={MAPBOX_ENV_TOKEN}
+              readOnly
+              persistViewportOnMoveEnd={false}
+              registerViewportCaptureBridge={false}
               className="h-full w-full"
             />,
           )}
