@@ -61,7 +61,6 @@ export type PresentationAiModalsDeps = {
   ) => Promise<string | null>;
   runAutoSyncAfterSaveRef: MutableRefObject<(id: string) => Promise<void>>;
   user: { uid: string } | null;
-  autoCloudSyncOnSave: boolean;
   showImageModal: boolean;
   setShowImageModal: (open: boolean) => void;
   setShowImageUploadModal: (open: boolean) => void;

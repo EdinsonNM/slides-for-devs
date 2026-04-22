@@ -175,11 +175,7 @@ export function usePresentationSavePresentation(
         }
         trackEvent(ANALYTICS_EVENTS.PRESENTATION_SAVED);
         setTimeout(() => d.setSaveMessage(null), 2000);
-        if (
-          savedId &&
-          d.autoCloudSyncOnSave &&
-          d.user
-        ) {
+        if (savedId && d.user) {
           void d.maybeAutoSyncAfterLocalSave(savedId);
         }
       } catch (e) {

@@ -6,6 +6,5 @@ export type PresentationDeckCoversDeps = {
   localAccountScope: string;
   geminiImageModelId: string;
   user: { uid: string } | null;
-  autoCloudSyncOnSave: boolean;
   runAutoSyncAfterSaveRef: MutableRefObject<(id: string) => Promise<void>>;
 };

@@ -14,7 +14,6 @@ export type PresentationSavePresentationDeps = {
   setSaveMessage: (msg: string | null) => void;
   localAccountScope: string;
   lastOpenedSessionKey: string;
-  autoCloudSyncOnSave: boolean;
   user: User | null;
   maybeAutoSyncAfterLocalSave: (localId: string) => Promise<void>;
   /** Solo web: push a Firestore sin fila SQLite. */

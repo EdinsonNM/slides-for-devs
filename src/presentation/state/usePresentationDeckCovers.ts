@@ -157,7 +157,7 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           },
           d.localAccountScope,
         );
-        if (d.autoCloudSyncOnSave && d.user) {
+        if (d.user) {
           void d.runAutoSyncAfterSaveRef.current(id);
         }
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));

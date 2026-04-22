@@ -62,7 +62,6 @@ export function usePresentationStoreBridge() {
     createConfigSetter("presentationModelId"),
     [],
   );
-  const autoCloudSyncOnSave = configState.autoCloudSyncOnSave;
   const apiKeysVersion = configState.apiKeysVersion;
   const setApiKeysVersion = useCallback(createConfigSetter("apiKeysVersion"), []);
 
@@ -154,7 +153,6 @@ export function usePresentationStoreBridge() {
     setNarrativeNotes,
     presentationModelId,
     setPresentationModelId,
-    autoCloudSyncOnSave,
     apiKeysVersion,
     setApiKeysVersion,
     showImageModal,

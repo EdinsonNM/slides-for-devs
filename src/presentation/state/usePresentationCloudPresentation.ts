@@ -66,7 +66,7 @@ export function usePresentationCloudPresentation(
 
   const maybeAutoSyncAfterLocalSave = useCallback(async (localId: string) => {
     const d = depsRef.current;
-    if (!d.autoCloudSyncOnSave || !d.user) return;
+    if (!d.user) return;
     if (conflictResolvingRef.current) return;
     if (typeof window === "undefined") return;
     const fb = await initFirebase();

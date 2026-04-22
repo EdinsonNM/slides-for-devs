@@ -193,12 +193,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
         void d.queryClient.invalidateQueries({
           queryKey: presentationQueryKeys.savedPresentations(d.localAccountScope),
         });
-        if (
-          d.autoCloudSyncOnSave &&
-          d.user &&
-          typeof window !== "undefined" &&
-          (window as unknown as { __TAURI__?: unknown }).__TAURI__
-        ) {
+        if (d.user && typeof window !== "undefined") {
           void d.runAutoSyncAfterSaveRef.current(id);
         }
         setPendingGeneration(null);

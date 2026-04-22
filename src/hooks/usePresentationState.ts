@@ -132,7 +132,6 @@ export function usePresentationState() {
     setNarrativeNotes,
     presentationModelId,
     setPresentationModelId,
-    autoCloudSyncOnSave,
     apiKeysVersion,
     setApiKeysVersion,
     showImageModal,
@@ -171,7 +170,7 @@ export function usePresentationState() {
     setShowSlideStylePanel,
   } = usePresentationStoreBridge();
 
-  const { setAutoCloudSyncOnSave } = usePresentationBootstrapPersistence();
+  usePresentationBootstrapPersistence();
 
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
@@ -232,7 +231,6 @@ export function usePresentationState() {
   const cloudPresentation = usePresentationCloudPresentation({
     user,
     localAccountScope,
-    autoCloudSyncOnSave,
     savedList,
     refreshSavedList,
     openSavedPresentationRef,
@@ -444,7 +442,6 @@ export function usePresentationState() {
     localAccountScope,
     geminiImageModelId,
     user,
-    autoCloudSyncOnSave,
     runAutoSyncAfterSaveRef,
   });
 
@@ -664,7 +661,6 @@ export function usePresentationState() {
     setSaveMessage,
     localAccountScope,
     lastOpenedSessionKey,
-    autoCloudSyncOnSave,
     user,
     maybeAutoSyncAfterLocalSave,
     webCloudSessionRef,
@@ -777,7 +773,6 @@ export function usePresentationState() {
     savePresentationNow,
     runAutoSyncAfterSaveRef,
     user,
-    autoCloudSyncOnSave,
     showImageModal,
     setShowImageModal,
     setShowImageUploadModal,
@@ -834,7 +829,6 @@ export function usePresentationState() {
     queryClient,
     localAccountScope,
     user,
-    autoCloudSyncOnSave,
     savedCharacters,
     setSlides,
     slidesRef,
@@ -1205,8 +1199,6 @@ export function usePresentationState() {
     sharePresentationLocalId,
     openSharePresentationModal,
     closeSharePresentationModal,
-    autoCloudSyncOnSave,
-    setAutoCloudSyncOnSave,
     cloudSyncConflict,
     dismissCloudSyncConflict,
     resolveCloudConflictUseRemote,
