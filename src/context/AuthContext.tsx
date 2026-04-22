@@ -36,21 +36,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     let unsubscribe: (() => void) | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     (async () => {
       try {
         const instance = await initFirebase();
+        if (cancelled) return;
         setFirebaseReady(!!instance);
         if (instance) {
           const redirectUser = await handleRedirectResult();
+          if (cancelled) return;
           if (redirectUser) setUser(redirectUser);
           await waitForAuthReady();
-          unsubscribe = subscribeAuthState(setUser);
-          const auth = getAuthInstance();
-          if (auth?.currentUser) setUser(auth.currentUser);
+          if (cancelled) return;
+          const authInstance = getAuthInstance();
+          setUser(authInstance?.currentUser ?? null);
+          unsubscribe = subscribeAuthState((next) => {
+            if (!cancelled) setUser(next);
+          });
+          if (cancelled) return;
           timeoutId = setTimeout(() => {
+            if (cancelled) return;
             const a = getAuthInstance();
             if (a?.currentUser) setUser(a.currentUser);
           }, 1500);
@@ -58,14 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
       } catch {
-        setFirebaseReady(false);
-        setUser(null);
+        if (!cancelled) {
+          setFirebaseReady(false);
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
 
     return () => {
+      cancelled = true;
       if (unsubscribe) unsubscribe();
       if (timeoutId) clearTimeout(timeoutId);
     };

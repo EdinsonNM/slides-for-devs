@@ -1,14 +1,16 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
+  signInWithPopup,
   signInWithRedirect,
   signInWithCredential,
   getRedirectResult,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  type User,
   type Auth,
+  type AuthError,
+  type User,
 } from "firebase/auth";
 import { getAnalytics, type Analytics } from "firebase/analytics";
 import { getFirestore, type Firestore } from "firebase/firestore";
@@ -156,9 +158,19 @@ function isTauri(): boolean {
   );
 }
 
+function isPopupBlockedError(e: unknown): e is AuthError {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "code" in e &&
+    (e as AuthError).code === "auth/popup-blocked"
+  );
+}
+
 /**
  * Inicio de sesión con Google.
- * - Web: redirect de página completa (evita fallos con COOP y `window.closed` en popups).
+ * - Web: popup (funciona bien con `HashRouter`; el redirect OAuth suele perderse al volver a `/#/` en local).
+ *   Si el navegador bloquea el popup, se usa `signInWithRedirect` como respaldo.
  * - Tauri (desktop): abre el navegador del sistema, callback en 127.0.0.1:8765, intercambio por id_token.
  *   Requiere `googleOauthClientId` en firebase_config.json y URI http://127.0.0.1:8765/callback en la consola Google.
  */
@@ -180,19 +192,34 @@ export async function signInWithGoogle(): Promise<User | null> {
       throw e;
     }
   }
-  await signInWithRedirect(instance.auth, provider);
-  return null;
+  try {
+    const result = await signInWithPopup(instance.auth, provider);
+    return result.user;
+  } catch (e: unknown) {
+    if (isPopupBlockedError(e)) {
+      await signInWithRedirect(instance.auth, provider);
+      return null;
+    }
+    throw e;
+  }
 }
 
-/** Procesa el resultado del redirect (Tauri) y devuelve el usuario si hubo login. */
+/**
+ * Resultado del redirect OAuth (solo web; en Tauri no aplica).
+ * `getRedirectResult` solo puede consumirse una vez por vuelta desde el IdP;
+ * con React 18 StrictMode el efecto de auth se monta dos veces y la segunda
+ * llamada devolvía null y dejaba la sesión sin reflejar en React.
+ */
+let redirectResultPromise: Promise<User | null> | null = null;
+
 export async function handleRedirectResult(): Promise<User | null> {
   if (!auth) return null;
-  try {
-    const result = await getRedirectResult(auth);
-    return result?.user ?? null;
-  } catch {
-    return null;
+  if (!redirectResultPromise) {
+    redirectResultPromise = getRedirectResult(auth)
+      .then((result) => result?.user ?? null)
+      .catch(() => null);
   }
+  return redirectResultPromise;
 }
 
 /** Espera a que el estado de auth (persistencia/redirect) esté resuelto. */
