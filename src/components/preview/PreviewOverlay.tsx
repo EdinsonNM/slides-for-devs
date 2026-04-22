@@ -227,9 +227,9 @@ export function PreviewOverlay() {
     });
   }, [currentIndex, isPreviewMode]);
 
-  if (!isPreviewMode || !currentSlide) return null;
-
   const navTone = deckVisualTheme.contentTone;
+
+  if (!isPreviewMode || !currentSlide) return null;
 
   const openPresenterWindow = async () => {
     trackEvent(ANALYTICS_EVENTS.PRESENTER_MODE_OPENED);
@@ -263,7 +263,7 @@ export function PreviewOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex flex-col bg-black"
+        className="fixed inset-0 z-100 flex h-screen w-screen flex-col overflow-hidden"
       >
         <PreviewToolbar
           onOpenPresenter={openPresenterWindow}
@@ -275,7 +275,7 @@ export function PreviewOverlay() {
           }}
         />
 
-        <div className="relative z-[50] isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-black p-0 pointer-events-auto">
+        <div className="relative z-50 isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-transparent p-0 pointer-events-auto">
           <PreviewSlideContent
             layout="fullscreen"
             slide={currentSlide}
@@ -286,7 +286,7 @@ export function PreviewOverlay() {
         </div>
 
         <p
-          className="pointer-events-none fixed bottom-3 left-3 z-[105] select-none text-xs font-medium tabular-nums text-white/40 md:bottom-4 md:left-4"
+          className="pointer-events-none fixed bottom-3 left-3 z-105 select-none text-xs font-medium tabular-nums text-white/40 md:bottom-4 md:left-4"
           aria-live="polite"
         >
           {currentIndex + 1}/{slides.length}

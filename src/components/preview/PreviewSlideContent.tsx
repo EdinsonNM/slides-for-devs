@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useMemo, type CSSProperties } from "react";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
 import {
@@ -79,23 +80,40 @@ export function PreviewSlideContent({
   const isDataMotionRingSlide =
     slide.type === SLIDE_TYPE.CONTENT &&
     resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
+  const useFullscreenDeckBackdrop = isFullscreen && !hideDeckBackdropBehindCanvas;
   const previewSlideOverflowClass = isDataMotionRingSlide
     ? "overflow-visible"
     : "overflow-hidden";
 
   const outerClass = cn(
-    "preview-slide-outer flex min-h-0 w-full flex-1 flex-col",
+    "preview-slide-outer relative flex min-h-0 w-full flex-1 flex-col",
     isFullscreen
-      ? "max-w-none min-h-0 items-center justify-center gap-0 overflow-hidden bg-black"
+      ? "max-w-none min-h-0 items-center justify-center gap-0 overflow-hidden"
       : fillExportContainer
         ? cn("max-w-none min-w-0 gap-1", previewSlideOverflowClass)
         : cn("max-w-7xl gap-1 2xl:max-w-[1600px]", previewSlideOverflowClass),
     toneClass,
   );
+  const fullscreenBackdropStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!isFullscreen) return undefined;
+    if (deckVisualTheme.backgroundKind === "solid") {
+      return { backgroundColor: deckVisualTheme.solidColor ?? "#ffffff" };
+    }
+    const from =
+      deckVisualTheme.gradientFrom ??
+      (deckVisualTheme.contentTone === "light" ? "#0f172a" : "#f8fafc");
+    const to =
+      deckVisualTheme.gradientTo ??
+      (deckVisualTheme.contentTone === "light" ? "#0369a1" : "#bae6fd");
+    return {
+      backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
+    };
+  }, [isFullscreen, deckVisualTheme]);
 
   if (disableEntryMotion) {
     return (
-      <div key={slide.id} className={outerClass}>
+      <div key={slide.id} className={outerClass} style={fullscreenBackdropStyle}>
+        {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
         {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
           <div className="shrink-0 self-start px-0.5">
             <span
@@ -111,7 +129,7 @@ export function PreviewSlideContent({
             "preview-slide relative flex min-h-0 min-w-0 flex-col bg-transparent",
             previewSlideOverflowClass,
             isFullscreen
-              ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
+              ? "h-full w-full min-h-0 flex-1"
               : pptxExportFrame
                 ? "h-full w-full min-h-0 flex-1"
                 : "aspect-video max-h-full flex-1",
@@ -120,7 +138,7 @@ export function PreviewSlideContent({
               "bg-slate-50 dark:bg-slate-950",
           )}
         >
-          {!hideDeckBackdropBehindCanvas && (
+          {!hideDeckBackdropBehindCanvas && !isFullscreen && (
             <DeckBackdrop theme={deckVisualTheme} />
           )}
           <SlideCanvasView
@@ -139,12 +157,14 @@ export function PreviewSlideContent({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
+      style={fullscreenBackdropStyle}
       className={cn(
         outerClass,
         /* El translateX de la entrada no debe aplanar el subárbol 3D del aro. */
         isDataMotionRingSlide && "[transform-style:preserve-3d]",
       )}
     >
+      {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
       {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
         <div className="shrink-0 self-start px-0.5">
           <span
@@ -160,14 +180,14 @@ export function PreviewSlideContent({
           "preview-slide relative flex min-h-0 min-w-0 flex-col bg-transparent",
           previewSlideOverflowClass,
           isFullscreen
-            ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
+            ? "h-full w-full min-h-0 flex-1"
             : "aspect-video max-h-full flex-1",
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
           (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
             "bg-slate-50 dark:bg-slate-950",
         )}
       >
-        {!hideDeckBackdropBehindCanvas && (
+        {!hideDeckBackdropBehindCanvas && !isFullscreen && (
           <DeckBackdrop theme={deckVisualTheme} />
         )}
         <SlideCanvasView

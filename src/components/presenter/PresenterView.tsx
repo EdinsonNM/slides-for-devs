@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Monitor, StickyNote, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Slide } from "../../types";
 import type { DeckVisualTheme } from "../../domain/entities";
@@ -138,6 +138,24 @@ export function PresenterView() {
   );
   const nextSlide = slides[currentIndex + 1];
   const chatModel = effectiveGeminiModel || "gemini-2.5-flash";
+  const presenterSlideBackdropStyle = useMemo<CSSProperties>(() => {
+    if (deckTheme.backgroundKind === "solid") {
+      return { backgroundColor: deckTheme.solidColor ?? "#ffffff" };
+    }
+    const from =
+      deckTheme.gradientFrom ??
+      (deckTheme.contentTone === "light" ? "#0f172a" : "#f8fafc");
+    const to =
+      deckTheme.gradientTo ??
+      (deckTheme.contentTone === "light" ? "#0369a1" : "#bae6fd");
+    return {
+      backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
+    };
+  }, [deckTheme]);
+  const presenterSlideBorderClass =
+    deckTheme.contentTone === "light"
+      ? "border-white/15"
+      : "border-stone-300/70 dark:border-stone-700/70";
 
   const handleSendChat = async () => {
     const text = chatInput.trim();
@@ -182,8 +200,13 @@ export function PresenterView() {
       />
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
-        <section className="relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-stone-950 p-2 md:order-1 md:p-4">
-          <div className="pointer-events-auto relative z-[20] isolate flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border border-stone-800 bg-stone-950 shadow-2xl">
+        <section
+          className="relative z-10 order-2 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center p-2 md:order-1 md:p-4"
+          style={presenterSlideBackdropStyle}
+        >
+          <div
+            className={`pointer-events-auto relative z-20 isolate flex min-h-0 w-full max-h-full max-w-[min(100%,1600px)] flex-1 overflow-hidden rounded-xl border bg-transparent shadow-2xl ${presenterSlideBorderClass}`}
+          >
             <PreviewSlideContent
               slide={currentSlide}
               imageWidthPercent={imageWidthPercent}
