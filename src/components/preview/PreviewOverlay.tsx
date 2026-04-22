@@ -187,7 +187,10 @@ function ContinuousCameraStage({
               return (
                 <motion.div
                   key={slide.id}
-                  className="pointer-events-none absolute overflow-hidden rounded-2xl border border-white/15 shadow-[0_40px_120px_rgba(0,0,0,0.55)]"
+                  className={cn(
+                    "absolute overflow-hidden rounded-2xl border border-white/15 shadow-[0_40px_120px_rgba(0,0,0,0.55)]",
+                    distance === 0 ? "pointer-events-auto" : "pointer-events-none",
+                  )}
                   style={{
                     width: slideW,
                     height: slideH,
