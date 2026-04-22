@@ -12,3 +12,9 @@
   to = "/index.html"
   status = 200
 
+# Misma política que Vite en dev: el login con Google vía popup requiere poder enlazar con la ventana principal.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+
