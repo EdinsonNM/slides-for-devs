@@ -102,9 +102,9 @@ export function CharacterDetailModal({
             </button>
           </div>
           <div className="p-4 space-y-4">
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 w-full">
               {character.referenceImageDataUrl ? (
-                <div className="w-28 h-28 rounded-xl overflow-hidden border border-stone-200">
+                <div className="w-28 h-28 rounded-xl overflow-hidden border border-stone-200 shrink-0">
                   <img
                     src={character.referenceImageDataUrl}
                     alt={character.name}
@@ -126,10 +126,30 @@ export function CharacterDetailModal({
                   )}
                 </button>
               ) : (
-                <div className="w-28 h-28 rounded-xl bg-stone-100 flex items-center justify-center border border-stone-200">
+                <div className="w-28 h-28 rounded-xl bg-stone-100 flex items-center justify-center border border-stone-200 shrink-0">
                   <User size={40} className="text-stone-400" />
                 </div>
               )}
+              {character.referenceImageDataUrl && canRegenerate ? (
+                <button
+                  type="button"
+                  onClick={handleRegenerateImage}
+                  disabled={isRegenerating}
+                  className="w-full py-2 rounded-xl border border-stone-200 text-stone-700 text-sm font-medium hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                >
+                  {isRegenerating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin text-violet-600" />
+                      Regenerando…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={16} className="text-violet-600" />
+                      Regenerar imagen
+                    </>
+                  )}
+                </button>
+              ) : null}
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-1">

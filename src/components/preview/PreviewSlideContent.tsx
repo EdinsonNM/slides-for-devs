@@ -1,31 +1,131 @@
 import { motion } from "motion/react";
-import { Image as ImageIcon } from "lucide-react";
 import { cn } from "../../utils/cn";
-import { SlideMarkdown } from "../shared/SlideMarkdown";
-import { CodeDisplay } from "../shared/CodeDisplay";
-import { ExcalidrawViewer } from "../shared/ExcalidrawViewer";
-import { getEmbedUrl } from "../../utils/video";
 import type { Slide } from "../../types";
+import {
+  DEFAULT_DECK_VISUAL_THEME,
+  type DeckVisualTheme,
+  SLIDE_TYPE,
+} from "../../domain/entities";
+import { SlideCanvasView } from "../canvas/SlideCanvasView";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
+import { DeckBackdrop } from "../shared/DeckBackdrop";
+import {
+  deckSectionLabelClass,
+  deckSlideContentWrapperClass,
+} from "../../utils/deckSlideChrome";
+import { usePresentationOptional } from "../../context/PresentationContext";
 
 export interface PreviewSlideContentProps {
   slide: Slide;
-  formatMarkdown: (content: string) => string;
+  /** Conservado por compatibilidad; el lienzo usa `canvasScene` + campos del slide. */
   imageWidthPercent: number;
-  /** Porcentaje de altura del panel en layout panel-full (resto = título). */
   panelHeightPercent?: number;
+  /** Índice 0-based para la etiqueta «Sección N». */
+  slideIndex?: number;
+  /** Si se omite, se usa el contexto del editor (si existe). */
+  deckVisualTheme?: DeckVisualTheme;
+  /**
+   * `fullscreen`: sin ancho máximo ni hueco exterior; escala al viewport (overlay de vista previa).
+   * `default`: marco acotado para incrustar en presentador u otros contenedores.
+   */
+  layout?: "default" | "fullscreen";
+  /**
+   * Sin animación de entrada (p. ej. captura offscreen para PPTX): evita fotogramas con opacidad 0.
+   */
+  disableEntryMotion?: boolean;
+  /** Ancho completo del contenedor (p. ej. export PPTX offscreen sin tope `max-w-7xl`). */
+  fillExportContainer?: boolean;
+  /**
+   * Marco fijo para captura PPTX: oculta «Sección n» y evita `aspect-video` para que el lienzo
+   * llene el contenedor (los diagramas isométricos en SVG no queden con alto 0).
+   */
+  pptxExportFrame?: boolean;
+  /**
+   * Oculta la etiqueta exterior «Sección n» (cromo del presentador/vista previa, no del slide).
+   * Útil en miniaturas del home u otros embeds donde solo debe verse el lienzo 16:9.
+   */
+  hideSectionLabel?: boolean;
 }
 
 /**
- * Contenido de una diapositiva en vista previa (chapter o default con markdown + código/video/imagen).
+ * Vista previa / presentador: una sola capa de lienzo (`canvasScene`) por diapositiva.
  */
-const DEFAULT_PANEL_HEIGHT_PERCENT = 85;
-
 export function PreviewSlideContent({
   slide,
-  formatMarkdown,
-  imageWidthPercent,
-  panelHeightPercent = DEFAULT_PANEL_HEIGHT_PERCENT,
+  slideIndex = 0,
+  deckVisualTheme: deckProp,
+  imageWidthPercent: _imageWidthPercent,
+  panelHeightPercent: _panelHeightPercent,
+  layout = "default",
+  disableEntryMotion = false,
+  fillExportContainer = false,
+  pptxExportFrame = false,
+  hideSectionLabel = false,
 }: PreviewSlideContentProps) {
+  const ctx = usePresentationOptional();
+  const deckVisualTheme =
+    deckProp ?? ctx?.deckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME;
+  const toneClass = deckSlideContentWrapperClass(deckVisualTheme.contentTone);
+  const sectionLabelClass = deckSectionLabelClass(deckVisualTheme.contentTone);
+  const isFullscreen = layout === "fullscreen";
+  const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
+  const isDataMotionRingSlide =
+    slide.type === SLIDE_TYPE.CONTENT &&
+    resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
+  const previewSlideOverflowClass = isDataMotionRingSlide
+    ? "overflow-visible"
+    : "overflow-hidden";
+
+  const outerClass = cn(
+    "preview-slide-outer flex min-h-0 w-full flex-1 flex-col",
+    isFullscreen
+      ? "max-w-none min-h-0 items-center justify-center gap-0 overflow-hidden bg-black"
+      : fillExportContainer
+        ? cn("max-w-none min-w-0 gap-1", previewSlideOverflowClass)
+        : cn("max-w-7xl gap-1 2xl:max-w-[1600px]", previewSlideOverflowClass),
+    toneClass,
+  );
+
+  if (disableEntryMotion) {
+    return (
+      <div key={slide.id} className={outerClass}>
+        {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
+          <div className="shrink-0 self-start px-0.5">
+            <span
+              className={cn("font-bold uppercase tracking-[0.2em]", sectionLabelClass)}
+              style={{ fontSize: "var(--slide-section-out-label)" }}
+            >
+              Sección {slideIndex + 1}
+            </span>
+          </div>
+        )}
+        <div
+          className={cn(
+            "preview-slide relative flex min-h-0 min-w-0 flex-col bg-transparent",
+            previewSlideOverflowClass,
+            isFullscreen
+              ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
+              : pptxExportFrame
+                ? "h-full w-full min-h-0 flex-1"
+                : "aspect-video max-h-full flex-1",
+            slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
+            isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+          )}
+        >
+          {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
+          <SlideCanvasView
+            slide={slide}
+            className="relative z-[1] min-h-0 flex-1"
+            deckContentTone={deckVisualTheme.contentTone}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       key={slide.id}
@@ -33,164 +133,39 @@ export function PreviewSlideContent({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       className={cn(
-        "preview-slide bg-white flex relative min-h-0",
-        slide.type === "diagram"
-          ? "w-full h-full max-w-none flex-col"
-          : "w-full max-w-7xl 2xl:max-w-[1600px] aspect-video max-h-full",
-        slide.type === "chapter" ? "justify-center items-center" : "",
-        slide.contentLayout === "panel-full" ? "flex-col" : "",
+        outerClass,
+        /* El translateX de la entrada no debe aplanar el subárbol 3D del aro. */
+        isDataMotionRingSlide && "[transform-style:preserve-3d]",
       )}
     >
-      {slide.type === "chapter" ? (
-        <div className="text-center space-y-8">
-          <div className="h-2 w-24 bg-emerald-600 mx-auto rounded-full" />
-          <h1
-            className="font-serif italic text-stone-900 leading-tight"
-            style={{ fontSize: "var(--slide-title-chapter)" }}
+      {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
+        <div className="shrink-0 self-start px-0.5">
+          <span
+            className={cn("font-bold uppercase tracking-[0.2em]", sectionLabelClass)}
+            style={{ fontSize: "var(--slide-section-out-label)" }}
           >
-            {slide.title}
-          </h1>
-          {slide.subtitle && (
-            <p
-              className="text-stone-400 font-light tracking-widest uppercase"
-              style={{ fontSize: "var(--slide-subtitle)" }}
-            >
-              {slide.subtitle}
-            </p>
-          )}
+            Sección {slideIndex + 1}
+          </span>
         </div>
-      ) : slide.type === "diagram" ? (
-        <div className="flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden relative">
-          <ExcalidrawViewer
-            key={`${slide.id}-${slide.excalidrawData ? "dirty" : "empty"}`}
-            excalidrawData={slide.excalidrawData}
-            className="absolute inset-0 w-full h-full"
-            fitToViewOnLoad
-          />
-        </div>
-      ) : slide.contentLayout === "panel-full" ? (
-        <>
-          <div
-            className="shrink-0 px-10 pt-8 pb-5 border-b border-stone-100 overflow-hidden flex flex-col justify-center"
-            style={{ flex: `0 0 ${100 - panelHeightPercent}%` }}
-          >
-            <h2
-              className="font-serif italic text-stone-900 leading-tight"
-              style={{ fontSize: "var(--slide-title)" }}
-            >
-              {slide.title}
-            </h2>
-            {slide.subtitle && (
-              <p
-                className="text-stone-500 mt-1"
-                style={{ fontSize: "var(--slide-subtitle)" }}
-              >
-                {slide.subtitle}
-              </p>
-            )}
-            <div className="h-1.5 w-20 bg-emerald-600 rounded-full mt-4" />
-          </div>
-          <div
-            className="min-h-0 min-w-0 p-8 flex items-center justify-center overflow-hidden"
-            style={{ flex: `0 0 ${panelHeightPercent}%` }}
-          >
-            {slide.contentType === "code" ? (
-              <CodeDisplay
-                code={slide.code ?? ""}
-                language={slide.language}
-                fontSize={slide.fontSize ?? 14}
-                showChrome={true}
-                responsiveFontSize={true}
-                className="w-full h-full"
-              />
-            ) : slide.contentType === "video" ? (
-              <div className="w-full h-full bg-stone-900 rounded-2xl overflow-hidden border border-white/10">
-                {slide.videoUrl ? (
-                  <iframe
-                    src={getEmbedUrl(slide.videoUrl)}
-                    className="w-full h-full"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-stone-500 italic">
-                    // Sin video
-                  </div>
-                )}
-              </div>
-            ) : slide.imageUrl ? (
-              <img
-                src={slide.imageUrl}
-                alt={slide.title}
-                className="w-full h-full object-contain rounded-2xl"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-stone-300">
-                <ImageIcon size={120} strokeWidth={1} />
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="flex-1 p-12 flex flex-col overflow-hidden min-h-0">
-            <div className="shrink-0 mb-8">
-              <h2
-                className="font-serif italic text-stone-900 leading-tight mb-4"
-                style={{ fontSize: "var(--slide-title)" }}
-              >
-                {slide.title}
-              </h2>
-              <div className="h-1.5 w-20 bg-emerald-600 rounded-full" />
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto pr-4 scrollbar-on-hover">
-              <SlideMarkdown>{formatMarkdown(slide.content)}</SlideMarkdown>
-            </div>
-          </div>
-          <div
-            className="flex flex-col relative"
-            style={{ width: `${imageWidthPercent}%` }}
-          >
-            <div className="w-full h-full p-8 flex items-center justify-center">
-              {slide.contentType === "code" ? (
-                <CodeDisplay
-                  code={slide.code ?? ""}
-                  language={slide.language}
-                  fontSize={slide.fontSize ?? 14}
-                  showChrome={true}
-                  responsiveFontSize={true}
-                  className="w-full h-full"
-                />
-              ) : slide.contentType === "video" ? (
-                <div className="w-full h-full bg-stone-900 rounded-2xl overflow-hidden border border-white/10">
-                  {slide.videoUrl ? (
-                    <iframe
-                      src={getEmbedUrl(slide.videoUrl)}
-                      className="w-full h-full"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-500 italic">
-                      // Sin video
-                    </div>
-                  )}
-                </div>
-              ) : slide.imageUrl ? (
-                <img
-                  src={slide.imageUrl}
-                  alt={slide.title}
-                  className="w-full h-full object-cover rounded-2xl"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-stone-300">
-                  <ImageIcon size={120} strokeWidth={1} />
-                </div>
-              )}
-            </div>
-          </div>
-        </>
       )}
+      <div
+        className={cn(
+          "preview-slide relative flex min-h-0 min-w-0 flex-col bg-transparent",
+          previewSlideOverflowClass,
+          isFullscreen
+            ? "aspect-video h-auto w-[min(100dvw,calc(100dvh*16/9))] max-h-[100dvh] max-w-[100dvw] shrink-0"
+            : "aspect-video max-h-full flex-1",
+          slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
+          isIsometricSlide && "bg-slate-50 dark:bg-slate-950",
+        )}
+      >
+        {!isIsometricSlide && <DeckBackdrop theme={deckVisualTheme} />}
+        <SlideCanvasView
+          slide={slide}
+          className="relative z-[1] min-h-0 flex-1"
+          deckContentTone={deckVisualTheme.contentTone}
+        />
+      </div>
     </motion.div>
   );
 }

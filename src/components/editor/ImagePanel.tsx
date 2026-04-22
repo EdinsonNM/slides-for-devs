@@ -2,9 +2,16 @@ import { useState, useRef, useEffect } from "react";
 import { Image as ImageIcon, Sparkles, Upload, ChevronDown } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import type { Slide } from "../../types";
 
-export function ImagePanel() {
+export interface ImagePanelProps {
+  canvasPanelSlide?: Slide;
+}
+
+export function ImagePanel({ canvasPanelSlide }: ImagePanelProps = {}) {
   const { currentSlide, openImageModal, openImageUploadModal } = usePresentation();
+  const isLgUp = useMinWidthLg();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -21,6 +28,8 @@ export function ImagePanel() {
 
   if (!currentSlide) return null;
 
+  const slide = canvasPanelSlide ?? currentSlide;
+
   const handleOpenGenerate = () => {
     setMenuOpen(false);
     openImageModal();
@@ -31,17 +40,46 @@ export function ImagePanel() {
     openImageUploadModal();
   };
 
+  if (isLgUp) {
+    return (
+      <div className="flex-1 flex items-center justify-center relative h-full min-h-0">
+        {slide.imageUrl ? (
+          <img
+            src={slide.imageUrl}
+            alt={slide.title}
+            className="w-full h-full object-cover select-none"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="text-center space-y-3 p-6 max-w-sm">
+            <div className="w-16 h-16 rounded-full bg-stone-200 dark:bg-stone-700 flex items-center justify-center mx-auto text-stone-400 dark:text-stone-300">
+              <ImageIcon size={32} />
+            </div>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Usa el panel derecho <span className="font-medium">Propiedades del panel</span> para generar o
+              subir una imagen.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={menuRef}
       className="flex-1 flex items-center justify-center relative cursor-pointer h-full"
       onClick={() => setMenuOpen((v) => !v)}
     >
-      {currentSlide.imageUrl ? (
+      {slide.imageUrl ? (
         <img
-          src={currentSlide.imageUrl}
-          alt={currentSlide.title}
-          className="w-full h-full object-cover"
+          src={slide.imageUrl}
+          alt={slide.title}
+          className="w-full h-full object-cover select-none"
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
           referrerPolicy="no-referrer"
         />
       ) : (
@@ -57,7 +95,7 @@ export function ImagePanel() {
       <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
         <div className="px-4 py-2 bg-white dark:bg-surface-elevated rounded-full shadow-lg text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform border border-stone-200 dark:border-border">
           <ChevronDown size={16} />
-          {currentSlide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
+          {slide.imageUrl ? "Cambiar imagen" : "Añadir imagen"}
         </div>
       </div>
 
@@ -70,7 +108,7 @@ export function ImagePanel() {
             type="button"
             onClick={handleOpenGenerate}
             className={cn(
-              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 dark:text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-3 rounded-t-xl transition-colors"
+              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 dark:text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-3 rounded-t-xl transition-colors",
             )}
           >
             <Sparkles size={18} className="text-emerald-500 dark:text-emerald-400" />
@@ -80,7 +118,7 @@ export function ImagePanel() {
             type="button"
             onClick={handleOpenUpload}
             className={cn(
-              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 dark:text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-3 rounded-b-xl transition-colors border-t border-stone-100 dark:border-border"
+              "w-full px-4 py-3 text-left text-sm font-medium text-stone-700 dark:text-foreground hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-3 rounded-b-xl transition-colors border-t border-stone-100 dark:border-border",
             )}
           >
             <Upload size={18} className="text-emerald-500" />

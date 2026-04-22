@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## Sincronización de esta guía
+
+**Última revisión alineada con commit:** `2b01ce865f94477a56259c39fe3c956ac51a572c`  
+Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
+
 ## Propósito del proyecto
 
 `slides-for-devs` es una aplicación de escritorio para crear presentaciones técnicas con ayuda de IA. El frontend está hecho con `React 19 + TypeScript + Vite`, y la app de escritorio usa `Tauri 2` con backend en `Rust`. La app genera, edita, guarda y presenta slides; también maneja notas del presentador, imágenes, video y configuración de proveedores de IA.
@@ -26,6 +31,15 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 
 - `src/`: aplicación frontend
 - `src/components/`: componentes organizados por feature
+- `src/components/layout/EditorShell.tsx`: contenedor principal del modo edición (layout responsive)
+- `src/components/layout/SlideSidebar.tsx`: lista de slides con vista previa de medios y tipos de contenido
+- `src/components/layout/ContentPanelProperties.tsx` y `SlideStylePanel.tsx`: propiedades de contenido y estilos de slide
+- `src/components/editor/CanvaSelectionFrame.tsx`: marco de selección en el lienzo del slide
+- `src/components/canvas/`: edición en lienzo del slide (`SlideCanvasSlide.tsx`, `SlideCanvasView.tsx`, `SlideCanvasCanvaChrome.tsx`, `SlideCanvasAlignmentGuides.tsx`, `SlideCanvasHoverOutline.tsx`)
+- `src/components/editor/Canvas3DPanel.tsx` y `src/components/shared/Device3DViewport.tsx`: panel 3D y viewport (autoencuadre y límites)
+- `src/domain/`: entidades de dominio (`Slide`, `SlideCanvas`, `SlideMatrix`, `DeckVisualTheme`, `IsometricFlowDiagram`, …), `src/domain/slideCanvas/` (migración, escena, z-order), `src/domain/ports/` (contratos hacia IA y operaciones)
+- `src/application/use-cases/`: casos de uso (p. ej. generación de diagrama o matriz desde IA)
+- `src/composition/container.ts`: composición de adaptadores y casos de uso
 - `src/context/PresentationContext.tsx`: estado global principal de presentaciones
 - `src/hooks/`: hooks de estado y lógica UI
 - `src/services/`: integración con almacenamiento, IA, updater y config
@@ -81,19 +95,20 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 
 ### UI / componentes
 
-- Busca primero en `src/components/home`, `editor`, `preview`, `presenter`, `layout`, `modals`
+- Busca primero en `src/components/home`, `editor`, `canvas`, `preview`, `presenter`, `layout`, `modals`
 - Mantén consistencia visual y de props
 
 ### Estado y flujo de presentación
 
 - Revisa `src/context/PresentationContext.tsx`
-- Revisa hooks en `src/hooks/`
+- Revisa hooks en `src/hooks/`; el borrador del título de la presentación y la barra superior viven en parte en `src/hooks/usePresentationState.ts` y `src/components/layout/Header.tsx`
 
 ### IA / generación de contenido
 
 - Revisa `src/services/gemini.ts`
 - Revisa `src/services/openai.ts`
 - Revisa `src/services/apiConfig.ts`
+- Diagramas desde texto: flujo Mermaid → Excalidraw vía `src/utils/excalidrawMermaid.ts` y `@excalidraw/mermaid-to-excalidraw`; casos de uso y prompts en `src/application/use-cases/`, `src/infrastructure/promptEngine/`, adaptadores en `src/infrastructure/adapters/`
 
 ### Persistencia desktop
 
@@ -105,6 +120,7 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 
 - Auth y config: `src/services/firebase.ts`, `src/context/AuthContext.tsx`
 - Personajes en la nube: `src/services/charactersCloud.ts` (Firestore `users/{uid}/characters/{id}`, Storage `ref.webp`). Reglas en `docs/firebase-rules.md`. Los personajes comparten UUID entre dispositivos; las presentaciones enlazan por `characterId`.
+- **Compartir presentaciones**: además de `users/{uid}/presentations`, la app usa `presentationShareGrants`, `sharedPresentationIndex` y campos `sharedWith` / `shareInviteEmails` en sincronía con Storage. Reglas canónicas en `firestore.rules` y `firestore.indexes.json` (collection groups para listar compartidas). Guía operativa: `docs/firebase-rules.md`; despliega índices con `firebase deploy --only firestore:indexes` cuando cambien.
 - **Desarrollo (web y Tauri)**: usar un solo `.env` en la raíz con `VITE_FIREBASE_*`. Vite inyecta esas variables en el frontend; en `tauri dev` el frontend se sirve desde Vite, así que el mismo `.env` vale para ambos. No commitear `.env`.
 - **Producción desktop (app empaquetada)**: La app busca `firebase_config.json` en AppData y en el bundle. Para que el instalador de GitHub use tu Firebase, añade el secreto **`FIREBASE_CONFIG_JSON`** (Settings → Secrets → Actions) con el JSON de config (formato `firebase_config.example.json`). El workflow de release lo inyecta en `src-tauri/firebase_config.bundle.json` y se empaqueta. Sin secreto se empaqueta un placeholder (modo local; login/cloud requieren config en AppData).
 - **Login desktop sin empaquetar secret (recomendado)**: Usa un cliente OAuth tipo **"Aplicación de escritorio"** en Google para que el intercambio código→token funcione solo con PKCE (sin `client_secret`). Pasos: (1) Google Cloud Console → APIs y servicios → Credenciales → Crear credenciales → ID de cliente de OAuth 2.0. (2) Tipo de aplicación: **Aplicación de escritorio**. Nombre ej. "Slaim Desktop". (3) Crear. (4) En el cliente recién creado no se configura redirect URI a mano; Google usa loopback. La app ya usa `http://127.0.0.1:8765/callback`; si Google redirige a la raíz (`/?code=...`), el listener lo acepta. (5) Copia el **ID de cliente** del nuevo cliente Desktop. (6) En `FIREBASE_CONFIG_JSON` (y en tu `firebase_config.json` local para probar) usa solo **`googleOauthClientId`** con ese ID; **no** incluyas `google_oauth_client_secret`. (7) Prueba en local con `pnpm run tauri:dev`; si el intercambio falla, Google puede seguir pidiendo secret para ese proyecto — en ese caso mantén el cliente "Aplicación web" y sí incluye el secret en el release (opción menos segura pero funcional).
@@ -118,3 +134,4 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 - No dupliques lógica si ya existe un servicio, modal o panel que resuelva parte del problema.
 - Mantén nombres claros en inglés dentro del código, aunque la documentación del repo esté en español.
 - No hagas cambios destructivos sobre datos de usuario o migraciones sin pedir confirmación explícita.
+- Evita el uso de texto o números mágicos prioriza siempre el uso de enums, constantes, y patrones de diseño si es necesario

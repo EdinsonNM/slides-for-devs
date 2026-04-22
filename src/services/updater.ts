@@ -36,7 +36,7 @@ export async function checkForAppUpdates(
     if (!silent) {
       if (typeof window !== "undefined" && window.alert) {
         window.alert(
-          "Buscar actualizaciones solo funciona en la app de escritorio (el .exe de Windows).\n\n" +
+          "Buscar actualizaciones solo funciona en l a app de escritorio (el .exe de Windows).\n\n" +
             "Si abriste Slaim desde el navegador o desde ?Instalar? en Chrome, esa es la versi?n web. " +
             "Descarga el instalador desde GitHub ? Releases y ejecuta el .exe para usar la app de escritorio.",
         );
@@ -58,7 +58,7 @@ export async function checkForAppUpdates(
       }
       if (!silent) {
         await showMessage(
-          `Ya tienes la ?ltima versi?n instalada (v${currentVersion}).`,
+          `Ya tienes la última versión instalada (v${currentVersion}).`,
           { title: "Actualizaciones", kind: "info" },
         );
       }
@@ -66,12 +66,12 @@ export async function checkForAppUpdates(
     }
 
     const text = [
-      `Hay una nueva versi?n disponible: ${update.version}.`,
+      `Hay una nueva versión disponible: ${update.version}.`,
       update.body?.trim() ? `\n\nNotas:\n${update.body}` : "",
     ].join("");
 
     const yes = await ask(text, {
-      title: "Actualizaci?n disponible",
+      title: "Actualización disponible",
       kind: "info",
       okLabel: "Actualizar ahora",
       cancelLabel: "Más tarde",
@@ -89,7 +89,7 @@ export async function checkForAppUpdates(
     }
     if (!silent) {
       await showMessage(
-        `No se pudo comprobar actualizaciones.\n\nVersi?n actual: v${currentVersion}\n\n${errorMessage}`,
+        `No se pudo comprobar actualizaciones.\n\nVersión actual: v${currentVersion}\n\n${errorMessage}`,
         { title: "Actualizaciones", kind: "error" },
       );
     }

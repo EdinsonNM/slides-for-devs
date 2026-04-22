@@ -4,6 +4,8 @@ export interface CloudSyncConflictModalProps {
   open: boolean;
   expectedRevision: number;
   remoteRevision: number;
+  localSlideCount?: number;
+  remoteSlideCount?: number;
   onUseRemote: () => void;
   onForceLocal: () => void;
   onDismiss: () => void;
@@ -17,6 +19,8 @@ export function CloudSyncConflictModal({
   open,
   expectedRevision,
   remoteRevision,
+  localSlideCount,
+  remoteSlideCount,
   onUseRemote,
   onForceLocal,
   onDismiss,
@@ -68,6 +72,28 @@ export function CloudSyncConflictModal({
             <X size={20} />
           </button>
         </div>
+
+        {localSlideCount != null && (
+          <div className="flex gap-3 mb-4 text-xs">
+            <div className="flex-1 rounded-lg bg-stone-50 dark:bg-stone-800/60 p-2.5 text-center">
+              <div className="text-stone-400 dark:text-stone-500">Tu copia local</div>
+              <div className="text-stone-800 dark:text-stone-200 font-semibold mt-0.5">
+                {localSlideCount} diapositiva{localSlideCount !== 1 ? "s" : ""}
+              </div>
+              <div className="text-stone-400 dark:text-stone-500">rev {expectedRevision}</div>
+            </div>
+            <div className="flex-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-2.5 text-center">
+              <div className="text-stone-400 dark:text-stone-500">En la nube</div>
+              {remoteSlideCount != null && (
+                <div className="text-amber-800 dark:text-amber-200 font-semibold mt-0.5">
+                  {remoteSlideCount} diapositiva{remoteSlideCount !== 1 ? "s" : ""}
+                </div>
+              )}
+              <div className="text-stone-400 dark:text-stone-500">rev {remoteRevision}</div>
+            </div>
+          </div>
+        )}
+
         <ul className="text-xs text-stone-500 dark:text-stone-400 space-y-2 mb-6 list-disc pl-4">
           <li>
             <strong>Usar versión de la nube</strong>: reemplaza esta copia local
@@ -97,7 +123,7 @@ export function CloudSyncConflictModal({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-100 text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-950/50 disabled:opacity-50"
           >
             <CloudUpload size={18} />
-            Subir mi copia
+            Subir mi copia ({localSlideCount ?? "?"} diapositivas)
           </button>
         </div>
       </div>

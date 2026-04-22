@@ -12,17 +12,25 @@ import {
   StickyNote,
   UserPlus,
   FileDown,
+  Image as ImageIcon,
+  Sparkles,
+  MoreHorizontal,
+  Clapperboard,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
-import { ModelSelect } from "../shared/ModelSelect";
 import { AvatarMenu } from "../shared/AvatarMenu";
+import { HeaderToolbarGroup } from "./HeaderToolbarGroup";
 import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
+import { exportCurrentSlideAsImage } from "../../services/exportSlideAsImage";
 
 interface HeaderProps {
   onOpenConfig?: () => void;
 }
+
+const panelActiveClass =
+  "bg-stone-200/90 dark:bg-stone-600/50 text-stone-900 dark:text-stone-100";
 
 export function Header(props: HeaderProps) {
   const { onOpenConfig } = props;
@@ -30,49 +38,102 @@ export function Header(props: HeaderProps) {
   const {
     topic,
     setTopic,
+    setPresentationTitleDraft,
     goHome,
     openSavedListModal,
     slides,
+    currentIndex,
+    deckVisualTheme,
     handleSave,
     isSaving,
     saveMessage,
     currentSavedId,
     setIsPreviewMode,
     flushDiagramPending,
+    flushIsometricFlowPending,
     setShowSpeechModal,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
-    presentationModelId,
-    setPresentationModelId,
-    presentationModels,
-    setShowCharacterCreatorModal,
     showCharactersPanel,
     setShowCharactersPanel,
     showSlideStylePanel,
     setShowSlideStylePanel,
-    cloudSyncAvailable,
-    autoCloudSyncOnSave,
-    setAutoCloudSyncOnSave,
+    openGenerateFullDeckModal,
+    openExportDeckVideoModal,
+    captureWorkspaceSnapshot,
   } = usePresentation();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(topic || "");
   const [isExportingPptx, setIsExportingPptx] = useState(false);
+  const [pptxExportHint, setPptxExportHint] = useState<string | null>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [isExportingSlideImage, setIsExportingSlideImage] = useState(false);
+
+  const handleExportSlideAsImage = async () => {
+    const currentSlide = slides[currentIndex];
+    if (!currentSlide) return;
+    setIsExportingSlideImage(true);
+    setMoreMenuOpen(false);
+    try {
+      const snap = flushSync(() => captureWorkspaceSnapshot());
+      const slide = snap.slides[snap.currentIndex];
+      if (!slide) throw new Error("No se encontró la diapositiva actual.");
+      await exportCurrentSlideAsImage(
+        slide,
+        snap.currentIndex,
+        snap.deckVisualTheme,
+      );
+    } catch (e) {
+      console.error(e);
+      alert(
+        e instanceof Error
+          ? e.message
+          : "Error al exportar la diapositiva como imagen.",
+      );
+    } finally {
+      setIsExportingSlideImage(false);
+    }
+  };
 
   const handleExportPowerPoint = async () => {
     if (slides.length === 0) return;
     setIsExportingPptx(true);
+    setPptxExportHint("Preparando exportación…");
+    setMoreMenuOpen(false);
     try {
-      await exportPresentationToPowerPoint({
-        topic: topic || "Presentación",
-        slides,
-      });
+      const snap = flushSync(() => captureWorkspaceSnapshot());
+      await exportPresentationToPowerPoint(
+        {
+          topic: snap.topic || "Presentación",
+          slides: snap.slides,
+          deckVisualTheme: snap.deckVisualTheme,
+        },
+        undefined,
+        {
+          onExportProgress: (info) => {
+            flushSync(() => {
+              if (info.phase === "capture_start") {
+                setPptxExportHint(
+                  `Capturando diapositiva ${info.slideIndex + 1} de ${info.totalSlides}…`,
+                );
+              } else if (info.phase === "pptx_packaging") {
+                setPptxExportHint(
+                  "Generando archivo PowerPoint (muchas imágenes pueden tardar varios minutos)…",
+                );
+              }
+            });
+          },
+        },
+      );
     } catch (e) {
       console.error(e);
       alert("Error al exportar a PowerPoint. Revisa la consola.");
     } finally {
       setIsExportingPptx(false);
+      setPptxExportHint(null);
     }
   };
 
@@ -82,10 +143,50 @@ export function Header(props: HeaderProps) {
 
   useEffect(() => {
     if (isEditingTitle) {
+      setPresentationTitleDraft(editTitleValue);
+    } else {
+      setPresentationTitleDraft(null);
+    }
+  }, [isEditingTitle, editTitleValue, setPresentationTitleDraft]);
+
+  useEffect(() => {
+    if (isEditingTitle) {
       inputRef.current?.focus();
       inputRef.current?.select();
     }
   }, [isEditingTitle]);
+
+  const toggleCharactersPanel = () => {
+    if (showCharactersPanel) {
+      setShowCharactersPanel(false);
+    } else {
+      setShowSlideStylePanel(false);
+      setShowCharactersPanel(true);
+    }
+  };
+
+  const toggleSlideStylePanel = () => {
+    if (showSlideStylePanel) {
+      setShowSlideStylePanel(false);
+    } else {
+      setShowCharactersPanel(false);
+      setShowSlideStylePanel(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [moreMenuOpen]);
 
   const saveTitle = () => {
     const trimmed = editTitleValue.trim();
@@ -93,8 +194,119 @@ export function Header(props: HeaderProps) {
     setIsEditingTitle(false);
   };
 
+  const workspaceButtons = (
+    <>
+      <IconButton
+        variant="default"
+        icon={<StickyNote size={18} />}
+        aria-label={isNotesPanelOpen ? "Ocultar notas" : "Mostrar notas"}
+        title={
+          isNotesPanelOpen
+            ? "Ocultar notas del presentador"
+            : "Mostrar notas del presentador"
+        }
+        onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
+        className={cn(isNotesPanelOpen && panelActiveClass)}
+      />
+      <IconButton
+        variant="default"
+        icon={<Mic size={18} />}
+        aria-label="Prompt general (generar speech para toda la presentación)"
+        title="Prompt general (generar speech para toda la presentación)"
+        onClick={() => setShowSpeechModal(true)}
+      />
+      <div className="hidden xl:contents">
+        <IconButton
+          variant="default"
+          icon={<UserPlus size={18} />}
+          aria-label="Personajes (crear, ver, eliminar)"
+          title="Personajes (crear, ver, eliminar)"
+          onClick={toggleCharactersPanel}
+          className={cn(showCharactersPanel && panelActiveClass)}
+        />
+        {slides.length > 0 && (
+          <IconButton
+            variant="default"
+            icon={<LayoutTemplate size={18} />}
+            aria-label="Plantilla de la diapositiva"
+            title="Plantilla de la diapositiva"
+            onClick={toggleSlideStylePanel}
+            className={cn(showSlideStylePanel && panelActiveClass)}
+          />
+        )}
+      </div>
+    </>
+  );
+
+  const fileCloudInline = (
+    <>
+      <IconButton
+        variant="default"
+        icon={<FolderOpen size={18} />}
+        aria-label="Mis presentaciones"
+        title="Mis presentaciones"
+        onClick={openSavedListModal}
+      />
+    </>
+  );
+
+  const exportSlideImageButton = slides.length > 0 && (
+    <IconButton
+      variant="default"
+      icon={
+        isExportingSlideImage ? (
+          <Loader2 size={18} className="animate-spin" />
+        ) : (
+          <ImageIcon size={18} />
+        )
+      }
+      aria-label="Exportar diapositiva como imagen"
+      title={
+        isExportingSlideImage
+          ? "Exportando diapositiva…"
+          : "Exportar diapositiva actual como imagen PNG"
+      }
+      onClick={handleExportSlideAsImage}
+      disabled={isExportingSlideImage || isExportingPptx}
+      className="hidden xl:inline-flex"
+    />
+  );
+
+  const exportButton = slides.length > 0 && (
+    <IconButton
+      variant="default"
+      icon={
+        isExportingPptx ? (
+          <Loader2 size={18} className="animate-spin" />
+        ) : (
+          <FileDown size={18} />
+        )
+      }
+      aria-label="Exportar a PowerPoint"
+      title={
+        isExportingPptx
+          ? pptxExportHint ?? "Exportando a PowerPoint…"
+          : "Exportar a PowerPoint"
+      }
+      onClick={handleExportPowerPoint}
+      disabled={isExportingPptx}
+      className="hidden xl:inline-flex"
+    />
+  );
+
+  const exportVideoButton = slides.length > 0 && (
+    <IconButton
+      variant="default"
+      icon={<Clapperboard size={18} />}
+      aria-label="Exportar presentación a vídeo (Remotion)"
+      title="Exportar presentación a vídeo (MP4, Remotion)"
+      onClick={() => openExportDeckVideoModal()}
+      className="hidden xl:inline-flex"
+    />
+  );
+
   return (
-    <header className="h-14 bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border px-4 flex items-center justify-between z-10 shrink-0">
+    <header className="relative h-14 bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border px-4 flex items-center justify-between z-10 shrink-0 gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <IconButton
           variant="default"
@@ -126,7 +338,7 @@ export function Header(props: HeaderProps) {
             }}
             className={cn(
               "font-serif italic text-lg text-stone-900 dark:text-foreground bg-stone-50 dark:bg-surface border border-stone-300 dark:border-border rounded px-2 py-0.5 min-w-0 max-w-[40vw]",
-              "focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              "focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500",
             )}
             placeholder="Título de la presentación"
           />
@@ -141,127 +353,198 @@ export function Header(props: HeaderProps) {
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-        <ModelSelect
-          value={presentationModelId}
-          options={presentationModels}
-          onChange={setPresentationModelId}
-          size="sm"
-          title="Modelo para texto (presentación, reescribir, código, notas, chat)"
-          aria-label="Modelo para texto"
-        />
-        <div className="flex items-center gap-1 shrink-0">
-          <IconButton
-            variant="amber"
-            active={isNotesPanelOpen}
-            icon={<StickyNote size={18} />}
-            aria-label={isNotesPanelOpen ? "Ocultar notas" : "Mostrar notas"}
-            title={isNotesPanelOpen ? "Ocultar notas" : "Mostrar notas"}
-            onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
-          />
-          <IconButton
-            variant="violet"
-            icon={<Mic size={18} />}
-            aria-label="Prompt general (generar speech para toda la presentación)"
-            title="Prompt general (generar speech para toda la presentación)"
-            onClick={() => setShowSpeechModal(true)}
-          />
-          <IconButton
-            variant="violet"
-            active={showCharactersPanel}
-            icon={<UserPlus size={18} />}
-            aria-label="Personajes (crear, ver, eliminar)"
-            title="Personajes (crear, ver, eliminar)"
-            onClick={() => setShowCharactersPanel(!showCharactersPanel)}
-          />
-          {slides.length > 0 && (
-            <IconButton
-              variant="emerald"
-              active={showSlideStylePanel}
-              icon={<LayoutTemplate size={18} />}
-              aria-label="Plantilla de la diapositiva"
-              title="Plantilla de la diapositiva"
-              onClick={() => setShowSlideStylePanel(!showSlideStylePanel)}
-            />
-          )}
-          <IconButton
-            variant="default"
-            icon={<FolderOpen size={18} />}
-            aria-label="Mis presentaciones"
-            title="Mis presentaciones"
-            onClick={openSavedListModal}
-            className="hidden sm:inline-flex"
-          />
-          {cloudSyncAvailable && slides.length > 0 && (
-            <label
-              className="hidden xl:flex items-center gap-2 text-xs text-stone-600 dark:text-stone-400 cursor-pointer shrink-0 max-w-[9rem] leading-tight"
-              title="Si está activo, tras cada guardado se sube la presentación a la nube (con control de conflictos entre dispositivos)."
-            >
-              <input
-                type="checkbox"
-                checked={autoCloudSyncOnSave}
-                onChange={(e) => setAutoCloudSyncOnSave(e.target.checked)}
-                className="rounded border-stone-300 dark:border-stone-600 shrink-0"
-              />
-              <span className="select-none">Auto-sync nube</span>
-            </label>
-          )}
-          {slides.length > 0 && (
-            <IconButton
-              variant="primary"
-              icon={
-                isSaving ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Save size={18} />
-                )
-              }
-              aria-label={currentSavedId ? "Guardar cambios" : "Guardar"}
-              title={currentSavedId ? "Guardar cambios" : "Guardar"}
-              onClick={handleSave}
-              disabled={isSaving}
-            />
-          )}
-          {slides.length > 0 && (
+      <div className="flex items-center gap-2 shrink-0 min-w-0">
+        <nav
+          aria-label="Barra de herramientas del editor"
+          className="flex items-center min-w-0 overflow-x-auto overflow-y-visible carousel-no-scrollbar"
+        >
+          <HeaderToolbarGroup>
             <IconButton
               variant="default"
-              icon={
-                isExportingPptx ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <FileDown size={18} />
-                )
-              }
-              aria-label="Exportar a PowerPoint"
-              title="Exportar a PowerPoint"
-              onClick={handleExportPowerPoint}
-              disabled={isExportingPptx}
+              icon={<Sparkles size={18} />}
+              aria-label="Generar toda la presentación con IA"
+              title="Generar toda la presentación con IA (reemplaza diapositivas). El modelo se elige en Configuración (menú de cuenta)."
+              onClick={openGenerateFullDeckModal}
             />
-          )}
-          {slides.length > 0 && (
+          </HeaderToolbarGroup>
+          <HeaderToolbarGroup>{workspaceButtons}</HeaderToolbarGroup>
+          <HeaderToolbarGroup className="hidden xl:flex">
+            {fileCloudInline}
+          </HeaderToolbarGroup>
+          <HeaderToolbarGroup className="items-center">
+            {exportSlideImageButton}
+            {exportVideoButton}
+            {exportButton}
+            {slides.length > 0 && (
+              <IconButton
+                variant="primary"
+                icon={
+                  isSaving ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Save size={18} />
+                  )
+                }
+                aria-label={currentSavedId ? "Guardar cambios" : "Guardar"}
+                title={currentSavedId ? "Guardar cambios" : "Guardar"}
+                onClick={handleSave}
+                disabled={isSaving}
+              />
+            )}
+            {slides.length > 0 && (
+              <IconButton
+                variant="primarySolid"
+                icon={<Maximize2 size={18} />}
+                aria-label="Vista previa"
+                title="Vista previa"
+                onClick={() => {
+                  flushSync(() => {
+                    flushDiagramPending();
+                    flushIsometricFlowPending();
+                  });
+                  setIsPreviewMode(true);
+                }}
+              />
+            )}
+            {saveMessage && (
+              <span className="text-[10px] text-stone-500 dark:text-muted-foreground font-medium px-1 max-w-20 truncate xl:max-w-none">
+                {saveMessage}
+              </span>
+            )}
+          </HeaderToolbarGroup>
+          <div
+            ref={moreMenuRef}
+            className="relative shrink-0 xl:hidden border-l border-stone-200 dark:border-border pl-3 ml-0"
+          >
             <IconButton
-              variant="primarySolid"
-              icon={<Maximize2 size={18} />}
-              aria-label="Vista previa"
-              title="Vista previa"
-              onClick={() => {
-                flushSync(() => {
-                  flushDiagramPending();
-                });
-                setIsPreviewMode(true);
-              }}
+              variant="default"
+              icon={<MoreHorizontal size={18} />}
+              aria-label="Más opciones"
+              title="Más opciones (archivo, exportar, paneles)"
+              aria-expanded={moreMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setMoreMenuOpen((v) => !v)}
             />
-          )}
-          {saveMessage && (
-            <span className="text-[10px] text-stone-500 dark:text-muted-foreground font-medium px-1">
-              {saveMessage}
-            </span>
-          )}
-        </div>
-        </div>
-        <AvatarMenu onOpenConfig={onOpenConfig} className="ml-1" />
+            {moreMenuOpen && (
+              <div
+                role="menu"
+                aria-label="Más opciones del editor"
+                className="absolute right-0 top-full mt-1 z-50 w-56 rounded-xl border border-stone-200 dark:border-border bg-white dark:bg-surface-elevated py-1 shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
+                  )}
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    openSavedListModal();
+                  }}
+                >
+                  <FolderOpen size={16} className="shrink-0 opacity-70" />
+                  Mis presentaciones
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
+                    showCharactersPanel && "bg-stone-100 dark:bg-surface",
+                  )}
+                  onClick={() => {
+                    toggleCharactersPanel();
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <UserPlus size={16} className="shrink-0 opacity-70" />
+                  Personajes
+                </button>
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
+                      showSlideStylePanel && "bg-stone-100 dark:bg-surface",
+                    )}
+                    onClick={() => {
+                      toggleSlideStylePanel();
+                      setMoreMenuOpen(false);
+                    }}
+                  >
+                    <LayoutTemplate size={16} className="shrink-0 opacity-70" />
+                    Plantilla de diapositiva
+                  </button>
+                )}
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface"
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      openExportDeckVideoModal();
+                    }}
+                  >
+                    <Clapperboard size={16} className="shrink-0 opacity-70" />
+                    Exportar vídeo (Remotion)
+                  </button>
+                )}
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full px-3 py-2.5 text-left text-sm flex flex-col items-start gap-1 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface disabled:opacity-50"
+                    onClick={handleExportPowerPoint}
+                    disabled={isExportingPptx}
+                  >
+                    <span className="flex items-center gap-2">
+                      {isExportingPptx ? (
+                        <Loader2 size={16} className="shrink-0 animate-spin" />
+                      ) : (
+                        <FileDown size={16} className="shrink-0 opacity-70" />
+                      )}
+                      Exportar PowerPoint
+                    </span>
+                    {isExportingPptx && pptxExportHint ? (
+                      <span className="pl-[22px] text-[10px] font-normal leading-tight text-stone-500 dark:text-stone-400">
+                        {pptxExportHint}
+                      </span>
+                    ) : null}
+                  </button>
+                )}
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface disabled:opacity-50"
+                    onClick={handleExportSlideAsImage}
+                    disabled={isExportingSlideImage || isExportingPptx}
+                  >
+                    {isExportingSlideImage ? (
+                      <Loader2 size={16} className="shrink-0 animate-spin" />
+                    ) : (
+                      <ImageIcon size={16} className="shrink-0 opacity-70" />
+                    )}
+                    Exportar diapositiva como imagen
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </nav>
+        <AvatarMenu onOpenConfig={onOpenConfig} className="ml-0 shrink-0" />
       </div>
+      {isExportingPptx && pptxExportHint ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-full z-[60] border-b border-amber-200/90 bg-amber-50/98 px-2 py-1.5 text-center text-[11px] leading-snug text-amber-950 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/95 dark:text-amber-50"
+          role="status"
+          aria-live="polite"
+        >
+          {pptxExportHint}
+        </div>
+      ) : null}
     </header>
   );
 }

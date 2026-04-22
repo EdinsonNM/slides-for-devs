@@ -1,6 +1,7 @@
 mod api_keys;
 mod ai_providers;
 mod db;
+mod meshy;
 mod oauth_google;
 
 use std::path::PathBuf;
@@ -65,6 +66,17 @@ fn delete_presentation(
 }
 
 #[tauri::command]
+fn clear_presentation_local_body(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    account_scope: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::clear_presentation_local_body(&conn, &id, &account_scope).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn import_saved_presentation(
     db_path: tauri::State<DbPath>,
     saved: db::SavedPresentation,
@@ -92,6 +104,46 @@ fn set_presentation_cloud_state(
         cloud_id.as_deref(),
         cloud_synced_at.as_deref(),
         cloud_revision,
+        &account_scope,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_presentation_shared_cloud_source(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    shared_cloud_source: Option<String>,
+    account_scope: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::set_presentation_shared_cloud_source(
+        &conn,
+        &id,
+        shared_cloud_source.as_deref(),
+        &account_scope,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_presentation_sync_state(
+    db_path: tauri::State<DbPath>,
+    id: String,
+    dirty_slide_ids: Option<Vec<String>>,
+    sync_status: Option<String>,
+    last_synced_revision: Option<i64>,
+    account_scope: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::set_presentation_sync_state(
+        &conn,
+        &id,
+        dirty_slide_ids,
+        sync_status.as_deref(),
+        last_synced_revision,
         &account_scope,
     )
     .map_err(|e| e.to_string())
@@ -147,6 +199,49 @@ fn set_character_cloud_state(
         &account_scope,
     )
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_generated_resources(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+) -> Result<Vec<db::GeneratedResourceEntry>, String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::list_generated_resources(&conn, &account_scope).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_generated_resource(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+    kind: String,
+    payload: String,
+    prompt: Option<String>,
+    source: Option<String>,
+) -> Result<db::GeneratedResourceEntry, String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::add_generated_resource(
+        &conn,
+        &account_scope,
+        &kind,
+        &payload,
+        prompt.as_deref(),
+        source.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_generated_resource(
+    db_path: tauri::State<DbPath>,
+    account_scope: String,
+    id: String,
+) -> Result<(), String> {
+    let path = &db_path.0;
+    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    db::delete_generated_resource(&conn, &account_scope, &id).map_err(|e| e.to_string())
 }
 
 /// Escribe un archivo binario desde base64. Usado para exportar .pptx (el frontend abre el diálogo de guardar).
@@ -219,6 +314,47 @@ fn get_openrouter_api_key() -> Result<Option<String>, String> {
 #[tauri::command]
 fn set_openrouter_api_key(key: String) -> Result<(), String> {
     api_keys::set_openrouter_api_key(&key)
+}
+
+#[tauri::command]
+fn get_meshy_api_key() -> Result<Option<String>, String> {
+    api_keys::get_meshy_api_key()
+}
+
+#[tauri::command]
+fn set_meshy_api_key(key: String) -> Result<(), String> {
+    api_keys::set_meshy_api_key(&key)
+}
+
+/// Red de Meshy + espera activa: debe ir en `spawn_blocking` para no bloquear el runtime de Tauri (UI).
+#[tauri::command]
+async fn meshy_text_to_3d_glb(
+    app: tauri::AppHandle,
+    prompt: String,
+    ai_model: String,
+    with_texture: bool,
+) -> Result<String, String> {
+    let app = app.clone();
+    tokio::task::spawn_blocking(move || {
+        meshy::meshy_text_to_3d_glb(&app, prompt, ai_model, with_texture)
+    })
+    .await
+    .map_err(|e| format!("Tarea Meshy interrumpida: {}", e))?
+}
+
+#[tauri::command]
+async fn meshy_image_to_3d_glb(
+    app: tauri::AppHandle,
+    image_url: String,
+    ai_model: String,
+    should_texture: bool,
+) -> Result<String, String> {
+    let app = app.clone();
+    tokio::task::spawn_blocking(move || {
+        meshy::meshy_image_to_3d_glb(&app, image_url, ai_model, should_texture)
+    })
+    .await
+    .map_err(|e| format!("Tarea Meshy interrumpida: {}", e))?
 }
 
 #[tauri::command]
@@ -339,6 +475,17 @@ fn sign_in_google_external_browser(app: tauri::AppHandle) -> Result<String, Stri
     oauth_google::sign_in_with_external_browser(&content)
 }
 
+/// Abre `url` en el navegador predeterminado (escritorio). En el WebView de Tauri los
+/// `<a target="_blank">` no siempre delegan al SO; usar esto desde el frontend.
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
+        return Err("Solo se permiten enlaces http(s)".to_string());
+    }
+    opener::open_browser(trimmed).map_err(|e| e.to_string())
+}
+
 // --- Presentaciones ---
 
 /// Migrates existing JSON presentation files (AppData/presentations/*.json) into SQLite.
@@ -426,6 +573,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_firebase_config,
+            open_external_url,
             sign_in_google_external_browser,
             get_gemini_api_key,
             set_gemini_api_key,
@@ -439,6 +587,10 @@ pub fn run() {
             set_cerebras_api_key,
             get_openrouter_api_key,
             set_openrouter_api_key,
+            get_meshy_api_key,
+            set_meshy_api_key,
+            meshy_text_to_3d_glb,
+            meshy_image_to_3d_glb,
             has_any_api_configured,
             provider_chat_completion,
             save_presentation,
@@ -446,13 +598,19 @@ pub fn run() {
             load_presentation,
             list_presentations,
             delete_presentation,
+            clear_presentation_local_body,
             import_saved_presentation,
             set_presentation_cloud_state,
+            set_presentation_sync_state,
+            set_presentation_shared_cloud_source,
             migrate_json_presentations,
             list_characters,
             save_character,
             delete_character,
             set_character_cloud_state,
+            list_generated_resources,
+            add_generated_resource,
+            delete_generated_resource,
             write_binary_file,
         ])
         .run(tauri::generate_context!())

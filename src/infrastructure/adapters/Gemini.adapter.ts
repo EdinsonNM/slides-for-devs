@@ -1,10 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Slide } from "../../domain/entities";
 import type {
   PresentationGeneratorPort,
   SlideOperationsPort,
   ImageGeneratorPort,
+  GeneratePresentationOptions,
+  GeneratedPresentationResult,
+  DeckNarrativeSlideOptions,
 } from "../../domain/ports";
+import {
+  type Slide,
+  SLIDE_TYPE,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  serializeSlideMatrixForPrompt,
+} from "../../domain/entities";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -13,10 +22,13 @@ import {
   generatePresentationPrompt,
   splitSlidePrompt,
   rewriteSlidePrompt,
+  generateSlideContentPrompt,
+  generateSlideMatrixPrompt,
+  generateSlideDiagramPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
-import { parseSlidesFromResponse } from "../schemas";
+import { parseGeneratedDeckFromResponse, parseSlidesFromResponse } from "../schemas";
 import { getGeminiApiKey } from "../../services/apiConfig";
 
 const DEFAULT_TEXT = "gemini-2.5-flash";
@@ -49,29 +61,39 @@ async function resolveSlideCount(topic: string, model: string): Promise<number> 
   return Math.min(max, Math.max(min, num));
 }
 
-const presentationSchema = {
+const geminiDeckSlideItemSchema = {
+  type: Type.OBJECT,
+  properties: {
+    id: { type: Type.STRING },
+    type: { type: Type.STRING, enum: [SLIDE_TYPE.CONTENT, SLIDE_TYPE.CHAPTER] },
+    title: { type: Type.STRING },
+    subtitle: { type: Type.STRING },
+    content: { type: Type.STRING },
+    imagePrompt: { type: Type.STRING },
+  },
+  required: ["id", "type", "title", "content"],
+};
+
+const fullDeckGenerationSchema = {
   responseMimeType: "application/json" as const,
   responseSchema: {
-    type: Type.ARRAY,
-    items: {
-      type: Type.OBJECT,
-      properties: {
-        id: { type: Type.STRING },
-        type: { type: Type.STRING, enum: ["content", "chapter"] },
-        title: { type: Type.STRING },
-        subtitle: { type: Type.STRING },
-        content: { type: Type.STRING },
-        imagePrompt: { type: Type.STRING },
-      },
-      required: ["id", "type", "title", "content"],
+    type: Type.OBJECT,
+    properties: {
+      presentationTitle: { type: Type.STRING },
+      slides: { type: Type.ARRAY, items: geminiDeckSlideItemSchema },
     },
+    required: ["presentationTitle", "slides"],
   },
 };
 
 export class GeminiAdapter
   implements PresentationGeneratorPort, SlideOperationsPort, ImageGeneratorPort
 {
-  async generatePresentation(topic: string, modelId: string): Promise<Slide[]> {
+  async generatePresentation(
+    topic: string,
+    modelId: string,
+    options?: GeneratePresentationOptions,
+  ): Promise<GeneratedPresentationResult> {
     const model = modelId || DEFAULT_TEXT;
     const fromTopic = parseSlideCountFromTopic(topic);
     const requestedCount = fromTopic ?? await resolveSlideCount(topic, model);
@@ -79,14 +101,15 @@ export class GeminiAdapter
       topic,
       slideCount: requestedCount,
       strictCount: requestedCount !== def,
+      narrativeInstructions: options?.narrativeInstructions,
     });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
       model,
       contents: content,
-      config: presentationSchema,
+      config: fullDeckGenerationSchema,
     });
-    return parseSlidesFromResponse(res.text || "[]");
+    return parseGeneratedDeckFromResponse(res.text || "{}");
   }
 
   async splitSlide(slide: Slide, prompt: string, modelId: string): Promise<Slide[]> {
@@ -119,9 +142,14 @@ export class GeminiAdapter
   async rewriteSlide(
     slide: Slide,
     prompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
-    const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const { system, user } = buildPrompt(rewriteSlidePrompt, {
+      slide,
+      userPrompt: prompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
     const content = `${system}\n\n${user}`;
     const res = await client().models.generateContent({
       model: modelId || DEFAULT_TEXT,
@@ -140,6 +168,173 @@ export class GeminiAdapter
       return { title: parsed.title ?? slide.title, content: parsed.content ?? slide.content };
     } catch {
       return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{ title: string; content: string }> {
+    const { system, user } = buildPrompt(generateSlideContentPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const content = `${system}\n\n${user}`;
+    const res = await client().models.generateContent({
+      model: modelId || DEFAULT_TEXT,
+      contents: content,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { title: { type: Type.STRING }, content: { type: Type.STRING } },
+          required: ["title", "content"],
+        },
+      },
+    });
+    try {
+      const parsed = JSON.parse(res.text || "{}") as { title?: string; content?: string };
+      return { title: parsed.title ?? slide.title, content: parsed.content ?? slide.content };
+    } catch {
+      return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }> {
+    const baseMatrix = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    const fallback = {
+      title: slide.title,
+      subtitle: slide.subtitle ?? "",
+      content: slide.content,
+      columnHeaders: baseMatrix.columnHeaders,
+      rows: baseMatrix.rows,
+    };
+    const { system, user } = buildPrompt(generateSlideMatrixPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideSubtitle: slide.subtitle ?? "",
+      matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const content = `${system}\n\n${user}`;
+    const res = await client().models.generateContent({
+      model: modelId || DEFAULT_TEXT,
+      contents: content,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            subtitle: { type: Type.STRING },
+            content: { type: Type.STRING },
+            columnHeaders: { type: Type.ARRAY, items: { type: Type.STRING } },
+            rows: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+            },
+          },
+          required: ["title", "subtitle", "content", "columnHeaders", "rows"],
+        },
+      },
+    });
+    try {
+      const parsed = JSON.parse(res.text || "{}") as {
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        columnHeaders?: unknown;
+        rows?: unknown;
+      };
+      const matrix = normalizeSlideMatrixData({
+        columnHeaders: parsed.columnHeaders,
+        rows: parsed.rows,
+      });
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        subtitle: String(parsed.subtitle ?? "").trim(),
+        content: String(parsed.content ?? "").trim(),
+        columnHeaders: matrix.columnHeaders,
+        rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{ title: string; content: string; mermaid: string }> {
+    const fallback = {
+      title: slide.title,
+      content: slide.content,
+      mermaid: "flowchart TD\nA[Define el diagrama en el prompt]",
+    };
+    const { system, user } = buildPrompt(generateSlideDiagramPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const content = `${system}\n\n${user}`;
+    const res = await client().models.generateContent({
+      model: modelId || DEFAULT_TEXT,
+      contents: content,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            mermaid: { type: Type.STRING },
+          },
+          required: ["title", "content", "mermaid"],
+        },
+      },
+    });
+    try {
+      const parsed = JSON.parse(res.text || "{}") as {
+        title?: string;
+        content?: string;
+        mermaid?: string;
+      };
+      const mermaid = String(parsed.mermaid ?? "").trim();
+      if (!mermaid) return fallback;
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        content: String(parsed.content ?? "").trim(),
+        mermaid,
+      };
+    } catch {
+      return fallback;
     }
   }
 
@@ -177,6 +372,8 @@ export class GeminiAdapter
     modelId: string;
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
+    characterPreviewOnly?: boolean;
+    aspectRatio?: "9:16" | "16:9";
   }): Promise<string | undefined> {
     const ref = params.characterReferenceImageDataUrl?.trim()
       ? parseDataUrl(params.characterReferenceImageDataUrl)
@@ -189,6 +386,7 @@ export class GeminiAdapter
       includeBackground: params.includeBackground,
       characterPrompt: params.characterPrompt,
       hasReferenceImage: hasRef,
+      characterPreviewOnly: params.characterPreviewOnly,
     });
     const contents =
       hasRef && ref
@@ -201,10 +399,11 @@ export class GeminiAdapter
             },
           ]
         : { parts: [{ text: fullPrompt }] };
+    const aspectRatio = params.aspectRatio ?? "9:16";
     const res = await client().models.generateContent({
       model: params.modelId || DEFAULT_IMAGE,
       contents,
-      config: { imageConfig: { aspectRatio: "9:16" } },
+      config: { imageConfig: { aspectRatio } },
     });
     for (const part of res.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;

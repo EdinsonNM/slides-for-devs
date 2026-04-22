@@ -1,4 +1,5 @@
 import type { Slide } from "../types";
+import type { GeneratedPresentationResult } from "../domain/ports";
 import { OpenAIAdapter } from "../infrastructure/adapters/OpenAI.adapter";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../constants/openaiImageModels";
 
@@ -6,8 +7,8 @@ const adapter = new OpenAIAdapter();
 
 export async function generatePresentationOpenAI(
   topic: string,
-  model: string = "gpt-5.2"
-): Promise<Slide[]> {
+  model: string = "gpt-5.2",
+): Promise<GeneratedPresentationResult> {
   return adapter.generatePresentation(topic, model);
 }
 

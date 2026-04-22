@@ -1,5 +1,9 @@
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "../../utils/cn";
+
+/** Por encima del lienzo (`isolate` + bloques con z alto), inspector y toolbars típicos. */
+const BASE_MODAL_PORTAL_Z = "z-[300]";
 
 export interface BaseModalProps {
   isOpen: boolean;
@@ -9,6 +13,8 @@ export interface BaseModalProps {
   icon: React.ReactNode;
   children: React.ReactNode;
   disabledBackdropClose?: boolean;
+  /** Evita cerrar con la X (p. ej. operación larga en curso). */
+  disableHeaderClose?: boolean;
   /** Optional className for the content panel. */
   className?: string;
 }
@@ -21,18 +27,29 @@ export function BaseModal({
   icon,
   children,
   disabledBackdropClose = false,
+  disableHeaderClose = false,
   className,
 }: BaseModalProps) {
   if (!isOpen) return null;
 
-  const handleBackdropClick = () => {
-    if (!disabledBackdropClose) onClose();
+  const handleBackdropPointerDown = (e: React.PointerEvent) => {
+    if (disabledBackdropClose) return;
+    /** Solo el overlay vacío cierra: evita cierre si el evento “atraviesa” capas o burbujea mal. */
+    if (e.target !== e.currentTarget) return;
+    onClose();
   };
 
-  return (
+  const stopSurfacePropagation = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  };
+
+  const node = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={handleBackdropClick}
+      className={cn(
+        "fixed inset-0 flex items-center justify-center p-4 bg-black/50",
+        BASE_MODAL_PORTAL_Z,
+      )}
+      onPointerDown={handleBackdropPointerDown}
       role="presentation"
     >
       <div
@@ -44,7 +61,9 @@ export function BaseModal({
           "bg-white dark:bg-surface-elevated rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col",
           className
         )}
-        onClick={(e) => e.stopPropagation()}
+        onPointerDown={stopSurfacePropagation}
+        onMouseDown={stopSurfacePropagation}
+        onClick={stopSurfacePropagation}
       >
         <div className="p-4 border-b border-stone-100 dark:border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -68,12 +87,17 @@ export function BaseModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (!disableHeaderClose) onClose();
+            }}
+            disabled={disableHeaderClose}
             className={cn(
               "p-2 rounded-lg transition-colors shrink-0",
               "text-stone-400 hover:bg-stone-100 hover:text-stone-600",
               "dark:text-muted-foreground dark:hover:bg-surface dark:hover:text-foreground",
-              "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-surface-elevated"
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-surface-elevated",
+              disableHeaderClose &&
+                "pointer-events-none opacity-40 hover:bg-transparent dark:hover:bg-transparent",
             )}
             aria-label="Cerrar"
           >
@@ -84,4 +108,6 @@ export function BaseModal({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

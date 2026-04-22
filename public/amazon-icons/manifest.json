@@ -1,0 +1,1560 @@
+{
+  "version": 1,
+  "icons": [
+    {
+      "id": "aws:analytics__athena",
+      "path": "Analytics/Athena.svg",
+      "label": "Athena"
+    },
+    {
+      "id": "aws:analytics__clean-rooms",
+      "path": "Analytics/Clean-Rooms.svg",
+      "label": "Clean Rooms"
+    },
+    {
+      "id": "aws:analytics__cloudsearch",
+      "path": "Analytics/CloudSearch.svg",
+      "label": "CloudSearch"
+    },
+    {
+      "id": "aws:analytics__data-exchange",
+      "path": "Analytics/Data-Exchange.svg",
+      "label": "Data Exchange"
+    },
+    {
+      "id": "aws:analytics__data-pipeline",
+      "path": "Analytics/Data-Pipeline.svg",
+      "label": "Data Pipeline"
+    },
+    {
+      "id": "aws:analytics__datazone",
+      "path": "Analytics/DataZone.svg",
+      "label": "DataZone"
+    },
+    {
+      "id": "aws:analytics__emr",
+      "path": "Analytics/EMR.svg",
+      "label": "EMR"
+    },
+    {
+      "id": "aws:analytics__finspace",
+      "path": "Analytics/FinSpace.svg",
+      "label": "FinSpace"
+    },
+    {
+      "id": "aws:analytics__glue-databrew",
+      "path": "Analytics/Glue-DataBrew.svg",
+      "label": "Glue DataBrew"
+    },
+    {
+      "id": "aws:analytics__glue-elastic-views",
+      "path": "Analytics/Glue-Elastic-Views.svg",
+      "label": "Glue Elastic Views"
+    },
+    {
+      "id": "aws:analytics__glue",
+      "path": "Analytics/Glue.svg",
+      "label": "Glue"
+    },
+    {
+      "id": "aws:analytics__kinesis-data-analytics",
+      "path": "Analytics/Kinesis-Data-Analytics.svg",
+      "label": "Kinesis Data Analytics"
+    },
+    {
+      "id": "aws:analytics__kinesis-data-streams",
+      "path": "Analytics/Kinesis-Data-Streams.svg",
+      "label": "Kinesis Data Streams"
+    },
+    {
+      "id": "aws:analytics__kinesis-firehose",
+      "path": "Analytics/Kinesis-Firehose.svg",
+      "label": "Kinesis Firehose"
+    },
+    {
+      "id": "aws:analytics__kinesis-video-streams",
+      "path": "Analytics/Kinesis-Video-Streams.svg",
+      "label": "Kinesis Video Streams"
+    },
+    {
+      "id": "aws:analytics__kinesis",
+      "path": "Analytics/Kinesis.svg",
+      "label": "Kinesis"
+    },
+    {
+      "id": "aws:analytics__lake-formation",
+      "path": "Analytics/Lake-Formation.svg",
+      "label": "Lake Formation"
+    },
+    {
+      "id": "aws:analytics__managed-streaming-for-apache-kafka",
+      "path": "Analytics/Managed-Streaming-for-Apache-Kafka.svg",
+      "label": "Managed Streaming for Apache Kafka"
+    },
+    {
+      "id": "aws:analytics__opensearch-service",
+      "path": "Analytics/OpenSearch-Service.svg",
+      "label": "OpenSearch Service"
+    },
+    {
+      "id": "aws:analytics__quicksight",
+      "path": "Analytics/QuickSight.svg",
+      "label": "QuickSight"
+    },
+    {
+      "id": "aws:analytics__redshift",
+      "path": "Analytics/Redshift.svg",
+      "label": "Redshift"
+    },
+    {
+      "id": "aws:app-integration__api-gateway",
+      "path": "App-Integration/API-Gateway.svg",
+      "label": "API Gateway"
+    },
+    {
+      "id": "aws:app-integration__appflow",
+      "path": "App-Integration/AppFlow.svg",
+      "label": "AppFlow"
+    },
+    {
+      "id": "aws:app-integration__appsync",
+      "path": "App-Integration/AppSync.svg",
+      "label": "AppSync"
+    },
+    {
+      "id": "aws:app-integration__console-mobile-application",
+      "path": "App-Integration/Console-Mobile-Application.svg",
+      "label": "Console Mobile Application"
+    },
+    {
+      "id": "aws:app-integration__eventbridge",
+      "path": "App-Integration/EventBridge.svg",
+      "label": "EventBridge"
+    },
+    {
+      "id": "aws:app-integration__express-workflows",
+      "path": "App-Integration/Express-Workflows.svg",
+      "label": "Express Workflows"
+    },
+    {
+      "id": "aws:app-integration__mq",
+      "path": "App-Integration/MQ.svg",
+      "label": "MQ"
+    },
+    {
+      "id": "aws:app-integration__managed-workflows-for-apache-airflow",
+      "path": "App-Integration/Managed-Workflows-for-Apache-Airflow.svg",
+      "label": "Managed Workflows for Apache Airflow"
+    },
+    {
+      "id": "aws:app-integration__simple-notification-service",
+      "path": "App-Integration/Simple-Notification-Service.svg",
+      "label": "Simple Notification Service"
+    },
+    {
+      "id": "aws:app-integration__simple-queue-service",
+      "path": "App-Integration/Simple-Queue-Service.svg",
+      "label": "Simple Queue Service"
+    },
+    {
+      "id": "aws:app-integration__step-functions",
+      "path": "App-Integration/Step-Functions.svg",
+      "label": "Step Functions"
+    },
+    {
+      "id": "aws:blockchain__managed-blockchain",
+      "path": "Blockchain/Managed-Blockchain.svg",
+      "label": "Managed Blockchain"
+    },
+    {
+      "id": "aws:blockchain__quantum-ledger-database",
+      "path": "Blockchain/Quantum-Ledger-Database.svg",
+      "label": "Quantum Ledger Database"
+    },
+    {
+      "id": "aws:business-applications__alexa-for-business",
+      "path": "Business-Applications/Alexa-For-Business.svg",
+      "label": "Alexa For Business"
+    },
+    {
+      "id": "aws:business-applications__chime-sdk",
+      "path": "Business-Applications/Chime-SDK.svg",
+      "label": "Chime SDK"
+    },
+    {
+      "id": "aws:business-applications__chime-voice-connector",
+      "path": "Business-Applications/Chime-Voice-Connector.svg",
+      "label": "Chime Voice Connector"
+    },
+    {
+      "id": "aws:business-applications__chime",
+      "path": "Business-Applications/Chime.svg",
+      "label": "Chime"
+    },
+    {
+      "id": "aws:business-applications__connect",
+      "path": "Business-Applications/Connect.svg",
+      "label": "Connect"
+    },
+    {
+      "id": "aws:business-applications__honeycode",
+      "path": "Business-Applications/Honeycode.svg",
+      "label": "Honeycode"
+    },
+    {
+      "id": "aws:business-applications__pinpoint-apis",
+      "path": "Business-Applications/Pinpoint-APIs.svg",
+      "label": "Pinpoint APIs"
+    },
+    {
+      "id": "aws:business-applications__pinpoint",
+      "path": "Business-Applications/Pinpoint.svg",
+      "label": "Pinpoint"
+    },
+    {
+      "id": "aws:business-applications__simple-email-service",
+      "path": "Business-Applications/Simple-Email-Service.svg",
+      "label": "Simple Email Service"
+    },
+    {
+      "id": "aws:business-applications__supply-chain",
+      "path": "Business-Applications/Supply-Chain.svg",
+      "label": "Supply Chain"
+    },
+    {
+      "id": "aws:business-applications__wickr",
+      "path": "Business-Applications/Wickr.svg",
+      "label": "Wickr"
+    },
+    {
+      "id": "aws:business-applications__workdocs-sdk",
+      "path": "Business-Applications/WorkDocs-SDK.svg",
+      "label": "WorkDocs SDK"
+    },
+    {
+      "id": "aws:business-applications__workdocs",
+      "path": "Business-Applications/WorkDocs.svg",
+      "label": "WorkDocs"
+    },
+    {
+      "id": "aws:business-applications__workmail",
+      "path": "Business-Applications/WorkMail.svg",
+      "label": "WorkMail"
+    },
+    {
+      "id": "aws:cloud-financial-management__application-cost-profiler",
+      "path": "Cloud-Financial-Management/Application-Cost-Profiler.svg",
+      "label": "Application Cost Profiler"
+    },
+    {
+      "id": "aws:cloud-financial-management__billing-conductor",
+      "path": "Cloud-Financial-Management/Billing-Conductor.svg",
+      "label": "Billing Conductor"
+    },
+    {
+      "id": "aws:cloud-financial-management__budgets",
+      "path": "Cloud-Financial-Management/Budgets.svg",
+      "label": "Budgets"
+    },
+    {
+      "id": "aws:cloud-financial-management__cost-explorer",
+      "path": "Cloud-Financial-Management/Cost-Explorer.svg",
+      "label": "Cost Explorer"
+    },
+    {
+      "id": "aws:cloud-financial-management__cost-and-usage-report",
+      "path": "Cloud-Financial-Management/Cost-and-Usage-Report.svg",
+      "label": "Cost and Usage Report"
+    },
+    {
+      "id": "aws:cloud-financial-management__reserved-instance-reporting",
+      "path": "Cloud-Financial-Management/Reserved-Instance-Reporting.svg",
+      "label": "Reserved Instance Reporting"
+    },
+    {
+      "id": "aws:cloud-financial-management__savings-plans",
+      "path": "Cloud-Financial-Management/Savings-Plans.svg",
+      "label": "Savings Plans"
+    },
+    {
+      "id": "aws:compute__app-runner",
+      "path": "Compute/App-Runner.svg",
+      "label": "App Runner"
+    },
+    {
+      "id": "aws:compute__application-auto-scaling",
+      "path": "Compute/Application-Auto-Scaling.svg",
+      "label": "Application Auto Scaling"
+    },
+    {
+      "id": "aws:compute__batch",
+      "path": "Compute/Batch.svg",
+      "label": "Batch"
+    },
+    {
+      "id": "aws:compute__bottlerocket",
+      "path": "Compute/Bottlerocket.svg",
+      "label": "Bottlerocket"
+    },
+    {
+      "id": "aws:compute__compute-optimizer",
+      "path": "Compute/Compute-Optimizer.svg",
+      "label": "Compute Optimizer"
+    },
+    {
+      "id": "aws:compute__ec2-auto-scaling",
+      "path": "Compute/EC2-Auto-Scaling.svg",
+      "label": "EC2 Auto Scaling"
+    },
+    {
+      "id": "aws:compute__ec2-image-builder",
+      "path": "Compute/EC2-Image-Builder.svg",
+      "label": "EC2 Image Builder"
+    },
+    {
+      "id": "aws:compute__ec2",
+      "path": "Compute/EC2.svg",
+      "label": "EC2"
+    },
+    {
+      "id": "aws:compute__elastic-beanstalk",
+      "path": "Compute/Elastic-Beanstalk.svg",
+      "label": "Elastic Beanstalk"
+    },
+    {
+      "id": "aws:compute__elastic-fabric-adapter",
+      "path": "Compute/Elastic-Fabric-Adapter.svg",
+      "label": "Elastic Fabric Adapter"
+    },
+    {
+      "id": "aws:compute__fargate",
+      "path": "Compute/Fargate.svg",
+      "label": "Fargate"
+    },
+    {
+      "id": "aws:compute__genomics-cli",
+      "path": "Compute/Genomics-CLI.svg",
+      "label": "Genomics CLI"
+    },
+    {
+      "id": "aws:compute__lambda",
+      "path": "Compute/Lambda.svg",
+      "label": "Lambda"
+    },
+    {
+      "id": "aws:compute__lightsail",
+      "path": "Compute/Lightsail.svg",
+      "label": "Lightsail"
+    },
+    {
+      "id": "aws:compute__local-zones",
+      "path": "Compute/Local-Zones.svg",
+      "label": "Local Zones"
+    },
+    {
+      "id": "aws:compute__nice-dcv",
+      "path": "Compute/NICE-DCV.svg",
+      "label": "NICE DCV"
+    },
+    {
+      "id": "aws:compute__nice-enginframe",
+      "path": "Compute/NICE-EnginFrame.svg",
+      "label": "NICE EnginFrame"
+    },
+    {
+      "id": "aws:compute__nitro-enclaves",
+      "path": "Compute/Nitro-Enclaves.svg",
+      "label": "Nitro Enclaves"
+    },
+    {
+      "id": "aws:compute__outposts-family",
+      "path": "Compute/Outposts-family.svg",
+      "label": "Outposts family"
+    },
+    {
+      "id": "aws:compute__outposts-rack",
+      "path": "Compute/Outposts-rack.svg",
+      "label": "Outposts rack"
+    },
+    {
+      "id": "aws:compute__outposts-servers",
+      "path": "Compute/Outposts-servers.svg",
+      "label": "Outposts servers"
+    },
+    {
+      "id": "aws:compute__parallelcluster",
+      "path": "Compute/ParallelCluster.svg",
+      "label": "ParallelCluster"
+    },
+    {
+      "id": "aws:compute__serverless-application-repository",
+      "path": "Compute/Serverless-Application-Repository.svg",
+      "label": "Serverless Application Repository"
+    },
+    {
+      "id": "aws:compute__simspace-weaver",
+      "path": "Compute/SimSpace-Weaver.svg",
+      "label": "SimSpace Weaver"
+    },
+    {
+      "id": "aws:compute__thinkbox-deadline",
+      "path": "Compute/Thinkbox-Deadline.svg",
+      "label": "Thinkbox Deadline"
+    },
+    {
+      "id": "aws:compute__thinkbox-frost",
+      "path": "Compute/Thinkbox-Frost.svg",
+      "label": "Thinkbox Frost"
+    },
+    {
+      "id": "aws:compute__thinkbox-krakatoa",
+      "path": "Compute/Thinkbox-Krakatoa.svg",
+      "label": "Thinkbox Krakatoa"
+    },
+    {
+      "id": "aws:compute__thinkbox-sequoia",
+      "path": "Compute/Thinkbox-Sequoia.svg",
+      "label": "Thinkbox Sequoia"
+    },
+    {
+      "id": "aws:compute__thinkbox-stoke",
+      "path": "Compute/Thinkbox-Stoke.svg",
+      "label": "Thinkbox Stoke"
+    },
+    {
+      "id": "aws:compute__thinkbox-xmesh",
+      "path": "Compute/Thinkbox-XMesh.svg",
+      "label": "Thinkbox XMesh"
+    },
+    {
+      "id": "aws:compute__vmware-cloud-on-aws",
+      "path": "Compute/VMware-Cloud-on-AWS.svg",
+      "label": "VMware Cloud on AWS"
+    },
+    {
+      "id": "aws:compute__wavelength",
+      "path": "Compute/Wavelength.svg",
+      "label": "Wavelength"
+    },
+    {
+      "id": "aws:containers__ecs-anywhere",
+      "path": "Containers/ECS-Anywhere.svg",
+      "label": "ECS Anywhere"
+    },
+    {
+      "id": "aws:containers__eks-anywhere",
+      "path": "Containers/EKS-Anywhere.svg",
+      "label": "EKS Anywhere"
+    },
+    {
+      "id": "aws:containers__eks-cloud",
+      "path": "Containers/EKS-Cloud.svg",
+      "label": "EKS Cloud"
+    },
+    {
+      "id": "aws:containers__eks-distro",
+      "path": "Containers/EKS-Distro.svg",
+      "label": "EKS Distro"
+    },
+    {
+      "id": "aws:containers__elastic-container-registry",
+      "path": "Containers/Elastic-Container-Registry.svg",
+      "label": "Elastic Container Registry"
+    },
+    {
+      "id": "aws:containers__elastic-container-service",
+      "path": "Containers/Elastic-Container-Service.svg",
+      "label": "Elastic Container Service"
+    },
+    {
+      "id": "aws:containers__elastic-kubernetes-service",
+      "path": "Containers/Elastic-Kubernetes-Service.svg",
+      "label": "Elastic Kubernetes Service"
+    },
+    {
+      "id": "aws:containers__fargate",
+      "path": "Containers/Fargate.svg",
+      "label": "Fargate"
+    },
+    {
+      "id": "aws:containers__red-hat-openshift-service-on-aws",
+      "path": "Containers/Red-Hat-OpenShift-Service-on-AWS.svg",
+      "label": "Red Hat OpenShift Service on AWS"
+    },
+    {
+      "id": "aws:customer-enablement__activate",
+      "path": "Customer-Enablement/Activate.svg",
+      "label": "Activate"
+    },
+    {
+      "id": "aws:customer-enablement__iq",
+      "path": "Customer-Enablement/IQ.svg",
+      "label": "IQ"
+    },
+    {
+      "id": "aws:customer-enablement__managed-services",
+      "path": "Customer-Enablement/Managed-Services.svg",
+      "label": "Managed Services"
+    },
+    {
+      "id": "aws:customer-enablement__professional-services",
+      "path": "Customer-Enablement/Professional-Services.svg",
+      "label": "Professional Services"
+    },
+    {
+      "id": "aws:customer-enablement__support",
+      "path": "Customer-Enablement/Support.svg",
+      "label": "Support"
+    },
+    {
+      "id": "aws:customer-enablement__training-certification",
+      "path": "Customer-Enablement/Training-Certification.svg",
+      "label": "Training Certification"
+    },
+    {
+      "id": "aws:customer-enablement__repost",
+      "path": "Customer-Enablement/rePost.svg",
+      "label": "rePost"
+    },
+    {
+      "id": "aws:database__aurora",
+      "path": "Database/Aurora.svg",
+      "label": "Aurora"
+    },
+    {
+      "id": "aws:database__database-migration-service",
+      "path": "Database/Database-Migration-Service.svg",
+      "label": "Database Migration Service"
+    },
+    {
+      "id": "aws:database__documentdb",
+      "path": "Database/DocumentDB.svg",
+      "label": "DocumentDB"
+    },
+    {
+      "id": "aws:database__dynamodb",
+      "path": "Database/DynamoDB.svg",
+      "label": "DynamoDB"
+    },
+    {
+      "id": "aws:database__elasticache",
+      "path": "Database/ElastiCache.svg",
+      "label": "ElastiCache"
+    },
+    {
+      "id": "aws:database__keyspaces",
+      "path": "Database/Keyspaces.svg",
+      "label": "Keyspaces"
+    },
+    {
+      "id": "aws:database__memorydb-for-redis",
+      "path": "Database/MemoryDB-for-Redis.svg",
+      "label": "MemoryDB for Redis"
+    },
+    {
+      "id": "aws:database__neptune",
+      "path": "Database/Neptune.svg",
+      "label": "Neptune"
+    },
+    {
+      "id": "aws:database__rds-on-vmware",
+      "path": "Database/RDS-on-VMware.svg",
+      "label": "RDS on VMware"
+    },
+    {
+      "id": "aws:database__rds",
+      "path": "Database/RDS.svg",
+      "label": "RDS"
+    },
+    {
+      "id": "aws:database__timestream",
+      "path": "Database/Timestream.svg",
+      "label": "Timestream"
+    },
+    {
+      "id": "aws:developer-tools__application-composer",
+      "path": "Developer-Tools/Application-Composer.svg",
+      "label": "Application Composer"
+    },
+    {
+      "id": "aws:developer-tools__cloud-control-api",
+      "path": "Developer-Tools/Cloud-Control-API.svg",
+      "label": "Cloud Control API"
+    },
+    {
+      "id": "aws:developer-tools__cloud-development-kit",
+      "path": "Developer-Tools/Cloud-Development-Kit.svg",
+      "label": "Cloud Development Kit"
+    },
+    {
+      "id": "aws:developer-tools__cloud9",
+      "path": "Developer-Tools/Cloud9.svg",
+      "label": "Cloud9"
+    },
+    {
+      "id": "aws:developer-tools__cloudshell",
+      "path": "Developer-Tools/CloudShell.svg",
+      "label": "CloudShell"
+    },
+    {
+      "id": "aws:developer-tools__codeartifact",
+      "path": "Developer-Tools/CodeArtifact.svg",
+      "label": "CodeArtifact"
+    },
+    {
+      "id": "aws:developer-tools__codebuild",
+      "path": "Developer-Tools/CodeBuild.svg",
+      "label": "CodeBuild"
+    },
+    {
+      "id": "aws:developer-tools__codecatalyst",
+      "path": "Developer-Tools/CodeCatalyst.svg",
+      "label": "CodeCatalyst"
+    },
+    {
+      "id": "aws:developer-tools__codecommit",
+      "path": "Developer-Tools/CodeCommit.svg",
+      "label": "CodeCommit"
+    },
+    {
+      "id": "aws:developer-tools__codedeploy",
+      "path": "Developer-Tools/CodeDeploy.svg",
+      "label": "CodeDeploy"
+    },
+    {
+      "id": "aws:developer-tools__codepipeline",
+      "path": "Developer-Tools/CodePipeline.svg",
+      "label": "CodePipeline"
+    },
+    {
+      "id": "aws:developer-tools__codestar",
+      "path": "Developer-Tools/CodeStar.svg",
+      "label": "CodeStar"
+    },
+    {
+      "id": "aws:developer-tools__command-line-interface",
+      "path": "Developer-Tools/Command-Line-Interface.svg",
+      "label": "Command Line Interface"
+    },
+    {
+      "id": "aws:developer-tools__corretto",
+      "path": "Developer-Tools/Corretto.svg",
+      "label": "Corretto"
+    },
+    {
+      "id": "aws:developer-tools__tools-and-sdks",
+      "path": "Developer-Tools/Tools-and-SDKs.svg",
+      "label": "Tools and SDKs"
+    },
+    {
+      "id": "aws:developer-tools__x-ray",
+      "path": "Developer-Tools/X-Ray.svg",
+      "label": "X Ray"
+    },
+    {
+      "id": "aws:end-user-computing__appstream",
+      "path": "End-User-Computing/AppStream.svg",
+      "label": "AppStream"
+    },
+    {
+      "id": "aws:end-user-computing__worklink",
+      "path": "End-User-Computing/WorkLink.svg",
+      "label": "WorkLink"
+    },
+    {
+      "id": "aws:end-user-computing__workspaces-family",
+      "path": "End-User-Computing/WorkSpaces-Family.svg",
+      "label": "WorkSpaces Family"
+    },
+    {
+      "id": "aws:front-end-web-mobile__amplify",
+      "path": "Front-End-Web-Mobile/Amplify.svg",
+      "label": "Amplify"
+    },
+    {
+      "id": "aws:front-end-web-mobile__device-farm",
+      "path": "Front-End-Web-Mobile/Device-Farm.svg",
+      "label": "Device Farm"
+    },
+    {
+      "id": "aws:front-end-web-mobile__location-service",
+      "path": "Front-End-Web-Mobile/Location-Service.svg",
+      "label": "Location Service"
+    },
+    {
+      "id": "aws:games__gamekit",
+      "path": "Games/GameKit.svg",
+      "label": "GameKit"
+    },
+    {
+      "id": "aws:games__gamelift",
+      "path": "Games/GameLift.svg",
+      "label": "GameLift"
+    },
+    {
+      "id": "aws:games__gamesparks",
+      "path": "Games/GameSparks.svg",
+      "label": "GameSparks"
+    },
+    {
+      "id": "aws:games__lumberyard",
+      "path": "Games/Lumberyard.svg",
+      "label": "Lumberyard"
+    },
+    {
+      "id": "aws:games__open-3d-engine",
+      "path": "Games/Open-3D-Engine.svg",
+      "label": "Open 3D Engine"
+    },
+    {
+      "id": "aws:general-icons__marketplace_dark",
+      "path": "General-Icons/Marketplace_Dark.svg",
+      "label": "Marketplace_Dark"
+    },
+    {
+      "id": "aws:general-icons__marketplace_light",
+      "path": "General-Icons/Marketplace_Light.svg",
+      "label": "Marketplace_Light"
+    },
+    {
+      "id": "aws:internet-of-things__freertos",
+      "path": "Internet-of-Things/FreeRTOS.svg",
+      "label": "FreeRTOS"
+    },
+    {
+      "id": "aws:internet-of-things__iot-1-click",
+      "path": "Internet-of-Things/IoT-1-Click.svg",
+      "label": "IoT 1 Click"
+    },
+    {
+      "id": "aws:internet-of-things__iot-analytics",
+      "path": "Internet-of-Things/IoT-Analytics.svg",
+      "label": "IoT Analytics"
+    },
+    {
+      "id": "aws:internet-of-things__iot-button",
+      "path": "Internet-of-Things/IoT-Button.svg",
+      "label": "IoT Button"
+    },
+    {
+      "id": "aws:internet-of-things__iot-core",
+      "path": "Internet-of-Things/IoT-Core.svg",
+      "label": "IoT Core"
+    },
+    {
+      "id": "aws:internet-of-things__iot-device-defender",
+      "path": "Internet-of-Things/IoT-Device-Defender.svg",
+      "label": "IoT Device Defender"
+    },
+    {
+      "id": "aws:internet-of-things__iot-device-management",
+      "path": "Internet-of-Things/IoT-Device-Management.svg",
+      "label": "IoT Device Management"
+    },
+    {
+      "id": "aws:internet-of-things__iot-edukit",
+      "path": "Internet-of-Things/IoT-EduKit.svg",
+      "label": "IoT EduKit"
+    },
+    {
+      "id": "aws:internet-of-things__iot-events",
+      "path": "Internet-of-Things/IoT-Events.svg",
+      "label": "IoT Events"
+    },
+    {
+      "id": "aws:internet-of-things__iot-expresslink",
+      "path": "Internet-of-Things/IoT-ExpressLink.svg",
+      "label": "IoT ExpressLink"
+    },
+    {
+      "id": "aws:internet-of-things__iot-fleetwise",
+      "path": "Internet-of-Things/IoT-FleetWise.svg",
+      "label": "IoT FleetWise"
+    },
+    {
+      "id": "aws:internet-of-things__iot-greengrass",
+      "path": "Internet-of-Things/IoT-Greengrass.svg",
+      "label": "IoT Greengrass"
+    },
+    {
+      "id": "aws:internet-of-things__iot-roborunner",
+      "path": "Internet-of-Things/IoT-RoboRunner.svg",
+      "label": "IoT RoboRunner"
+    },
+    {
+      "id": "aws:internet-of-things__iot-sitewise",
+      "path": "Internet-of-Things/IoT-SiteWise.svg",
+      "label": "IoT SiteWise"
+    },
+    {
+      "id": "aws:internet-of-things__iot-things-graph",
+      "path": "Internet-of-Things/IoT-Things-Graph.svg",
+      "label": "IoT Things Graph"
+    },
+    {
+      "id": "aws:internet-of-things__iot-twinmaker",
+      "path": "Internet-of-Things/IoT-TwinMaker.svg",
+      "label": "IoT TwinMaker"
+    },
+    {
+      "id": "aws:machine-learning__apache-mxnet-on-aws",
+      "path": "Machine-Learning/Apache-MXNet-on-AWS.svg",
+      "label": "Apache MXNet on AWS"
+    },
+    {
+      "id": "aws:machine-learning__augmented-ai-a2i",
+      "path": "Machine-Learning/Augmented-AI-A2I.svg",
+      "label": "Augmented AI A2I"
+    },
+    {
+      "id": "aws:machine-learning__codeguru",
+      "path": "Machine-Learning/CodeGuru.svg",
+      "label": "CodeGuru"
+    },
+    {
+      "id": "aws:machine-learning__codewhisperer",
+      "path": "Machine-Learning/CodeWhisperer.svg",
+      "label": "CodeWhisperer"
+    },
+    {
+      "id": "aws:machine-learning__comprehend-medical",
+      "path": "Machine-Learning/Comprehend-Medical.svg",
+      "label": "Comprehend Medical"
+    },
+    {
+      "id": "aws:machine-learning__comprehend",
+      "path": "Machine-Learning/Comprehend.svg",
+      "label": "Comprehend"
+    },
+    {
+      "id": "aws:machine-learning__deep-learning-amis",
+      "path": "Machine-Learning/Deep-Learning-AMIs.svg",
+      "label": "Deep Learning AMIs"
+    },
+    {
+      "id": "aws:machine-learning__deep-learning-containers",
+      "path": "Machine-Learning/Deep-Learning-Containers.svg",
+      "label": "Deep Learning Containers"
+    },
+    {
+      "id": "aws:machine-learning__deepcomposer",
+      "path": "Machine-Learning/DeepComposer.svg",
+      "label": "DeepComposer"
+    },
+    {
+      "id": "aws:machine-learning__deeplens",
+      "path": "Machine-Learning/DeepLens.svg",
+      "label": "DeepLens"
+    },
+    {
+      "id": "aws:machine-learning__deepracer",
+      "path": "Machine-Learning/DeepRacer.svg",
+      "label": "DeepRacer"
+    },
+    {
+      "id": "aws:machine-learning__devops-guru",
+      "path": "Machine-Learning/DevOps-Guru.svg",
+      "label": "DevOps Guru"
+    },
+    {
+      "id": "aws:machine-learning__elastic-inference",
+      "path": "Machine-Learning/Elastic-Inference.svg",
+      "label": "Elastic Inference"
+    },
+    {
+      "id": "aws:machine-learning__forecast",
+      "path": "Machine-Learning/Forecast.svg",
+      "label": "Forecast"
+    },
+    {
+      "id": "aws:machine-learning__fraud-detector",
+      "path": "Machine-Learning/Fraud-Detector.svg",
+      "label": "Fraud Detector"
+    },
+    {
+      "id": "aws:machine-learning__healthlake",
+      "path": "Machine-Learning/HealthLake.svg",
+      "label": "HealthLake"
+    },
+    {
+      "id": "aws:machine-learning__kendra",
+      "path": "Machine-Learning/Kendra.svg",
+      "label": "Kendra"
+    },
+    {
+      "id": "aws:machine-learning__lex",
+      "path": "Machine-Learning/Lex.svg",
+      "label": "Lex"
+    },
+    {
+      "id": "aws:machine-learning__lookout-for-equipment",
+      "path": "Machine-Learning/Lookout-for-Equipment.svg",
+      "label": "Lookout for Equipment"
+    },
+    {
+      "id": "aws:machine-learning__lookout-for-metrics",
+      "path": "Machine-Learning/Lookout-for-Metrics.svg",
+      "label": "Lookout for Metrics"
+    },
+    {
+      "id": "aws:machine-learning__lookout-for-vision",
+      "path": "Machine-Learning/Lookout-for-Vision.svg",
+      "label": "Lookout for Vision"
+    },
+    {
+      "id": "aws:machine-learning__monitron",
+      "path": "Machine-Learning/Monitron.svg",
+      "label": "Monitron"
+    },
+    {
+      "id": "aws:machine-learning__neuron",
+      "path": "Machine-Learning/Neuron.svg",
+      "label": "Neuron"
+    },
+    {
+      "id": "aws:machine-learning__omics",
+      "path": "Machine-Learning/Omics.svg",
+      "label": "Omics"
+    },
+    {
+      "id": "aws:machine-learning__panorama",
+      "path": "Machine-Learning/Panorama.svg",
+      "label": "Panorama"
+    },
+    {
+      "id": "aws:machine-learning__personalize",
+      "path": "Machine-Learning/Personalize.svg",
+      "label": "Personalize"
+    },
+    {
+      "id": "aws:machine-learning__polly",
+      "path": "Machine-Learning/Polly.svg",
+      "label": "Polly"
+    },
+    {
+      "id": "aws:machine-learning__rekognition",
+      "path": "Machine-Learning/Rekognition.svg",
+      "label": "Rekognition"
+    },
+    {
+      "id": "aws:machine-learning__sagemaker-ground-truth",
+      "path": "Machine-Learning/SageMaker-Ground-Truth.svg",
+      "label": "SageMaker Ground Truth"
+    },
+    {
+      "id": "aws:machine-learning__sagemaker-studio-lab",
+      "path": "Machine-Learning/SageMaker-Studio-Lab.svg",
+      "label": "SageMaker Studio Lab"
+    },
+    {
+      "id": "aws:machine-learning__sagemaker",
+      "path": "Machine-Learning/SageMaker.svg",
+      "label": "SageMaker"
+    },
+    {
+      "id": "aws:machine-learning__tensorflow-on-aws",
+      "path": "Machine-Learning/TensorFlow-on-AWS.svg",
+      "label": "TensorFlow on AWS"
+    },
+    {
+      "id": "aws:machine-learning__textract",
+      "path": "Machine-Learning/Textract.svg",
+      "label": "Textract"
+    },
+    {
+      "id": "aws:machine-learning__torchserve",
+      "path": "Machine-Learning/TorchServe.svg",
+      "label": "TorchServe"
+    },
+    {
+      "id": "aws:machine-learning__transcribe",
+      "path": "Machine-Learning/Transcribe.svg",
+      "label": "Transcribe"
+    },
+    {
+      "id": "aws:machine-learning__translate",
+      "path": "Machine-Learning/Translate.svg",
+      "label": "Translate"
+    },
+    {
+      "id": "aws:management-governance__appconfig",
+      "path": "Management-Governance/AppConfig.svg",
+      "label": "AppConfig"
+    },
+    {
+      "id": "aws:management-governance__application-auto-scaling",
+      "path": "Management-Governance/Application-Auto-Scaling.svg",
+      "label": "Application Auto Scaling"
+    },
+    {
+      "id": "aws:management-governance__auto-scaling",
+      "path": "Management-Governance/Auto-Scaling.svg",
+      "label": "Auto Scaling"
+    },
+    {
+      "id": "aws:management-governance__backint-agent",
+      "path": "Management-Governance/Backint-Agent.svg",
+      "label": "Backint Agent"
+    },
+    {
+      "id": "aws:management-governance__chatbot",
+      "path": "Management-Governance/Chatbot.svg",
+      "label": "Chatbot"
+    },
+    {
+      "id": "aws:management-governance__cloudformation",
+      "path": "Management-Governance/CloudFormation.svg",
+      "label": "CloudFormation"
+    },
+    {
+      "id": "aws:management-governance__cloudtrail",
+      "path": "Management-Governance/CloudTrail.svg",
+      "label": "CloudTrail"
+    },
+    {
+      "id": "aws:management-governance__cloudwatch",
+      "path": "Management-Governance/CloudWatch.svg",
+      "label": "CloudWatch"
+    },
+    {
+      "id": "aws:management-governance__config",
+      "path": "Management-Governance/Config.svg",
+      "label": "Config"
+    },
+    {
+      "id": "aws:management-governance__control-tower",
+      "path": "Management-Governance/Control-Tower.svg",
+      "label": "Control Tower"
+    },
+    {
+      "id": "aws:management-governance__distro-for-opentelemetry",
+      "path": "Management-Governance/Distro-for-OpenTelemetry.svg",
+      "label": "Distro for OpenTelemetry"
+    },
+    {
+      "id": "aws:management-governance__fault-injection-simulator",
+      "path": "Management-Governance/Fault-Injection-Simulator.svg",
+      "label": "Fault Injection Simulator"
+    },
+    {
+      "id": "aws:management-governance__launch-wizard",
+      "path": "Management-Governance/Launch-Wizard.svg",
+      "label": "Launch Wizard"
+    },
+    {
+      "id": "aws:management-governance__license-manager",
+      "path": "Management-Governance/License-Manager.svg",
+      "label": "License Manager"
+    },
+    {
+      "id": "aws:management-governance__managed-grafana",
+      "path": "Management-Governance/Managed-Grafana.svg",
+      "label": "Managed Grafana"
+    },
+    {
+      "id": "aws:management-governance__managed-service-for-prometheus",
+      "path": "Management-Governance/Managed-Service-for-Prometheus.svg",
+      "label": "Managed Service for Prometheus"
+    },
+    {
+      "id": "aws:management-governance__management-console",
+      "path": "Management-Governance/Management-Console.svg",
+      "label": "Management Console"
+    },
+    {
+      "id": "aws:management-governance__opsworks",
+      "path": "Management-Governance/OpsWorks.svg",
+      "label": "OpsWorks"
+    },
+    {
+      "id": "aws:management-governance__organizations",
+      "path": "Management-Governance/Organizations.svg",
+      "label": "Organizations"
+    },
+    {
+      "id": "aws:management-governance__personal-health-dashboard",
+      "path": "Management-Governance/Personal-Health-Dashboard.svg",
+      "label": "Personal Health Dashboard"
+    },
+    {
+      "id": "aws:management-governance__proton",
+      "path": "Management-Governance/Proton.svg",
+      "label": "Proton"
+    },
+    {
+      "id": "aws:management-governance__resilience-hub",
+      "path": "Management-Governance/Resilience-Hub.svg",
+      "label": "Resilience Hub"
+    },
+    {
+      "id": "aws:management-governance__resource-explorer",
+      "path": "Management-Governance/Resource-Explorer.svg",
+      "label": "Resource Explorer"
+    },
+    {
+      "id": "aws:management-governance__service-catalog",
+      "path": "Management-Governance/Service-Catalog.svg",
+      "label": "Service Catalog"
+    },
+    {
+      "id": "aws:management-governance__service-management-connector",
+      "path": "Management-Governance/Service-Management-Connector.svg",
+      "label": "Service Management Connector"
+    },
+    {
+      "id": "aws:management-governance__systems-manager",
+      "path": "Management-Governance/Systems-Manager.svg",
+      "label": "Systems Manager"
+    },
+    {
+      "id": "aws:management-governance__trusted-advisor",
+      "path": "Management-Governance/Trusted-Advisor.svg",
+      "label": "Trusted Advisor"
+    },
+    {
+      "id": "aws:management-governance__well-architected-tool",
+      "path": "Management-Governance/Well-Architected-Tool.svg",
+      "label": "Well Architected Tool"
+    },
+    {
+      "id": "aws:media-services__elastic-transcoder",
+      "path": "Media-Services/Elastic-Transcoder.svg",
+      "label": "Elastic Transcoder"
+    },
+    {
+      "id": "aws:media-services__elemental-appliances-&-software",
+      "path": "Media-Services/Elemental-Appliances-&-Software.svg",
+      "label": "Elemental Appliances & Software"
+    },
+    {
+      "id": "aws:media-services__elemental-conductor",
+      "path": "Media-Services/Elemental-Conductor.svg",
+      "label": "Elemental Conductor"
+    },
+    {
+      "id": "aws:media-services__elemental-delta",
+      "path": "Media-Services/Elemental-Delta.svg",
+      "label": "Elemental Delta"
+    },
+    {
+      "id": "aws:media-services__elemental-link",
+      "path": "Media-Services/Elemental-Link.svg",
+      "label": "Elemental Link"
+    },
+    {
+      "id": "aws:media-services__elemental-live",
+      "path": "Media-Services/Elemental-Live.svg",
+      "label": "Elemental Live"
+    },
+    {
+      "id": "aws:media-services__elemental-mediaconnect",
+      "path": "Media-Services/Elemental-MediaConnect.svg",
+      "label": "Elemental MediaConnect"
+    },
+    {
+      "id": "aws:media-services__elemental-mediaconvert",
+      "path": "Media-Services/Elemental-MediaConvert.svg",
+      "label": "Elemental MediaConvert"
+    },
+    {
+      "id": "aws:media-services__elemental-medialive",
+      "path": "Media-Services/Elemental-MediaLive.svg",
+      "label": "Elemental MediaLive"
+    },
+    {
+      "id": "aws:media-services__elemental-mediapackage",
+      "path": "Media-Services/Elemental-MediaPackage.svg",
+      "label": "Elemental MediaPackage"
+    },
+    {
+      "id": "aws:media-services__elemental-mediastore",
+      "path": "Media-Services/Elemental-MediaStore.svg",
+      "label": "Elemental MediaStore"
+    },
+    {
+      "id": "aws:media-services__elemental-mediatailor",
+      "path": "Media-Services/Elemental-MediaTailor.svg",
+      "label": "Elemental MediaTailor"
+    },
+    {
+      "id": "aws:media-services__elemental-server",
+      "path": "Media-Services/Elemental-Server.svg",
+      "label": "Elemental Server"
+    },
+    {
+      "id": "aws:media-services__interactive-video-service",
+      "path": "Media-Services/Interactive-Video-Service.svg",
+      "label": "Interactive Video Service"
+    },
+    {
+      "id": "aws:media-services__kinesis-video-streams",
+      "path": "Media-Services/Kinesis-Video-Streams.svg",
+      "label": "Kinesis Video Streams"
+    },
+    {
+      "id": "aws:media-services__nimble-studio",
+      "path": "Media-Services/Nimble-Studio.svg",
+      "label": "Nimble Studio"
+    },
+    {
+      "id": "aws:migration-transfer__application-discovery-service",
+      "path": "Migration-Transfer/Application-Discovery-Service.svg",
+      "label": "Application Discovery Service"
+    },
+    {
+      "id": "aws:migration-transfer__application-migration-service",
+      "path": "Migration-Transfer/Application-Migration-Service.svg",
+      "label": "Application Migration Service"
+    },
+    {
+      "id": "aws:migration-transfer__datasync",
+      "path": "Migration-Transfer/DataSync.svg",
+      "label": "DataSync"
+    },
+    {
+      "id": "aws:migration-transfer__mainframe-modernization",
+      "path": "Migration-Transfer/Mainframe-Modernization.svg",
+      "label": "Mainframe Modernization"
+    },
+    {
+      "id": "aws:migration-transfer__migration-evaluator",
+      "path": "Migration-Transfer/Migration-Evaluator.svg",
+      "label": "Migration Evaluator"
+    },
+    {
+      "id": "aws:migration-transfer__migration-hub",
+      "path": "Migration-Transfer/Migration-Hub.svg",
+      "label": "Migration Hub"
+    },
+    {
+      "id": "aws:migration-transfer__server-migration-service",
+      "path": "Migration-Transfer/Server-Migration-Service.svg",
+      "label": "Server Migration Service"
+    },
+    {
+      "id": "aws:migration-transfer__transfer-family",
+      "path": "Migration-Transfer/Transfer-Family.svg",
+      "label": "Transfer Family"
+    },
+    {
+      "id": "aws:networking-content-delivery__app-mesh",
+      "path": "Networking-Content-Delivery/App-Mesh.svg",
+      "label": "App Mesh"
+    },
+    {
+      "id": "aws:networking-content-delivery__client-vpn",
+      "path": "Networking-Content-Delivery/Client-VPN.svg",
+      "label": "Client VPN"
+    },
+    {
+      "id": "aws:networking-content-delivery__cloud-directory",
+      "path": "Networking-Content-Delivery/Cloud-Directory.svg",
+      "label": "Cloud Directory"
+    },
+    {
+      "id": "aws:networking-content-delivery__cloud-map",
+      "path": "Networking-Content-Delivery/Cloud-Map.svg",
+      "label": "Cloud Map"
+    },
+    {
+      "id": "aws:networking-content-delivery__cloud-wan",
+      "path": "Networking-Content-Delivery/Cloud-WAN.svg",
+      "label": "Cloud WAN"
+    },
+    {
+      "id": "aws:networking-content-delivery__cloudfront",
+      "path": "Networking-Content-Delivery/CloudFront.svg",
+      "label": "CloudFront"
+    },
+    {
+      "id": "aws:networking-content-delivery__direct-connect",
+      "path": "Networking-Content-Delivery/Direct-Connect.svg",
+      "label": "Direct Connect"
+    },
+    {
+      "id": "aws:networking-content-delivery__elastic-load-balancing",
+      "path": "Networking-Content-Delivery/Elastic-Load-Balancing.svg",
+      "label": "Elastic Load Balancing"
+    },
+    {
+      "id": "aws:networking-content-delivery__global-accelerator",
+      "path": "Networking-Content-Delivery/Global-Accelerator.svg",
+      "label": "Global Accelerator"
+    },
+    {
+      "id": "aws:networking-content-delivery__private-5g",
+      "path": "Networking-Content-Delivery/Private-5G.svg",
+      "label": "Private 5G"
+    },
+    {
+      "id": "aws:networking-content-delivery__privatelink",
+      "path": "Networking-Content-Delivery/PrivateLink.svg",
+      "label": "PrivateLink"
+    },
+    {
+      "id": "aws:networking-content-delivery__route-53",
+      "path": "Networking-Content-Delivery/Route-53.svg",
+      "label": "Route 53"
+    },
+    {
+      "id": "aws:networking-content-delivery__site-to-site-vpn",
+      "path": "Networking-Content-Delivery/Site-to-Site-VPN.svg",
+      "label": "Site to Site VPN"
+    },
+    {
+      "id": "aws:networking-content-delivery__transit-gateway",
+      "path": "Networking-Content-Delivery/Transit-Gateway.svg",
+      "label": "Transit Gateway"
+    },
+    {
+      "id": "aws:networking-content-delivery__vpc-lattice",
+      "path": "Networking-Content-Delivery/VPC-Lattice.svg",
+      "label": "VPC Lattice"
+    },
+    {
+      "id": "aws:networking-content-delivery__verified-access",
+      "path": "Networking-Content-Delivery/Verified-Access.svg",
+      "label": "Verified Access"
+    },
+    {
+      "id": "aws:networking-content-delivery__virtual-private-cloud",
+      "path": "Networking-Content-Delivery/Virtual-Private-Cloud.svg",
+      "label": "Virtual Private Cloud"
+    },
+    {
+      "id": "aws:quantum-technologies__braket",
+      "path": "Quantum-Technologies/Braket.svg",
+      "label": "Braket"
+    },
+    {
+      "id": "aws:robotics__robomaker",
+      "path": "Robotics/RoboMaker.svg",
+      "label": "RoboMaker"
+    },
+    {
+      "id": "aws:satellite__ground-station",
+      "path": "Satellite/Ground-Station.svg",
+      "label": "Ground Station"
+    },
+    {
+      "id": "aws:security-identity-compliance__artifact",
+      "path": "Security-Identity-Compliance/Artifact.svg",
+      "label": "Artifact"
+    },
+    {
+      "id": "aws:security-identity-compliance__audit-manager",
+      "path": "Security-Identity-Compliance/Audit-Manager.svg",
+      "label": "Audit Manager"
+    },
+    {
+      "id": "aws:security-identity-compliance__certificate-manager",
+      "path": "Security-Identity-Compliance/Certificate-Manager.svg",
+      "label": "Certificate Manager"
+    },
+    {
+      "id": "aws:security-identity-compliance__cloud-directory",
+      "path": "Security-Identity-Compliance/Cloud-Directory.svg",
+      "label": "Cloud Directory"
+    },
+    {
+      "id": "aws:security-identity-compliance__cloudhsm",
+      "path": "Security-Identity-Compliance/CloudHSM.svg",
+      "label": "CloudHSM"
+    },
+    {
+      "id": "aws:security-identity-compliance__cognito",
+      "path": "Security-Identity-Compliance/Cognito.svg",
+      "label": "Cognito"
+    },
+    {
+      "id": "aws:security-identity-compliance__detective",
+      "path": "Security-Identity-Compliance/Detective.svg",
+      "label": "Detective"
+    },
+    {
+      "id": "aws:security-identity-compliance__directory-service",
+      "path": "Security-Identity-Compliance/Directory-Service.svg",
+      "label": "Directory Service"
+    },
+    {
+      "id": "aws:security-identity-compliance__firewall-manager",
+      "path": "Security-Identity-Compliance/Firewall-Manager.svg",
+      "label": "Firewall Manager"
+    },
+    {
+      "id": "aws:security-identity-compliance__guardduty",
+      "path": "Security-Identity-Compliance/GuardDuty.svg",
+      "label": "GuardDuty"
+    },
+    {
+      "id": "aws:security-identity-compliance__iam-identity-center",
+      "path": "Security-Identity-Compliance/IAM-Identity-Center.svg",
+      "label": "IAM Identity Center"
+    },
+    {
+      "id": "aws:security-identity-compliance__identity-and-access-management",
+      "path": "Security-Identity-Compliance/Identity-and-Access-Management.svg",
+      "label": "Identity and Access Management"
+    },
+    {
+      "id": "aws:security-identity-compliance__inspector",
+      "path": "Security-Identity-Compliance/Inspector.svg",
+      "label": "Inspector"
+    },
+    {
+      "id": "aws:security-identity-compliance__key-management-service",
+      "path": "Security-Identity-Compliance/Key-Management-Service.svg",
+      "label": "Key Management Service"
+    },
+    {
+      "id": "aws:security-identity-compliance__macie",
+      "path": "Security-Identity-Compliance/Macie.svg",
+      "label": "Macie"
+    },
+    {
+      "id": "aws:security-identity-compliance__network-firewall",
+      "path": "Security-Identity-Compliance/Network-Firewall.svg",
+      "label": "Network Firewall"
+    },
+    {
+      "id": "aws:security-identity-compliance__private-certificate-authority",
+      "path": "Security-Identity-Compliance/Private-Certificate-Authority.svg",
+      "label": "Private Certificate Authority"
+    },
+    {
+      "id": "aws:security-identity-compliance__resource-access-manager",
+      "path": "Security-Identity-Compliance/Resource-Access-Manager.svg",
+      "label": "Resource Access Manager"
+    },
+    {
+      "id": "aws:security-identity-compliance__secrets-manager",
+      "path": "Security-Identity-Compliance/Secrets-Manager.svg",
+      "label": "Secrets Manager"
+    },
+    {
+      "id": "aws:security-identity-compliance__security-hub",
+      "path": "Security-Identity-Compliance/Security-Hub.svg",
+      "label": "Security Hub"
+    },
+    {
+      "id": "aws:security-identity-compliance__security-lake",
+      "path": "Security-Identity-Compliance/Security-Lake.svg",
+      "label": "Security Lake"
+    },
+    {
+      "id": "aws:security-identity-compliance__shield",
+      "path": "Security-Identity-Compliance/Shield.svg",
+      "label": "Shield"
+    },
+    {
+      "id": "aws:security-identity-compliance__signer",
+      "path": "Security-Identity-Compliance/Signer.svg",
+      "label": "Signer"
+    },
+    {
+      "id": "aws:security-identity-compliance__verified-permissions",
+      "path": "Security-Identity-Compliance/Verified-Permissions.svg",
+      "label": "Verified Permissions"
+    },
+    {
+      "id": "aws:security-identity-compliance__waf",
+      "path": "Security-Identity-Compliance/WAF.svg",
+      "label": "WAF"
+    },
+    {
+      "id": "aws:storage__backup",
+      "path": "Storage/Backup.svg",
+      "label": "Backup"
+    },
+    {
+      "id": "aws:storage__efs",
+      "path": "Storage/EFS.svg",
+      "label": "EFS"
+    },
+    {
+      "id": "aws:storage__elastic-block-store",
+      "path": "Storage/Elastic-Block-Store.svg",
+      "label": "Elastic Block Store"
+    },
+    {
+      "id": "aws:storage__elastic-disaster-recovery",
+      "path": "Storage/Elastic-Disaster-Recovery.svg",
+      "label": "Elastic Disaster Recovery"
+    },
+    {
+      "id": "aws:storage__fsx-for-lustre",
+      "path": "Storage/FSx-for-Lustre.svg",
+      "label": "FSx for Lustre"
+    },
+    {
+      "id": "aws:storage__fsx-for-netapp-ontap",
+      "path": "Storage/FSx-for-NetApp-ONTAP.svg",
+      "label": "FSx for NetApp ONTAP"
+    },
+    {
+      "id": "aws:storage__fsx-for-openzfs",
+      "path": "Storage/FSx-for-OpenZFS.svg",
+      "label": "FSx for OpenZFS"
+    },
+    {
+      "id": "aws:storage__fsx-for-wfs",
+      "path": "Storage/FSx-for-WFS.svg",
+      "label": "FSx for WFS"
+    },
+    {
+      "id": "aws:storage__fsx",
+      "path": "Storage/FSx.svg",
+      "label": "FSx"
+    },
+    {
+      "id": "aws:storage__file-cache",
+      "path": "Storage/File-Cache.svg",
+      "label": "File Cache"
+    },
+    {
+      "id": "aws:storage__s3-on-outposts",
+      "path": "Storage/S3-on-Outposts.svg",
+      "label": "S3 on Outposts"
+    },
+    {
+      "id": "aws:storage__simple-storage-service-glacier",
+      "path": "Storage/Simple-Storage-Service-Glacier.svg",
+      "label": "Simple Storage Service Glacier"
+    },
+    {
+      "id": "aws:storage__simple-storage-service",
+      "path": "Storage/Simple-Storage-Service.svg",
+      "label": "Simple Storage Service"
+    },
+    {
+      "id": "aws:storage__snowball-edge",
+      "path": "Storage/Snowball-Edge.svg",
+      "label": "Snowball Edge"
+    },
+    {
+      "id": "aws:storage__snowball",
+      "path": "Storage/Snowball.svg",
+      "label": "Snowball"
+    },
+    {
+      "id": "aws:storage__snowcone",
+      "path": "Storage/Snowcone.svg",
+      "label": "Snowcone"
+    },
+    {
+      "id": "aws:storage__snowmobile",
+      "path": "Storage/Snowmobile.svg",
+      "label": "Snowmobile"
+    },
+    {
+      "id": "aws:storage__storage-gateway",
+      "path": "Storage/Storage-Gateway.svg",
+      "label": "Storage Gateway"
+    },
+    {
+      "id": "aws:vr-ar__sumerian",
+      "path": "VR-AR/Sumerian.svg",
+      "label": "Sumerian"
+    }
+  ]
+}

@@ -27,8 +27,16 @@ export const ANALYTICS_EVENTS = {
   SLIDE_SPLIT: "slide_split",
   /** Usuario reescribió una diapositiva con IA. */
   SLIDE_REWRITTEN: "slide_rewritten",
+  /** Usuario generó título y contenido de una diapositiva con IA (desde borrador / instrucción). */
+  SLIDE_CONTENT_GENERATED: "slide_content_generated",
+  /** Usuario generó o rehizo una tabla/matriz con IA. */
+  SLIDE_MATRIX_GENERATED: "slide_matrix_generated",
+  /** Usuario generó un diagrama (Excalidraw vía Mermaid) con IA. */
+  SLIDE_DIAGRAM_GENERATED: "slide_diagram_generated",
   /** Usuario añadió un video a una diapositiva. */
   VIDEO_ADDED: "video_added",
+  /** Usuario configuró un iframe incrustado en el panel de media. */
+  IFRAME_EMBED_ADDED: "iframe_embed_added",
   /** Usuario generó portada para una presentación guardada. */
   COVER_GENERATED: "cover_generated",
 } as const;

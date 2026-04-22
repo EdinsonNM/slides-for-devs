@@ -17,7 +17,8 @@ export interface SharePresentationModalProps {
 }
 
 /**
- * Gestiona `sharedWith` (UID) y `shareInviteEmails` en Firestore. Los colaboradores pueden leer y descargar.
+ * Gestiona invitaciones en `users/{owner}/presentationShareGrants` y sincroniza arrays en el doc
+ * de la presentación (Storage/reglas). Los colaboradores pueden leer y descargar.
  */
 export function SharePresentationModal({
   open,

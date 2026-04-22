@@ -1,5 +1,9 @@
 import type { Slide } from "../../domain/entities";
-import type { PresentationGeneratorPort } from "../../domain/ports";
+import type {
+  PresentationGeneratorPort,
+  GeneratePresentationOptions,
+  GeneratedPresentationResult,
+} from "../../domain/ports";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -7,7 +11,7 @@ import {
   slideCountPrompt,
   generatePresentationPrompt,
 } from "../prompts";
-import { parseSlidesFromResponse } from "../schemas";
+import { parseGeneratedDeckFromResponse } from "../schemas";
 import { getXaiApiKey } from "../../services/apiConfig";
 
 const XAI_URL = "https://api.x.ai/v1/responses";
@@ -43,7 +47,11 @@ async function resolveSlideCount(topic: string, model: string): Promise<number> 
 }
 
 export class XaiAdapter implements PresentationGeneratorPort {
-  async generatePresentation(topic: string, modelId: string): Promise<Slide[]> {
+  async generatePresentation(
+    topic: string,
+    modelId: string,
+    options?: GeneratePresentationOptions,
+  ): Promise<GeneratedPresentationResult> {
     const model = modelId || DEFAULT_MODEL;
     const requestedCount =
       parseSlideCountFromTopic(topic) ?? await resolveSlideCount(topic, model);
@@ -51,6 +59,7 @@ export class XaiAdapter implements PresentationGeneratorPort {
       topic,
       slideCount: requestedCount,
       strictCount: requestedCount !== def,
+      narrativeInstructions: options?.narrativeInstructions,
     });
     const res = await fetch(XAI_URL, {
       method: "POST",
@@ -69,6 +78,8 @@ export class XaiAdapter implements PresentationGeneratorPort {
       throw new Error(err?.error?.message || `xAI API: ${res.status}`);
     }
     const content = (await res.json())?.output_text;
-    return content && typeof content === "string" ? parseSlidesFromResponse(content) : [];
+    return content && typeof content === "string"
+      ? parseGeneratedDeckFromResponse(content)
+      : { slides: [] };
   }
 }

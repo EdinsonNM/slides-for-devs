@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -150,13 +149,46 @@
   background: rgba(120, 113, 108, 0.4);
 }
 
-/* Tipografía responsiva: escala con el viewport (contenedor fijo para no escalar la sección de imagen) */
+/* Tipografía responsiva: escala con el ancho del lienzo (cqw).
+   Los techos usan también `cqw` para que, al agrandar el slide, las fuentes sigan proporción
+   (los máximos fijos en rem dejaban texto diminuto en pantallas grandes). */
 .slide-content {
-  --slide-title-chapter: clamp(2rem, 5vw, 4.5rem);
-  --slide-title: clamp(1.5rem, 3.5vw, 2.75rem);
-  --slide-subtitle: clamp(1rem, 2vw, 1.5rem);
-  --slide-label: clamp(0.65rem, 1vw, 0.8rem);
-  --slide-body: clamp(0.9375rem, 1.15vw, 1.25rem);
+  container-type: inline-size;
+  container-name: slide;
+  /* Pisos en `px` (no solo `rem`): si el mínimo es ~12–16px, en lienzos estrechos el `cqw`
+     queda por debajo y el texto «se queda pegado» a ese tamaño aunque el slide siga encogiendo. */
+  --slide-title-chapter: clamp(12px, 5.25cqw, 14cqw);
+  --slide-title: clamp(12px, 3.65cqw, 11cqw);
+  --slide-subtitle: clamp(10px, 2.25cqw, 7cqw);
+  --slide-label: clamp(8px, 1.15cqw, 3.75cqw);
+  --slide-body: clamp(10px, 1.65cqw, 5.5cqw);
+}
+
+/* Etiqueta «Sección N» fuera del lienzo: tamaño UI fijo (no escala con el slide / panel ancho), máx. 16px */
+.slide-editor-canvas-wrap {
+  container-type: inline-size;
+  container-name: slide-editor-outer;
+  --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
+}
+
+/* Área del lienzo: alto + ancho para `cqh`/`cqw` y encajar 16:9 sin bandas enormes en pantallas grandes */
+.slide-editor-stage {
+  container-type: size;
+  container-name: slide-editor-stage;
+}
+
+/* Navegadores sin container query units: fallback conservador con vw */
+@supports not (font-size: 1cqw) {
+  .slide-content {
+    --slide-title-chapter: clamp(12px, 4.5vw, 12vw);
+    --slide-title: clamp(12px, 3.1vw, 9vw);
+    --slide-subtitle: clamp(10px, 1.9vw, 6vw);
+    --slide-label: clamp(8px, 0.95vw, 3.25vw);
+    --slide-body: clamp(10px, 1.35vw, 4.5vw);
+  }
+  .slide-editor-canvas-wrap {
+    --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
+  }
 }
 
 .slide-content .prose,
@@ -165,13 +197,137 @@
   font-size: var(--slide-body);
 }
 
-/* Modo presentación a pantalla completa: escalas más grandes */
+/*
+ * Descripción del lienzo (solo lectura): el tamaño responsivo vive en el wrapper (`font-size: calc(var(--slide-body)*…)`).
+ * Sin esto, `.slide-content .prose *` y los `font-size` en px del HTML enriquecido pisan la escala y el texto
+ * deja de seguir el slide (a veces queda mayor que el título o se desborda).
+ */
+.slide-content .slide-rich-wrap.slide-rich-view > .prose,
+.slide-content .slide-rich-wrap.slide-rich-view > .prose p,
+.slide-content .slide-rich-wrap.slide-rich-view > .prose li {
+  font-size: inherit;
+}
+
+.slide-content .slide-rich-wrap.slide-rich-view .slide-rich-root,
+.slide-content .slide-rich-wrap.slide-rich-view .slide-rich-root * {
+  font-size: inherit !important;
+}
+
+/* Subtítulo en markdown: mismo escalado que `--slide-subtitle` (no el cuerpo `.prose`). */
+.slide-content .prose-slide-subtitle,
+.slide-content .prose-slide-subtitle p,
+.slide-content .prose-slide-subtitle li {
+  font-size: var(--slide-subtitle);
+}
+
+.slide-content .prose-slide-subtitle :where(h1, h2, h3) {
+  font-size: inherit !important;
+}
+
+/**
+ * Miniaturas del listado de diapositivas (~80–280px de ancho): las variables de `.slide-content`
+ * arrastran pisos en `rem` del editor; aquí la escala sigue el ancho del propio thumb (cqw) con techos en px.
+ */
+.sidebar-slide-canvas-mini {
+  container-type: inline-size;
+  container-name: sidebar-thumb;
+  --slide-title-chapter: clamp(7px, 4.6cqw, 13px);
+  --slide-title: clamp(6.5px, 3.35cqw, 12px);
+  --slide-subtitle: clamp(6px, 2.35cqw, 9.5px);
+  --slide-label: clamp(5px, 1.15cqw, 7px);
+  --slide-body: clamp(4.5px, 2.05cqw, 8.5px);
+}
+
+@supports not (font-size: 1cqw) {
+  .sidebar-slide-canvas-mini {
+    --slide-title-chapter: clamp(7px, 2.1vw, 13px);
+    --slide-title: clamp(6.5px, 1.55vw, 12px);
+    --slide-subtitle: clamp(6px, 1.1vw, 9.5px);
+    --slide-label: clamp(5px, 0.85vw, 7px);
+    --slide-body: clamp(4.5px, 0.95vw, 8.5px);
+  }
+}
+
+.sidebar-slide-canvas-mini .prose,
+.sidebar-slide-canvas-mini .prose p,
+.sidebar-slide-canvas-mini .prose li {
+  font-size: var(--slide-body);
+}
+
+.sidebar-slide-canvas-mini .slide-rich-wrap.slide-rich-view > .prose,
+.sidebar-slide-canvas-mini .slide-rich-wrap.slide-rich-view > .prose p,
+.sidebar-slide-canvas-mini .slide-rich-wrap.slide-rich-view > .prose li {
+  font-size: inherit;
+}
+
+.sidebar-slide-canvas-mini .slide-rich-wrap.slide-rich-view .slide-rich-root,
+.sidebar-slide-canvas-mini .slide-rich-wrap.slide-rich-view .slide-rich-root * {
+  font-size: inherit !important;
+}
+
+.sidebar-slide-canvas-mini .prose-slide-subtitle,
+.sidebar-slide-canvas-mini .prose-slide-subtitle p,
+.sidebar-slide-canvas-mini .prose-slide-subtitle li {
+  font-size: var(--slide-subtitle);
+}
+
+.sidebar-slide-canvas-mini .prose-slide-subtitle :where(h1, h2, h3) {
+  font-size: inherit !important;
+}
+
+.sidebar-slide-canvas-mini .prose:not(.prose-slide-subtitle) h1 {
+  font-size: clamp(5.5px, 1.85em, 9px);
+}
+.sidebar-slide-canvas-mini .prose:not(.prose-slide-subtitle) h2 {
+  font-size: clamp(5.25px, 1.65em, 8.5px);
+}
+.sidebar-slide-canvas-mini .prose:not(.prose-slide-subtitle) h3 {
+  font-size: clamp(5px, 1.45em, 8px);
+}
+
+.sidebar-slide-canvas-mini :is(h1, h2, h3) {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* Preferir cortes entre palabras en títulos editables (evita troceos tipo "Introdu|cción") */
+.slide-content :is(h1, h2),
+.slide-content textarea[data-slide-edit-field="true"],
+.preview-slide :is(h1, h2),
+.preview-slide textarea[data-slide-edit-field="true"] {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* Vista previa / presentación: mismo criterio (ancho del contenedor de la slide), techos en `cqw` */
 .preview-slide {
-  --slide-title-chapter: clamp(3rem, 7vw, 7rem);
-  --slide-title: clamp(2rem, 4.5vw, 4rem);
-  --slide-subtitle: clamp(1.25rem, 2.5vw, 2.25rem);
-  --slide-label: clamp(0.75rem, 1.2vw, 0.9rem);
-  --slide-body: clamp(1.125rem, 1.5vw, 1.5rem);
+  container-type: inline-size;
+  container-name: slide-preview;
+  --slide-title-chapter: clamp(14px, 5.5cqw, 14cqw);
+  --slide-title: clamp(13px, 4cqw, 11cqw);
+  --slide-subtitle: clamp(11px, 2.4cqw, 7cqw);
+  --slide-label: clamp(9px, 1.2cqw, 3.75cqw);
+  --slide-body: clamp(10px, 1.75cqw, 5.5cqw);
+}
+
+/* Columna vista previa: etiqueta «Sección N» encima del marco 16:9 (mismo criterio que el editor) */
+.preview-slide-outer {
+  container-type: inline-size;
+  container-name: slide-preview-outer;
+  --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
+}
+
+@supports not (font-size: 1cqw) {
+  .preview-slide {
+    --slide-title-chapter: clamp(14px, 6vw, 12vw);
+    --slide-title: clamp(13px, 4.2vw, 9vw);
+    --slide-subtitle: clamp(11px, 2.2vw, 6vw);
+    --slide-label: clamp(9px, 1vw, 3.25vw);
+    --slide-body: clamp(10px, 1.45vw, 4.5vw);
+  }
+  .preview-slide-outer {
+    --slide-section-out-label: clamp(0.625rem, 0.875rem, 16px);
+  }
 }
 
 .preview-slide .prose,
@@ -180,16 +336,37 @@
   font-size: var(--slide-body);
 }
 
-/* Encabezados dentro del contenido de la diapositiva */
-.slide-content .prose h1,
-.preview-slide .prose h1 {
+.preview-slide .slide-rich-wrap.slide-rich-view > .prose,
+.preview-slide .slide-rich-wrap.slide-rich-view > .prose p,
+.preview-slide .slide-rich-wrap.slide-rich-view > .prose li {
+  font-size: inherit;
+}
+
+.preview-slide .slide-rich-wrap.slide-rich-view .slide-rich-root,
+.preview-slide .slide-rich-wrap.slide-rich-view .slide-rich-root * {
+  font-size: inherit !important;
+}
+
+.preview-slide .prose-slide-subtitle,
+.preview-slide .prose-slide-subtitle p,
+.preview-slide .prose-slide-subtitle li {
+  font-size: var(--slide-subtitle);
+}
+
+.preview-slide .prose-slide-subtitle :where(h1, h2, h3) {
+  font-size: inherit !important;
+}
+
+/* Encabezados dentro del cuerpo markdown (no subtítulo: comparte `.prose` y sin `:not` el h2/h3 quedaba más grande que el título). */
+.slide-content .prose:not(.prose-slide-subtitle) h1,
+.preview-slide .prose:not(.prose-slide-subtitle) h1 {
   font-size: clamp(1.25em, 1.4em, 1.5em);
 }
-.slide-content .prose h2,
-.preview-slide .prose h2 {
+.slide-content .prose:not(.prose-slide-subtitle) h2,
+.preview-slide .prose:not(.prose-slide-subtitle) h2 {
   font-size: clamp(1.1em, 1.2em, 1.35em);
 }
-.slide-content .prose h3,
-.preview-slide .prose h3 {
+.slide-content .prose:not(.prose-slide-subtitle) h3,
+.preview-slide .prose:not(.prose-slide-subtitle) h3 {
   font-size: clamp(1.05em, 1.1em, 1.2em);
 }

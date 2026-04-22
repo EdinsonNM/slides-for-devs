@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Upload } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { isUsableSlideImageFile } from "../../utils/slideImageFile";
 
 export function ImageUploadModal() {
   const {
@@ -37,11 +38,17 @@ export function ImageUploadModal() {
   useEffect(() => {
     if (!showImageUploadModal) return;
     const onPaste = (e: ClipboardEvent) => {
-      const item = e.clipboardData?.items && Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
-      if (!item) return;
-      e.preventDefault();
-      const blob = item.getAsFile();
-      if (blob) setFileFromBlob(blob);
+      const items = e.clipboardData?.items;
+      if (!items?.length) return;
+      for (const it of Array.from(items)) {
+        if (it.kind !== "file" && !it.type.startsWith("image/")) continue;
+        const f = it.getAsFile();
+        if (f && isUsableSlideImageFile(f)) {
+          e.preventDefault();
+          setFileFromBlob(f);
+          break;
+        }
+      }
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
@@ -49,7 +56,7 @@ export function ImageUploadModal() {
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) return;
+    if (!file || !isUsableSlideImageFile(file)) return;
     setUploadPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
@@ -111,7 +118,7 @@ export function ImageUploadModal() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.svg"
                   onChange={onFileChange}
                   className="block w-full text-sm text-stone-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:cursor-pointer cursor-pointer"
                 />

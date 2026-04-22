@@ -1,4 +1,4 @@
-import type { ImageGeneratorPort } from "../../domain/ports";
+import type { GeneratedImageAspectRatio, ImageGeneratorPort } from "../../domain/ports";
 import { optimizeImageDataUrl } from "../../utils/imageOptimize";
 
 export class GenerateImageUseCase {
@@ -13,6 +13,8 @@ export class GenerateImageUseCase {
     modelId: string;
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
+    characterPreviewOnly?: boolean;
+    aspectRatio?: GeneratedImageAspectRatio;
   }): Promise<string | undefined> {
     const generator = this.resolveGenerator(params.providerId);
     const raw = await generator.generateImage({
@@ -23,6 +25,8 @@ export class GenerateImageUseCase {
       modelId: params.modelId,
       characterPrompt: params.characterPrompt,
       characterReferenceImageDataUrl: params.characterReferenceImageDataUrl,
+      characterPreviewOnly: params.characterPreviewOnly,
+      aspectRatio: params.aspectRatio,
     });
     if (!raw?.trim()) return raw;
     if (typeof window === "undefined") return raw;

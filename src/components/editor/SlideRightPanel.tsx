@@ -1,31 +1,58 @@
-import { Code2, Video, Image as ImageIcon } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import type { Slide } from "../../types";
 import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";
 import { VideoPanel } from "./VideoPanel";
+import { IframeEmbedPanel } from "./IframeEmbedPanel";
+import { Presenter3DPanel } from "./Presenter3DPanel";
+import { Canvas3DPanel } from "./Canvas3DPanel";
+import { DataMotionRingPanel } from "./DataMotionRingPanel";
+import {
+  PANEL_CONTENT_KIND,
+  resolveMediaPanelDescriptor,
+} from "../../domain/panelContent";
 
 export interface SlideRightPanelProps {
   /** Si true, el panel ocupa todo el espacio (layout panel-full), sin borde ni resize. */
   fullWidth?: boolean;
+  /** Lienzo del slide: el contenedor no es flex; hace falta llenar el rect del selector y encuadre 3D más ajustado. */
+  embeddedInCanvas?: boolean;
+  /** Datos del `mediaPanel` concreto en el lienzo (varios paneles). Si no se pasa, se usa `currentSlide`. */
+  canvasPanelSlide?: Slide;
+  /** Id del elemento `mediaPanel` en el lienzo (varios paneles de código). */
+  canvasMediaElementId?: string;
 }
 
-export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
-  const {
-    currentSlide,
-    imageWidthPercent,
-    isResizing,
-    setIsResizing,
-    toggleContentType,
-  } = usePresentation();
+export function SlideRightPanel({
+  fullWidth,
+  embeddedInCanvas = false,
+  canvasPanelSlide,
+  canvasMediaElementId,
+}: SlideRightPanelProps = {}) {
+  const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
+    usePresentation();
+  const isLgUp = useMinWidthLg();
 
   if (!currentSlide) return null;
+
+  const panelSlide = canvasPanelSlide ?? currentSlide;
+  const panelKind = resolveMediaPanelDescriptor(panelSlide).kind;
 
   return (
     <div
       className={cn(
-        "bg-white dark:bg-surface flex flex-col relative group min-h-0",
-        fullWidth ? "flex-1 border-0" : "border-l border-stone-200 dark:border-border"
+        "flex flex-col relative group min-h-0",
+        embeddedInCanvas
+          ? "bg-transparent"
+          : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ||
+              panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING
+            ? "bg-transparent"
+            : "bg-white dark:bg-surface",
+        fullWidth
+          ? "h-full min-h-0 w-full flex-1 border-0"
+          : "h-full min-h-0 border-l border-stone-200 dark:border-border",
       )}
       style={fullWidth ? undefined : { width: `${imageWidthPercent}%` }}
     >
@@ -41,44 +68,40 @@ export function SlideRightPanel({ fullWidth }: SlideRightPanelProps = {}) {
         </div>
       )}
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleContentType();
-        }}
-        className="absolute top-4 left-6 z-20 p-2 bg-white/80 dark:bg-surface-elevated/90 backdrop-blur-sm border border-stone-200 dark:border-border rounded-lg text-stone-600 dark:text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-200 dark:hover:border-emerald-600 transition-all shadow-sm opacity-0 group-hover:opacity-100 flex items-center gap-2"
-        title="Cambiar tipo de contenido (código / video / imagen)"
-      >
-        {currentSlide.contentType === "code" ? (
-          <>
-            <Video size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Video
-            </span>
-          </>
-        ) : currentSlide.contentType === "video" ? (
-          <>
-            <ImageIcon size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Imagen
-            </span>
-          </>
-        ) : (
-          <>
-            <Code2 size={18} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Código
-            </span>
-          </>
-        )}
-      </button>
-
-      {currentSlide.contentType === "code" ? (
-        <CodeBlock />
-      ) : currentSlide.contentType === "video" ? (
-        <VideoPanel />
+      {panelKind === PANEL_CONTENT_KIND.CODE ? (
+        <CodeBlock
+          titleBarMode={embeddedInCanvas ? "minimal" : isLgUp ? "minimal" : "full"}
+          embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
+          canvasMediaElementId={canvasMediaElementId}
+        />
+      ) : panelKind === PANEL_CONTENT_KIND.VIDEO ? (
+        <VideoPanel canvasPanelSlide={canvasPanelSlide} />
+      ) : panelKind === PANEL_CONTENT_KIND.IFRAME_EMBED ? (
+        <IframeEmbedPanel canvasPanelSlide={canvasPanelSlide} />
+      ) : panelKind === PANEL_CONTENT_KIND.PRESENTER_3D ? (
+        <Presenter3DPanel
+          embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
+          canvasMediaElementId={canvasMediaElementId}
+        />
+      ) : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ? (
+        <Canvas3DPanel
+          embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
+        />
+      ) : panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ? (
+        <DataMotionRingPanel
+          embeddedInCanvas={embeddedInCanvas}
+          canvasPanelSlide={canvasPanelSlide}
+          currentSlide={currentSlide}
+        />
+      ) : panelKind === PANEL_CONTENT_KIND.RIVE ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
+          Rive está desactivado temporalmente en el editor.
+        </div>
       ) : (
-        <ImagePanel />
+        <ImagePanel canvasPanelSlide={canvasPanelSlide} />
       )}
     </div>
   );

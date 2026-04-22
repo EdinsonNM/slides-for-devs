@@ -1,9 +1,17 @@
-import type { Slide } from "../../domain/entities";
 import type {
   PresentationGeneratorPort,
   SlideOperationsPort,
   ImageGeneratorPort,
+  GeneratePresentationOptions,
+  GeneratedPresentationResult,
+  DeckNarrativeSlideOptions,
 } from "../../domain/ports";
+import {
+  type Slide,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  serializeSlideMatrixForPrompt,
+} from "../../domain/entities";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -12,10 +20,13 @@ import {
   generatePresentationPrompt,
   splitSlidePrompt,
   rewriteSlidePrompt,
+  generateSlideContentPrompt,
+  generateSlideMatrixPrompt,
+  generateSlideDiagramPrompt,
   imageAlternativesPrompt,
   imageGenerationPrompt,
 } from "../prompts";
-import { parseSlidesFromResponse } from "../schemas";
+import { parseGeneratedDeckFromResponse, parseSlidesFromResponse } from "../schemas";
 import { getOpenAIApiKey } from "../../services/apiConfig";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -52,7 +63,11 @@ async function resolveSlideCount(topic: string, model: string): Promise<number> 
 export class OpenAIAdapter
   implements PresentationGeneratorPort, SlideOperationsPort, ImageGeneratorPort
 {
-  async generatePresentation(topic: string, modelId: string): Promise<Slide[]> {
+  async generatePresentation(
+    topic: string,
+    modelId: string,
+    options?: GeneratePresentationOptions,
+  ): Promise<GeneratedPresentationResult> {
     const model = modelId || DEFAULT_CHAT;
     const requestedCount =
       parseSlideCountFromTopic(topic) ?? await resolveSlideCount(topic, model);
@@ -60,6 +75,7 @@ export class OpenAIAdapter
       topic,
       slideCount: requestedCount,
       strictCount: requestedCount !== def,
+      narrativeInstructions: options?.narrativeInstructions,
     });
     const res = await fetch(CHAT_URL, {
       method: "POST",
@@ -76,7 +92,9 @@ export class OpenAIAdapter
     }
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
-    return content && typeof content === "string" ? parseSlidesFromResponse(content) : [];
+    return content && typeof content === "string"
+      ? parseGeneratedDeckFromResponse(content)
+      : { slides: [] };
   }
 
   async splitSlide(slide: Slide, prompt: string, modelId: string): Promise<Slide[]> {
@@ -98,9 +116,14 @@ export class OpenAIAdapter
   async rewriteSlide(
     slide: Slide,
     prompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
-    const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const { system, user } = buildPrompt(rewriteSlidePrompt, {
+      slide,
+      userPrompt: prompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
     const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
@@ -119,6 +142,155 @@ export class OpenAIAdapter
       return { title: p.title ?? slide.title, content: p.content ?? slide.content };
     } catch {
       return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{ title: string; content: string }> {
+    const { system, user } = buildPrompt(generateSlideContentPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const res = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
+      body: JSON.stringify({
+        model: modelId || "gpt-4o-mini",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
+    const content = (await res.json())?.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string")
+      return { title: slide.title, content: slide.content };
+    try {
+      const p = JSON.parse(content) as { title?: string; content?: string };
+      return { title: p.title ?? slide.title, content: p.content ?? slide.content };
+    } catch {
+      return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }> {
+    const baseMatrix = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    const fallback = {
+      title: slide.title,
+      subtitle: slide.subtitle ?? "",
+      content: slide.content,
+      columnHeaders: baseMatrix.columnHeaders,
+      rows: baseMatrix.rows,
+    };
+    const { system, user } = buildPrompt(generateSlideMatrixPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideSubtitle: slide.subtitle ?? "",
+      matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const res = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
+      body: JSON.stringify({
+        model: modelId || "gpt-4o-mini",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
+    const raw = (await res.json())?.choices?.[0]?.message?.content;
+    if (!raw || typeof raw !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(raw) as {
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        columnHeaders?: unknown;
+        rows?: unknown;
+      };
+      const matrix = normalizeSlideMatrixData({
+        columnHeaders: parsed.columnHeaders,
+        rows: parsed.rows,
+      });
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        subtitle: String(parsed.subtitle ?? "").trim(),
+        content: String(parsed.content ?? "").trim(),
+        columnHeaders: matrix.columnHeaders,
+        rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{ title: string; content: string; mermaid: string }> {
+    const fallback = {
+      title: slide.title,
+      content: slide.content,
+      mermaid: "flowchart TD\nA[Define el diagrama en el prompt]",
+    };
+    const { system, user } = buildPrompt(generateSlideDiagramPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const res = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key()}` },
+      body: JSON.stringify({
+        model: modelId || "gpt-4o-mini",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "OpenAI API");
+    const raw = (await res.json())?.choices?.[0]?.message?.content;
+    if (!raw || typeof raw !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(raw) as {
+        title?: string;
+        content?: string;
+        mermaid?: string;
+      };
+      const mermaid = String(parsed.mermaid ?? "").trim();
+      if (!mermaid) return fallback;
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        content: String(parsed.content ?? "").trim(),
+        mermaid,
+      };
+    } catch {
+      return fallback;
     }
   }
 
@@ -161,6 +333,8 @@ export class OpenAIAdapter
     modelId: string;
     characterPrompt?: string;
     characterReferenceImageDataUrl?: string;
+    characterPreviewOnly?: boolean;
+    aspectRatio?: "9:16" | "16:9";
   }): Promise<string | undefined> {
     const hasRef =
       !!params.characterReferenceImageDataUrl?.trim() &&
@@ -174,6 +348,7 @@ export class OpenAIAdapter
         includeBackground: params.includeBackground,
         characterPrompt: params.characterPrompt,
         hasReferenceImage: useReferenceImage,
+        characterPreviewOnly: params.characterPreviewOnly,
       });
       return user;
     };
@@ -220,11 +395,13 @@ export class OpenAIAdapter
 
     const modelId = params.modelId || "gpt-image-1.5";
     const isGptImage = modelId.startsWith("gpt-image");
+    const rasterSize =
+      params.aspectRatio === "16:9" ? "1792x1024" : "1024x1536";
     const body: Record<string, unknown> = {
       model: modelId,
       prompt: textOnlyPrompt,
       n: 1,
-      size: "1024x1536", // 2:3 portrait; formato vertical cercano a 9:16
+      size: rasterSize,
     };
     if (isGptImage) {
       body.quality = "medium";

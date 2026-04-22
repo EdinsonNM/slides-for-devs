@@ -1,115 +1,205 @@
 import { motion, AnimatePresence } from "motion/react";
-import { X, Image as ImageIcon, Code2, Video, PencilRuler } from "lucide-react";
+import { X } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
+import { SLIDE_LAYOUT_TEMPLATE_REGISTRY } from "../../domain/slideTemplates/slideLayoutTemplates.registry";
+import { inferSlideLayoutTemplateId } from "../../domain/slideTemplates/inferSlideLayoutTemplateId";
+import { applySlideLayoutTemplate } from "../../domain/slideTemplates/slideLayoutTemplateApply";
+import { DECK_THEME_PRESETS } from "../../constants/deckVisualThemes";
 
-/** Miniatura: solo título centrado */
-function PreviewTitle() {
-  return (
-    <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex items-center justify-center p-1">
-      <div className="w-3/4 h-2 bg-stone-300 dark:bg-stone-600 rounded" />
-    </div>
-  );
+interface SlideStylePanelProps {
+  variant?: "toolbar" | "inspector";
 }
 
-/** Miniatura: contenido con panel (split) */
-function PreviewContentSplit() {
-  return (
-    <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex p-0.5 gap-0.5">
-      <div className="flex-1 flex flex-col gap-0.5">
-        <div className="h-1.5 w-2/3 bg-stone-300 dark:bg-stone-600 rounded" />
-        <div className="h-1 w-full bg-stone-100 dark:bg-stone-700 rounded" />
-        <div className="h-1 w-full bg-stone-100 dark:bg-stone-700 rounded" />
-        <div className="h-1 w-4/5 bg-stone-100 dark:bg-stone-700 rounded" />
-      </div>
-      <div className="w-1/3 bg-stone-100 dark:bg-stone-700 rounded flex items-center justify-center">
-        <div className="w-full aspect-square max-w-[80%] bg-stone-200 dark:bg-stone-600 rounded" />
-      </div>
-    </div>
-  );
-}
-
-/** Miniatura: contenido solo texto (título + zona de contenido visible) */
-function PreviewContentFull() {
-  return (
-    <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col p-0.5 gap-1">
-      <div className="h-1.5 w-2/3 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
-      <div className="h-1.5 w-full bg-stone-100 dark:bg-stone-700 rounded shrink-0" />
-      <div className="h-1.5 w-full bg-stone-100 dark:bg-stone-700 rounded shrink-0" />
-      <div className="h-1.5 w-4/5 bg-stone-100 dark:bg-stone-700 rounded shrink-0" />
-      <div className="h-1.5 w-3/4 bg-stone-100 dark:bg-stone-700 rounded shrink-0" />
-    </div>
-  );
-}
-
-/** Miniatura: título arriba, debajo placeholder de imagen */
-function PreviewContentPanelFull() {
-  return (
-    <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col p-0.5 gap-1">
-      <div className="h-1.5 w-3/4 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
-      <div className="flex-1 min-h-0 bg-stone-100 dark:bg-stone-700 rounded flex items-center justify-center p-1">
-        <div className="w-full h-full rounded border border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center bg-stone-50 dark:bg-stone-800">
-          <ImageIcon className="w-5 h-5 text-stone-400 dark:text-stone-500" strokeWidth={1.5} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Miniatura: diagrama Excalidraw */
-function PreviewDiagram() {
-  return (
-    <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex items-center justify-center p-1">
-      <div className="w-full h-full border border-dashed border-stone-300 dark:border-stone-600 rounded flex items-center justify-center">
-        <PencilRuler className="w-6 h-6 text-stone-400 dark:text-stone-500" />
-      </div>
-    </div>
-  );
-}
-
-const TEMPLATES: {
-  id: "title" | "content-split" | "content-full" | "content-panel-full" | "diagram";
-  label: string;
-  Preview: () => JSX.Element;
-}[] = [
-  { id: "title", label: "Título", Preview: PreviewTitle },
-  { id: "content-split", label: "Contenido (con panel)", Preview: PreviewContentSplit },
-  { id: "content-full", label: "Contenido (solo texto)", Preview: PreviewContentFull },
-  { id: "content-panel-full", label: "Título + panel", Preview: PreviewContentPanelFull },
-  { id: "diagram", label: "Diagrama", Preview: PreviewDiagram },
-];
-
-export function SlideStylePanel() {
+export function SlideStylePanel({ variant = "toolbar" }: SlideStylePanelProps) {
   const {
     currentSlide,
     slides,
+    deckVisualTheme,
+    applyDeckVisualTheme,
     showSlideStylePanel,
     setShowSlideStylePanel,
     setCurrentSlideType,
     setCurrentSlideContentLayout,
-    setCurrentSlideContentType,
+    inspectorSection,
   } = usePresentation();
 
-  if (!showSlideStylePanel || !currentSlide || slides.length === 0) return null;
+  const visible = variant === "inspector" || showSlideStylePanel;
+  if (!visible || !currentSlide || slides.length === 0) return null;
 
-  const isTitle = currentSlide.type === "chapter";
-  const isDiagram = currentSlide.type === "diagram";
-  const isContentSplit =
-    currentSlide.type === "content" && (currentSlide.contentLayout ?? "split") === "split";
-  const isContentFull =
-    currentSlide.type === "content" && currentSlide.contentLayout === "full";
-  const isContentPanelFull =
-    currentSlide.type === "content" && currentSlide.contentLayout === "panel-full";
-  const contentType = currentSlide.contentType ?? "image";
+  const selectedId = inferSlideLayoutTemplateId(currentSlide);
 
-  const getSelectedId = (): (typeof TEMPLATES)[number]["id"] => {
-    if (isTitle) return "title";
-    if (isDiagram) return "diagram";
-    if (isContentFull) return "content-full";
-    if (isContentPanelFull) return "content-panel-full";
-    return "content-split";
+  const header = (
+    <div
+      className={cn(
+        "px-3 py-2.5 flex items-center justify-between gap-3 border-b shrink-0",
+        variant === "inspector"
+          ? "border-stone-100 bg-stone-50/60 dark:border-border dark:bg-surface"
+          : "border-stone-100 dark:border-border bg-white dark:bg-surface-elevated",
+      )}
+    >
+      <span
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-wider",
+          variant === "inspector"
+            ? "text-muted-foreground"
+            : "text-stone-500 dark:text-muted-foreground",
+        )}
+      >
+        Plantilla de la diapositiva
+      </span>
+      {variant === "toolbar" && (
+        <button
+          type="button"
+          onClick={() => setShowSlideStylePanel(false)}
+          className="p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-600 dark:hover:text-foreground transition-colors"
+          title="Cerrar panel"
+        >
+          <X size={18} />
+        </button>
+      )}
+    </div>
+  );
+
+  const applyApi = {
+    setCurrentSlideType,
+    setCurrentSlideContentLayout,
   };
-  const selectedId = getSelectedId();
+
+  const deckPresetSwatch = (tid: string) => {
+    const p = DECK_THEME_PRESETS.find((x) => x.id === tid)?.theme;
+    if (!p) return <div className="h-7 w-10 rounded-md bg-stone-200 dark:bg-stone-600" />;
+    if (p.backgroundKind === "solid") {
+      return (
+        <div
+          className="h-7 w-10 rounded-md border border-stone-200 dark:border-stone-600"
+          style={{ backgroundColor: p.solidColor ?? "#fff" }}
+        />
+      );
+    }
+    if (p.backgroundKind === "gradient") {
+      return (
+        <div
+          className="h-7 w-10 rounded-md border border-stone-200/80 dark:border-stone-600"
+          style={{
+            backgroundImage: `linear-gradient(135deg, ${p.gradientFrom}, ${p.gradientTo})`,
+          }}
+        />
+      );
+    }
+    return (
+      <div
+        className="h-7 w-10 rounded-md border border-stone-300 dark:border-stone-600"
+        style={{
+          backgroundImage: `linear-gradient(135deg, #020617, #0e7490, #312e81)`,
+        }}
+      />
+    );
+  };
+
+  const deckThemesRow = (
+    <div
+      className={cn(
+        "flex flex-col gap-2 border-b px-3 py-3",
+        variant === "inspector"
+          ? "border-stone-100 dark:border-border"
+          : "border-stone-100 dark:border-border",
+      )}
+    >
+      <span
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-wider",
+          variant === "inspector"
+            ? "text-muted-foreground"
+            : "text-stone-500 dark:text-muted-foreground",
+        )}
+      >
+        Fondo del deck
+      </span>
+      <div className="flex flex-wrap gap-2">
+        {DECK_THEME_PRESETS.map((p) => {
+          const active = deckVisualTheme.presetId === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => void applyDeckVisualTheme(p.theme)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs font-medium transition-all",
+                active
+                  ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/25 dark:bg-emerald-950/40 dark:ring-emerald-400/20"
+                  : "border-stone-200 bg-stone-50/80 hover:border-stone-300 dark:border-border dark:bg-stone-800/50 dark:hover:border-stone-500",
+              )}
+            >
+              {deckPresetSwatch(p.id)}
+              <span
+                className={cn(
+                  active
+                    ? "text-emerald-800 dark:text-emerald-200"
+                    : "text-stone-700 dark:text-stone-200",
+                )}
+              >
+                {p.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] leading-snug text-stone-500 dark:text-muted-foreground">
+        El vídeo exportado usa un fondo estático equivalente (sin animación WebGL).
+      </p>
+    </div>
+  );
+
+  const templatesRow = (
+    <div
+      className={cn(
+        "flex gap-3 overflow-x-auto px-3 py-3 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar",
+        variant === "inspector" && "flex-wrap",
+      )}
+    >
+      {SLIDE_LAYOUT_TEMPLATE_REGISTRY.map(({ id, label, Preview }) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => applySlideLayoutTemplate(id, applyApi)}
+          className={cn(
+            "shrink-0 w-28 snap-start flex flex-col rounded-xl border-2 overflow-hidden transition-all",
+            selectedId === id
+              ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-900/30"
+              : "border-stone-200 dark:border-border bg-stone-50/30 dark:bg-stone-800/50 hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-sm",
+          )}
+        >
+          <div className="p-1.5 min-h-0">
+            <Preview />
+          </div>
+          <div className="px-2 py-2 border-t border-stone-100 dark:border-border bg-white dark:bg-surface">
+            <span
+              className={cn(
+                "text-xs font-medium block text-center truncate",
+                selectedId === id
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-stone-600 dark:text-stone-300",
+              )}
+            >
+              {label}
+            </span>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
+  if (variant === "inspector") {
+    const isTheme = inspectorSection === "theme";
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-surface-elevated">
+        {isTheme ? deckThemesRow : null}
+        {!isTheme ? header : null}
+        {!isTheme ? templatesRow : null}
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -120,86 +210,9 @@ export function SlideStylePanel() {
         transition={{ duration: 0.2 }}
         className="bg-white dark:bg-surface-elevated border-b border-stone-200 dark:border-border shrink-0 overflow-hidden"
       >
-        <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-stone-100 dark:border-border">
-          <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-muted-foreground">
-            Plantilla de la diapositiva
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowSlideStylePanel(false)}
-            className="p-1.5 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-600 dark:hover:text-foreground transition-colors"
-            title="Cerrar panel"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="flex gap-4 overflow-x-auto px-4 py-4 scroll-smooth snap-x snap-mandatory carousel-no-scrollbar">
-          {TEMPLATES.map(({ id, label, Preview }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                if (id === "title") setCurrentSlideType("chapter");
-                else if (id === "diagram") setCurrentSlideType("diagram");
-                else if (id === "content-split") {
-                  setCurrentSlideType("content");
-                  setCurrentSlideContentLayout("split");
-                } else if (id === "content-panel-full") {
-                  setCurrentSlideType("content");
-                  setCurrentSlideContentLayout("panel-full");
-                } else {
-                  setCurrentSlideType("content");
-                  setCurrentSlideContentLayout("full");
-                }
-              }}
-              className={cn(
-                "shrink-0 w-28 snap-start flex flex-col rounded-xl border-2 overflow-hidden transition-all",
-                selectedId === id
-                  ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-900/30"
-                  : "border-stone-200 dark:border-border bg-stone-50/30 dark:bg-stone-800/50 hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-sm"
-              )}
-            >
-              <div className="p-1.5 min-h-0">
-                <Preview />
-              </div>
-              <div className="px-2 py-2 border-t border-stone-100 dark:border-border bg-white dark:bg-surface">
-                <span
-                  className={cn(
-                    "text-xs font-medium block text-center truncate",
-                    selectedId === id ? "text-emerald-700 dark:text-emerald-300" : "text-stone-600 dark:text-stone-300"
-                  )}
-                >
-                  {label}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-        {(isContentSplit || isContentPanelFull) && (
-          <div className="px-4 pb-3 pt-3 flex items-center gap-2 flex-wrap border-t border-stone-100 dark:border-border">
-            <span className="text-xs font-medium text-stone-500 dark:text-muted-foreground">Panel:</span>
-            {[
-              { id: "image" as const, label: "Imagen", icon: ImageIcon },
-              { id: "code" as const, label: "Código", icon: Code2 },
-              { id: "video" as const, label: "Video", icon: Video },
-            ].map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setCurrentSlideContentType(id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all",
-                  contentType === id
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
-                    : "border-stone-200 dark:border-border bg-white dark:bg-surface text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-500"
-                )}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        {header}
+        {deckThemesRow}
+        {templatesRow}
       </motion.div>
     </AnimatePresence>
   );

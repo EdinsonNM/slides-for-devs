@@ -1,5 +1,5 @@
 import type { Slide } from "../../domain/entities";
-import type { SlideOperationsPort } from "../../domain/ports";
+import type { DeckNarrativeSlideOptions, SlideOperationsPort } from "../../domain/ports";
 
 export class RewriteSlideUseCase {
   constructor(
@@ -10,9 +10,10 @@ export class RewriteSlideUseCase {
   async run(
     slide: Slide,
     prompt: string,
-    modelId: string
+    modelId: string,
+    options?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
     const operations = this.resolveOperations(modelId) ?? this.fallback;
-    return operations.rewriteSlide(slide, prompt, modelId);
+    return operations.rewriteSlide(slide, prompt, modelId, options);
   }
 }

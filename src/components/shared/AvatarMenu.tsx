@@ -8,6 +8,7 @@ import {
   Moon,
   RefreshCw,
   Settings,
+  Sparkles,
   Sun,
   User,
 } from "lucide-react";
@@ -20,14 +21,14 @@ import { checkForAppUpdates } from "../../services/updater";
 export interface AvatarMenuProps {
   onOpenConfig?: () => void;
   className?: string;
-  /** Estilo más suave para home (fondo translúcido en el trigger). */
-  variant?: "default" | "home";
+  /** default: barra general; home: pantalla inicio; editor: cromo del editor (minimal). */
+  variant?: "default" | "home" | "editor";
 }
 
 /**
  * Menú de cuenta/avatar: muestra avatar o icono de usuario y dropdown con
  * configuración, tema, verificar actualizaciones y cerrar sesión (o iniciar sesión).
- * Reutilizable en Header y en pantallas Home.
+ * Reutilizable en Header, editor (`variant="editor"`) y pantallas Home.
  */
 export function AvatarMenu({
   onOpenConfig,
@@ -85,16 +86,22 @@ export function AvatarMenu({
   };
 
   const isHome = variant === "home";
-  const triggerBase =
-    "flex items-center gap-2 rounded-full pl-0.5 pr-2 py-0.5 text-xs text-stone-600 dark:text-muted-foreground border border-stone-200 dark:border-border";
-  const triggerHover = isHome
-    ? "hover:bg-white/60 dark:hover:bg-stone-700/60"
-    : "hover:bg-stone-100 dark:hover:bg-surface";
+  const isEditor = variant === "editor";
+  const triggerBase = isEditor
+    ? "flex h-8 items-center gap-2 rounded-md border border-stone-200/90 bg-white pl-1 pr-2 text-left text-foreground shadow-sm dark:border-border/70 dark:bg-background/60 dark:shadow-none dark:backdrop-blur-sm"
+    : "flex items-center gap-2 rounded-full pl-0.5 pr-2 py-0.5 text-xs text-stone-600 dark:text-muted-foreground border border-stone-200 dark:border-border";
+  const triggerHover = isEditor
+    ? "hover:bg-stone-50 dark:hover:bg-white/8"
+    : isHome
+      ? "hover:bg-white/60 dark:hover:bg-stone-700/60"
+      : "hover:bg-stone-100 dark:hover:bg-surface";
   const triggerIconOnlyBase =
     "flex items-center justify-center w-9 h-9 rounded-full text-stone-500 dark:text-muted-foreground border border-stone-200 dark:border-border";
-  const triggerIconOnlyHover = isHome
-    ? "hover:bg-white/60 dark:hover:bg-stone-700/60"
-    : "hover:bg-stone-100 dark:hover:bg-surface";
+  const triggerIconOnlyHover = isEditor
+    ? "hover:bg-stone-50 dark:hover:bg-white/8"
+    : isHome
+      ? "hover:bg-white/60 dark:hover:bg-stone-700/60"
+      : "hover:bg-stone-100 dark:hover:bg-surface";
 
   return (
     <div className={cn("relative flex items-center shrink-0", className)}>
@@ -103,7 +110,12 @@ export function AvatarMenu({
           <button
             type="button"
             onClick={() => setAuthMenuOpen((v) => !v)}
-            className={cn(triggerBase, triggerHover)}
+            className={cn(
+              triggerBase,
+              triggerHover,
+              isEditor &&
+                "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-background",
+            )}
             title={user.email ?? "Cuenta y opciones"}
             aria-expanded={authMenuOpen}
             aria-haspopup="menu"
@@ -112,19 +124,37 @@ export function AvatarMenu({
               <img
                 src={user.photoURL}
                 alt=""
-                className="w-8 h-8 rounded-full shrink-0 object-cover"
+                className={cn(
+                  "shrink-0 object-cover",
+                  isEditor ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-full",
+                )}
               />
             ) : (
-              <span className="w-8 h-8 rounded-full bg-stone-300 dark:bg-stone-600 flex items-center justify-center text-stone-600 dark:text-stone-300 text-xs font-medium shrink-0">
+              <span
+                className={cn(
+                  "bg-stone-300 dark:bg-stone-600 flex items-center justify-center text-stone-600 dark:text-stone-300 text-xs font-medium shrink-0",
+                  isEditor ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-full",
+                )}
+              >
                 {(user.email ?? "?").slice(0, 1).toUpperCase()}
               </span>
             )}
-            <span className="truncate max-w-[120px] hidden sm:inline">
+            <span
+              className={cn(
+                "truncate hidden sm:inline",
+                isEditor
+                  ? "max-w-[min(140px,22vw)] text-[13px] font-medium text-foreground"
+                  : "max-w-[120px]",
+              )}
+            >
               {user.displayName || user.email}
             </span>
             <ChevronDown
-              size={14}
-              className={cn("shrink-0 transition-transform", authMenuOpen && "rotate-180")}
+              size={isEditor ? 13 : 14}
+              className={cn(
+                "shrink-0 transition-transform text-muted-foreground",
+                authMenuOpen && "rotate-180",
+              )}
             />
           </button>
           {authMenuOpen && (
@@ -166,8 +196,14 @@ export function AvatarMenu({
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
                   >
-                    <Settings size={16} />
-                    Configuración (API keys)
+                    <Settings size={16} className="shrink-0 opacity-80" />
+                    <span className="min-w-0 flex-1 truncate">Configura Slaim</span>
+                    <Sparkles
+                      size={16}
+                      strokeWidth={2.25}
+                      className="shrink-0 text-teal-600 dark:text-teal-400"
+                      aria-hidden
+                    />
                   </button>
                 )}
                 <button
@@ -224,7 +260,12 @@ export function AvatarMenu({
           <button
             type="button"
             onClick={() => setAuthMenuOpen((v) => !v)}
-            className={cn(triggerIconOnlyBase, triggerIconOnlyHover)}
+            className={cn(
+              triggerIconOnlyBase,
+              triggerIconOnlyHover,
+              isEditor &&
+                "h-8 w-8 rounded-md border-stone-200/90 bg-white shadow-sm dark:border-border/70 dark:bg-background/60 dark:backdrop-blur-sm",
+            )}
             title="Cuenta y opciones"
             aria-expanded={authMenuOpen}
             aria-haspopup="menu"
@@ -276,8 +317,14 @@ export function AvatarMenu({
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 dark:text-foreground hover:bg-stone-50 dark:hover:bg-surface"
                   >
-                    <Settings size={16} />
-                    Configuración (API keys)
+                    <Settings size={16} className="shrink-0 opacity-80" />
+                    <span className="min-w-0 flex-1 truncate">Configura Slaim</span>
+                    <Sparkles
+                      size={16}
+                      strokeWidth={2.25}
+                      className="shrink-0 text-teal-600 dark:text-teal-400"
+                      aria-hidden
+                    />
                   </button>
                 )}
                 <button

@@ -1,5 +1,16 @@
-import type { Slide } from "../../domain/entities";
-import type { PresentationGeneratorPort, SlideOperationsPort } from "../../domain/ports";
+import type {
+  PresentationGeneratorPort,
+  SlideOperationsPort,
+  GeneratePresentationOptions,
+  GeneratedPresentationResult,
+  DeckNarrativeSlideOptions,
+} from "../../domain/ports";
+import {
+  type Slide,
+  createEmptySlideMatrixData,
+  normalizeSlideMatrixData,
+  serializeSlideMatrixForPrompt,
+} from "../../domain/entities";
 import { buildPrompt } from "../promptEngine";
 import {
   slideCountBounds,
@@ -8,9 +19,12 @@ import {
   generatePresentationPrompt,
   splitSlidePrompt,
   rewriteSlidePrompt,
+  generateSlideContentPrompt,
+  generateSlideMatrixPrompt,
+  generateSlideDiagramPrompt,
   imageAlternativesPrompt,
 } from "../prompts";
-import { parseSlidesFromResponse } from "../schemas";
+import { parseGeneratedDeckFromResponse, parseSlidesFromResponse } from "../schemas";
 
 const { min, max, default: def } = slideCountBounds;
 
@@ -110,7 +124,11 @@ export class OpenAiCompatibleAdapter
     return Math.min(max, Math.max(min, parseInt(n[0], 10)));
   }
 
-  async generatePresentation(topic: string, modelId: string): Promise<Slide[]> {
+  async generatePresentation(
+    topic: string,
+    modelId: string,
+    options?: GeneratePresentationOptions,
+  ): Promise<GeneratedPresentationResult> {
     const model = this.model(modelId);
     const requestedCount =
       parseSlideCountFromTopic(topic) ?? (await this.resolveSlideCount(topic, model));
@@ -118,6 +136,7 @@ export class OpenAiCompatibleAdapter
       topic,
       slideCount: requestedCount,
       strictCount: requestedCount !== def,
+      narrativeInstructions: options?.narrativeInstructions,
     });
     const body = {
       model,
@@ -137,7 +156,9 @@ export class OpenAiCompatibleAdapter
           const data = await res.json();
           return data?.choices?.[0]?.message?.content as string | undefined;
         })();
-    return content && typeof content === "string" ? parseSlidesFromResponse(content) : [];
+    return content && typeof content === "string"
+      ? parseGeneratedDeckFromResponse(content)
+      : { slides: [] };
   }
 
   async splitSlide(slide: Slide, prompt: string, modelId: string): Promise<Slide[]> {
@@ -166,9 +187,14 @@ export class OpenAiCompatibleAdapter
   async rewriteSlide(
     slide: Slide,
     prompt: string,
-    modelId: string
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
   ): Promise<{ title: string; content: string }> {
-    const { system, user } = buildPrompt(rewriteSlidePrompt, { slide, userPrompt: prompt });
+    const { system, user } = buildPrompt(rewriteSlidePrompt, {
+      slide,
+      userPrompt: prompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
     const body = {
       model: this.model(modelId),
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
@@ -194,6 +220,176 @@ export class OpenAiCompatibleAdapter
       return { title: p.title ?? slide.title, content: p.content ?? slide.content };
     } catch {
       return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideContent(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{ title: string; content: string }> {
+    const { system, user } = buildPrompt(generateSlideContentPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const body = {
+      model: this.model(modelId),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      max_tokens: 8192,
+    };
+    const content = this.isTauri()
+      ? await this.tauriChat(body)
+      : await (async () => {
+          const res = await fetch(this.config.chatUrl, {
+            method: "POST",
+            headers: this.headers(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await this.parseError(res));
+          const data = await res.json().catch(() => ({}));
+          return data?.choices?.[0]?.message?.content as string | undefined;
+        })();
+    if (!content || typeof content !== "string")
+      return { title: slide.title, content: slide.content };
+    try {
+      const p = JSON.parse(content) as { title?: string; content?: string };
+      return { title: p.title ?? slide.title, content: p.content ?? slide.content };
+    } catch {
+      return { title: slide.title, content: slide.content };
+    }
+  }
+
+  async generateSlideMatrix(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{
+    title: string;
+    subtitle: string;
+    content: string;
+    columnHeaders: string[];
+    rows: string[][];
+  }> {
+    const baseMatrix = normalizeSlideMatrixData(slide.matrixData ?? createEmptySlideMatrixData());
+    const fallback = {
+      title: slide.title,
+      subtitle: slide.subtitle ?? "",
+      content: slide.content,
+      columnHeaders: baseMatrix.columnHeaders,
+      rows: baseMatrix.rows,
+    };
+    const { system, user } = buildPrompt(generateSlideMatrixPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideSubtitle: slide.subtitle ?? "",
+      matrixJson: serializeSlideMatrixForPrompt(baseMatrix),
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const body = {
+      model: this.model(modelId),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      max_tokens: 8192,
+    };
+    const content = this.isTauri()
+      ? await this.tauriChat(body)
+      : await (async () => {
+          const res = await fetch(this.config.chatUrl, {
+            method: "POST",
+            headers: this.headers(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await this.parseError(res));
+          const data = await res.json().catch(() => ({}));
+          return data?.choices?.[0]?.message?.content as string | undefined;
+        })();
+    if (!content || typeof content !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(content) as {
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        columnHeaders?: unknown;
+        rows?: unknown;
+      };
+      const matrix = normalizeSlideMatrixData({
+        columnHeaders: parsed.columnHeaders,
+        rows: parsed.rows,
+      });
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        subtitle: String(parsed.subtitle ?? "").trim(),
+        content: String(parsed.content ?? "").trim(),
+        columnHeaders: matrix.columnHeaders,
+        rows: matrix.rows,
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  async generateSlideDiagram(
+    presentationTopic: string,
+    slide: Slide,
+    userPrompt: string,
+    modelId: string,
+    slideOptions?: DeckNarrativeSlideOptions,
+  ): Promise<{ title: string; content: string; mermaid: string }> {
+    const fallback = {
+      title: slide.title,
+      content: slide.content,
+      mermaid: "flowchart TD\nA[Define el diagrama en el prompt]",
+    };
+    const { system, user } = buildPrompt(generateSlideDiagramPrompt, {
+      presentationTopic,
+      slideTitle: slide.title,
+      slideContent: slide.content,
+      userPrompt,
+      deckNarrativeContext: slideOptions?.deckNarrativeContext,
+    });
+    const body = {
+      model: this.model(modelId),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      max_tokens: 8192,
+    };
+    const content = this.isTauri()
+      ? await this.tauriChat(body)
+      : await (async () => {
+          const res = await fetch(this.config.chatUrl, {
+            method: "POST",
+            headers: this.headers(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(await this.parseError(res));
+          const data = await res.json().catch(() => ({}));
+          return data?.choices?.[0]?.message?.content as string | undefined;
+        })();
+    if (!content || typeof content !== "string") return fallback;
+    try {
+      const parsed = JSON.parse(content) as {
+        title?: string;
+        content?: string;
+        mermaid?: string;
+      };
+      const mermaid = String(parsed.mermaid ?? "").trim();
+      if (!mermaid) return fallback;
+      return {
+        title: (parsed.title ?? slide.title).trim() || slide.title,
+        content: String(parsed.content ?? "").trim(),
+        mermaid,
+      };
+    } catch {
+      return fallback;
     }
   }
 

@@ -1,14 +1,44 @@
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { usePresentation } from "../../context/PresentationContext";
+import type { DeckContentTone } from "../../domain/entities";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
+import { cn } from "../../utils/cn";
+import {
+  elementSupportsRequestFullscreen,
+  exitDocumentFullscreen,
+  getFullscreenElement,
+  requestElementFullscreen,
+} from "../../utils/fullscreenApi";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
 function getOrigin() {
   return window.location.origin;
 }
+
+/** Flecha + halo acorde al tono del deck (sin disco negro). */
+function previewNavBtnClass(tone: DeckContentTone): string {
+  if (tone === "light") {
+    return cn(
+      "flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/45 bg-white/12 text-slate-50 shadow-[0_2px_14px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[color,background-color,border-color,transform]",
+      "hover:border-white/65 hover:bg-white/22 hover:text-white",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/55",
+      "[&_svg]:drop-shadow-[0_0_2px_rgba(0,0,0,0.35)]",
+    );
+  }
+  return cn(
+    "flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-stone-800/20 bg-white/50 text-stone-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] backdrop-blur-md transition-[color,background-color,border-color,transform]",
+    "hover:border-stone-800/35 hover:bg-white/75 hover:text-stone-950",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/50",
+    "[&_svg]:drop-shadow-[0_1px_0_rgba(255,255,255,0.85)]",
+  );
+}
+
+/** Botones fijos compactos: no usar franjas a altura completa (z altos) que tapen el lienzo y bloqueen Rive / 3D. */
+const previewNavBtnFixed =
+  "pointer-events-auto fixed top-1/2 z-[106] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full opacity-90 shadow-md transition-opacity hover:opacity-100 motion-reduce:transition-none";
 
 export function PreviewOverlay() {
   const {
@@ -18,9 +48,9 @@ export function PreviewOverlay() {
     currentIndex,
     slides,
     topic,
+    deckVisualTheme,
     imageWidthPercent,
     panelHeightPercent,
-    formatMarkdown,
     prevSlide,
     nextSlide,
     effectiveGeminiModel,
@@ -32,11 +62,64 @@ export function PreviewOverlay() {
     currentIndex,
     topic,
     effectiveGeminiModel,
+    deckVisualTheme,
   });
   const presenterWindowRef = useRef<Window | null>(null);
+  const overlayRootRef = useRef<HTMLDivElement | null>(null);
+  const [browserFullscreenActive, setBrowserFullscreenActive] = useState(false);
+
+  const nativeFullscreenSupported =
+    typeof document !== "undefined" &&
+    elementSupportsRequestFullscreen(document.documentElement);
+
+  const syncBrowserFullscreen = useCallback(() => {
+    const host = overlayRootRef.current;
+    setBrowserFullscreenActive(host != null && getFullscreenElement() === host);
+  }, []);
+
+  useEffect(() => {
+    if (!isPreviewMode) {
+      setBrowserFullscreenActive(false);
+      return;
+    }
+    syncBrowserFullscreen();
+    const onChange = () => syncBrowserFullscreen();
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, [isPreviewMode, syncBrowserFullscreen]);
+
+  const handleToggleNativeFullscreen = useCallback(() => {
+    const el = overlayRootRef.current;
+    if (!el) return;
+    if (getFullscreenElement() === el) {
+      void exitDocumentFullscreen();
+      return;
+    }
+    void requestElementFullscreen(el).catch(() => {});
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    const el = overlayRootRef.current;
+    if (el && getFullscreenElement() === el) {
+      void exitDocumentFullscreen().finally(() => setIsPreviewMode(false));
+      return;
+    }
+    setIsPreviewMode(false);
+  }, [setIsPreviewMode]);
+
   nextSlideRef.current = nextSlide;
   prevSlideRef.current = prevSlide;
-  stateRef.current = { slides, currentIndex, topic, effectiveGeminiModel };
+  stateRef.current = {
+    slides,
+    currentIndex,
+    topic,
+    effectiveGeminiModel,
+    deckVisualTheme,
+  };
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -48,6 +131,7 @@ export function PreviewOverlay() {
           currentIndex: i,
           topic: t,
           effectiveGeminiModel: m,
+          deckVisualTheme: dvt,
         } = stateRef.current;
         (e.source as Window).postMessage(
           {
@@ -57,6 +141,7 @@ export function PreviewOverlay() {
               currentIndex: i,
               topic: t || "Presentación",
               effectiveGeminiModel: m,
+              deckVisualTheme: dvt,
             },
           },
           getOrigin()
@@ -76,7 +161,7 @@ export function PreviewOverlay() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [slides, currentIndex, topic, effectiveGeminiModel]);
+  }, [slides, currentIndex, topic, effectiveGeminiModel, deckVisualTheme]);
 
   const tauriEventRef = useRef<{
     emitTo: (target: string, event: string, payload?: unknown) => Promise<void>;
@@ -95,6 +180,7 @@ export function PreviewOverlay() {
               currentIndex: i,
               topic: t,
               effectiveGeminiModel: m,
+              deckVisualTheme: dvt,
             } = stateRef.current;
             eventApi.emitTo("presenter", "presentation-state", {
               payload: {
@@ -102,6 +188,7 @@ export function PreviewOverlay() {
                 currentIndex: i,
                 topic: t || "Presentación",
                 effectiveGeminiModel: m,
+                deckVisualTheme: dvt,
               },
             });
           })
@@ -142,6 +229,8 @@ export function PreviewOverlay() {
 
   if (!isPreviewMode || !currentSlide) return null;
 
+  const navTone = deckVisualTheme.contentTone;
+
   const openPresenterWindow = async () => {
     trackEvent(ANALYTICS_EVENTS.PRESENTER_MODE_OPENED);
     const path = window.location.pathname || "/";
@@ -170,49 +259,55 @@ export function PreviewOverlay() {
   return (
     <AnimatePresence>
       <motion.div
+        ref={overlayRootRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-white flex flex-col"
+        className="fixed inset-0 z-[100] flex flex-col bg-black"
       >
         <PreviewToolbar
-          currentIndex={currentIndex}
-          totalSlides={slides.length}
           onOpenPresenter={openPresenterWindow}
-          onClose={() => setIsPreviewMode(false)}
+          onClose={handleClosePreview}
+          nativeFullscreen={{
+            supported: nativeFullscreenSupported,
+            active: browserFullscreenActive,
+            onToggle: handleToggleNativeFullscreen,
+          }}
         />
 
-        <div
-          className={
-            currentSlide.type === "diagram"
-              ? "flex-1 flex min-h-0 min-w-0 w-full"
-              : "flex-1 flex items-center justify-center p-12 min-h-0"
-          }
-        >
+        <div className="relative z-[50] isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-black p-0 pointer-events-auto">
           <PreviewSlideContent
+            layout="fullscreen"
             slide={currentSlide}
-            formatMarkdown={formatMarkdown}
             imageWidthPercent={imageWidthPercent}
             panelHeightPercent={panelHeightPercent}
+            slideIndex={currentIndex}
           />
         </div>
 
-        <div
-          className="absolute inset-y-0 left-0 w-32 cursor-pointer group flex items-center justify-center z-10 pointer-events-auto"
+        <p
+          className="pointer-events-none fixed bottom-3 left-3 z-[105] select-none text-xs font-medium tabular-nums text-white/40 md:bottom-4 md:left-4"
+          aria-live="polite"
+        >
+          {currentIndex + 1}/{slides.length}
+        </p>
+
+        <button
+          type="button"
+          aria-label="Diapositiva anterior"
+          className={cn(previewNavBtnFixed, "left-3 md:left-4", previewNavBtnClass(navTone))}
           onClick={prevSlide}
         >
-          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
-            <ChevronLeft size={32} />
-          </div>
-        </div>
-        <div
-          className="absolute inset-y-0 right-0 w-32 cursor-pointer group flex items-center justify-center z-10 pointer-events-auto"
+          <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
+        </button>
+        <button
+          type="button"
+          aria-label="Diapositiva siguiente"
+          className={cn(previewNavBtnFixed, "right-3 md:right-4", previewNavBtnClass(navTone))}
           onClick={nextSlide}
         >
-          <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-stone-900 shadow-xl">
-            <ChevronRight size={32} />
-          </div>
-        </div>
+          <ChevronRight size={28} strokeWidth={2.25} aria-hidden />
+        </button>
       </motion.div>
     </AnimatePresence>
   );

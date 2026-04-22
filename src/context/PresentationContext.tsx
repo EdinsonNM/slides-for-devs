@@ -26,3 +26,8 @@ export function usePresentation(): PresentationState {
   }
   return ctx;
 }
+
+/** Ventanas sin provider (p. ej. presentador Tauri) devuelven null. */
+export function usePresentationOptional(): PresentationState | null {
+  return useContext(PresentationContext);
+}

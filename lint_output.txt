@@ -1,0 +1,13 @@
+
+> react-example@0.1.33 lint /Volumes/EdiDev/proyects/slides-for-devs
+> tsc --noEmit
+
+src/components/layout/EditorFloatingToolbar.tsx(52,7): error TS2741: Property 'mindMap' is missing in type '{ title: { label: string; title: string; Icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; }; ... 9 more ...; isometricFlow: undefined; }' but required in type 'Record<SlideCanvasElementKind, { label: string; title: string; Icon: LucideIcon; }>'.
+src/domain/slideCanvas/slideCanvasPayload.ts(330,33): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/hooks/usePresentationState.ts(2759,37): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/hooks/usePresentationState.ts(2817,37): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/schemas/presentationSchemas.ts(26,14): error TS2554: Expected 2-3 arguments, but got 1.
+src/services/pptxSlideRasterCapture.tsx(67,31): error TS2339: Property 'TITLE' does not exist on type '{ readonly CONTENT: "content"; readonly CHAPTER: "chapter"; readonly DIAGRAM: "diagram"; readonly ISOMETRIC: "isometric"; readonly MIND_MAP: "mind-map"; readonly MATRIX: "matrix"; }'.
+src/services/pptxSlideRasterCapture.tsx(68,5): error TS2367: This comparison appears to be unintentional because the types '"mind-map"' and '"chapter"' have no overlap.
+src/store/useSlidesStore.ts(17,60): error TS2739: Type '{ slides: any[]; topic: string; currentIndex: number; setTopic: (topic: string) => void; setSlides: (slides: Slide[] | ((prev: Slide[]) => Slide[])) => void; setCurrentIndex: (index: number | ((prev: number) => number)) => void; redoSlides: () => void; }' is missing the following properties from type 'SlidesState': pushSlidesUndo, undoSlides
+ ELIFECYCLE  Command failed with exit code 2.

@@ -95,7 +95,7 @@ export function PresenterChat({
               ) : (
                 <div className="prose prose-invert prose-sm max-w-none prose-p:text-white prose-li:text-stone-100 prose-strong:text-white prose-headings:text-white prose-code:text-amber-200 prose-pre:bg-stone-900 prose-pre:border prose-pre:border-stone-600 [&>*]:text-white [&_ul]:text-stone-100 [&_ol]:text-stone-100">
                   <ReactMarkdown
-                    remarkPlugins={[remarkBreaks, remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
                     components={markdownComponents}
                   >
                     {msg.content}

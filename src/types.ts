@@ -1,67 +1,20 @@
-export type { Slide, SlideType } from "./domain/entities";
+export type {
+  Slide,
+  SlideType,
+  SlidePanelContentType,
+  SlideMatrixData,
+} from "./domain/entities";
+export type { PanelContentKind } from "./domain/panelContent/panelContentKind";
+export { PANEL_CONTENT_KIND } from "./domain/panelContent/panelContentKind";
+export { SLIDE_TYPE, slideUsesFullBleedCanvas } from "./domain/entities";
 export type {
   ImageStyle,
   SavedCharacter,
+  GeneratedResourceKind,
+  GeneratedResourceEntry,
   Presentation,
   SavedPresentation,
   SavedPresentationMeta,
+  HomePresentationCard,
 } from "./types.app";
-
-export interface ImageStyle {
-  id: string;
-  name: string;
-  prompt: string;
-}
-
-export interface Slide {
-  id: string;
-  type: SlideType;
-  title: string;
-  subtitle?: string;
-  content: string;
-  imageUrl?: string;
-  imagePrompt?: string;
-  code?: string;
-  language?: string;
-  fontSize?: number;
-  /** Altura del bloque de código en px (solo para slides con código). */
-  editorHeight?: number;
-  videoUrl?: string;
-  contentType?: "image" | "code" | "video";
-  /** Distribución del contenido: split = título+texto a la izquierda y panel derecho; full = solo título+texto a ancho completo; panel-full = título arriba, descripción como subtítulo opcional y panel ocupa todo el resto. Solo aplica cuando type === "content". */
-  contentLayout?: "split" | "full" | "panel-full";
-  /** Porcentaje de ancho (0-100) del panel derecho (imagen/código/video). Solo aplica a contentLayout "split". */
-  imageWidthPercent?: number;
-  /** Porcentaje de altura (0-100) del panel inferior en layout "panel-full". El resto es título/subtítulo. */
-  panelHeightPercent?: number;
-  /** Notas del presentador (solo visibles en modo presentador) */
-  presenterNotes?: string;
-  /** Guion o speech sugerido para esta diapositiva */
-  speech?: string;
-  /** Datos del diagrama Excalidraw (JSON: elements, appState, files). Solo cuando type === "diagram". */
-  excalidrawData?: string;
-}
-
-export interface Presentation {
-  topic: string;
-  slides: Slide[];
-  /** Id del personaje asignado a esta presentación (opcional). */
-  characterId?: string;
-}
-
-/** Presentación guardada en disco (incluye id y fecha) */
-export interface SavedPresentation extends Presentation {
-  id: string;
-  savedAt: string; // ISO date
-}
-
-/** Resumen para listar presentaciones guardadas */
-export interface SavedPresentationMeta {
-  id: string;
-  topic: string;
-  savedAt: string;
-  slideCount: number;
-  cloudId?: string;
-  cloudSyncedAt?: string;
-  cloudRevision?: number;
-}
+export { homePresentationCardKey } from "./types.app";

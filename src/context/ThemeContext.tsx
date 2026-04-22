@@ -86,3 +86,8 @@ export function useTheme(): ThemeContextValue {
   }
   return ctx;
 }
+
+/** Fuera de `ThemeProvider` devuelve `null` (p. ej. raíz aislada para captura/export). */
+export function useThemeOptional(): ThemeContextValue | null {
+  return useContext(ThemeContext);
+}

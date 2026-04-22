@@ -16,6 +16,8 @@ export interface CodeDisplayProps {
   className?: string;
   /** Para preview: tamaño responsivo con clamp */
   responsiveFontSize?: boolean;
+  /** Tema del bloque (p. ej. panel en lienzo); si no se pasa, se usa el tema global del editor. */
+  codeEditorTheme?: "light" | "dark";
 }
 
 /**
@@ -30,14 +32,17 @@ export function CodeDisplay({
   showChrome = true,
   className,
   responsiveFontSize = false,
+  codeEditorTheme: codeEditorThemeProp,
 }: CodeDisplayProps) {
-  const { isLight } = useCodeEditorTheme();
+  const globalTheme = useCodeEditorTheme();
+  const resolved = codeEditorThemeProp ?? globalTheme.theme;
+  const isLight = resolved === "light";
   const languageName =
     LANGUAGES.find((l) => l.id === language)?.name || language;
 
   const shell = isLight
-    ? "bg-[#fafafa] border-stone-300 shadow-xl"
-    : "bg-[#1e1e1e] border-white/10 shadow-2xl";
+    ? "bg-[#fafafa] border-stone-300 shadow-none"
+    : "bg-[#1e1e1e] border-stone-700/90 shadow-none";
   const titleBar = isLight
     ? "bg-stone-200/90 border-b border-stone-300"
     : "bg-[#2d2d2d]";
@@ -45,10 +50,13 @@ export function CodeDisplay({
 
   return (
     <div
+      data-code-panel=""
       className={cn(
         "w-full h-full rounded-2xl overflow-hidden flex flex-col",
         shell,
-        className
+        className,
+        !isLight && "!text-[#d4d4d4]",
+        isLight && "!text-stone-800",
       )}
     >
       {showChrome && (
@@ -100,6 +108,7 @@ export function CodeDisplay({
                 margin: 0,
                 padding: "2rem",
                 background: "transparent",
+                boxShadow: "none",
                 fontSize: responsiveFontSize
                   ? `clamp(${fontSize * 1.2}px, 1.4vw, ${fontSize * 2.2}px)`
                   : `${fontSize}px`,
