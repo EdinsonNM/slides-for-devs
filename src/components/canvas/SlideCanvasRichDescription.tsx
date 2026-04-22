@@ -89,7 +89,6 @@ export type SlideCanvasRichDescriptionProps = {
   onPlainAndRichChange: (plain: string, richHtml: string) => void;
   onBlurCommit: () => void;
   shellClassName?: string;
-  onRequestEdit?: () => void;
   /**
    * Sustituye el tamaño base en vista (y en el editor). Por defecto: `calc(var(--slide-body) * …)`
    * para que escale con el lienzo (mismo criterio que el título vía `--slide-title` / `cqw`).
@@ -195,15 +194,12 @@ export const SlideCanvasRichDescription = forwardRef<
     onPlainAndRichChange,
     onBlurCommit,
     shellClassName,
-    onRequestEdit,
     viewTypographySize,
   },
   ref,
 ) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRootRef = useRef<HTMLDivElement>(null);
-  const onRequestEditRef = useRef(onRequestEdit);
-  onRequestEditRef.current = onRequestEdit;
   const prevEditingRef = useRef(false);
   const prevElementIdRef = useRef(elementId);
   const [toolbarPos, setToolbarPos] = useState<{
@@ -514,18 +510,24 @@ export const SlideCanvasRichDescription = forwardRef<
   );
 
   if (!isEditing) {
+    /**
+     * Vista solo lectura: el HTML/markdown no recibe puntero (`pointer-events-none`).
+     * Así el contenedor del lienzo (scroll + marco) recibe selección, arrastre y doble clic
+     * sin que enlaces, spans o el motor de markdown intercepten el hit-test.
+     */
+    const viewChromeClass = "pointer-events-none";
+
     if (display.kind === "html") {
       return (
         <div
           ref={viewRootRef}
-          className={cn(wrapClass, "slide-rich-view select-none", shellClassName)}
+          className={cn(
+            wrapClass,
+            "slide-rich-view select-none",
+            viewChromeClass,
+            shellClassName,
+          )}
           style={{ fontSize: appliedFontSize }}
-          onDoubleClick={(e) => {
-            if (onRequestEditRef.current) {
-              e.stopPropagation();
-              onRequestEditRef.current();
-            }
-          }}
         >
           <div
             className="slide-rich-root select-none [&_a]:underline"
@@ -542,14 +544,13 @@ export const SlideCanvasRichDescription = forwardRef<
     return (
       <div
         ref={viewRootRef}
-        className={cn(wrapClass, "slide-rich-view select-none", shellClassName)}
+        className={cn(
+          wrapClass,
+          "slide-rich-view select-none",
+          viewChromeClass,
+          shellClassName,
+        )}
         style={{ fontSize: appliedFontSize }}
-        onDoubleClick={(e) => {
-          if (onRequestEditRef.current) {
-            e.stopPropagation();
-            onRequestEditRef.current();
-          }
-        }}
       >
         {src.trim() ? (
           <SlideMarkdown contentTone={tone} style={{ fontSize: appliedFontSize }}>
@@ -600,7 +601,7 @@ export const SlideCanvasRichDescription = forwardRef<
         data-slide-markdown-scroll-measure=""
         className={cn(
           wrapClass,
-          "slide-rich-root relative z-10 max-h-[min(70vh,520px)] min-h-0 flex-1 overflow-y-auto bg-transparent px-2 py-2 outline-none",
+          "slide-rich-root relative z-10 max-h-[min(70vh,520px)] min-h-0 flex-1 select-text overflow-y-auto bg-transparent px-2 py-2 outline-none",
           tone === "light"
             ? "[&::selection]:bg-sky-300/70 [&::selection]:text-slate-950"
             : "[&::selection]:bg-sky-500/35 [&::selection]:text-stone-900 dark:[&::selection]:bg-sky-400/40 dark:[&::selection]:text-stone-950",

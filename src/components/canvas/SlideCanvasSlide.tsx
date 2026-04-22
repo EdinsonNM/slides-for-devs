@@ -1451,6 +1451,35 @@ function CanvasElementEditor({
     ) {
       return;
     }
+    /**
+     * El segundo `pointerdown` de un doble clic (`detail >= 2`) debe abrir edición sin
+     * enganchar `attachDragThreshold`: si el puntero se mueve > umbral entre los dos
+     * clics, el navegador no emite `dblclick` y el bloque parece “bloqueado”.
+     */
+    if (e.detail >= 2) {
+      if (kind === "markdown") {
+        openMarkdownContentEdit();
+        return;
+      }
+      if (kind === "matrixNotes") {
+        openMatrixNotesContentEdit();
+        return;
+      }
+      if (kind === "title" || kind === "chapterTitle") {
+        setCanvasTextEditTarget("title", id);
+        setEditTitle(readTextMarkdownFromElement(slide, element));
+        setIsEditing(true);
+        setActiveField("title");
+        return;
+      }
+      if (kind === "subtitle" || kind === "chapterSubtitle") {
+        setCanvasTextEditTarget("subtitle", id);
+        setEditSubtitle(readTextMarkdownFromElement(slide, element));
+        setIsEditing(true);
+        setActiveField("subtitle");
+        return;
+      }
+    }
     const captureEl =
       e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
     if (kind !== "isometricFlow") {
@@ -1500,6 +1529,25 @@ function CanvasElementEditor({
       : globalCodeEditorTheme;
 
   const markdownRichRef = useRef<SlideCanvasRichDescriptionHandle>(null);
+
+  const openMatrixNotesContentEdit = useCallback(() => {
+    if (kind !== "matrixNotes") return;
+    onSelect();
+    setCanvasTextEditTarget("content", id);
+    setEditContent(readTextMarkdownFromElement(slide, element));
+    setIsEditing(true);
+    setActiveField("content");
+  }, [
+    kind,
+    id,
+    onSelect,
+    element,
+    slide,
+    setCanvasTextEditTarget,
+    setEditContent,
+    setIsEditing,
+    setActiveField,
+  ]);
 
   const openMarkdownContentEdit = useCallback(() => {
     if (kind !== "markdown") return;
@@ -2084,7 +2132,7 @@ function CanvasElementEditor({
               {!isEditing || !isSelected || activeField !== "content" ? (
                 <div
                   data-slide-markdown-scroll-measure=""
-                  className="min-h-0 flex-1 select-none overflow-y-auto"
+                  className="relative z-0 min-h-0 flex-1 select-none overflow-y-auto touch-manipulation"
                   tabIndex={0}
                   title="Doble clic para editar"
                   onDoubleClick={(e) => {
@@ -2110,7 +2158,6 @@ function CanvasElementEditor({
                       fontScale={viewFontScale}
                       onPlainAndRichChange={() => {}}
                       onBlurCommit={() => {}}
-                      onRequestEdit={openMarkdownContentEdit}
                     />
                   ) : (
                     <p className={cn("italic", deckMutedTextClass(tone))}>
