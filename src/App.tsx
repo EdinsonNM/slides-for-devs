@@ -6,6 +6,7 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 import { EditorSlideUrlSync } from "./components/layout/EditorSlideUrlSync";
 import { usePresentation } from "./context/PresentationContext";
@@ -47,6 +48,23 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** `/configure-ai` siempre usa `?mode=settings`; normaliza URLs sin ese parámetro. */
+function ConfigureAiRoute({ onSaved }: { onSaved: () => void }) {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("mode") !== "settings") {
+    const next = new URLSearchParams(searchParams);
+    next.set("mode", "settings");
+    const qs = next.toString();
+    return (
+      <Navigate
+        to={{ pathname: "/configure-ai", search: qs ? `?${qs}` : "?mode=settings" }}
+        replace
+      />
+    );
+  }
+  return <ApiConfigurationScreen onSaved={onSaved} />;
+}
+
 interface HomeOrRedirectProps {
   onOpenConfig: () => void;
   apiConfigured: boolean;
@@ -81,7 +99,7 @@ function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
   }
 
   if (!apiConfigured) {
-    return <Navigate to="/configure-ai" replace />;
+    return <Navigate to="/configure-ai?mode=settings" replace />;
   }
 
   const onOpenSavedAndGo = async (id: string) => {
@@ -238,7 +256,7 @@ export default function App() {
 
   useEffect(() => {
     registerApiConfigurationRequiredListener(() => {
-      navigate("/configure-ai?reason=generate");
+      navigate("/configure-ai?mode=settings&reason=generate");
     });
     return () => registerApiConfigurationRequiredListener(null);
   }, [navigate]);
@@ -310,7 +328,7 @@ export default function App() {
           path="/configure-ai"
           element={
             <RequireAuth>
-              <ApiConfigurationScreen onSaved={handleApiConfigureSaved} />
+              <ConfigureAiRoute onSaved={handleApiConfigureSaved} />
             </RequireAuth>
           }
         />
