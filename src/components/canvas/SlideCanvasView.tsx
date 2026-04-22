@@ -68,6 +68,11 @@ export interface SlideCanvasViewProps {
   className?: string;
   /** Contraste de tipografía con el fondo del deck (por defecto texto oscuro). */
   deckContentTone?: DeckContentTone;
+  /**
+   * Clave opcional para forzar re-sincronización de viewports R3F (3D) cuando el layout cambia
+   * sin resize CSS (p. ej. presentación con transforms).
+   */
+  r3fHostMeasureKey?: string;
 }
 
 function mediaBlock(
@@ -75,6 +80,7 @@ function mediaBlock(
   tone: DeckContentTone,
   /** Presentador 3D: slide + elemento para leer solo el `payload` del bloque (sin espejo raíz). */
   presenterCanvas?: { slide: Slide; element: SlideCanvasElement },
+  r3fHostMeasureKey?: string,
 ) {
   const panel = resolveMediaPanelDescriptor(deckSlide);
   switch (panel.kind) {
@@ -163,6 +169,7 @@ function mediaBlock(
             }
             showInteractionHint={false}
             className="h-full min-h-[120px]"
+            hostMeasureKey={r3fHostMeasureKey}
           />
         </div>
       );
@@ -176,6 +183,7 @@ function mediaBlock(
             viewState={deckSlide.canvas3dViewState}
             showInteractionHint
             className="h-full min-h-[120px]"
+            hostMeasureKey={r3fHostMeasureKey}
           />
         </div>
       );
@@ -247,10 +255,12 @@ function CanvasElementReadOnly({
   element,
   slide,
   deckContentTone,
+  r3fHostMeasureKey,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
   deckContentTone: DeckContentTone;
+  r3fHostMeasureKey?: string;
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -376,7 +386,7 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "h-full p-1 md:p-2",
-            mediaBlock(panelSlide, tone, { slide, element }),
+            mediaBlock(panelSlide, tone, { slide, element }, r3fHostMeasureKey),
           )}
         </div>
       );
@@ -512,6 +522,7 @@ export function SlideCanvasView({
   slide,
   className,
   deckContentTone = "dark",
+  r3fHostMeasureKey,
 }: SlideCanvasViewProps) {
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
@@ -525,6 +536,7 @@ export function SlideCanvasView({
           element={el}
           slide={ensured}
           deckContentTone={deckContentTone}
+          r3fHostMeasureKey={r3fHostMeasureKey}
         />
       ))}
     </div>

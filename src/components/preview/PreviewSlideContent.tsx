@@ -49,6 +49,11 @@ export interface PreviewSlideContentProps {
    * Útil en miniaturas del home u otros embeds donde solo debe verse el lienzo 16:9.
    */
   hideSectionLabel?: boolean;
+  /**
+   * Clave opcional para forzar re-sincronización de viewports R3F (3D) cuando el contenedor cambia
+   * por transforms sin disparar `ResizeObserver` (p. ej. modo presentación “cámara continua”).
+   */
+  r3fHostMeasureKey?: string;
 }
 
 /**
@@ -65,6 +70,7 @@ export function PreviewSlideContent({
   fillExportContainer = false,
   pptxExportFrame = false,
   hideSectionLabel = false,
+  r3fHostMeasureKey,
 }: PreviewSlideContentProps) {
   const ctx = usePresentationOptional();
   const deckVisualTheme =
@@ -145,6 +151,7 @@ export function PreviewSlideContent({
             slide={slide}
             className="relative z-[1] min-h-0 flex-1"
             deckContentTone={deckVisualTheme.contentTone}
+            r3fHostMeasureKey={r3fHostMeasureKey}
           />
         </div>
       </div>
@@ -194,6 +201,7 @@ export function PreviewSlideContent({
           slide={slide}
           className="relative z-[1] min-h-0 flex-1"
           deckContentTone={deckVisualTheme.contentTone}
+          r3fHostMeasureKey={r3fHostMeasureKey}
         />
       </div>
     </motion.div>

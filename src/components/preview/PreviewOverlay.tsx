@@ -1,4 +1,4 @@
-import { motion, AnimatePresence, useAnimationControls } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useRef,
@@ -100,7 +100,6 @@ function ContinuousCameraStage({
   imageWidthPercent: number;
   panelHeightPercent: number;
 }) {
-  const cameraControls = useAnimationControls();
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
@@ -125,17 +124,6 @@ function ContinuousCameraStage({
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    void cameraControls.start({
-      scale: [1, 0.6, 1],
-      transition: {
-        duration: 0.95,
-        times: [0, 0.46, 1],
-        ease: [0.22, 1, 0.36, 1],
-      },
-    });
-  }, [cameraControls, currentIndex]);
-
   const { width: stageW, height: stageH } = stageSize;
   const maxSlideW = stageW > 0 ? stageW * 0.78 : 0;
   const maxSlideH = stageH > 0 ? stageH * 0.78 : 0;
@@ -152,11 +140,38 @@ function ContinuousCameraStage({
       ref={stageRef}
       className="relative h-full w-full overflow-hidden bg-[radial-gradient(circle_at_center,rgba(15,23,42,0.55),rgba(2,6,23,0.98)_72%)]"
     >
+      {/*
+        Importante: no aplicar `scale` en un ancestro de WebGL (R3F). Encoge el rect que
+        `getBoundingClientRect`/ResizeObserver ven y el canvas puede quedarse “reducido”.
+        El “alejamiento” es solo visual, en una capa sin lienzo 3D.
+      */}
       <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        initial={{ scale: 1 }}
-        animate={cameraControls}
+        key={`camera-dolly-${currentIndex}`}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+        initial={{ opacity: 0.2, scale: 1 }}
+        animate={{
+          opacity: [0.18, 0.42, 0.18],
+          scale: [1, 1.14, 1],
+        }}
+        transition={{
+          duration: 0.95,
+          times: [0, 0.46, 1],
+          ease: [0.22, 1, 0.36, 1],
+        }}
       >
+        <div
+          className="rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-[0_0_80px_rgba(56,189,248,0.12)]"
+          style={{
+            width: slideW > 0 ? `${slideW}px` : "78%",
+            height: slideH > 0 ? `${slideH}px` : "44%",
+            maxWidth: "min(92vw, 1600px)",
+            maxHeight: "85vh",
+          }}
+        />
+      </motion.div>
+
+      <div className="absolute inset-0 z-10 flex items-center justify-center">
         {slideW > 0 && slideH > 0
           ? slides.map((slide, idx) => {
               const distance = Math.abs(idx - currentIndex);
@@ -198,13 +213,14 @@ function ContinuousCameraStage({
                       slideIndex={idx}
                       disableEntryMotion
                       hideSectionLabel
+                      r3fHostMeasureKey={`camera-continuous:${currentIndex}`}
                     />
                   </div>
                 </motion.div>
               );
             })
           : null}
-      </motion.div>
+      </div>
     </div>
   );
 }

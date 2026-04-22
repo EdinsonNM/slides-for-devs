@@ -35,6 +35,10 @@ import {
   presenter3dViewIsTooTightHeadOn,
 } from "../../utils/presenter3dView";
 import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
+import {
+  R3fViewportResizeToHost,
+  useHostElementSize,
+} from "./r3fHostViewportSync";
 
 function isScreenMaterial(mesh: THREE.Mesh, mat: THREE.Material): boolean {
   const mn = (mesh.name || "").toLowerCase();
@@ -298,6 +302,11 @@ export interface Device3DViewportProps {
   className?: string;
   /** Margen de `@react-three/drei` Bounds al autoencuadrar (menor = modelo más grande en el viewport). */
   boundsMargin?: number;
+  /**
+   * Clave opcional para forzar re-medición del host (ResizeObserver + `setSize`) cuando el layout
+   * cambia sin mutar el tamaño CSS (p. ej. modo presentación “cámara continua” con transforms).
+   */
+  hostMeasureKey?: string;
 }
 
 export function Device3DViewport({
@@ -313,9 +322,12 @@ export function Device3DViewport({
   showInteractionHint = true,
   className,
   boundsMargin = 1.42,
+  hostMeasureKey,
 }: Device3DViewportProps) {
   const orbitScopeKey = `${slideId}:${orbitScopeSuffix ?? "main"}`;
   const glbUrl = resolveDevice3dGlbUrl(deviceId);
+  const hostObserveKey = `${orbitScopeKey}|${hostMeasureKey ?? "static"}`;
+  const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
 
   const resolvedViewState =
     viewState && !presenter3dViewIsTooTightHeadOn(viewState)
@@ -346,7 +358,7 @@ export function Device3DViewport({
     );
   }
 
-  const boundsRefreshKey = `${orbitScopeKey}|${glbUrl}|${imageUrl ?? ""}|${videoUrl ?? ""}|${screenMedia}`;
+  const boundsRefreshKey = `${orbitScopeKey}|${glbUrl}|${imageUrl ?? ""}|${videoUrl ?? ""}|${screenMedia}|${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
   const modelRootRef = useRef<THREE.Group>(null);
 
   const sceneBody =
@@ -363,6 +375,7 @@ export function Device3DViewport({
   return (
     <div
       key={orbitScopeKey}
+      ref={hostRef}
       className={cn(
         "relative min-h-[200px] h-full w-full bg-transparent",
         className,
@@ -393,6 +406,11 @@ export function Device3DViewport({
             gl.toneMappingExposure = 0.6;
           }}
         >
+          <R3fViewportResizeToHost
+            width={hostSize.width}
+            height={hostSize.height}
+            syncKey={hostObserveKey}
+          />
           <PersistedOrbitControls
             slideId={orbitScopeKey}
             viewState={resolvedViewState ?? null}
