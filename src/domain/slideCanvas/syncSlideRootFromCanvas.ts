@@ -69,6 +69,7 @@ export function syncSlideRootFromCanvas(slide: Slide): Slide {
       presenter3dViewState: media.presenter3dViewState,
       canvas3dGlbUrl: media.canvas3dGlbUrl,
       canvas3dViewState: media.canvas3dViewState,
+      canvas3dModelTransform: media.canvas3dModelTransform,
     };
     if (
       normalizePanelContentKind(media.contentType) ===

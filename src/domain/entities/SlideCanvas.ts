@@ -1,6 +1,7 @@
 /** Escena 2D de una diapositiva: rectángulos en % del contenedor 16:9 (origen arriba-izquierda). */
 
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
 import { isPanelContentKind } from "../panelContent/panelContentKind";
@@ -68,6 +69,7 @@ export type SlideCanvasMediaPayload = {
   presenter3dViewState?: Presenter3dViewState;
   canvas3dGlbUrl?: string;
   canvas3dViewState?: Presenter3dViewState;
+  canvas3dModelTransform?: Canvas3dModelTransform;
   dataMotionRing?: DataMotionRingState;
   /** Solo panel código en lienzo: tema claro/oscuro independiente por bloque. */
   codeEditorTheme?: SlideCodeEditorTheme;

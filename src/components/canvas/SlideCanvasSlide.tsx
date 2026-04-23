@@ -1849,6 +1849,10 @@ function CanvasElementEditor({
                 httpGlbUrl: panelSlide.canvas3dGlbUrl?.startsWith("http")
                   ? panelSlide.canvas3dGlbUrl
                   : "",
+                slideId: panelSlide.id,
+                glbUrl: panelSlide.canvas3dGlbUrl,
+                viewState: panelSlide.canvas3dViewState,
+                modelTransform: panelSlide.canvas3dModelTransform,
               }
             : undefined,
           markdownDescriptionToolbar:

@@ -243,6 +243,7 @@ export function PresenterView() {
               slideIndex={currentIndex}
               deckVisualTheme={deckTheme}
               registerPresenterMapFlyTo
+              minimalCanvas3dChrome
             />
           </div>
         </section>

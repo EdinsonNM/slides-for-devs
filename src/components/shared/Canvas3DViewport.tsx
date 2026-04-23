@@ -1,28 +1,33 @@
 import React, {
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   Bounds,
-  Center,
   Environment,
   OrbitControls,
+  TransformControls,
   useBounds,
   useGLTF,
 } from "@react-three/drei";
 import * as THREE from "three";
+import { clone as cloneSkinnedScene } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 type OrbitControlsImpl = React.ElementRef<typeof OrbitControls>;
+type TransformControlsImpl = React.ElementRef<typeof TransformControls>;
 import { cn } from "../../utils/cn";
 import {
   DEFAULT_PRESENTER_3D_VIEW,
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
 import {
   R3fViewportResizeToHost,
@@ -35,6 +40,16 @@ function disposeClonedGeometries(root: THREE.Object3D) {
       obj.geometry?.dispose();
     }
   });
+}
+
+function centerObjectAtOrigin(root: THREE.Object3D): void {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  if (box.isEmpty()) return;
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  root.position.sub(center);
+  root.updateMatrixWorld(true);
 }
 
 function BoundsAutoRefresh({ refreshKey }: { refreshKey: string }) {
@@ -57,16 +72,94 @@ function glbSourceForLoader(url: string): string {
 function ArbitraryGLTF({ glbUrl }: { glbUrl: string }) {
   const src = glbSourceForLoader(glbUrl);
   const { scene } = useGLTF(src);
-  const root = useMemo(() => scene.clone(true), [scene, glbUrl]);
+  const root = useMemo(() => {
+    // scene.clone(true) corrupts SkinnedMeshes because bones are shallow copied.
+    // clone from SkeletonUtils preserves skeleton bindings and allows transforms.
+    const cloned = cloneSkinnedScene(scene);
+    centerObjectAtOrigin(cloned);
+    return cloned;
+  }, [scene, glbUrl]);
 
   useEffect(() => {
     return () => disposeClonedGeometries(root);
   }, [root]);
 
+  return <primitive object={root} />;
+}
+
+function Canvas3DModel({
+  glbUrl,
+  modelTransform,
+}: {
+  glbUrl: string;
+  modelTransform?: Canvas3dModelTransform | null;
+}) {
   return (
-    <Center cacheKey={glbUrl}>
-      <primitive object={root} />
-    </Center>
+    <group
+      position={modelTransform?.position ?? [0, 0, 0]}
+      rotation={modelTransform?.rotation ?? [0, 0, 0]}
+    >
+      <ArbitraryGLTF glbUrl={glbUrl} />
+    </group>
+  );
+}
+
+function Canvas3DTransformControls({
+  glbUrl,
+  modelTransform,
+  mode,
+  onModelTransformChange,
+  onModelTransformCommit,
+}: {
+  glbUrl: string;
+  modelTransform?: Canvas3dModelTransform | null;
+  mode: "translate" | "rotate";
+  onModelTransformChange?: (s: Canvas3dModelTransform) => void;
+  onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
+}) {
+  const [modelGroup, setModelGroup] = useState<THREE.Group | null>(null);
+
+  const readFromGroup = useCallback((): Canvas3dModelTransform | null => {
+    if (!modelGroup) return null;
+    return {
+      position: [
+        modelGroup.position.x,
+        modelGroup.position.y,
+        modelGroup.position.z,
+      ],
+      rotation: [
+        modelGroup.rotation.x,
+        modelGroup.rotation.y,
+        modelGroup.rotation.z,
+      ],
+    };
+  }, [modelGroup]);
+
+  return (
+    <>
+      <group
+        ref={setModelGroup}
+        position={modelTransform?.position ?? [0, 0, 0]}
+        rotation={modelTransform?.rotation ?? [0, 0, 0]}
+      >
+        <ArbitraryGLTF glbUrl={glbUrl} />
+      </group>
+
+      {modelGroup ? (
+        <TransformControls
+          object={modelGroup}
+          mode={mode}
+          onObjectChange={() => {
+            const next = readFromGroup();
+            if (next) onModelTransformChange?.(next);
+          }}
+          onMouseUp={() => {
+            const next = readFromGroup();
+            if (next) onModelTransformCommit?.(next);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -154,8 +247,14 @@ export interface Canvas3DViewportProps {
   onViewStateCommit?: (s: Presenter3dViewState) => void;
   disableControls?: boolean;
   showInteractionHint?: boolean;
+  /** Rejilla de referencia bajo el modelo (solo útil en edición). */
+  showGroundGrid?: boolean;
   className?: string;
   boundsMargin?: number;
+  modelTransform?: Canvas3dModelTransform | null;
+  transformControlsMode?: "translate" | "rotate";
+  onModelTransformChange?: (s: Canvas3dModelTransform) => void;
+  onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
   /**
    * Clave opcional para forzar re-medición del host cuando el layout cambia sin resize CSS
    * (p. ej. presentación con transforms).
@@ -173,8 +272,13 @@ export function Canvas3DViewport({
   onViewStateCommit,
   disableControls,
   showInteractionHint = true,
+  showGroundGrid = true,
   className,
   boundsMargin = 1.25,
+  modelTransform,
+  transformControlsMode,
+  onModelTransformChange,
+  onModelTransformCommit,
   hostMeasureKey,
 }: Canvas3DViewportProps) {
   const trimmed = glbUrl?.trim() ?? "";
@@ -186,11 +290,21 @@ export function Canvas3DViewport({
   let sceneBody: ReactNode;
   if (!trimmed) {
     sceneBody = null;
+  } else if (transformControlsMode) {
+    sceneBody = (
+      <Canvas3DTransformControls
+        glbUrl={trimmed}
+        modelTransform={modelTransform}
+        mode={transformControlsMode}
+        onModelTransformChange={onModelTransformChange}
+        onModelTransformCommit={onModelTransformCommit}
+      />
+    );
   } else if (viewState == null) {
     sceneBody = (
       <Bounds margin={boundsMargin} clip>
         <group key={trimmed}>
-          <ArbitraryGLTF glbUrl={trimmed} />
+          <Canvas3DModel glbUrl={trimmed} modelTransform={modelTransform} />
         </group>
         <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
       </Bounds>
@@ -198,7 +312,7 @@ export function Canvas3DViewport({
   } else {
     sceneBody = (
       <group key={trimmed}>
-        <ArbitraryGLTF glbUrl={trimmed} />
+        <Canvas3DModel glbUrl={trimmed} modelTransform={modelTransform} />
       </group>
     );
   }
@@ -264,6 +378,9 @@ export function Canvas3DViewport({
           intensity={0.35}
           color="#ffffff"
         />
+        {showGroundGrid ? (
+          <gridHelper args={[10, 10, 0x888888, 0x444444]} />
+        ) : null}
         <Suspense fallback={null}>
           <Environment preset="city" environmentIntensity={0.85} />
           {sceneBody}

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Box, Link2, RotateCcw, Upload } from "lucide-react";
+import { Box, Crosshair, Link2, RotateCcw, Upload } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
@@ -7,10 +7,17 @@ import {
   Canvas3dUrlModal,
 } from "./Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "./Canvas3dMeshyAiModal";
+import { Canvas3dTransformModal } from "./Canvas3dTransformModal";
+import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 
 export interface Canvas3dModelSourceActionsProps {
   /** URL .glb http(s) actual (para rellenar el modal). */
   httpGlbUrl: string;
+  slideId: string;
+  glbUrl?: string | null;
+  viewState?: Presenter3dViewState | null;
+  modelTransform?: Canvas3dModelTransform | null;
   /** Id explícito del mediaPanel cuando hay varios en el lienzo. */
   canvasMediaElementId?: string;
   className?: string;
@@ -19,17 +26,23 @@ export interface Canvas3dModelSourceActionsProps {
 /** Controles flotantes sobre el visor del panel lateral (no lienzo). */
 export function Canvas3dModelSourceActions({
   httpGlbUrl,
+  slideId,
+  glbUrl,
+  viewState,
+  modelTransform,
   canvasMediaElementId,
   className,
 }: Canvas3dModelSourceActionsProps) {
   const {
     setCurrentSlideCanvas3dGlbUrl,
     clearCurrentSlideCanvas3dViewState,
+    setCurrentSlideCanvas3dModelTransform,
     recordGeneratedModel3d,
   } = usePresentation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [meshyModalOpen, setMeshyModalOpen] = useState(false);
+  const [transformModalOpen, setTransformModalOpen] = useState(false);
 
   const onFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,6 +118,18 @@ export function Canvas3dModelSourceActions({
         <button
           type="button"
           className={overlayBtn}
+          title="Abrir modal para mover/rotar el centro del modelo"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setTransformModalOpen(true)}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Crosshair size={14} aria-hidden />
+            Centro
+          </span>
+        </button>
+        <button
+          type="button"
+          className={overlayBtn}
           title="Vuelve a encuadrar el modelo automáticamente"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() =>
@@ -131,6 +156,17 @@ export function Canvas3dModelSourceActions({
           setCurrentSlideCanvas3dGlbUrl(url, canvasMediaElementId);
           void recordGeneratedModel3d(url, meta?.prompt ?? null);
         }}
+      />
+      <Canvas3dTransformModal
+        isOpen={transformModalOpen}
+        onClose={() => setTransformModalOpen(false)}
+        slideId={slideId}
+        glbUrl={glbUrl}
+        viewState={viewState}
+        modelTransform={modelTransform}
+        onModelTransformCommit={(next) =>
+          setCurrentSlideCanvas3dModelTransform(next, canvasMediaElementId)
+        }
       />
     </>
   );

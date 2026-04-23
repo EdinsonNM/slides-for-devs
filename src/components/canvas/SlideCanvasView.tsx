@@ -80,6 +80,11 @@ export interface SlideCanvasViewProps {
    * @default false
    */
   registerPresenterMapFlyTo?: boolean;
+  /**
+   * Presentación / pantalla completa: Canvas 3D sin rejilla ni texto de ayuda de órbita.
+   * @default false
+   */
+  minimalCanvas3dChrome?: boolean;
 }
 
 function mediaBlock(
@@ -88,6 +93,7 @@ function mediaBlock(
   /** Presentador 3D: slide + elemento para leer solo el `payload` del bloque (sin espejo raíz). */
   presenterCanvas?: { slide: Slide; element: SlideCanvasElement },
   r3fHostMeasureKey?: string,
+  minimalCanvas3dChrome?: boolean,
 ) {
   const panel = resolveMediaPanelDescriptor(deckSlide);
   switch (panel.kind) {
@@ -188,7 +194,9 @@ function mediaBlock(
             slideId={deckSlide.id}
             glbUrl={deckSlide.canvas3dGlbUrl}
             viewState={deckSlide.canvas3dViewState}
-            showInteractionHint
+            modelTransform={deckSlide.canvas3dModelTransform}
+            showInteractionHint={!minimalCanvas3dChrome}
+            showGroundGrid={!minimalCanvas3dChrome}
             className="h-full min-h-[120px]"
             hostMeasureKey={r3fHostMeasureKey}
           />
@@ -265,6 +273,7 @@ function CanvasElementReadOnly({
   r3fHostMeasureKey,
   mapAppearance = "light",
   registerPresenterMapFlyTo = false,
+  minimalCanvas3dChrome = false,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -273,6 +282,7 @@ function CanvasElementReadOnly({
   /** Cielo / niebla Mapbox según tema de la app. */
   mapAppearance?: MapboxCanvasAppearance;
   registerPresenterMapFlyTo?: boolean;
+  minimalCanvas3dChrome?: boolean;
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -398,7 +408,13 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "h-full p-1 md:p-2",
-            mediaBlock(panelSlide, tone, { slide, element }, r3fHostMeasureKey),
+            mediaBlock(
+              panelSlide,
+              tone,
+              { slide, element },
+              r3fHostMeasureKey,
+              minimalCanvas3dChrome,
+            ),
           )}
         </div>
       );
@@ -540,6 +556,7 @@ export function SlideCanvasView({
   deckContentTone = "dark",
   r3fHostMeasureKey,
   registerPresenterMapFlyTo = false,
+  minimalCanvas3dChrome = false,
 }: SlideCanvasViewProps) {
   const theme = useThemeOptional();
   const mapAppearance: MapboxCanvasAppearance = theme?.isDark
@@ -560,6 +577,7 @@ export function SlideCanvasView({
           r3fHostMeasureKey={r3fHostMeasureKey}
           mapAppearance={mapAppearance}
           registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+          minimalCanvas3dChrome={minimalCanvas3dChrome}
         />
       ))}
     </div>

@@ -43,6 +43,7 @@ import {
   type SlideCanvasScene,
 } from "../domain/entities";
 import { parsePresenter3dViewState } from "../utils/presenter3dView";
+import { parseCanvas3dModelTransform } from "../utils/canvas3dModelTransform";
 import type { SavedPresentation } from "../types";
 import { initFirebase } from "./firebase";
 import {
@@ -591,6 +592,7 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     presenter3dViewState: s.presenter3dViewState ?? null,
     canvas3dGlbUrl: s.canvas3dGlbUrl ?? null,
     canvas3dViewState: s.canvas3dViewState ?? null,
+    canvas3dModelTransform: s.canvas3dModelTransform ?? null,
     imageWidthPercent: s.imageWidthPercent ?? null,
     contentLayout: s.contentLayout ?? null,
     panelHeightPercent: s.panelHeightPercent ?? null,
@@ -630,6 +632,7 @@ function plainToSlide(p: Record<string, unknown>): Slide {
     presenter3dViewState: parsePresenter3dViewState(p.presenter3dViewState),
     canvas3dGlbUrl: p.canvas3dGlbUrl != null ? String(p.canvas3dGlbUrl) : undefined,
     canvas3dViewState: parsePresenter3dViewState(p.canvas3dViewState),
+    canvas3dModelTransform: parseCanvas3dModelTransform(p.canvas3dModelTransform),
     imageWidthPercent:
       typeof p.imageWidthPercent === "number" ? p.imageWidthPercent : undefined,
     contentLayout: p.contentLayout as Slide["contentLayout"] | undefined,

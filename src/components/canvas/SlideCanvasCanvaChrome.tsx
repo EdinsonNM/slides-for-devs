@@ -1,6 +1,7 @@
 import {
   Bold,
   Box,
+  Crosshair,
   Copy,
   Italic,
   Link2,
@@ -35,6 +36,9 @@ import {
   Canvas3dUrlModal,
 } from "../editor/Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "../editor/Canvas3dMeshyAiModal";
+import { Canvas3dTransformModal } from "../editor/Canvas3dTransformModal";
+import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
 import {
   slideCanvasToolbarIconBtnClass,
@@ -95,8 +99,14 @@ export interface SlideCanvasCanvaChromeProps {
       onCyclePanelCodeTheme: () => void;
       onOpenCodeGen: () => void;
     };
-    /** Panel Canvas 3D: URL http actual para el modal (vacío si solo hay data URL). */
-    canvas3dSource?: { httpGlbUrl: string };
+    /** Panel Canvas 3D: datos del modelo para acciones avanzadas. */
+    canvas3dSource?: {
+      httpGlbUrl: string;
+      slideId: string;
+      glbUrl?: string | null;
+      viewState?: Presenter3dViewState | null;
+      modelTransform?: Canvas3dModelTransform | null;
+    };
     /** Descripción rica en edición: negrita/cursiva/color y escala de todo el bloque (misma barra que el resto). */
     markdownDescriptionToolbar?: {
       fontScalePct: number;
@@ -129,12 +139,15 @@ export function SlideCanvasCanvaChrome({
 }: SlideCanvasCanvaChromeProps) {
   const {
     setCurrentSlideCanvas3dGlbUrl,
+    setCurrentSlideCanvas3dModelTransform,
     clearCurrentSlideCanvas3dViewState,
     recordGeneratedModel3d,
   } = usePresentation();
   const [moreOpen, setMoreOpen] = useState(false);
   const [canvas3dUrlModalOpen, setCanvas3dUrlModalOpen] = useState(false);
   const [canvas3dMeshyModalOpen, setCanvas3dMeshyModalOpen] = useState(false);
+  const [canvas3dTransformModalOpen, setCanvas3dTransformModalOpen] =
+    useState(false);
   const canvas3dFileRef = useRef<HTMLInputElement>(null);
   const [toolbarPlacement, setToolbarPlacement] =
     useState<ToolbarPlacement>("above");
@@ -544,6 +557,16 @@ export function SlideCanvasCanvaChrome({
                 <button
                   type="button"
                   className={slideCanvasToolbarIconBtnClass}
+                  title="Ajustar centro del modelo"
+                  aria-label="Ajustar centro del modelo"
+                  onPointerDown={stop}
+                  onClick={() => setCanvas3dTransformModalOpen(true)}
+                >
+                  <Crosshair size={16} strokeWidth={2} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={slideCanvasToolbarIconBtnClass}
                   title="Reencuadrar vista del modelo"
                   aria-label="Reencuadrar vista del modelo"
                   onPointerDown={stop}
@@ -727,6 +750,15 @@ export function SlideCanvasCanvaChrome({
             setCurrentSlideCanvas3dGlbUrl(url);
             void recordGeneratedModel3d(url, meta?.prompt ?? null);
           }}
+        />
+        <Canvas3dTransformModal
+          isOpen={canvas3dTransformModalOpen}
+          onClose={() => setCanvas3dTransformModalOpen(false)}
+          slideId={canvas3d.slideId}
+          glbUrl={canvas3d.glbUrl}
+          viewState={canvas3d.viewState}
+          modelTransform={canvas3d.modelTransform}
+          onModelTransformCommit={setCurrentSlideCanvas3dModelTransform}
         />
       </>
     ) : null}

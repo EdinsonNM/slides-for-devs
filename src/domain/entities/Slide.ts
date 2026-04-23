@@ -1,4 +1,5 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
 import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
 import type { SlideCanvasScene, SlideCodeEditorTheme } from "./SlideCanvas";
@@ -77,6 +78,8 @@ export interface Slide {
   canvas3dGlbUrl?: string;
   /** Vista de cámara guardada para el panel Canvas 3D (mismo formato que Presentador 3D). */
   canvas3dViewState?: Presenter3dViewState;
+  /** Transformación del modelo en Canvas 3D para ajustar centro y orientación. */
+  canvas3dModelTransform?: Canvas3dModelTransform;
   /**
    * Configuración del panel «aro de datos 3D» (`PANEL_CONTENT_KIND.DATA_MOTION_RING`).
    */

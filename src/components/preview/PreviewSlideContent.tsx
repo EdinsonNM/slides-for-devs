@@ -59,6 +59,11 @@ export interface PreviewSlideContentProps {
    * @default false
    */
   registerPresenterMapFlyTo?: boolean;
+  /**
+   * Canvas 3D sin rejilla ni texto de ayuda (presentador / pantalla completa).
+   * Si se omite, se activa cuando `layout === "fullscreen"`.
+   */
+  minimalCanvas3dChrome?: boolean;
 }
 
 /**
@@ -77,6 +82,7 @@ export function PreviewSlideContent({
   hideSectionLabel = false,
   r3fHostMeasureKey,
   registerPresenterMapFlyTo = false,
+  minimalCanvas3dChrome: minimalCanvas3dChromeProp,
 }: PreviewSlideContentProps) {
   const ctx = usePresentationOptional();
   const deckVisualTheme =
@@ -84,6 +90,8 @@ export function PreviewSlideContent({
   const toneClass = deckSlideContentWrapperClass(deckVisualTheme.contentTone);
   const sectionLabelClass = deckSectionLabelClass(deckVisualTheme.contentTone);
   const isFullscreen = layout === "fullscreen";
+  const minimalCanvas3dChrome =
+    minimalCanvas3dChromeProp ?? isFullscreen;
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
   const hideDeckBackdropBehindCanvas =
     isIsometricSlide ||
@@ -161,6 +169,7 @@ export function PreviewSlideContent({
             deckContentTone={deckVisualTheme.contentTone}
             r3fHostMeasureKey={r3fHostMeasureKey}
             registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+            minimalCanvas3dChrome={minimalCanvas3dChrome}
           />
         </div>
       </div>
@@ -214,6 +223,7 @@ export function PreviewSlideContent({
           deckContentTone={deckVisualTheme.contentTone}
           r3fHostMeasureKey={r3fHostMeasureKey}
           registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+          minimalCanvas3dChrome={minimalCanvas3dChrome}
         />
       </div>
     </motion.div>

@@ -48,6 +48,10 @@ export function Canvas3DPanel({
         {!embeddedInCanvas ? (
           <Canvas3dModelSourceActions
             httpGlbUrl={glbUrl?.startsWith("http") ? glbUrl : ""}
+            slideId={slide.id}
+            glbUrl={slide.canvas3dGlbUrl}
+            viewState={slide.canvas3dViewState}
+            modelTransform={slide.canvas3dModelTransform}
             canvasMediaElementId={canvasMediaElementId}
           />
         ) : null}
@@ -55,6 +59,7 @@ export function Canvas3DPanel({
           slideId={slide.id}
           glbUrl={glbUrl}
           viewState={slide.canvas3dViewState}
+          modelTransform={slide.canvas3dModelTransform}
           onViewStateCommit={handleViewCommit}
           showInteractionHint={!embeddedInCanvas}
           boundsMargin={

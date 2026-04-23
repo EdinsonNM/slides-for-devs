@@ -35,6 +35,7 @@ import {
 } from "../../domain/panelContent";
 import type { Slide } from "../../types";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { PresentationSlideCanvasMutationsDeps } from "./presentationSlideCanvasMutationsDeps";
 
 export function usePresentationSlideCanvasMutations(
@@ -411,6 +412,7 @@ export function usePresentationSlideCanvasMutations(
           ...m,
           canvas3dGlbUrl: trimmed || undefined,
           canvas3dViewState: undefined,
+          canvas3dModelTransform: undefined,
         }));
         return updated;
       });
@@ -437,6 +439,32 @@ export function usePresentationSlideCanvasMutations(
         updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
           ...m,
           canvas3dViewState,
+        }));
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const setCurrentSlideCanvas3dModelTransform = useCallback(
+    (
+      canvas3dModelTransform: Canvas3dModelTransform,
+      explicitMediaPanelElementId?: string | null,
+    ) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+          ...m,
+          canvas3dModelTransform,
         }));
         return updated;
       });
@@ -483,6 +511,7 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlidePresenter3dViewState,
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
+    setCurrentSlideCanvas3dModelTransform,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
   };

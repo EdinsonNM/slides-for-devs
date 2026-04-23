@@ -183,6 +183,7 @@ export function usePresentationCharactersResources(
             ...m,
             canvas3dGlbUrl: trimmed || undefined,
             canvas3dViewState: undefined,
+            canvas3dModelTransform: undefined,
           }),
         );
         nextDeck = updated;
