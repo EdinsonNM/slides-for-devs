@@ -902,7 +902,9 @@ export function SlideCanvasSlide() {
       onPointerDown={onBackgroundPointerDown}
     >
       {slide.type === SLIDE_TYPE.ISOMETRIC && (
-        <SlideContentIsometricFlow />
+        <SlideContentIsometricFlow
+          onEditorSurfacePointerDown={dismissSlideCanvasSelection}
+        />
       )}
       {slide.type === SLIDE_TYPE.MIND_MAP && (
         <SlideContentMindMap />

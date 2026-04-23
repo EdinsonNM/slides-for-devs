@@ -20,7 +20,11 @@ export function IsometricFlowDiagramCanvasView({
       }}
     >
       <IsometricFlowCanvasToolbar {...ctrl} />
-      <IsometricFlowCanvasViewportHud viewRect={ctrl.viewRect} onResetView={ctrl.resetIsoView} />
+      <IsometricFlowCanvasViewportHud
+        readOnly={ctrl.readOnly}
+        viewRect={ctrl.viewRect}
+        onResetView={ctrl.resetIsoView}
+      />
       <IsometricFlowCanvasIconPickerOverlay {...ctrl} />
       <IsometricFlowCanvasSvg ctrl={ctrl} />
     </div>
