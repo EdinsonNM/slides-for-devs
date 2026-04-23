@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { Monitor, StickyNote, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Slide } from "../../types";
 import type { DeckVisualTheme } from "../../domain/entities";
-import { DEFAULT_DECK_VISUAL_THEME, normalizeDeckVisualTheme } from "../../domain/entities";
+import {
+  DEFAULT_DECK_VISUAL_THEME,
+  normalizeDeckVisualTheme,
+} from "../../domain/entities";
 import { usePresentation } from "../../context/PresentationContext";
 import { presenterChat } from "../../services/gemini";
 import { PreviewSlideContent } from "../preview/PreviewSlideContent";
@@ -239,6 +242,7 @@ export function PresenterView() {
               panelHeightPercent={panelHeightPercent}
               slideIndex={currentIndex}
               deckVisualTheme={deckTheme}
+              registerPresenterMapFlyTo
             />
           </div>
         </section>

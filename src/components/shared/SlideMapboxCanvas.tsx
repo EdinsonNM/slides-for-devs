@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useRef } from "react";
+import { Search } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { SlideMapData, SlideMapRoute } from "../../domain/entities/SlideMapData";
 import { registerMapSlideViewportCapture } from "../../map/mapSlideCaptureBridge";
+import {
+  registerPresenterMapFlyTo,
+  requestPresenterMapFlyTo,
+} from "../../map/mapPresenterFlyToBridge";
+import { mapboxGeocodeSearch } from "../../utils/mapboxGeocoding";
 import { cn } from "../../utils/cn";
 
 export type MapboxCanvasAppearance = "light" | "dark";
@@ -135,6 +141,16 @@ export interface SlideMapboxCanvasProps {
   persistViewportOnMoveEnd?: boolean;
   onPersistViewport?: (v: SlideMapboxViewport) => void;
   registerViewportCaptureBridge?: boolean;
+  /**
+   * Registra el mapa para `requestPresenterMapFlyTo` (ventana de presentación: buscar país/dirección).
+   * @default false
+   */
+  registerPresenterFlyToBridge?: boolean;
+  /**
+   * Muestra buscador sobre el mapa (dentro del propio slide) para centrar por país/dirección.
+   * @default false
+   */
+  showPresenterSearchInput?: boolean;
   className?: string;
 }
 
@@ -238,11 +254,18 @@ export function SlideMapboxCanvas({
   persistViewportOnMoveEnd = true,
   onPersistViewport,
   registerViewportCaptureBridge = false,
+  registerPresenterFlyToBridge = false,
+  showPresenterSearchInput = false,
   className,
   appearance: appearanceProp = "light",
 }: SlideMapboxCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const registerFlyToRef = useRef(registerPresenterFlyToBridge);
+  registerFlyToRef.current = registerPresenterFlyToBridge;
+  const [searchValue, setSearchValue] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const appearanceRef = useRef<MapboxCanvasAppearance>(appearanceProp);
   appearanceRef.current = appearanceProp;
   const markersByIdRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
@@ -284,6 +307,27 @@ export function SlideMapboxCanvas({
     });
   }, []);
 
+  const syncPresenterFlyToBridge = useCallback((_map: mapboxgl.Map) => {
+    if (!registerFlyToRef.current) {
+      registerPresenterMapFlyTo(null);
+      return;
+    }
+    registerPresenterMapFlyTo((center, zoom) => {
+      const m = mapRef.current;
+      if (!m?.isStyleLoaded()) return;
+      try {
+        m.flyTo({
+          center: [center.lng, center.lat],
+          zoom: zoom ?? 12,
+          duration: 1800,
+          essential: true,
+        });
+      } catch {
+        /* */
+      }
+    });
+  }, []);
+
   useEffect(() => {
     mapboxgl.accessToken = accessToken;
   }, [accessToken]);
@@ -320,6 +364,7 @@ export function SlideMapboxCanvas({
       syncMarkers(map, mapData.markers, markersByIdRef.current);
       applyMapAtmosphere(map, appearanceRef.current);
       trySetGlobeProjection(map);
+      syncPresenterFlyToBridge(map);
     };
 
     map.on("load", paint);
@@ -331,6 +376,7 @@ export function SlideMapboxCanvas({
       ro.disconnect();
       map.off("moveend", onMoveEnd);
       map.off("load", paint);
+      registerPresenterMapFlyTo(null);
       for (const mk of markersByIdRef.current.values()) mk.remove();
       markersByIdRef.current.clear();
       const m = mapRef.current;
@@ -350,6 +396,7 @@ export function SlideMapboxCanvas({
     persistViewportOnMoveEnd,
     mapInteractive,
     schedulePersistViewport,
+    syncPresenterFlyToBridge,
   ]);
 
   useEffect(() => {
@@ -399,6 +446,7 @@ export function SlideMapboxCanvas({
         applyGeometry();
         applyMapAtmosphere(map, appearanceRef.current);
         trySetGlobeProjection(map);
+        syncPresenterFlyToBridge(map);
         lastGeometrySigRef.current = geometrySig;
         applyCamera();
         lastViewportSigRef.current = viewportSig;
@@ -414,7 +462,7 @@ export function SlideMapboxCanvas({
       lastViewportSigRef.current = viewportSig;
       runWhenStyleReady(applyCamera);
     }
-  }, [mapData]);
+  }, [mapData, syncPresenterFlyToBridge]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -435,11 +483,116 @@ export function SlideMapboxCanvas({
     return () => registerMapSlideViewportCapture(null);
   }, [readOnly, registerViewportCaptureBridge, flushPersistViewport]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    syncPresenterFlyToBridge(map);
+  }, [registerPresenterFlyToBridge, syncPresenterFlyToBridge]);
+
+  const submitSearch = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      const q = searchValue.trim();
+      if (!q || !showPresenterSearchInput) return;
+      if (!accessToken.trim()) {
+        setSearchMessage("Falta token de Mapbox.");
+        return;
+      }
+      setSearchLoading(true);
+      setSearchMessage(null);
+      const ac = new AbortController();
+      const t = window.setTimeout(() => ac.abort(), 20_000);
+      try {
+        const result = await mapboxGeocodeSearch(q, accessToken, ac.signal);
+        if (!result) {
+          setSearchMessage("No encontré ese lugar.");
+          return;
+        }
+        const ok = requestPresenterMapFlyTo(
+          { lng: result.lng, lat: result.lat },
+          result.suggestedZoom,
+        );
+        if (!ok) {
+          setSearchMessage("El mapa aún está cargando.");
+          return;
+        }
+        setSearchMessage(result.placeName);
+        setSearchValue("");
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          setSearchMessage("La búsqueda tardó demasiado.");
+        } else {
+          setSearchMessage("Error de red al buscar.");
+        }
+      } finally {
+        window.clearTimeout(t);
+        setSearchLoading(false);
+      }
+    },
+    [accessToken, searchValue, showPresenterSearchInput],
+  );
+
+  const searchDark = appearanceProp === "dark";
+  const searchShellClass = cn(
+    "pointer-events-auto absolute top-2 z-20 w-[min(560px,calc(100%-1rem))] rounded-xl border px-2.5 py-2 shadow-lg backdrop-blur-md md:top-3 md:w-[min(620px,calc(100%-1.5rem))]",
+    "left-1/2 -translate-x-1/2",
+    searchDark
+      ? "border-white/12 bg-black/42 shadow-black/30"
+      : "border-stone-300/70 bg-white/88 shadow-stone-300/35",
+  );
+  const searchInputClass = cn(
+    "min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm transition-colors focus:outline-none",
+    searchDark
+      ? "border-white/14 bg-black/35 text-stone-100 placeholder:text-stone-400 focus:border-emerald-400/70"
+      : "border-stone-300/80 bg-white/90 text-stone-900 placeholder:text-stone-500 focus:border-emerald-600/70",
+  );
+  const searchMessageClass = cn(
+    "mt-1.5 line-clamp-2 text-xs",
+    searchDark ? "text-stone-300" : "text-stone-600",
+  );
+
   return (
-    <div
-      ref={rootRef}
-      className={cn("min-h-0 min-w-0 flex-1", className)}
-      aria-hidden={!mapInteractive}
-    />
+    <div className={cn("relative min-h-0 min-w-0 flex-1", className)}>
+      <div
+        ref={rootRef}
+        className="min-h-0 min-w-0 flex-1 h-full w-full"
+        aria-hidden={!mapInteractive}
+      />
+      {showPresenterSearchInput ? (
+        <form
+          onSubmit={submitSearch}
+          className={searchShellClass}
+        >
+          <div className="relative flex items-center">
+            <Search
+              className={cn(
+                "pointer-events-none absolute left-3 h-4 w-4",
+                searchDark ? "text-stone-400" : "text-stone-500",
+              )}
+            />
+            <input
+              type="search"
+              value={searchValue}
+              onChange={(ev) => setSearchValue(ev.target.value)}
+              placeholder="Buscar país o dirección..."
+              autoComplete="off"
+              disabled={searchLoading}
+              className={cn(searchInputClass, "pl-9 pr-3")}
+            />
+            {searchLoading ? (
+              <span
+                className={cn(
+                  "pointer-events-none absolute right-3 h-4 w-4 animate-pulse rounded-sm",
+                  searchDark ? "bg-emerald-300/35" : "bg-emerald-500/35",
+                )}
+              />
+            ) : null}
+          </div>
+          {searchMessage ? (
+            <p className={searchMessageClass}>{searchMessage}</p>
+          ) : null}
+        </form>
+      ) : null}
+    </div>
   );
 }

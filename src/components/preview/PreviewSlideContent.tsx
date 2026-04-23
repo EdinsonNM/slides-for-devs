@@ -54,6 +54,11 @@ export interface PreviewSlideContentProps {
    * por transforms sin disparar `ResizeObserver` (p. ej. modo presentación “cámara continua”).
    */
   r3fHostMeasureKey?: string;
+  /**
+   * Solo ventana de presentación: búsqueda de lugar (Mapbox) vinculada al mapa.
+   * @default false
+   */
+  registerPresenterMapFlyTo?: boolean;
 }
 
 /**
@@ -71,6 +76,7 @@ export function PreviewSlideContent({
   pptxExportFrame = false,
   hideSectionLabel = false,
   r3fHostMeasureKey,
+  registerPresenterMapFlyTo = false,
 }: PreviewSlideContentProps) {
   const ctx = usePresentationOptional();
   const deckVisualTheme =
@@ -154,6 +160,7 @@ export function PreviewSlideContent({
             className="relative z-[1] min-h-0 flex-1"
             deckContentTone={deckVisualTheme.contentTone}
             r3fHostMeasureKey={r3fHostMeasureKey}
+            registerPresenterMapFlyTo={registerPresenterMapFlyTo}
           />
         </div>
       </div>
@@ -206,6 +213,7 @@ export function PreviewSlideContent({
           className="relative z-[1] min-h-0 flex-1"
           deckContentTone={deckVisualTheme.contentTone}
           r3fHostMeasureKey={r3fHostMeasureKey}
+          registerPresenterMapFlyTo={registerPresenterMapFlyTo}
         />
       </div>
     </motion.div>

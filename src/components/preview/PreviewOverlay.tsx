@@ -9,7 +9,7 @@ import {
 } from "react";
 import { usePresentation } from "../../context/PresentationContext";
 import { useThemeOptional } from "../../context/ThemeContext";
-import type { DeckContentTone } from "../../domain/entities";
+import { SLIDE_TYPE, type DeckContentTone } from "../../domain/entities";
 import type { Slide } from "../../types";
 import { PRESENTER_MODES } from "../../constants/presenterModes";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
@@ -109,6 +109,7 @@ function ContinuousCameraStage({
   imageWidthPercent,
   panelHeightPercent,
   lightAppearance,
+  registerPresenterMapFlyTo = false,
 }: {
   slides: Slide[];
   currentIndex: number;
@@ -116,6 +117,7 @@ function ContinuousCameraStage({
   panelHeightPercent: number;
   /** Alineado con el shell del overlay (tema de app + tono del deck). */
   lightAppearance: boolean;
+  registerPresenterMapFlyTo?: boolean;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
@@ -210,6 +212,9 @@ function ContinuousCameraStage({
                       disableEntryMotion
                       hideSectionLabel
                       r3fHostMeasureKey={`camera-continuous:${currentIndex}`}
+                      registerPresenterMapFlyTo={
+                        registerPresenterMapFlyTo && idx === currentIndex
+                      }
                     />
                   </div>
                 </motion.div>
@@ -474,6 +479,8 @@ export function PreviewOverlay() {
   const previewChromeTone: DeckContentTone = previewShellLight ? "dark" : "light";
 
   if (!isPreviewMode || !currentSlide) return null;
+  const showMapSearchBar =
+    currentSlide.type === SLIDE_TYPE.MAPS && presenterMode !== PRESENTER_MODES.JARVIS;
 
   const openPresenterWindow = async () => {
     trackEvent(ANALYTICS_EVENTS.PRESENTER_MODE_OPENED);
@@ -532,6 +539,7 @@ export function PreviewOverlay() {
               imageWidthPercent={imageWidthPercent}
               panelHeightPercent={panelHeightPercent}
               lightAppearance={previewShellLight}
+              registerPresenterMapFlyTo={showMapSearchBar}
             />
           ) : (
             <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
@@ -570,6 +578,7 @@ export function PreviewOverlay() {
                     panelHeightPercent={panelHeightPercent}
                     slideIndex={currentIndex}
                     disableEntryMotion
+                    registerPresenterMapFlyTo={showMapSearchBar}
                   />
                 </motion.div>
               )}

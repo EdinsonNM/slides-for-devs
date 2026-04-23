@@ -75,6 +75,11 @@ export interface SlideCanvasViewProps {
    * sin resize CSS (p. ej. presentación con transforms).
    */
   r3fHostMeasureKey?: string;
+  /**
+   * Solo ventana de presentación: conecta el mapa a la búsqueda por dirección/país.
+   * @default false
+   */
+  registerPresenterMapFlyTo?: boolean;
 }
 
 function mediaBlock(
@@ -259,6 +264,7 @@ function CanvasElementReadOnly({
   deckContentTone,
   r3fHostMeasureKey,
   mapAppearance = "light",
+  registerPresenterMapFlyTo = false,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -266,6 +272,7 @@ function CanvasElementReadOnly({
   r3fHostMeasureKey?: string;
   /** Cielo / niebla Mapbox según tema de la app. */
   mapAppearance?: MapboxCanvasAppearance;
+  registerPresenterMapFlyTo?: boolean;
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -514,6 +521,8 @@ function CanvasElementReadOnly({
               readOnly
               persistViewportOnMoveEnd={false}
               registerViewportCaptureBridge={false}
+              registerPresenterFlyToBridge={registerPresenterMapFlyTo}
+              showPresenterSearchInput={registerPresenterMapFlyTo}
               className="h-full w-full"
             />,
           )}
@@ -530,6 +539,7 @@ export function SlideCanvasView({
   className,
   deckContentTone = "dark",
   r3fHostMeasureKey,
+  registerPresenterMapFlyTo = false,
 }: SlideCanvasViewProps) {
   const theme = useThemeOptional();
   const mapAppearance: MapboxCanvasAppearance = theme?.isDark
@@ -549,6 +559,7 @@ export function SlideCanvasView({
           deckContentTone={deckContentTone}
           r3fHostMeasureKey={r3fHostMeasureKey}
           mapAppearance={mapAppearance}
+          registerPresenterMapFlyTo={registerPresenterMapFlyTo}
         />
       ))}
     </div>
