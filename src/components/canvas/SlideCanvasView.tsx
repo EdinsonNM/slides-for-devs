@@ -462,6 +462,7 @@ function CanvasElementReadOnly({
               data={parseIsometricFlowDiagram(slide.isometricFlowData)}
               readOnly
               className="h-full w-full"
+              isometricDataSyncKey={`${slide.id}|${slide.isometricFlowData ?? ""}`}
             />,
           )}
         </div>

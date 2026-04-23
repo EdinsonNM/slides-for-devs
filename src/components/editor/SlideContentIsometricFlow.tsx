@@ -125,6 +125,7 @@ export function SlideContentIsometricFlow({
         className="rounded-md"
         slideTextOverlayToolbar={slideTextOverlayToolbar}
         onEditorSurfacePointerDown={onEditorSurfacePointerDown}
+        isometricDataSyncKey={`${currentSlide.id}|${currentSlide.isometricFlowData ?? ""}`}
       />
     </div>
   );

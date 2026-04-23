@@ -1,5 +1,3 @@
-/** Modelo serializable del diagrama isométrico (estilo infra / FossFLOW). */
-
 import {
   ISOMETRIC_VIEWBOX,
   ISO_VIEW_ASPECT,
@@ -7,6 +5,7 @@ import {
   ISO_VIEW_MIN_W,
 } from "../../utils/isometricFlowGeometry";
 
+/** Modelo serializable del diagrama isométrico (estilo infra / FossFLOW). */
 export const ISOMETRIC_FLOW_VERSION = 1 as const;
 
 /** Formas visuales del bloque (persistido en JSON). */
