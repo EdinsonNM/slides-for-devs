@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
@@ -13,12 +13,18 @@ export interface Canvas3DPanelProps {
   canvasPanelSlide?: Slide;
   /** Id del bloque `mediaPanel` en el lienzo (si hay varios paneles). */
   canvasMediaElementId?: string;
+  /** Lienzo: notificar nombres de clips del GLB cargado en el visor. */
+  onCanvas3dAnimationClipNames?: (
+    mediaPanelElementId: string,
+    names: string[],
+  ) => void;
 }
 
 export function Canvas3DPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
   canvasMediaElementId,
+  onCanvas3dAnimationClipNames,
 }: Canvas3DPanelProps = {}) {
   const {
     currentSlide,
@@ -32,10 +38,25 @@ export function Canvas3DPanel({
     [canvasMediaElementId, setCurrentSlideCanvas3dViewState],
   );
 
+  const [animationClipNames, setAnimationClipNames] = useState<string[]>([]);
+  const handleAnimationClipNames = useCallback(
+    (names: string[]) => {
+      setAnimationClipNames(names);
+      if (canvasMediaElementId) {
+        onCanvas3dAnimationClipNames?.(canvasMediaElementId, names);
+      }
+    },
+    [canvasMediaElementId, onCanvas3dAnimationClipNames],
+  );
+
   if (!currentSlide) return null;
 
   const slide = canvasPanelSlide ?? currentSlide;
   const glbUrl = slide.canvas3dGlbUrl;
+
+  useEffect(() => {
+    setAnimationClipNames([]);
+  }, [glbUrl]);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -53,6 +74,8 @@ export function Canvas3DPanel({
             viewState={slide.canvas3dViewState}
             modelTransform={slide.canvas3dModelTransform}
             canvasMediaElementId={canvasMediaElementId}
+            animationClipNames={animationClipNames}
+            animationClipValue={slide.canvas3dAnimationClipName}
           />
         ) : null}
         <Canvas3DViewport
@@ -60,6 +83,8 @@ export function Canvas3DPanel({
           glbUrl={glbUrl}
           viewState={slide.canvas3dViewState}
           modelTransform={slide.canvas3dModelTransform}
+          animationClipName={slide.canvas3dAnimationClipName}
+          onAnimationClipNames={handleAnimationClipNames}
           onViewStateCommit={handleViewCommit}
           showInteractionHint={!embeddedInCanvas}
           boundsMargin={

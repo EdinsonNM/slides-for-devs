@@ -81,6 +81,11 @@ export interface Slide {
   /** Transformación del modelo en Canvas 3D para ajustar centro y orientación. */
   canvas3dModelTransform?: Canvas3dModelTransform;
   /**
+   * Clip de animación GLB a reproducir en Canvas 3D.
+   * Ausente = primera animación del archivo; cadena vacía = ninguna.
+   */
+  canvas3dAnimationClipName?: string;
+  /**
    * Configuración del panel «aro de datos 3D» (`PANEL_CONTENT_KIND.DATA_MOTION_RING`).
    */
   dataMotionRing?: DataMotionRingState;

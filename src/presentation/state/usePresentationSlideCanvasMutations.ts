@@ -413,6 +413,7 @@ export function usePresentationSlideCanvasMutations(
           canvas3dGlbUrl: trimmed || undefined,
           canvas3dViewState: undefined,
           canvas3dModelTransform: undefined,
+          canvas3dAnimationClipName: undefined,
         }));
         return updated;
       });
@@ -472,6 +473,38 @@ export function usePresentationSlideCanvasMutations(
     [],
   );
 
+  const setCurrentSlideCanvas3dAnimationClipName = useCallback(
+    (
+      clipName: string | undefined,
+      explicitMediaPanelElementId?: string | null,
+    ) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => {
+          const next = { ...m };
+          if (clipName === undefined) {
+            delete (next as { canvas3dAnimationClipName?: string })
+              .canvas3dAnimationClipName;
+          } else {
+            next.canvas3dAnimationClipName = clipName;
+          }
+          return next;
+        });
+        return updated;
+      });
+    },
+    [],
+  );
+
   const clearCurrentSlideCanvas3dViewState = useCallback(
     (explicitMediaPanelElementId?: string | null) => {
       const d = depsRef.current;
@@ -512,6 +545,7 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
     setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
   };

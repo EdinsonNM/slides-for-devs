@@ -8,6 +8,7 @@ import {
 } from "./Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "./Canvas3dMeshyAiModal";
 import { Canvas3dTransformModal } from "./Canvas3dTransformModal";
+import { Canvas3dAnimationClipSelect } from "./Canvas3dAnimationClipSelect";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 
@@ -20,6 +21,9 @@ export interface Canvas3dModelSourceActionsProps {
   modelTransform?: Canvas3dModelTransform | null;
   /** Id explícito del mediaPanel cuando hay varios en el lienzo. */
   canvasMediaElementId?: string;
+  animationClipNames?: string[];
+  /** Valor persistido en el slide (`undefined` = auto, `""` = ninguna). */
+  animationClipValue?: string;
   className?: string;
 }
 
@@ -31,12 +35,15 @@ export function Canvas3dModelSourceActions({
   viewState,
   modelTransform,
   canvasMediaElementId,
+  animationClipNames = [],
+  animationClipValue,
   className,
 }: Canvas3dModelSourceActionsProps) {
   const {
     setCurrentSlideCanvas3dGlbUrl,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     recordGeneratedModel3d,
   } = usePresentation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +148,14 @@ export function Canvas3dModelSourceActions({
             Vista
           </span>
         </button>
+        <Canvas3dAnimationClipSelect
+          clipNames={animationClipNames}
+          value={animationClipValue}
+          onChange={(v) =>
+            setCurrentSlideCanvas3dAnimationClipName(v, canvasMediaElementId)
+          }
+          className="rounded-lg border border-stone-200 bg-white/95 px-2 py-1 shadow-sm backdrop-blur-sm dark:border-border dark:bg-stone-900/90"
+        />
       </div>
 
       <Canvas3dUrlModal
@@ -164,6 +179,7 @@ export function Canvas3dModelSourceActions({
         glbUrl={glbUrl}
         viewState={viewState}
         modelTransform={modelTransform}
+        animationClipName={animationClipValue}
         onModelTransformCommit={(next) =>
           setCurrentSlideCanvas3dModelTransform(next, canvasMediaElementId)
         }

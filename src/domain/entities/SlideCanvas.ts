@@ -70,6 +70,8 @@ export type SlideCanvasMediaPayload = {
   canvas3dGlbUrl?: string;
   canvas3dViewState?: Presenter3dViewState;
   canvas3dModelTransform?: Canvas3dModelTransform;
+  /** Ver `Slide.canvas3dAnimationClipName`. */
+  canvas3dAnimationClipName?: string;
   dataMotionRing?: DataMotionRingState;
   /** Solo panel código en lienzo: tema claro/oscuro independiente por bloque. */
   codeEditorTheme?: SlideCodeEditorTheme;

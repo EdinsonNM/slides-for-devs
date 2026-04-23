@@ -23,6 +23,10 @@ export interface SlideRightPanelProps {
   canvasPanelSlide?: Slide;
   /** Id del elemento `mediaPanel` en el lienzo (varios paneles de código). */
   canvasMediaElementId?: string;
+  onCanvas3dAnimationClipNames?: (
+    mediaPanelElementId: string,
+    names: string[],
+  ) => void;
 }
 
 export function SlideRightPanel({
@@ -30,6 +34,7 @@ export function SlideRightPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
   canvasMediaElementId,
+  onCanvas3dAnimationClipNames,
 }: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
     usePresentation();
@@ -90,6 +95,7 @@ export function SlideRightPanel({
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
           canvasMediaElementId={canvasMediaElementId}
+          onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
         />
       ) : panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ? (
         <DataMotionRingPanel

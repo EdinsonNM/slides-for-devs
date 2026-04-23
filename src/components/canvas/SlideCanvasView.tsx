@@ -195,6 +195,7 @@ function mediaBlock(
             glbUrl={deckSlide.canvas3dGlbUrl}
             viewState={deckSlide.canvas3dViewState}
             modelTransform={deckSlide.canvas3dModelTransform}
+            animationClipName={deckSlide.canvas3dAnimationClipName}
             showInteractionHint={!minimalCanvas3dChrome}
             showGroundGrid={!minimalCanvas3dChrome}
             className="h-full min-h-[120px]"

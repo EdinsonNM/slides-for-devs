@@ -69,20 +69,67 @@ function glbSourceForLoader(url: string): string {
   return encodeURI(url);
 }
 
-function ArbitraryGLTF({ glbUrl }: { glbUrl: string }) {
+/**
+ * Clon skinned + clips del GLB. `animationClipName`: ausente = primera clip; `""` = ninguna; nombre = esa clip.
+ */
+function SkinnedGltfPrimitive({
+  glbUrl,
+  animationClipName,
+  onAnimationClipNames,
+}: {
+  glbUrl: string;
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
+}) {
   const src = glbSourceForLoader(glbUrl);
-  const { scene } = useGLTF(src);
+  const { scene, animations } = useGLTF(src);
   const root = useMemo(() => {
-    // scene.clone(true) corrupts SkinnedMeshes because bones are shallow copied.
-    // clone from SkeletonUtils preserves skeleton bindings and allows transforms.
     const cloned = cloneSkinnedScene(scene);
     centerObjectAtOrigin(cloned);
     return cloned;
   }, [scene, glbUrl]);
 
+  const mixer = useMemo(() => new THREE.AnimationMixer(root), [root]);
+  const onNamesRef = useRef(onAnimationClipNames);
+  onNamesRef.current = onAnimationClipNames;
+
   useEffect(() => {
     return () => disposeClonedGeometries(root);
   }, [root]);
+
+  useEffect(() => {
+    return () => {
+      mixer.stopAllAction();
+    };
+  }, [mixer]);
+
+  const namesDigest = useMemo(
+    () => animations.map((a) => a.name).join("\u0001"),
+    [animations],
+  );
+
+  useLayoutEffect(() => {
+    onNamesRef.current?.(animations.map((a) => a.name));
+  }, [animations, namesDigest]);
+
+  useEffect(() => {
+    mixer.stopAllAction();
+    if (animations.length === 0) return;
+    if (animationClipName === "") return;
+    let clip: THREE.AnimationClip | undefined;
+    if (animationClipName == null) {
+      clip = animations[0];
+    } else {
+      clip =
+        animations.find((c) => c.name === animationClipName) ??
+        animations[0];
+    }
+    if (clip) mixer.clipAction(clip).play();
+  }, [mixer, animations, animationClipName, glbUrl]);
+
+  useFrame((_, delta) => {
+    mixer.update(delta);
+  });
 
   return <primitive object={root} />;
 }
@@ -90,16 +137,24 @@ function ArbitraryGLTF({ glbUrl }: { glbUrl: string }) {
 function Canvas3DModel({
   glbUrl,
   modelTransform,
+  animationClipName,
+  onAnimationClipNames,
 }: {
   glbUrl: string;
   modelTransform?: Canvas3dModelTransform | null;
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
 }) {
   return (
     <group
       position={modelTransform?.position ?? [0, 0, 0]}
       rotation={modelTransform?.rotation ?? [0, 0, 0]}
     >
-      <ArbitraryGLTF glbUrl={glbUrl} />
+      <SkinnedGltfPrimitive
+        glbUrl={glbUrl}
+        animationClipName={animationClipName}
+        onAnimationClipNames={onAnimationClipNames}
+      />
     </group>
   );
 }
@@ -107,12 +162,16 @@ function Canvas3DModel({
 function Canvas3DTransformControls({
   glbUrl,
   modelTransform,
+  animationClipName,
+  onAnimationClipNames,
   mode,
   onModelTransformChange,
   onModelTransformCommit,
 }: {
   glbUrl: string;
   modelTransform?: Canvas3dModelTransform | null;
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
   mode: "translate" | "rotate";
   onModelTransformChange?: (s: Canvas3dModelTransform) => void;
   onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
@@ -142,7 +201,11 @@ function Canvas3DTransformControls({
         position={modelTransform?.position ?? [0, 0, 0]}
         rotation={modelTransform?.rotation ?? [0, 0, 0]}
       >
-        <ArbitraryGLTF glbUrl={glbUrl} />
+        <SkinnedGltfPrimitive
+          glbUrl={glbUrl}
+          animationClipName={animationClipName}
+          onAnimationClipNames={onAnimationClipNames}
+        />
       </group>
 
       {modelGroup ? (
@@ -252,6 +315,11 @@ export interface Canvas3DViewportProps {
   className?: string;
   boundsMargin?: number;
   modelTransform?: Canvas3dModelTransform | null;
+  /**
+   * Clips del GLB: ausente en slide = reproducir la primera; `""` = ninguna; nombre = clip concreta.
+   */
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
   transformControlsMode?: "translate" | "rotate";
   onModelTransformChange?: (s: Canvas3dModelTransform) => void;
   onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
@@ -276,6 +344,8 @@ export function Canvas3DViewport({
   className,
   boundsMargin = 1.25,
   modelTransform,
+  animationClipName,
+  onAnimationClipNames,
   transformControlsMode,
   onModelTransformChange,
   onModelTransformCommit,
@@ -295,6 +365,8 @@ export function Canvas3DViewport({
       <Canvas3DTransformControls
         glbUrl={trimmed}
         modelTransform={modelTransform}
+        animationClipName={animationClipName}
+        onAnimationClipNames={onAnimationClipNames}
         mode={transformControlsMode}
         onModelTransformChange={onModelTransformChange}
         onModelTransformCommit={onModelTransformCommit}
@@ -304,7 +376,12 @@ export function Canvas3DViewport({
     sceneBody = (
       <Bounds margin={boundsMargin} clip>
         <group key={trimmed}>
-          <Canvas3DModel glbUrl={trimmed} modelTransform={modelTransform} />
+          <Canvas3DModel
+            glbUrl={trimmed}
+            modelTransform={modelTransform}
+            animationClipName={animationClipName}
+            onAnimationClipNames={onAnimationClipNames}
+          />
         </group>
         <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
       </Bounds>
@@ -312,7 +389,12 @@ export function Canvas3DViewport({
   } else {
     sceneBody = (
       <group key={trimmed}>
-        <Canvas3DModel glbUrl={trimmed} modelTransform={modelTransform} />
+        <Canvas3DModel
+          glbUrl={trimmed}
+          modelTransform={modelTransform}
+          animationClipName={animationClipName}
+          onAnimationClipNames={onAnimationClipNames}
+        />
       </group>
     );
   }

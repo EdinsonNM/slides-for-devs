@@ -293,6 +293,8 @@ export function SlideCanvasSlide() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isDragOverImageFile, setIsDragOverImageFile] = useState(false);
   const [activeField, setActiveField] = useState<TextField | null>(null);
+  const [canvas3dAnimClipNamesByPanelId, setCanvas3dAnimClipNamesByPanelId] =
+    useState<Record<string, string[]>>({});
   const slideContainerRef = useRef<HTMLDivElement | null>(null);
 
   useSlideContainerImageDnD(
@@ -312,7 +314,25 @@ export function SlideCanvasSlide() {
     setHoveredId(null);
     setActiveField(null);
     setAlignmentGuides(null);
+    setCanvas3dAnimClipNamesByPanelId({});
   }, [currentSlide?.id]);
+
+  const onCanvas3dAnimationClipNames = useCallback(
+    (mediaPanelElementId: string, names: string[]) => {
+      setCanvas3dAnimClipNamesByPanelId((prev) => {
+        const prevNames = prev[mediaPanelElementId];
+        if (
+          prevNames &&
+          prevNames.length === names.length &&
+          prevNames.every((n, i) => n === names[i])
+        ) {
+          return prev;
+        }
+        return { ...prev, [mediaPanelElementId]: names };
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isEditing) {
@@ -1113,6 +1133,8 @@ export function SlideCanvasSlide() {
           canvasStackMaxZRank={canvasStackMaxZRank}
           canvasMediaPanelElementId={canvasMediaPanelElementId}
           cycleCodeEditorThemeForMediaPanel={cycleCodeEditorThemeForMediaPanel}
+          canvas3dAnimClipNamesByPanelId={canvas3dAnimClipNamesByPanelId}
+          onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
         />
       ))}
     </div>
@@ -1177,6 +1199,8 @@ function CanvasElementEditor({
   canvasStackMaxZRank,
   canvasMediaPanelElementId,
   cycleCodeEditorThemeForMediaPanel,
+  canvas3dAnimClipNamesByPanelId,
+  onCanvas3dAnimationClipNames,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -1272,6 +1296,11 @@ function CanvasElementEditor({
   canvasStackMaxZRank: number;
   canvasMediaPanelElementId: string | null;
   cycleCodeEditorThemeForMediaPanel: (elementId: string) => void;
+  canvas3dAnimClipNamesByPanelId: Record<string, string[]>;
+  onCanvas3dAnimationClipNames: (
+    mediaPanelElementId: string,
+    names: string[],
+  ) => void;
 }) {
   const tone = deckContentTone;
   const { theme: globalCodeEditorTheme } = useCodeEditorTheme();
@@ -1850,9 +1879,13 @@ function CanvasElementEditor({
                   ? panelSlide.canvas3dGlbUrl
                   : "",
                 slideId: panelSlide.id,
+                mediaPanelElementId: id,
                 glbUrl: panelSlide.canvas3dGlbUrl,
                 viewState: panelSlide.canvas3dViewState,
                 modelTransform: panelSlide.canvas3dModelTransform,
+                animationClipNames:
+                  canvas3dAnimClipNamesByPanelId[id] ?? [],
+                animationClipValue: panelSlide.canvas3dAnimationClipName,
               }
             : undefined,
           markdownDescriptionToolbar:
@@ -2338,6 +2371,11 @@ function CanvasElementEditor({
                     embeddedInCanvas
                     canvasPanelSlide={panelSlide}
                     canvasMediaElementId={id}
+                    onCanvas3dAnimationClipNames={
+                      mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D
+                        ? onCanvas3dAnimationClipNames
+                        : undefined
+                    }
                   />
                 </div>
               </>
@@ -2347,6 +2385,11 @@ function CanvasElementEditor({
                 embeddedInCanvas
                 canvasPanelSlide={panelSlide}
                 canvasMediaElementId={id}
+                onCanvas3dAnimationClipNames={
+                  mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D
+                    ? onCanvas3dAnimationClipNames
+                    : undefined
+                }
               />
             ),
             dataRingPanel ? { preserve3d: true } : undefined,

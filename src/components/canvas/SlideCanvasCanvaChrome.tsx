@@ -37,6 +37,7 @@ import {
 } from "../editor/Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "../editor/Canvas3dMeshyAiModal";
 import { Canvas3dTransformModal } from "../editor/Canvas3dTransformModal";
+import { Canvas3dAnimationClipSelect } from "../editor/Canvas3dAnimationClipSelect";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
@@ -103,9 +104,12 @@ export interface SlideCanvasCanvaChromeProps {
     canvas3dSource?: {
       httpGlbUrl: string;
       slideId: string;
+      mediaPanelElementId?: string;
       glbUrl?: string | null;
       viewState?: Presenter3dViewState | null;
       modelTransform?: Canvas3dModelTransform | null;
+      animationClipNames: string[];
+      animationClipValue?: string;
     };
     /** Descripción rica en edición: negrita/cursiva/color y escala de todo el bloque (misma barra que el resto). */
     markdownDescriptionToolbar?: {
@@ -140,6 +144,7 @@ export function SlideCanvasCanvaChrome({
   const {
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     recordGeneratedModel3d,
   } = usePresentation();
@@ -519,7 +524,12 @@ export function SlideCanvasCanvaChrome({
                         typeof reader.result === "string"
                           ? reader.result
                           : "";
-                      if (dataUrl) setCurrentSlideCanvas3dGlbUrl(dataUrl);
+                      if (dataUrl) {
+                        setCurrentSlideCanvas3dGlbUrl(
+                          dataUrl,
+                          canvas3d.mediaPanelElementId,
+                        );
+                      }
                     };
                     reader.readAsDataURL(file);
                   }}
@@ -570,10 +580,25 @@ export function SlideCanvasCanvaChrome({
                   title="Reencuadrar vista del modelo"
                   aria-label="Reencuadrar vista del modelo"
                   onPointerDown={stop}
-                  onClick={() => clearCurrentSlideCanvas3dViewState()}
+                  onClick={() =>
+                    clearCurrentSlideCanvas3dViewState(
+                      canvas3d.mediaPanelElementId,
+                    )
+                  }
                 >
                   <RotateCcw size={16} strokeWidth={2} aria-hidden />
                 </button>
+                <Canvas3dAnimationClipSelect
+                  clipNames={canvas3d.animationClipNames}
+                  value={canvas3d.animationClipValue}
+                  onChange={(v) =>
+                    setCurrentSlideCanvas3dAnimationClipName(
+                      v,
+                      canvas3d.mediaPanelElementId,
+                    )
+                  }
+                  className="max-w-[min(100%,14rem)] shrink rounded-md border border-stone-200 bg-white/95 px-1.5 py-0.5 shadow-sm backdrop-blur-sm dark:border-border dark:bg-stone-900/90"
+                />
                 <div
                   className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
                   aria-hidden
@@ -741,13 +766,15 @@ export function SlideCanvasCanvaChrome({
           isOpen={canvas3dUrlModalOpen}
           onClose={() => setCanvas3dUrlModalOpen(false)}
           initialUrl={canvas3d.httpGlbUrl}
-          onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+          onApply={(url) =>
+            setCurrentSlideCanvas3dGlbUrl(url, canvas3d.mediaPanelElementId)
+          }
         />
         <Canvas3dMeshyAiModal
           isOpen={canvas3dMeshyModalOpen}
           onClose={() => setCanvas3dMeshyModalOpen(false)}
           onAppliedGlbUrl={(url, meta) => {
-            setCurrentSlideCanvas3dGlbUrl(url);
+            setCurrentSlideCanvas3dGlbUrl(url, canvas3d.mediaPanelElementId);
             void recordGeneratedModel3d(url, meta?.prompt ?? null);
           }}
         />
@@ -758,7 +785,13 @@ export function SlideCanvasCanvaChrome({
           glbUrl={canvas3d.glbUrl}
           viewState={canvas3d.viewState}
           modelTransform={canvas3d.modelTransform}
-          onModelTransformCommit={setCurrentSlideCanvas3dModelTransform}
+          animationClipName={canvas3d.animationClipValue}
+          onModelTransformCommit={(next) =>
+            setCurrentSlideCanvas3dModelTransform(
+              next,
+              canvas3d.mediaPanelElementId,
+            )
+          }
         />
       </>
     ) : null}

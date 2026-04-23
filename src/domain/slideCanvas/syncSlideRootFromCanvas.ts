@@ -70,6 +70,7 @@ export function syncSlideRootFromCanvas(slide: Slide): Slide {
       canvas3dGlbUrl: media.canvas3dGlbUrl,
       canvas3dViewState: media.canvas3dViewState,
       canvas3dModelTransform: media.canvas3dModelTransform,
+      canvas3dAnimationClipName: media.canvas3dAnimationClipName,
     };
     if (
       normalizePanelContentKind(media.contentType) ===

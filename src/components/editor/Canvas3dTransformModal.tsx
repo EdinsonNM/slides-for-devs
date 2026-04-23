@@ -16,6 +16,7 @@ export interface Canvas3dTransformModalProps {
   glbUrl?: string | null;
   viewState?: Presenter3dViewState | null;
   modelTransform?: Canvas3dModelTransform | null;
+  animationClipName?: string;
   onModelTransformCommit: (next: Canvas3dModelTransform) => void;
 }
 
@@ -26,6 +27,7 @@ export function Canvas3dTransformModal({
   glbUrl,
   viewState,
   modelTransform,
+  animationClipName,
   onModelTransformCommit,
 }: Canvas3dTransformModalProps) {
   const [draft, setDraft] = useState<Canvas3dModelTransform>(
@@ -100,6 +102,7 @@ export function Canvas3dTransformModal({
             slideId={slideId}
             glbUrl={glbUrl}
             viewState={viewState}
+            animationClipName={animationClipName}
             modelTransform={draft}
             transformControlsMode={mode}
             onModelTransformChange={setDraft}

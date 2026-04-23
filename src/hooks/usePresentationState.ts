@@ -638,6 +638,7 @@ export function usePresentationState() {
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
     setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
   } = usePresentationSlideCanvasMutations({
@@ -1148,6 +1149,7 @@ export function usePresentationState() {
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
     setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
     handleGenerate,

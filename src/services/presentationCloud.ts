@@ -591,6 +591,7 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     presenter3dScreenMedia: s.presenter3dScreenMedia ?? null,
     presenter3dViewState: s.presenter3dViewState ?? null,
     canvas3dGlbUrl: s.canvas3dGlbUrl ?? null,
+    canvas3dAnimationClipName: s.canvas3dAnimationClipName ?? null,
     canvas3dViewState: s.canvas3dViewState ?? null,
     canvas3dModelTransform: s.canvas3dModelTransform ?? null,
     imageWidthPercent: s.imageWidthPercent ?? null,
@@ -631,6 +632,10 @@ function plainToSlide(p: Record<string, unknown>): Slide {
         : undefined,
     presenter3dViewState: parsePresenter3dViewState(p.presenter3dViewState),
     canvas3dGlbUrl: p.canvas3dGlbUrl != null ? String(p.canvas3dGlbUrl) : undefined,
+    canvas3dAnimationClipName:
+      p.canvas3dAnimationClipName != null
+        ? String(p.canvas3dAnimationClipName)
+        : undefined,
     canvas3dViewState: parsePresenter3dViewState(p.canvas3dViewState),
     canvas3dModelTransform: parseCanvas3dModelTransform(p.canvas3dModelTransform),
     imageWidthPercent:

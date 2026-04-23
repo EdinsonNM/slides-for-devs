@@ -93,6 +93,7 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     canvas3dGlbUrl: slide.canvas3dGlbUrl,
     canvas3dViewState: slide.canvas3dViewState,
     canvas3dModelTransform: slide.canvas3dModelTransform,
+    canvas3dAnimationClipName: slide.canvas3dAnimationClipName,
     dataMotionRing: slide.dataMotionRing,
   };
 }
@@ -128,6 +129,7 @@ const ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND: Record<
     "canvas3dGlbUrl",
     "canvas3dViewState",
     "canvas3dModelTransform",
+    "canvas3dAnimationClipName",
   ],
   [PANEL_CONTENT_KIND.DATA_MOTION_RING]: ["dataMotionRing"],
 };
@@ -213,6 +215,9 @@ export function mergeMediaPayloadIntoSlide(
   if (media.canvas3dModelTransform !== undefined) {
     next.canvas3dModelTransform = media.canvas3dModelTransform;
   }
+  if (media.canvas3dAnimationClipName !== undefined) {
+    next.canvas3dAnimationClipName = media.canvas3dAnimationClipName;
+  }
   if (
     normalizePanelContentKind(media.contentType) ===
     PANEL_CONTENT_KIND.DATA_MOTION_RING
@@ -251,6 +256,7 @@ function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
     canvas3dGlbUrl: _c3g,
     canvas3dViewState: _c3vs,
     canvas3dModelTransform: _c3mt,
+    canvas3dAnimationClipName: _c3ac,
     dataMotionRing: _dmr,
     codeEditorTheme: _cet,
     ...rest
