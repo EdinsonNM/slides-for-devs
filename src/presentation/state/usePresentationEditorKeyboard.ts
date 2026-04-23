@@ -24,6 +24,9 @@ export type PresentationEditorKeyboardDeps = {
  * Atajos globales del editor: undo/redo de deck (⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z, Ctrl+Y y ⌘+Y),
  * flechas / espacio para diapositiva, Escape para salir de vista previa.
  * Usa `deckNavigationRef` para delegar en `nextSlide` / `prevSlide` sin duplicar índices.
+ *
+ * Fase de captura: así las flechas funcionan aunque un lienzo/iframe tenga foco o `stopPropagation`
+ * en fase de burbuja.
  */
 export function usePresentationEditorKeyboard(
   deps: PresentationEditorKeyboardDeps,
@@ -58,7 +61,7 @@ export function usePresentationEditorKeyboard(
         return;
       }
 
-      if (inTextField || d.isEditing) {
+      if (inTextField || (!d.isPreviewMode && d.isEditing)) {
         return;
       }
 
@@ -77,7 +80,7 @@ export function usePresentationEditorKeyboard(
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 }

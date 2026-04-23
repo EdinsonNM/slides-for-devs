@@ -97,6 +97,32 @@ export function PresenterView() {
     }
   };
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || (e.key === " " && !e.repeat)) {
+        e.preventDefault();
+        sendRef.current("presenter-next");
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        sendRef.current("presenter-prev");
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   const handleClose = async () => {
     send("PRESENTER_CLOSE");
     if (sendTauriRef.current) {
