@@ -15,4 +15,6 @@ export type PresentationSlideCanvasMutationsDeps = {
     slide: Slide,
     explicitMediaPanelElementId?: string | null,
   ) => string | null;
+  /** Tras `patchCurrentSlideCanvasScene` / añadir elemento: fuerza re-medición R3F (setSize) sin remontar el Canvas. */
+  bumpCanvasSceneLayoutEpoch: () => void;
 };

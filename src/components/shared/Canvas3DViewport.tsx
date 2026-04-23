@@ -34,7 +34,7 @@ import {
   R3fViewportResizeToHost,
   useHostElementSize,
 } from "./r3fHostViewportSync";
-import { R3fWebglContextLossRemount } from "./R3fWebglContextLossRemount";
+import { R3fWebglContextLostGuard } from "./R3fWebglContextLostGuard";
 
 function disposeClonedGeometries(root: THREE.Object3D) {
   root.traverse((obj) => {
@@ -327,9 +327,12 @@ export interface Canvas3DViewportProps {
   onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
   /**
    * Clave opcional para forzar re-medición del host cuando el layout cambia sin resize CSS
-   * (p. ej. presentación con transforms).
+   * (p. ej. presentación con transforms, orden z en el lienzo). **No** forma parte de la
+   * identidad de montaje del &lt;Canvas&gt; (evita recrear el contexto WebGL al cambiar solo `z`).
    */
   hostMeasureKey?: string;
+  /** Id. estable del `mediaPanel` (varios visores 3D en un slide); aísla la `key` de React. */
+  r3fInstanceId?: string | null;
 }
 
 /**
@@ -352,6 +355,7 @@ export function Canvas3DViewport({
   onModelTransformChange,
   onModelTransformCommit,
   hostMeasureKey,
+  r3fInstanceId = null,
 }: Canvas3DViewportProps) {
   const trimmed = glbUrl?.trim() ?? "";
   const controlKey = `${slideId}|${trimmed}`;
@@ -359,14 +363,7 @@ export function Canvas3DViewport({
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
   const boundsRefreshKey = `${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
 
-  const [webglRemountGen, setWebglRemountGen] = useState(0);
-  const onWebglRemountRequest = useCallback(() => {
-    setWebglRemountGen((n) => n + 1);
-  }, []);
-
-  useEffect(() => {
-    setWebglRemountGen(0);
-  }, [slideId, trimmed, hostMeasureKey]);
+  const r3fFragmentKey = `${slideId}\u0001${trimmed}\u0001${r3fInstanceId ?? "main"}`;
 
   let sceneBody: ReactNode;
   if (!trimmed) {
@@ -419,7 +416,7 @@ export function Canvas3DViewport({
         className,
       )}
     >
-      <Fragment key={`r3f-canvas3d-${hostObserveKey}-${webglRemountGen}`}>
+      <Fragment key={`r3f-canvas3d-${r3fFragmentKey}`}>
         <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
           camera={{
@@ -444,7 +441,7 @@ export function Canvas3DViewport({
             gl.toneMappingExposure = 0.75;
           }}
         >
-          <R3fWebglContextLossRemount onRemountRequest={onWebglRemountRequest} />
+          <R3fWebglContextLostGuard />
           <R3fViewportResizeToHost
             width={hostSize.width}
             height={hostSize.height}

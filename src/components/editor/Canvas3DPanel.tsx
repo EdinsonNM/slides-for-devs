@@ -90,6 +90,7 @@ export function Canvas3DPanel({
           onAnimationClipNames={handleAnimationClipNames}
           onViewStateCommit={handleViewCommit}
           showInteractionHint={!embeddedInCanvas}
+          r3fInstanceId={canvasMediaElementId}
           hostMeasureKey={hostMeasureKey}
           boundsMargin={
             embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined

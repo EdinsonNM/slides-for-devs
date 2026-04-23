@@ -621,6 +621,11 @@ export function usePresentationState() {
     window.localStorage.setItem(PRESENTER_MODE_STORAGE_KEY, presenterMode);
   }, [presenterMode]);
 
+  const [canvasSceneLayoutEpoch, setCanvasSceneLayoutEpoch] = useState(0);
+  const bumpCanvasSceneLayoutEpoch = useCallback(() => {
+    setCanvasSceneLayoutEpoch((n) => n + 1);
+  }, []);
+
   const {
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
@@ -648,6 +653,7 @@ export function usePresentationState() {
     canvasTextTargetsRef,
     setCanvasMediaPanelEditTarget,
     resolvePresenter3dMediaPatchElementId,
+    bumpCanvasSceneLayoutEpoch,
   });
 
   const openExportDeckVideoModal = useCallback(() => {
@@ -996,6 +1002,7 @@ export function usePresentationState() {
     setTopic,
     deckVisualTheme,
     applyDeckVisualTheme,
+    canvasSceneLayoutEpoch,
     deckNarrativePresetId,
     setDeckNarrativePresetId,
     narrativeNotes,
