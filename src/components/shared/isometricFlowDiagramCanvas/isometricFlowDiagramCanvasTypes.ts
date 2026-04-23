@@ -20,4 +20,9 @@ export interface IsometricFlowDiagramCanvasProps {
    * de bloques de texto superpuestos al hacer clic en el diagrama.
    */
   onEditorSurfacePointerDown?: () => void;
+  /**
+   * Clave de la versión persistida (p. ej. `slideId` + `isometricFlowData`).
+   * Al cambiar (guardar, deshacer, otra diapositiva), se reaplica `data.view` al encuadre.
+   */
+  isometricDataSyncKey?: string;
 }

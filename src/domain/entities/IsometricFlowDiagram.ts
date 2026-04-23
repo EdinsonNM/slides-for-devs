@@ -1,5 +1,12 @@
 /** Modelo serializable del diagrama isométrico (estilo infra / FossFLOW). */
 
+import {
+  ISOMETRIC_VIEWBOX,
+  ISO_VIEW_ASPECT,
+  ISO_VIEW_MAX_W,
+  ISO_VIEW_MIN_W,
+} from "../../utils/isometricFlowGeometry";
+
 export const ISOMETRIC_FLOW_VERSION = 1 as const;
 
 /** Formas visuales del bloque (persistido en JSON). */
@@ -207,6 +214,32 @@ export interface IsometricFlowDiagram {
   version: typeof ISOMETRIC_FLOW_VERSION;
   nodes: IsometricFlowNode[];
   links: IsometricFlowLink[];
+  /**
+   * Encuadre de cámara (viewBox SVG) persistido: zoom y desplazamiento.
+   * Si no existe o es el encuadre por defecto, no se serializa en el JSON.
+   */
+  view?: { x: number; y: number; w: number; h: number };
+}
+
+function isDefaultIsoViewForSerialize(v: { x: number; y: number; w: number; h: number }): boolean {
+  return (
+    Math.abs(v.x) < 0.5 &&
+    Math.abs(v.y) < 0.5 &&
+    Math.abs(v.w - ISOMETRIC_VIEWBOX.w) < 0.5 &&
+    Math.abs(v.h - ISOMETRIC_VIEWBOX.h) < 0.5
+  );
+}
+
+function sanitizeIsoViewFromJson(
+  raw: unknown,
+): { x: number; y: number; w: number; h: number } | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  if (![o.x, o.y, o.w, o.h].every((n) => typeof n === "number" && Number.isFinite(n as number)))
+    return undefined;
+  const w = Math.max(ISO_VIEW_MIN_W, Math.min(ISO_VIEW_MAX_W, o.w as number));
+  const h = w * ISO_VIEW_ASPECT;
+  return { x: o.x as number, y: o.y as number, w, h };
 }
 
 export function createDefaultIsometricFlowDiagram(): IsometricFlowDiagram {
@@ -286,10 +319,12 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
     if (nodes.length === 0) return fallback;
     const ids = new Set(nodes.map((n) => n.id));
     const filteredLinks = links.filter((l) => ids.has(l.from) && ids.has(l.to));
+    const view = sanitizeIsoViewFromJson(o.view);
     return {
       version: ISOMETRIC_FLOW_VERSION,
       nodes,
       links: dedupeIsometricFlowLinks(filteredLinks),
+      ...(view ? { view } : {}),
     };
   } catch {
     return fallback;
@@ -297,5 +332,13 @@ export function parseIsometricFlowDiagram(raw: string | undefined | null): Isome
 }
 
 export function serializeIsometricFlowDiagram(d: IsometricFlowDiagram): string {
-  return JSON.stringify(d);
+  const base: IsometricFlowDiagram = {
+    version: d.version,
+    nodes: d.nodes,
+    links: d.links,
+  };
+  if (d.view && !isDefaultIsoViewForSerialize(d.view)) {
+    base.view = d.view;
+  }
+  return JSON.stringify(base);
 }

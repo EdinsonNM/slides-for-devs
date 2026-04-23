@@ -71,11 +71,19 @@ export function useIsometricFlowCanvasController({
   onChange,
   slideTextOverlayToolbar,
   onEditorSurfacePointerDown,
+  isometricDataSyncKey,
 }: IsometricFlowDiagramCanvasProps) {
   const themeOptional = useThemeOptional();
   const diagramChrome: IsoDiagramChrome = themeOptional?.isDark ? "dark" : "light";
+  const canvasRootRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [viewRect, setViewRect] = useState<IsoViewRect>(() => defaultIsoViewRect());
+  const [viewRect, setViewRect] = useState<IsoViewRect>(() => {
+    const v = data.view;
+    if (v) {
+      return { x: v.x, y: v.y, w: v.w, h: v.h };
+    }
+    return defaultIsoViewRect();
+  });
   const viewRectRef = useRef<IsoViewRect>(viewRect);
   viewRectRef.current = viewRect;
   const [panDrag, setPanDrag] = useState<{
@@ -125,6 +133,11 @@ export function useIsometricFlowCanvasController({
     canonicalSegIndex: number;
   } | null>(null);
 
+  const dataRef = useRef(data);
+  if (!linkSegDrag) {
+    dataRef.current = data;
+  }
+
   /** Selección tipo explorador: arrastrar en vacío para encuadrar bloques (ref + listeners globales). */
   const marqueeSessionRef = useRef<{
     pointerId: number;
@@ -153,15 +166,29 @@ export function useIsometricFlowCanvasController({
 
   const emit = useCallback(
     (next: IsometricFlowDiagram) => {
-      onChange?.(next);
+      if (!onChange) return;
+      const vr = viewRectRef.current;
+      onChange({
+        ...next,
+        view: { x: vr.x, y: vr.y, w: vr.w, h: vr.h },
+      });
     },
     [onChange],
   );
 
-  const dataRef = useRef(data);
-  if (!linkSegDrag) {
-    dataRef.current = data;
-  }
+  const applyViewRect = useCallback(
+    (next: IsoViewRect) => {
+      viewRectRef.current = next;
+      setViewRect(next);
+      if (readOnly || !onChange) return;
+      onChange({
+        ...dataRef.current,
+        view: { x: next.x, y: next.y, w: next.w, h: next.h },
+      });
+    },
+    [onChange, readOnly],
+  );
+
   const emitRef = useRef(emit);
   emitRef.current = emit;
 
@@ -445,12 +472,20 @@ export function useIsometricFlowCanvasController({
 
   useEffect(() => {
     const onWheel = (ev: WheelEvent) => {
-      /* El overlay del picker es absolute sobre el mismo área que el SVG: el hit-test por
-       * rectángulo del SVG sigue siendo true y robaba el wheel al listado con scroll. */
+      /* Picker: evitar el zoom del canvas y dejar scrollear el listado. */
       if (iconPickerOpen) return;
       const svg = svgRef.current;
       if (!svg) return;
-      const r = svg.getBoundingClientRect();
+      const root = canvasRootRef.current;
+      const rr = root?.getBoundingClientRect();
+      const sr = svg.getBoundingClientRect();
+      const r =
+        rr && rr.width >= 1 && rr.height >= 1
+          ? rr
+          : sr.width >= 1 && sr.height >= 1
+            ? sr
+            : null;
+      if (!r) return;
       if (
         ev.clientX < r.left ||
         ev.clientX > r.right ||
@@ -465,14 +500,24 @@ export function useIsometricFlowCanvasController({
       const prev = viewRectRef.current;
       const dy = wheelZoomEffectiveDelta(ev);
       const next = zoomIsoViewTowardPoint(prev, sx, sy, dy);
-      viewRectRef.current = next;
-      setViewRect(next);
+      applyViewRect(next);
     };
     window.addEventListener("wheel", onWheel, { passive: false, capture: true });
     return () => {
       window.removeEventListener("wheel", onWheel, { capture: true });
     };
-  }, [iconPickerOpen]);
+  }, [iconPickerOpen, applyViewRect]);
+
+  useEffect(() => {
+    if (isometricDataSyncKey == null) return;
+    const next = data.view
+      ? { x: data.view.x, y: data.view.y, w: data.view.w, h: data.view.h }
+      : defaultIsoViewRect();
+    setViewRect(next);
+    viewRectRef.current = next;
+    // Solo cuando cambia el JSON o la diapositiva persistidos (ver prop `isometricDataSyncKey`), no al editar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isometricDataSyncKey]);
 
   useEffect(() => {
     if (!panDrag) return;
@@ -497,6 +542,13 @@ export function useIsometricFlowCanvasController({
 
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
+      if (!readOnly && onChange) {
+        const vr = viewRectRef.current;
+        onChange({
+          ...dataRef.current,
+          view: { x: vr.x, y: vr.y, w: vr.w, h: vr.h },
+        });
+      }
       setPanDrag(null);
       try {
         svg.releasePointerCapture(pointerId);
@@ -513,7 +565,7 @@ export function useIsometricFlowCanvasController({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [panDrag]);
+  }, [panDrag, onChange, readOnly]);
 
   useEffect(() => {
     if (selectedNodeIds.length === 0) {
@@ -910,10 +962,8 @@ export function useIsometricFlowCanvasController({
   );
 
   const resetIsoView = useCallback(() => {
-    const next = defaultIsoViewRect();
-    viewRectRef.current = next;
-    setViewRect(next);
-  }, []);
+    applyViewRect(defaultIsoViewRect());
+  }, [applyViewRect]);
 
   useEffect(() => {
     if (readOnly || !drag) return;
@@ -1327,6 +1377,7 @@ export function useIsometricFlowCanvasController({
     readOnly,
     slideTextOverlayToolbar,
     onEditorSurfacePointerDown,
+    canvasRootRef,
     svgRef,
     viewRect,
     panDrag,

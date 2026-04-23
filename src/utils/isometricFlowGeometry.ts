@@ -4,6 +4,11 @@ const COS30 = 0.8660254037844387;
 
 export const ISOMETRIC_VIEWBOX = { w: 960, h: 540 } as const;
 
+/** Límites del `viewBox` (encuadre / zoom) del diagrama isométrico; usados al persistir y al clamp. */
+export const ISO_VIEW_MIN_W = 72;
+export const ISO_VIEW_MAX_W = ISOMETRIC_VIEWBOX.w * 8;
+export const ISO_VIEW_ASPECT = ISOMETRIC_VIEWBOX.h / ISOMETRIC_VIEWBOX.w;
+
 /** Paso en canvas al incrementar solo `gx` (en la rejilla lógica). */
 export function isoStepGx(cell: number): { x: number; y: number } {
   return { x: cell * COS30, y: cell * 0.5 };
