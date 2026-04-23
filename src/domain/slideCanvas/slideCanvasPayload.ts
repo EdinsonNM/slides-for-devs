@@ -408,10 +408,24 @@ export function readMediaPayloadFromElement(
 
   let base: SlideCanvasMediaPayload;
   if (isSlideCanvasMediaPayload(p)) {
-    base =
-      firstId === el.id
-        ? mergeFirstMediaPanelPayloadFromRoot(slide, p)
-        : { ...p };
+    if (firstId === el.id) {
+      base = mergeFirstMediaPanelPayloadFromRoot(slide, p);
+    } else {
+      const kind = normalizePanelContentKind(p.contentType);
+      /**
+       * Si el primer `mediaPanel` en z ya no es este bloque, la raíz del slide puede seguir
+       * guardando GLB / vista 3D del orden anterior. Esos tipos solo heredan claves propias
+       * desde la raíz (no `imageUrl` de otro panel).
+       */
+      if (
+        kind === PANEL_CONTENT_KIND.CANVAS_3D ||
+        kind === PANEL_CONTENT_KIND.PRESENTER_3D
+      ) {
+        base = mergeFirstMediaPanelPayloadFromRoot(slide, p);
+      } else {
+        base = { ...p };
+      }
+    }
   } else if (firstId === el.id) {
     base = mediaPayloadFromSlideRoot(slide);
   } else {

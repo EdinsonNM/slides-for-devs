@@ -100,6 +100,8 @@ export interface SlideCanvasElement {
   rect: SlideCanvasRect;
   /** Grados; origen en el centro del bloque (sentido horario positivo). */
   rotation?: number;
+  /** Si es true, no se puede arrastrar ni redimensionar en el lienzo. */
+  locked?: boolean;
   /** Contenido por bloque (v2). Ausente en escenas legacy v1. */
   payload?: SlideCanvasElementPayload;
 }
@@ -173,6 +175,8 @@ export function isSlideCanvasScene(v: unknown): v is SlideCanvasScene {
       isCanvasRect((e as SlideCanvasElement).rect) &&
       ((e as SlideCanvasElement).rotation === undefined ||
         typeof (e as SlideCanvasElement).rotation === "number") &&
+      ((e as SlideCanvasElement).locked === undefined ||
+        typeof (e as SlideCanvasElement).locked === "boolean") &&
       isOptionalElementPayload((e as SlideCanvasElement).payload),
   );
 }

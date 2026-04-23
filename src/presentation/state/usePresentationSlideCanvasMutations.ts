@@ -11,6 +11,7 @@ import {
 } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
+  defaultCanvasTextEditTargets,
   patchSlideMediaPanelByElementId,
 } from "../../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import {
@@ -63,8 +64,16 @@ export function usePresentationSlideCanvasMutations(
   const patchCurrentSlideCanvasScene = useCallback(
     (updater: (scene: SlideCanvasScene) => SlideCanvasScene) => {
       const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const curBefore = d.slidesRef.current[idx];
+      const oldFirstMediaId =
+        curBefore?.type === SLIDE_TYPE.CONTENT
+          ? defaultCanvasTextEditTargets(
+              ensureSlideCanvasScene(curBefore),
+            ).mediaPanelElementId
+          : null;
+
       d.setSlides((prev) => {
-        const idx = d.currentIndexRef.current;
         const cur = prev[idx];
         if (!cur?.canvasScene) return prev;
         const nextScene = updater(cur.canvasScene);
@@ -75,6 +84,32 @@ export function usePresentationSlideCanvasMutations(
         });
         return out;
       });
+
+      /**
+       * Tras reordenar capas, el primer `mediaPanel` en z cambia pero `canvasTextTargetsRef`
+       * solo se rellenaba al cambiar de slide (`syncEditFieldsFromSlide`). Si el ref seguía
+       * apuntando al antiguo primer panel, el siguiente `commitSlideEdits` podía pisar ese
+       * bloque con buffers de código (bug corregido en `applyEditBuffersToSlide`) o desalinear
+       * mutaciones que usan el ref sin `explicitMediaPanelElementId`.
+       */
+      if (oldFirstMediaId != null) {
+        queueMicrotask(() => {
+          const curAfter = d.slidesRef.current[idx];
+          if (!curAfter || curAfter.type !== SLIDE_TYPE.CONTENT) return;
+          const newFirstMediaId = defaultCanvasTextEditTargets(
+            ensureSlideCanvasScene(curAfter),
+          ).mediaPanelElementId;
+          const refId = d.canvasTextTargetsRef.current.mediaPanelElementId;
+          if (
+            refId != null &&
+            refId === oldFirstMediaId &&
+            newFirstMediaId != null &&
+            oldFirstMediaId !== newFirstMediaId
+          ) {
+            d.setCanvasMediaPanelEditTarget(newFirstMediaId);
+          }
+        });
+      }
     },
     [],
   );

@@ -23,6 +23,11 @@ export interface SlideRightPanelProps {
   canvasPanelSlide?: Slide;
   /** Id del elemento `mediaPanel` en el lienzo (varios paneles de código). */
   canvasMediaElementId?: string;
+  /**
+   * Lienzo: fuerza re-medición / `setSize` en visores R3F (Canvas 3D / Presentador 3D) cuando cambia
+   * el orden z u otro layout sin resize CSS (misma idea que `SlideCanvasView` en presentación).
+   */
+  canvasR3fHostMeasureKey?: string;
   onCanvas3dAnimationClipNames?: (
     mediaPanelElementId: string,
     names: string[],
@@ -34,6 +39,7 @@ export function SlideRightPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
   canvasMediaElementId,
+  canvasR3fHostMeasureKey,
   onCanvas3dAnimationClipNames,
 }: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
@@ -89,12 +95,14 @@ export function SlideRightPanel({
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
           canvasMediaElementId={canvasMediaElementId}
+          hostMeasureKey={canvasR3fHostMeasureKey}
         />
       ) : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ? (
         <Canvas3DPanel
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
           canvasMediaElementId={canvasMediaElementId}
+          hostMeasureKey={canvasR3fHostMeasureKey}
           onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
         />
       ) : panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ? (

@@ -1,10 +1,12 @@
 import React, {
   Fragment,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -39,6 +41,7 @@ import {
   R3fViewportResizeToHost,
   useHostElementSize,
 } from "./r3fHostViewportSync";
+import { R3fWebglContextLossRemount } from "./R3fWebglContextLossRemount";
 
 function isScreenMaterial(mesh: THREE.Mesh, mat: THREE.Material): boolean {
   const mn = (mesh.name || "").toLowerCase();
@@ -329,6 +332,22 @@ export function Device3DViewport({
   const hostObserveKey = `${orbitScopeKey}|${hostMeasureKey ?? "static"}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
 
+  const [webglRemountGen, setWebglRemountGen] = useState(0);
+  const onWebglRemountRequest = useCallback(() => {
+    setWebglRemountGen((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    setWebglRemountGen(0);
+  }, [
+    orbitScopeKey,
+    hostMeasureKey,
+    deviceId,
+    screenMedia,
+    imageUrl,
+    videoUrl,
+  ]);
+
   const resolvedViewState =
     viewState && !presenter3dViewIsTooTightHeadOn(viewState)
       ? viewState
@@ -381,7 +400,7 @@ export function Device3DViewport({
         className,
       )}
     >
-      <Fragment key={orbitScopeKey}>
+      <Fragment key={`${orbitScopeKey}|r3f-${hostObserveKey}-${webglRemountGen}`}>
         <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
           camera={{
@@ -406,6 +425,7 @@ export function Device3DViewport({
             gl.toneMappingExposure = 0.6;
           }}
         >
+          <R3fWebglContextLossRemount onRemountRequest={onWebglRemountRequest} />
           <R3fViewportResizeToHost
             width={hostSize.width}
             height={hostSize.height}

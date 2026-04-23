@@ -13,6 +13,8 @@ export interface Canvas3DPanelProps {
   canvasPanelSlide?: Slide;
   /** Id del bloque `mediaPanel` en el lienzo (si hay varios paneles). */
   canvasMediaElementId?: string;
+  /** Lienzo: fuerza re-medición del host WebGL (p. ej. tras cambiar orden z). */
+  hostMeasureKey?: string;
   /** Lienzo: notificar nombres de clips del GLB cargado en el visor. */
   onCanvas3dAnimationClipNames?: (
     mediaPanelElementId: string,
@@ -24,6 +26,7 @@ export function Canvas3DPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
   canvasMediaElementId,
+  hostMeasureKey,
   onCanvas3dAnimationClipNames,
 }: Canvas3DPanelProps = {}) {
   const {
@@ -87,6 +90,7 @@ export function Canvas3DPanel({
           onAnimationClipNames={handleAnimationClipNames}
           onViewStateCommit={handleViewCommit}
           showInteractionHint={!embeddedInCanvas}
+          hostMeasureKey={hostMeasureKey}
           boundsMargin={
             embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined
           }

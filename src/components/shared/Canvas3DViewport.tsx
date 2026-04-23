@@ -1,4 +1,5 @@
 import React, {
+  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -33,6 +34,7 @@ import {
   R3fViewportResizeToHost,
   useHostElementSize,
 } from "./r3fHostViewportSync";
+import { R3fWebglContextLossRemount } from "./R3fWebglContextLossRemount";
 
 function disposeClonedGeometries(root: THREE.Object3D) {
   root.traverse((obj) => {
@@ -357,6 +359,15 @@ export function Canvas3DViewport({
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
   const boundsRefreshKey = `${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
 
+  const [webglRemountGen, setWebglRemountGen] = useState(0);
+  const onWebglRemountRequest = useCallback(() => {
+    setWebglRemountGen((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    setWebglRemountGen(0);
+  }, [slideId, trimmed, hostMeasureKey]);
+
   let sceneBody: ReactNode;
   if (!trimmed) {
     sceneBody = null;
@@ -408,66 +419,69 @@ export function Canvas3DViewport({
         className,
       )}
     >
-      <Canvas
-        className="absolute inset-0 h-full w-full touch-none select-none"
-        camera={{
-          position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
-            number,
-            number,
-            number,
-          ],
-          fov: 45,
-        }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          premultipliedAlpha: false,
-          preserveDrawingBuffer: true,
-        }}
-        onCreated={({ gl, scene }) => {
-          scene.background = null;
-          gl.setClearColor(0x000000, 0);
-          gl.outputColorSpace = THREE.SRGBColorSpace;
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.75;
-        }}
-      >
-        <R3fViewportResizeToHost
-          width={hostSize.width}
-          height={hostSize.height}
-          syncKey={hostObserveKey}
-        />
-        <Canvas3DOrbitControls
-          controlKey={controlKey}
-          viewState={viewState ?? null}
-          onViewCommit={onViewStateCommit}
-          disableControls={disableControls}
-          useAutoframing={viewState == null}
-        />
-        <ambientLight intensity={0.35} />
-        <directionalLight
-          position={[6, 8, 6]}
-          intensity={1.1}
-          color="#fff6ef"
-        />
-        <directionalLight
-          position={[-5, 4, -4]}
-          intensity={0.5}
-          color="#e8eefc"
-        />
-        <directionalLight
-          position={[0, 2, -8]}
-          intensity={0.35}
-          color="#ffffff"
-        />
-        {showGroundGrid ? (
-          <gridHelper args={[10, 10, 0x888888, 0x444444]} />
-        ) : null}
-        <Suspense fallback={null}>
-          <Environment preset="city" environmentIntensity={0.85} />
-          {sceneBody}
-        </Suspense>
-      </Canvas>
+      <Fragment key={`r3f-canvas3d-${hostObserveKey}-${webglRemountGen}`}>
+        <Canvas
+          className="absolute inset-0 h-full w-full touch-none select-none"
+          camera={{
+            position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
+              number,
+              number,
+              number,
+            ],
+            fov: 45,
+          }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            premultipliedAlpha: false,
+            preserveDrawingBuffer: true,
+          }}
+          onCreated={({ gl, scene }) => {
+            scene.background = null;
+            gl.setClearColor(0x000000, 0);
+            gl.outputColorSpace = THREE.SRGBColorSpace;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 0.75;
+          }}
+        >
+          <R3fWebglContextLossRemount onRemountRequest={onWebglRemountRequest} />
+          <R3fViewportResizeToHost
+            width={hostSize.width}
+            height={hostSize.height}
+            syncKey={hostObserveKey}
+          />
+          <Canvas3DOrbitControls
+            controlKey={controlKey}
+            viewState={viewState ?? null}
+            onViewCommit={onViewStateCommit}
+            disableControls={disableControls}
+            useAutoframing={viewState == null}
+          />
+          <ambientLight intensity={0.35} />
+          <directionalLight
+            position={[6, 8, 6]}
+            intensity={1.1}
+            color="#fff6ef"
+          />
+          <directionalLight
+            position={[-5, 4, -4]}
+            intensity={0.5}
+            color="#e8eefc"
+          />
+          <directionalLight
+            position={[0, 2, -8]}
+            intensity={0.35}
+            color="#ffffff"
+          />
+          {showGroundGrid ? (
+            <gridHelper args={[10, 10, 0x888888, 0x444444]} />
+          ) : null}
+          <Suspense fallback={null}>
+            <Environment preset="city" environmentIntensity={0.85} />
+            {sceneBody}
+          </Suspense>
+        </Canvas>
+      </Fragment>
       {!trimmed && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-stone-500 dark:text-stone-400">
           Indica una URL de modelo .glb o sube un archivo desde el inspector o este panel.

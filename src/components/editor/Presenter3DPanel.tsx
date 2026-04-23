@@ -27,12 +27,15 @@ export interface Presenter3DPanelProps {
   canvasPanelSlide?: Slide;
   /** Id del bloque `mediaPanel` en el lienzo (varios presentadores en un mismo slide). */
   canvasMediaElementId?: string;
+  /** Lienzo: fuerza re-medición del host WebGL (p. ej. tras cambiar orden z). */
+  hostMeasureKey?: string;
 }
 
 export function Presenter3DPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
   canvasMediaElementId,
+  hostMeasureKey,
 }: Presenter3DPanelProps = {}) {
   const {
     currentSlide,
@@ -258,6 +261,7 @@ export function Presenter3DPanel({
           videoUrl={textureVideoUrl}
           viewState={orbitViewState}
           onViewStateCommit={handleViewCommit}
+          hostMeasureKey={hostMeasureKey}
           boundsMargin={
             embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined
           }

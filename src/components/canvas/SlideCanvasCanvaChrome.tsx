@@ -5,6 +5,7 @@ import {
   Copy,
   Italic,
   Link2,
+  Lock,
   Minus,
   Moon,
   MoreHorizontal,
@@ -16,6 +17,7 @@ import {
   Sun,
   Trash2,
   Type,
+  Unlock,
   UnfoldVertical,
   Upload,
   Video,
@@ -27,7 +29,10 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
+  type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { LANGUAGES } from "../../constants/languages";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -39,6 +44,7 @@ import { Canvas3dMeshyAiModal } from "../editor/Canvas3dMeshyAiModal";
 import { Canvas3dTransformModal } from "../editor/Canvas3dTransformModal";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
+import type { SlideCanvasRect } from "../../domain/entities/SlideCanvas";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
 import {
   slideCanvasToolbarIconBtnClass,
@@ -72,8 +78,18 @@ export interface SlideCanvasCanvaChromeProps {
   onResizeEdge: (edge: ResizeEdge, e: React.PointerEvent) => void;
   onRotatePointerDown: (e: React.PointerEvent) => void;
   showResize?: boolean;
+  /** Si es true, se ocultan asas de redimensionar y el control de rotación. */
+  isTransformLocked?: boolean;
   /** Cambia al mover/redimensionar el bloque para recolocar el toolbar (evita corte con `overflow-hidden` del slide). */
   layoutDigest?: string;
+  /**
+   * Contenedor del portal: el cromo (marco + toolbar) se pinta aquí con z alto
+   * para quedar por encima del resto de bloques del lienzo.
+   */
+  chromePortalContainerRef?: RefObject<HTMLElement | null>;
+  chromeAnchorRect?: SlideCanvasRect;
+  chromeAnchorElementId?: string;
+  slideShellRef?: RefObject<HTMLElement | null>;
   toolbar?: {
     showAi?: boolean;
     onAi?: () => void;
@@ -86,8 +102,15 @@ export interface SlideCanvasCanvaChromeProps {
     onEdit?: () => void;
     onDuplicate?: () => void;
     onDelete?: () => void;
-    onBringForward?: () => void;
-    onSendBackward?: () => void;
+    /** Subir una posición respecto al elemento inmediatamente superior. */
+    onBringForwardOneStep?: () => void;
+    /** Bajar una posición respecto al elemento inmediatamente inferior. */
+    onSendBackwardOneStep?: () => void;
+    onBringToFront?: () => void;
+    onSendToBack?: () => void;
+    onToggleLock?: () => void;
+    isLocked?: boolean;
+    layerStack?: { index: number; count: number };
     /** Controles del panel de código en el lienzo (bloque mediaPanel + contentType code). */
     codeActions?: {
       fontSize: number;
@@ -137,7 +160,12 @@ export function SlideCanvasCanvaChrome({
   onResizeEdge,
   onRotatePointerDown,
   showResize = true,
+  isTransformLocked = false,
   layoutDigest,
+  chromePortalContainerRef,
+  chromeAnchorRect,
+  chromeAnchorElementId,
+  slideShellRef,
   toolbar,
 }: SlideCanvasCanvaChromeProps) {
   const {
@@ -169,6 +197,43 @@ export function SlideCanvasCanvaChrome({
     return () => document.removeEventListener("mousedown", close);
   }, [moreOpen]);
 
+  const portalChromeActive = Boolean(
+    chromePortalContainerRef &&
+      chromeAnchorRect &&
+      chromeAnchorElementId &&
+      slideShellRef,
+  );
+
+  const [chromePortalHost, setChromePortalHost] =
+    useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!portalChromeActive || !chromePortalContainerRef) {
+      setChromePortalHost(null);
+      return;
+    }
+    setChromePortalHost(chromePortalContainerRef.current);
+  }, [
+    portalChromeActive,
+    chromePortalContainerRef,
+    layoutDigest,
+    chromeAnchorRect,
+    chromeAnchorElementId,
+  ]);
+
+  const portalChromeWrapperStyle: CSSProperties | undefined =
+    portalChromeActive &&
+    chromePortalHost != null &&
+    chromeAnchorRect != null
+      ? {
+          position: "absolute",
+          left: `${chromeAnchorRect.x}%`,
+          top: `${chromeAnchorRect.y}%`,
+          width: `${chromeAnchorRect.w}%`,
+          height: `${chromeAnchorRect.h}%`,
+        }
+      : undefined;
+
   useLayoutEffect(() => {
     if (!toolbar) return;
     const root = chromeRootRef.current;
@@ -177,8 +242,15 @@ export function SlideCanvasCanvaChrome({
     const measure = () => {
       const r = chromeRootRef.current;
       if (!r) return;
-      const block = r.closest("[data-slide-canvas-el]") as HTMLElement | null;
-      const slide = r.closest("#slide-container") as HTMLElement | null;
+      const slide =
+        slideShellRef?.current ??
+        (r.closest("[data-slide-editor-root]") as HTMLElement | null) ??
+        (r.closest("#slide-container") as HTMLElement | null);
+      const block = portalChromeActive
+        ? (slide?.querySelector(
+            `[data-canvas-element-id="${chromeAnchorElementId}"]`,
+          ) as HTMLElement | null)
+        : (r.closest("[data-slide-canvas-el]") as HTMLElement | null);
       if (!block || !slide) {
         setToolbarPlacement("inside");
         return;
@@ -202,8 +274,15 @@ export function SlideCanvasCanvaChrome({
 
     measure();
     const ro = new ResizeObserver(measure);
-    const block = root.closest("[data-slide-canvas-el]") as HTMLElement | null;
-    const slide = root.closest("#slide-container") as HTMLElement | null;
+    const slide =
+      slideShellRef?.current ??
+      (root.closest("[data-slide-editor-root]") as HTMLElement | null) ??
+      (root.closest("#slide-container") as HTMLElement | null);
+    const block = portalChromeActive
+      ? (slide?.querySelector(
+          `[data-canvas-element-id="${chromeAnchorElementId}"]`,
+        ) as HTMLElement | null)
+      : (root.closest("[data-slide-canvas-el]") as HTMLElement | null);
     if (block) ro.observe(block);
     if (slide) ro.observe(slide);
     window.addEventListener("resize", measure);
@@ -211,7 +290,13 @@ export function SlideCanvasCanvaChrome({
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [toolbar, layoutDigest]);
+  }, [
+    toolbar,
+    layoutDigest,
+    portalChromeActive,
+    chromeAnchorElementId,
+    slideShellRef,
+  ]);
 
   /** Solo `stopPropagation`: `preventDefault` en pointerdown puede impedir el `click` (p. ej. tema del editor). */
   const stop = useCallback((e: React.PointerEvent) => {
@@ -222,9 +307,26 @@ export function SlideCanvasCanvaChrome({
   const edges: ResizeEdge[] = ["n", "s", "e", "w"];
 
   const canvas3d = toolbar?.canvas3dSource;
+  const layerCtx = toolbar?.layerStack;
+  const layerAtFront =
+    layerCtx != null &&
+    layerCtx.count > 0 &&
+    layerCtx.index >= layerCtx.count - 1;
+  const layerAtBack =
+    layerCtx != null && layerCtx.count > 0 && layerCtx.index <= 0;
+  const showLayerMoreMenu = Boolean(
+    toolbar?.onBringForwardOneStep ||
+      toolbar?.onSendBackwardOneStep ||
+      toolbar?.onBringToFront ||
+      toolbar?.onSendToBack ||
+      toolbar?.onToggleLock,
+  );
+  const layerMenuItemClass =
+    "block w-full px-3 py-2 text-left text-stone-700 hover:bg-stone-50 dark:text-stone-200 dark:hover:bg-stone-800";
+  const layerMenuItemDisabledClass =
+    "cursor-not-allowed opacity-45 hover:bg-transparent dark:hover:bg-transparent";
 
-  return (
-    <>
+  const chromeMain = (
     <div
       ref={chromeRootRef}
       className="pointer-events-none absolute inset-0 z-50"
@@ -618,12 +720,12 @@ export function SlideCanvasCanvaChrome({
                 <Trash2 size={16} strokeWidth={2} />
               </button>
             ) : null}
-            {(toolbar.onBringForward || toolbar.onSendBackward) && (
+            {showLayerMoreMenu ? (
               <div className="relative" ref={moreRef}>
                 <button
                   type="button"
                   className={slideCanvasToolbarIconBtnClass}
-                  title="Más"
+                  title="Capas y bloqueo"
                   onPointerDown={stop}
                   onClick={() => setMoreOpen((o) => !o)}
                 >
@@ -631,43 +733,115 @@ export function SlideCanvasCanvaChrome({
                 </button>
                 {moreOpen ? (
                   <div
-                    className="absolute right-0 top-full z-40 mt-1 min-w-[160px] rounded-lg border border-stone-200 bg-white py-1 text-sm shadow-xl dark:border-stone-600 dark:bg-stone-900"
+                    className="absolute right-0 top-full z-40 mt-1 min-w-[220px] rounded-lg border border-stone-200 bg-white py-1 text-sm shadow-xl dark:border-stone-600 dark:bg-stone-900"
                     data-slide-canvas-chrome=""
                   >
-                    {toolbar.onBringForward ? (
+                    {toolbar.onBringForwardOneStep ? (
                       <button
                         type="button"
-                        className="block w-full px-3 py-2 text-left text-stone-700 hover:bg-stone-50 dark:text-stone-200 dark:hover:bg-stone-800"
+                        disabled={layerAtFront}
+                        className={cn(
+                          layerMenuItemClass,
+                          layerAtFront && layerMenuItemDisabledClass,
+                        )}
                         onClick={() => {
-                          toolbar.onBringForward?.();
+                          if (layerAtFront) return;
+                          toolbar.onBringForwardOneStep?.();
+                          setMoreOpen(false);
+                        }}
+                      >
+                        Traer adelante (una capa)
+                      </button>
+                    ) : null}
+                    {toolbar.onSendBackwardOneStep ? (
+                      <button
+                        type="button"
+                        disabled={layerAtBack}
+                        className={cn(
+                          layerMenuItemClass,
+                          layerAtBack && layerMenuItemDisabledClass,
+                        )}
+                        onClick={() => {
+                          if (layerAtBack) return;
+                          toolbar.onSendBackwardOneStep?.();
+                          setMoreOpen(false);
+                        }}
+                      >
+                        Enviar atrás (una capa)
+                      </button>
+                    ) : null}
+                    {toolbar.onBringToFront ? (
+                      <button
+                        type="button"
+                        disabled={layerAtFront}
+                        className={cn(
+                          layerMenuItemClass,
+                          layerAtFront && layerMenuItemDisabledClass,
+                        )}
+                        onClick={() => {
+                          if (layerAtFront) return;
+                          toolbar.onBringToFront?.();
                           setMoreOpen(false);
                         }}
                       >
                         Traer al frente
                       </button>
                     ) : null}
-                    {toolbar.onSendBackward ? (
+                    {toolbar.onSendToBack ? (
                       <button
                         type="button"
-                        className="block w-full px-3 py-2 text-left text-stone-700 hover:bg-stone-50 dark:text-stone-200 dark:hover:bg-stone-800"
+                        disabled={layerAtBack}
+                        className={cn(
+                          layerMenuItemClass,
+                          layerAtBack && layerMenuItemDisabledClass,
+                        )}
                         onClick={() => {
-                          toolbar.onSendBackward?.();
+                          if (layerAtBack) return;
+                          toolbar.onSendToBack?.();
                           setMoreOpen(false);
                         }}
                       >
-                        Enviar atrás
+                        Enviar al fondo
                       </button>
+                    ) : null}
+                    {toolbar.onToggleLock ? (
+                      <>
+                        <div
+                          className="my-1 h-px bg-stone-200 dark:bg-stone-600"
+                          aria-hidden
+                        />
+                        <button
+                          type="button"
+                          className={cn(
+                            layerMenuItemClass,
+                            "flex items-center gap-2",
+                          )}
+                          onClick={() => {
+                            toolbar.onToggleLock?.();
+                            setMoreOpen(false);
+                          }}
+                        >
+                          {toolbar.isLocked ? (
+                            <Unlock size={16} strokeWidth={2} aria-hidden />
+                          ) : (
+                            <Lock size={16} strokeWidth={2} aria-hidden />
+                          )}
+                          {toolbar.isLocked
+                            ? "Desbloquear panel"
+                            : "Bloquear panel"}
+                        </button>
+                      </>
                     ) : null}
                   </div>
                 ) : null}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
 
       {/* Handles en las 4 esquinas */}
-      {showResize
+      {showResize && !isTransformLocked
         ? corners.map((c) => (
             <button
               key={c}
@@ -692,7 +866,7 @@ export function SlideCanvasCanvaChrome({
         : null}
 
       {/* Handles en el centro de cada lado */}
-      {showResize
+      {showResize && !isTransformLocked
         ? edges.map((edge) => (
             <button
               key={edge}
@@ -727,27 +901,46 @@ export function SlideCanvasCanvaChrome({
         : null}
 
       {/* Rotar debajo del bloque (mover = arrastrar el propio elemento) */}
-      <div
-        className={cn(
-          "pointer-events-auto absolute left-1/2 top-full z-[60] flex -translate-x-1/2 justify-center",
-          toolbar && toolbarPlacement === "below" ? "mt-[52px]" : "mt-2",
-        )}
-        data-slide-canvas-chrome=""
-      >
-        <button
-          type="button"
-          className={transformCircle}
-          title="Rotar"
-          aria-label="Rotar bloque"
-          onPointerDown={(e) => {
-            stop(e);
-            onRotatePointerDown(e);
-          }}
+      {!isTransformLocked ? (
+        <div
+          className={cn(
+            "pointer-events-auto absolute left-1/2 top-full z-[60] flex -translate-x-1/2 justify-center",
+            toolbar && toolbarPlacement === "below" ? "mt-[52px]" : "mt-2",
+          )}
+          data-slide-canvas-chrome=""
         >
-          <RotateCw size={18} strokeWidth={2} />
-        </button>
-      </div>
+          <button
+            type="button"
+            className={transformCircle}
+            title="Rotar"
+            aria-label="Rotar bloque"
+            onPointerDown={(e) => {
+              stop(e);
+              onRotatePointerDown(e);
+            }}
+          >
+            <RotateCw size={18} strokeWidth={2} />
+          </button>
+        </div>
+      ) : null}
     </div>
+  );
+
+  return (
+    <>
+      {portalChromeActive &&
+      chromePortalHost != null &&
+      portalChromeWrapperStyle != null
+        ? createPortal(
+            <div
+              className="pointer-events-none absolute box-border overflow-visible"
+              style={portalChromeWrapperStyle}
+            >
+              {chromeMain}
+            </div>,
+            chromePortalHost,
+          )
+        : chromeMain}
     {canvas3d ? (
       <>
         <Canvas3dUrlModal
