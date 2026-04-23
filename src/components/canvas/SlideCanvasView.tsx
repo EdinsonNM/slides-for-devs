@@ -50,6 +50,8 @@ import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
+import { useThemeOptional } from "../../context/ThemeContext";
+import type { MapboxCanvasAppearance } from "../shared/SlideMapboxCanvas";
 
 const { Alignment, Fit, Layout } = RiveReact;
 
@@ -256,11 +258,14 @@ function CanvasElementReadOnly({
   slide,
   deckContentTone,
   r3fHostMeasureKey,
+  mapAppearance = "light",
 }: {
   element: SlideCanvasElement;
   slide: Slide;
   deckContentTone: DeckContentTone;
   r3fHostMeasureKey?: string;
+  /** Cielo / niebla Mapbox según tema de la app. */
+  mapAppearance?: MapboxCanvasAppearance;
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -505,6 +510,7 @@ function CanvasElementReadOnly({
               key={`${slide.id}-map`}
               mapData={parseSlideMapData(slide.mapData)}
               accessToken={MAPBOX_ENV_TOKEN}
+              appearance={mapAppearance}
               readOnly
               persistViewportOnMoveEnd={false}
               registerViewportCaptureBridge={false}
@@ -525,6 +531,10 @@ export function SlideCanvasView({
   deckContentTone = "dark",
   r3fHostMeasureKey,
 }: SlideCanvasViewProps) {
+  const theme = useThemeOptional();
+  const mapAppearance: MapboxCanvasAppearance = theme?.isDark
+    ? "dark"
+    : "light";
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
@@ -538,6 +548,7 @@ export function SlideCanvasView({
           slide={ensured}
           deckContentTone={deckContentTone}
           r3fHostMeasureKey={r3fHostMeasureKey}
+          mapAppearance={mapAppearance}
         />
       ))}
     </div>

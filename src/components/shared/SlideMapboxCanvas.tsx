@@ -5,14 +5,122 @@ import type { SlideMapData, SlideMapRoute } from "../../domain/entities/SlideMap
 import { registerMapSlideViewportCapture } from "../../map/mapSlideCaptureBridge";
 import { cn } from "../../utils/cn";
 
+export type MapboxCanvasAppearance = "light" | "dark";
+
 export type SlideMapboxViewport = Pick<
   SlideMapData,
   "center" | "zoom" | "bearing" | "pitch"
 >;
 
+const SLIDE_MAPBOX_SKY_LAYER = "slide-mapbox-sky";
+
+function findBeforeIdForSky(map: mapboxgl.Map): string | undefined {
+  const style = map.getStyle();
+  if (!style?.layers?.length) return undefined;
+  for (const layer of style.layers) {
+    if (layer.type === "symbol") return layer.id;
+  }
+  return style.layers[0]?.id;
+}
+
+function applyMapAtmosphere(map: mapboxgl.Map, appearance: MapboxCanvasAppearance) {
+  if (!map.isStyleLoaded()) return;
+  const dark = appearance === "dark";
+  try {
+    map.setFog(
+      dark
+        ? {
+            range: [-0.5, 2.6],
+            color: "rgb(22, 30, 52)",
+            "high-color": "rgb(14, 20, 42)",
+            "space-color": "rgb(6, 10, 26)",
+            "horizon-blend": 0.38,
+            "star-intensity": 0.14,
+          }
+        : {
+            range: [-0.5, 2.6],
+            color: "rgb(190, 208, 232)",
+            "high-color": "rgb(120, 175, 228)",
+            "space-color": "rgb(214, 228, 248)",
+            "horizon-blend": 0.26,
+            "star-intensity": 0,
+          },
+    );
+  } catch {
+    /* Estilos que no soportan niebla: se ignora. */
+  }
+
+  const sun: [number, number] = dark ? [0, -12] : [0, 78];
+  const sunIntensity = dark ? 6 : 18;
+  const atmosphereColor = dark ? "rgb(28, 36, 58)" : "rgb(130, 175, 225)";
+  const haloColor = dark ? "rgb(55, 72, 108)" : "rgb(190, 215, 245)";
+
+  if (!map.getLayer(SLIDE_MAPBOX_SKY_LAYER)) {
+    const beforeId = findBeforeIdForSky(map);
+    try {
+      map.addLayer(
+        {
+          id: SLIDE_MAPBOX_SKY_LAYER,
+          type: "sky",
+          paint: {
+            "sky-type": "atmosphere",
+            "sky-atmosphere-sun": sun,
+            "sky-atmosphere-sun-intensity": sunIntensity,
+            "sky-atmosphere-color": atmosphereColor,
+            "sky-atmosphere-halo-color": haloColor,
+          },
+        },
+        beforeId,
+      );
+    } catch {
+      /* WebGL/estilo sin capa sky */
+    }
+  } else {
+    try {
+      map.setPaintProperty(SLIDE_MAPBOX_SKY_LAYER, "sky-type", "atmosphere");
+      map.setPaintProperty(SLIDE_MAPBOX_SKY_LAYER, "sky-atmosphere-sun", sun);
+      map.setPaintProperty(
+        SLIDE_MAPBOX_SKY_LAYER,
+        "sky-atmosphere-sun-intensity",
+        sunIntensity,
+      );
+      map.setPaintProperty(
+        SLIDE_MAPBOX_SKY_LAYER,
+        "sky-atmosphere-color",
+        atmosphereColor,
+      );
+      map.setPaintProperty(
+        SLIDE_MAPBOX_SKY_LAYER,
+        "sky-atmosphere-halo-color",
+        haloColor,
+      );
+    } catch {
+      /* capa presente pero sin pintura compatible */
+    }
+  }
+}
+
+/**
+ * Mercator se ve como un plano inclinado; con globo se puede orbitar y “girar el mundo”
+ * de forma continua. Si el estilo/entorno no lo soporta, se ignora.
+ */
+function trySetGlobeProjection(map: mapboxgl.Map) {
+  if (!map.isStyleLoaded()) return;
+  try {
+    map.setProjection("globe");
+  } catch {
+    /* sin WebGL2 o estilo incompatible */
+  }
+}
+
 export interface SlideMapboxCanvasProps {
   mapData: SlideMapData;
   accessToken: string;
+  /**
+   * Apariencia del cielo y niebla; se alinea con el tema de la app (claro/oscuro).
+   * @default "light"
+   */
+  appearance?: MapboxCanvasAppearance;
   /**
    * No persiste cambios de cámara (panel «capturar» / desplazamiento) ni registra
    * el bridge del inspector. En presentador/vista previa suele ir a `true`.
@@ -131,9 +239,12 @@ export function SlideMapboxCanvas({
   onPersistViewport,
   registerViewportCaptureBridge = false,
   className,
+  appearance: appearanceProp = "light",
 }: SlideMapboxCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const appearanceRef = useRef<MapboxCanvasAppearance>(appearanceProp);
+  appearanceRef.current = appearanceProp;
   const markersByIdRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const styleUrlRef = useRef<string>("");
   const programmaticRef = useRef(false);
@@ -190,6 +301,10 @@ export function SlideMapboxCanvas({
       pitch: mapData.pitch ?? 0,
       interactive: mapInteractive,
       attributionControl: true,
+      /* Rotación e inclinación: máximo pitch permitido; sin snap al norte. */
+      maxPitch: 85,
+      pitchWithRotate: true,
+      bearingSnap: 0,
     });
     mapRef.current = map;
     styleUrlRef.current = mapData.styleUrl;
@@ -203,6 +318,8 @@ export function SlideMapboxCanvas({
     const paint = () => {
       syncRoutes(map, mapData.routes);
       syncMarkers(map, mapData.markers, markersByIdRef.current);
+      applyMapAtmosphere(map, appearanceRef.current);
+      trySetGlobeProjection(map);
     };
 
     map.on("load", paint);
@@ -280,6 +397,8 @@ export function SlideMapboxCanvas({
       map.setStyle(mapData.styleUrl);
       map.once("style.load", () => {
         applyGeometry();
+        applyMapAtmosphere(map, appearanceRef.current);
+        trySetGlobeProjection(map);
         lastGeometrySigRef.current = geometrySig;
         applyCamera();
         lastViewportSigRef.current = viewportSig;
@@ -296,6 +415,14 @@ export function SlideMapboxCanvas({
       runWhenStyleReady(applyCamera);
     }
   }, [mapData]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const run = () => applyMapAtmosphere(map, appearanceProp);
+    if (map.isStyleLoaded()) run();
+    else map.once("style.load", run);
+  }, [appearanceProp]);
 
   useEffect(() => {
     if (readOnly || !registerViewportCaptureBridge) {
