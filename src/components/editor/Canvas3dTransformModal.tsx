@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Box, Move3d, RotateCw } from "lucide-react";
+import { Box, Move3d, RotateCw, Settings2 } from "lucide-react";
 import { BaseModal } from "../modals/BaseModal";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
+import { Canvas3dAnimationClipSelect } from "./Canvas3dAnimationClipSelect";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import { DEFAULT_CANVAS_3D_MODEL_TRANSFORM } from "../../utils/canvas3dModelTransform";
@@ -17,6 +18,8 @@ export interface Canvas3dTransformModalProps {
   viewState?: Presenter3dViewState | null;
   modelTransform?: Canvas3dModelTransform | null;
   animationClipName?: string;
+  animationClipNames?: string[];
+  onAnimationClipChange?: (clipName: string | undefined) => void;
   onModelTransformCommit: (next: Canvas3dModelTransform) => void;
 }
 
@@ -28,6 +31,8 @@ export function Canvas3dTransformModal({
   viewState,
   modelTransform,
   animationClipName,
+  animationClipNames = [],
+  onAnimationClipChange,
   onModelTransformCommit,
 }: Canvas3dTransformModalProps) {
   const [draft, setDraft] = useState<Canvas3dModelTransform>(
@@ -45,11 +50,11 @@ export function Canvas3dTransformModal({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Ajustar centro del modelo"
-      subtitle="Usa el gizmo para mover o rotar el modelo 3D y fijar su centro visual."
+      title="Configurar modelo"
+      subtitle="Centro con el gizmo (mover / rotar), animación GLB y vista previa."
       icon={
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-          <Move3d size={20} />
+          <Settings2 size={20} />
         </div>
       }
       className="max-w-5xl"
@@ -97,6 +102,16 @@ export function Canvas3dTransformModal({
             Reset
           </button>
         </div>
+        {animationClipNames.length > 0 && onAnimationClipChange ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Canvas3dAnimationClipSelect
+              clipNames={animationClipNames}
+              value={animationClipName}
+              onChange={onAnimationClipChange}
+              className="max-w-full sm:max-w-[min(100%,14rem)]"
+            />
+          </div>
+        ) : null}
         <div className="h-[58vh] min-h-[360px] rounded-xl border border-stone-200 dark:border-border">
           <Canvas3DViewport
             slideId={slideId}

@@ -1,7 +1,7 @@
 import {
   Bold,
   Box,
-  Crosshair,
+  Settings2,
   Copy,
   Italic,
   Link2,
@@ -37,7 +37,6 @@ import {
 } from "../editor/Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "../editor/Canvas3dMeshyAiModal";
 import { Canvas3dTransformModal } from "../editor/Canvas3dTransformModal";
-import { Canvas3dAnimationClipSelect } from "../editor/Canvas3dAnimationClipSelect";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { ResizeCorner, ResizeEdge } from "./slideCanvasResize";
@@ -567,12 +566,12 @@ export function SlideCanvasCanvaChrome({
                 <button
                   type="button"
                   className={slideCanvasToolbarIconBtnClass}
-                  title="Ajustar centro del modelo"
-                  aria-label="Ajustar centro del modelo"
+                  title="Configurar modelo (centro y animación)"
+                  aria-label="Configurar modelo"
                   onPointerDown={stop}
                   onClick={() => setCanvas3dTransformModalOpen(true)}
                 >
-                  <Crosshair size={16} strokeWidth={2} aria-hidden />
+                  <Settings2 size={16} strokeWidth={2} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -588,17 +587,6 @@ export function SlideCanvasCanvaChrome({
                 >
                   <RotateCcw size={16} strokeWidth={2} aria-hidden />
                 </button>
-                <Canvas3dAnimationClipSelect
-                  clipNames={canvas3d.animationClipNames}
-                  value={canvas3d.animationClipValue}
-                  onChange={(v) =>
-                    setCurrentSlideCanvas3dAnimationClipName(
-                      v,
-                      canvas3d.mediaPanelElementId,
-                    )
-                  }
-                  className="max-w-[min(100%,14rem)] shrink rounded-md border border-stone-200 bg-white/95 px-1.5 py-0.5 shadow-sm backdrop-blur-sm dark:border-border dark:bg-stone-900/90"
-                />
                 <div
                   className="mx-0.5 h-5 w-px shrink-0 bg-stone-200 dark:bg-stone-600"
                   aria-hidden
@@ -786,6 +774,13 @@ export function SlideCanvasCanvaChrome({
           viewState={canvas3d.viewState}
           modelTransform={canvas3d.modelTransform}
           animationClipName={canvas3d.animationClipValue}
+          animationClipNames={canvas3d.animationClipNames}
+          onAnimationClipChange={(v) =>
+            setCurrentSlideCanvas3dAnimationClipName(
+              v,
+              canvas3d.mediaPanelElementId,
+            )
+          }
           onModelTransformCommit={(next) =>
             setCurrentSlideCanvas3dModelTransform(
               next,

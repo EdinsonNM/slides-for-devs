@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Box, Crosshair, Link2, RotateCcw, Upload } from "lucide-react";
+import { Box, Link2, RotateCcw, Settings2, Upload } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
@@ -8,7 +8,6 @@ import {
 } from "./Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "./Canvas3dMeshyAiModal";
 import { Canvas3dTransformModal } from "./Canvas3dTransformModal";
-import { Canvas3dAnimationClipSelect } from "./Canvas3dAnimationClipSelect";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 
@@ -125,13 +124,13 @@ export function Canvas3dModelSourceActions({
         <button
           type="button"
           className={overlayBtn}
-          title="Abrir modal para mover/rotar el centro del modelo"
+          title="Configurar modelo (centro, rotación y animación GLB)"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setTransformModalOpen(true)}
         >
           <span className="inline-flex items-center gap-1">
-            <Crosshair size={14} aria-hidden />
-            Centro
+            <Settings2 size={14} aria-hidden />
+            Configurar
           </span>
         </button>
         <button
@@ -148,14 +147,6 @@ export function Canvas3dModelSourceActions({
             Vista
           </span>
         </button>
-        <Canvas3dAnimationClipSelect
-          clipNames={animationClipNames}
-          value={animationClipValue}
-          onChange={(v) =>
-            setCurrentSlideCanvas3dAnimationClipName(v, canvasMediaElementId)
-          }
-          className="rounded-lg border border-stone-200 bg-white/95 px-2 py-1 shadow-sm backdrop-blur-sm dark:border-border dark:bg-stone-900/90"
-        />
       </div>
 
       <Canvas3dUrlModal
@@ -180,6 +171,10 @@ export function Canvas3dModelSourceActions({
         viewState={viewState}
         modelTransform={modelTransform}
         animationClipName={animationClipValue}
+        animationClipNames={animationClipNames}
+        onAnimationClipChange={(v) =>
+          setCurrentSlideCanvas3dAnimationClipName(v, canvasMediaElementId)
+        }
         onModelTransformCommit={(next) =>
           setCurrentSlideCanvas3dModelTransform(next, canvasMediaElementId)
         }
