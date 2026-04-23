@@ -56,7 +56,14 @@ export type MindMapCanvasController = {
 };
 
 export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCanvasController {
-  const { data, onChange, readOnly = false, className, slideTextOverlayToolbar, onEditorSurfacePointerDown } = props;
+  const {
+    data,
+    onChange,
+    readOnly = false,
+    className,
+    slideTextOverlayToolbar,
+    onEditorSurfacePointerDown,
+  } = props;
   
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);

@@ -67,7 +67,7 @@ function PreviewDiagram() {
 
 function PreviewIsometricFlow() {
   return (
-    <div className="w-full aspect-video bg-linear-to-br from-slate-50 to-sky-50/80 dark:from-stone-900 dark:to-sky-950/40 border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col items-center justify-center gap-1.5 p-2">
+    <div className="w-full aspect-video bg-linear-to-br from-[rgb(246_246_246)] to-[rgb(245_245_240)] dark:from-[rgb(28_28_28)] dark:to-[rgb(23_23_23)] border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col items-center justify-center gap-1.5 p-2">
       <div className="flex items-end justify-center -space-x-1">
         <div
           className="h-3 w-3.5 rounded-[2px] bg-sky-400/90 shadow-sm dark:bg-sky-600"
@@ -162,11 +162,11 @@ function PreviewMindMap() {
 
 function PreviewMaps() {
   return (
-    <div className="w-full aspect-video rounded-lg border border-stone-200 bg-sky-100/80 dark:border-border dark:bg-sky-950/50 overflow-hidden relative">
-      <div className="absolute inset-0 opacity-40 bg-[linear-gradient(105deg,transparent_45%,#0ea5e9_48%,transparent_52%)]" />
-      <div className="absolute bottom-2 left-2 right-2 top-6 rounded border border-sky-300/60 bg-sky-50/90 dark:border-sky-700/50 dark:bg-sky-900/40 flex items-end justify-center gap-3 pb-2">
-        <MapIcon className="w-4 h-4 text-sky-600 dark:text-sky-400" strokeWidth={2} />
-        <div className="h-1 w-8 rounded-full bg-sky-500/50" />
+    <div className="w-full aspect-video rounded-lg border border-stone-200 bg-stone-100/90 dark:border-border dark:bg-background overflow-hidden relative">
+      <div className="absolute inset-0 opacity-35 bg-[linear-gradient(105deg,transparent_45%,rgb(20_184_166/0.35)_48%,transparent_52%)] dark:opacity-25" />
+      <div className="absolute bottom-2 left-2 right-2 top-6 rounded border border-stone-300/70 bg-white/90 dark:border-border dark:bg-surface-elevated/60 flex items-end justify-center gap-3 pb-2">
+        <MapIcon className="w-4 h-4 text-emerald-700 dark:text-emerald-400" strokeWidth={2} />
+        <div className="h-1 w-8 rounded-full bg-stone-400/50 dark:bg-stone-500/45" />
         <div className="size-2 rounded-full bg-emerald-500 shadow-sm" />
       </div>
     </div>

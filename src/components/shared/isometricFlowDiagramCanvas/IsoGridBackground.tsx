@@ -21,11 +21,11 @@ export function IsoGridBackground({
     const out: ReactNode[] = [];
     const stroke =
       diagramChrome === "dark"
-        ? "rgba(148, 163, 184, 0.22)"
+        ? "rgba(82, 82, 82, 0.28)"
         : "rgba(148, 163, 184, 0.45)";
     const strokeDark =
       diagramChrome === "dark"
-        ? "rgba(100, 116, 139, 0.2)"
+        ? "rgba(64, 64, 64, 0.24)"
         : "rgba(100, 116, 139, 0.35)";
     for (let k = gx0; k <= gx1; k++) {
       const a = isoGridToCanvas(k, gy0, cell, ox, oy);

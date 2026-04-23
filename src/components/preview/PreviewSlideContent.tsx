@@ -140,8 +140,10 @@ export function PreviewSlideContent({
                 ? "h-full w-full min-h-0 flex-1"
                 : "aspect-video max-h-full flex-1",
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
-            (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
-              "bg-slate-50 dark:bg-slate-950",
+            (isIsometricSlide ||
+              slide.type === SLIDE_TYPE.MAPS ||
+              slide.type === SLIDE_TYPE.MIND_MAP) &&
+              "bg-background",
           )}
         >
           {!hideDeckBackdropBehindCanvas && !isFullscreen && (
@@ -190,8 +192,10 @@ export function PreviewSlideContent({
             ? "h-full w-full min-h-0 flex-1"
             : "aspect-video max-h-full flex-1",
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
-          (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
-            "bg-slate-50 dark:bg-slate-950",
+          (isIsometricSlide ||
+            slide.type === SLIDE_TYPE.MAPS ||
+            slide.type === SLIDE_TYPE.MIND_MAP) &&
+            "bg-background",
         )}
       >
         {!hideDeckBackdropBehindCanvas && !isFullscreen && (

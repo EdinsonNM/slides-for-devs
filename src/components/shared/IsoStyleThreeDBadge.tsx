@@ -44,7 +44,7 @@ export function IsoStyleThreeDBadge({
   iconClassName,
 }: IsoStyleThreeDBadgeProps) {
   const shell = cn(
-    "h-full w-full min-h-0 min-w-0 overflow-hidden bg-linear-to-br from-sky-50 to-stone-50 dark:from-sky-950/40 dark:to-stone-800",
+    "h-full w-full min-h-0 min-w-0 overflow-hidden bg-linear-to-br from-[rgb(250_250_248)] to-[rgb(245_245_240)] dark:from-[rgb(32_32_32)] dark:to-[rgb(23_23_23)]",
     borderless ? "rounded-sm" : "rounded border border-dashed border-stone-200 dark:border-stone-600",
     className,
   );

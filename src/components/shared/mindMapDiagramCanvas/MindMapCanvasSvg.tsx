@@ -192,8 +192,11 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
     [handlePointerDownNode],
   );
 
-  const gridStroke = "rgb(100 116 139 / 0.2)";
-  const gridStrokeDark = "rgb(148 163 184 / 0.22)";
+  /* Alineado con `IsoGridBackground` (rejilla isométrica). */
+  const gridStroke = "rgba(148, 163, 184, 0.45)";
+  const gridStrokeAlt = "rgba(100, 116, 139, 0.35)";
+  const gridStrokeDark = "rgba(148, 163, 184, 0.22)";
+  const gridStrokeDarkAlt = "rgba(100, 116, 139, 0.2)";
 
   return (
     <div ref={wrapRef} className="absolute inset-0 select-none touch-none overflow-hidden">
@@ -211,10 +214,12 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
             <stop offset="55%" stopColor="rgba(255,255,255,0)" />
           </radialGradient>
           <pattern id="mm-grid" width={100} height={100} patternUnits="userSpaceOnUse">
-            <path d="M 100 0 L 100 100 M 0 100 L 100 100" fill="none" stroke={gridStroke} strokeWidth={1} />
+            <path d="M 100 0 L 100 100" fill="none" stroke={gridStroke} strokeWidth={1} />
+            <path d="M 0 100 L 100 100" fill="none" stroke={gridStrokeAlt} strokeWidth={1} />
           </pattern>
           <pattern id="mm-grid-dark" width={100} height={100} patternUnits="userSpaceOnUse">
-            <path d="M 100 0 L 100 100 M 0 100 L 100 100" fill="none" stroke={gridStrokeDark} strokeWidth={1} />
+            <path d="M 100 0 L 100 100" fill="none" stroke={gridStrokeDark} strokeWidth={1} />
+            <path d="M 0 100 L 100 100" fill="none" stroke={gridStrokeDarkAlt} strokeWidth={1} />
           </pattern>
         </defs>
 
@@ -260,7 +265,15 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
                 className="pointer-events-none"
                 initial={reduced ? false : { pathLength: 0, opacity: 0 }}
                 animate={{ pathLength: 1, opacity: 0.92 }}
-                exit={reduced ? { opacity: 0 } : { opacity: 0, pathLength: 0.02 }}
+                exit={
+                  reduced
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        pathLength: 0.02,
+                        transition: { duration: 0.24, ease: "easeIn" as const },
+                      }
+                }
                 transition={
                   reduced
                     ? { duration: 0 }
@@ -272,7 +285,6 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
                           ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
                         },
                         opacity: { duration: 0.28, delay: linkIndex * 0.045 + 0.08 },
-                        exit: { duration: 0.24, ease: "easeIn" as const },
                       }
                 }
               />
@@ -313,19 +325,20 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
               layout={false}
               initial={reduced ? false : { opacity: 0, scale: 0.88 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.78 }}
-              transition={
+              exit={
                 reduced
-                  ? { duration: 0 }
+                  ? { opacity: 0 }
                   : {
-                      type: "spring" as const,
-                      stiffness: 400,
-                      damping: 28,
-                      exit: {
+                      opacity: 0,
+                      scale: 0.78,
+                      transition: {
                         duration: 0.26,
                         ease: [0.4, 0, 0.9, 0.6] as [number, number, number, number],
                       },
                     }
+              }
+              transition={
+                reduced ? { duration: 0 } : { type: "spring" as const, stiffness: 400, damping: 28 }
               }
               style={{ transformOrigin: `${ncx}px ${ncy}px` }}
             >
@@ -396,9 +409,9 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
                 >
                   <span
                     className={cn(
-                      "max-w-full shrink truncate rounded-2xl border px-2.5 py-1 text-left shadow-sm",
-                      "border-white/50 bg-white text-stone-900",
-                      "dark:border-stone-600/70 dark:bg-stone-950 dark:text-stone-50",
+                      /* Misma línea visual que el editor en `IsoFlowSvgNodesLayer` (border sky + slate). */
+                      "max-w-full shrink truncate border border-sky-500/70 bg-white px-2.5 py-1 text-left text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100",
+                      "rounded-xl",
                       isRoot && "px-3 py-1.5 text-[13px] font-semibold leading-tight",
                       !isRoot && "text-[11px] font-medium leading-tight md:text-[12px]",
                     )}
@@ -407,7 +420,7 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
                     <span
                       contentEditable={!readOnly}
                       suppressContentEditableWarning
-                      className="inline-block min-w-[1rem] cursor-text rounded px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+                      className="inline-block min-w-[1rem] cursor-text rounded px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
                       onBlur={(e) => updateNodeLabel(node.id, e.currentTarget.textContent || "")}
                       onFocus={() => {
                         if (selectedNodeId !== node.id) ctrl.setSelectedNodeId(node.id);

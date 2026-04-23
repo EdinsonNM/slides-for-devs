@@ -885,6 +885,7 @@ export function SlideCanvasSlide() {
     resolveMediaPanelDescriptor(slide).showSlideContentIframeEmbedToolbar();
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
   const isMapsSlide = slide.type === SLIDE_TYPE.MAPS;
+  const isMindMapSlide = slide.type === SLIDE_TYPE.MIND_MAP;
 
   return (
     <div
@@ -894,7 +895,7 @@ export function SlideCanvasSlide() {
       className={cn(
         "relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
         deckSlideContentWrapperClass(deckVisualTheme.contentTone),
-        (isIsometricSlide || isMapsSlide) && "bg-slate-50 dark:bg-slate-950",
+        (isIsometricSlide || isMapsSlide || isMindMapSlide) && "bg-background",
         slide.type === SLIDE_TYPE.CONTENT &&
           isDragOverImageFile &&
           "ring-2 ring-emerald-500/60 ring-inset",
