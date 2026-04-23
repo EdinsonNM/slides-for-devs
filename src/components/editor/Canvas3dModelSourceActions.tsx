@@ -11,12 +11,15 @@ import { Canvas3dMeshyAiModal } from "./Canvas3dMeshyAiModal";
 export interface Canvas3dModelSourceActionsProps {
   /** URL .glb http(s) actual (para rellenar el modal). */
   httpGlbUrl: string;
+  /** Id explícito del mediaPanel cuando hay varios en el lienzo. */
+  canvasMediaElementId?: string;
   className?: string;
 }
 
 /** Controles flotantes sobre el visor del panel lateral (no lienzo). */
 export function Canvas3dModelSourceActions({
   httpGlbUrl,
+  canvasMediaElementId,
   className,
 }: Canvas3dModelSourceActionsProps) {
   const {
@@ -36,11 +39,13 @@ export function Canvas3dModelSourceActions({
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = typeof reader.result === "string" ? reader.result : "";
-        if (dataUrl) setCurrentSlideCanvas3dGlbUrl(dataUrl);
+        if (dataUrl) {
+          setCurrentSlideCanvas3dGlbUrl(dataUrl, canvasMediaElementId);
+        }
       };
       reader.readAsDataURL(file);
     },
-    [setCurrentSlideCanvas3dGlbUrl],
+    [canvasMediaElementId, setCurrentSlideCanvas3dGlbUrl],
   );
 
   const overlayBtn =
@@ -102,7 +107,9 @@ export function Canvas3dModelSourceActions({
           className={overlayBtn}
           title="Vuelve a encuadrar el modelo automáticamente"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => clearCurrentSlideCanvas3dViewState()}
+          onClick={() =>
+            clearCurrentSlideCanvas3dViewState(canvasMediaElementId)
+          }
         >
           <span className="inline-flex items-center gap-1">
             <RotateCcw size={14} aria-hidden />
@@ -115,13 +122,13 @@ export function Canvas3dModelSourceActions({
         isOpen={urlModalOpen}
         onClose={() => setUrlModalOpen(false)}
         initialUrl={httpGlbUrl}
-        onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+        onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url, canvasMediaElementId)}
       />
       <Canvas3dMeshyAiModal
         isOpen={meshyModalOpen}
         onClose={() => setMeshyModalOpen(false)}
         onAppliedGlbUrl={(url, meta) => {
-          setCurrentSlideCanvas3dGlbUrl(url);
+          setCurrentSlideCanvas3dGlbUrl(url, canvasMediaElementId);
           void recordGeneratedModel3d(url, meta?.prompt ?? null);
         }}
       />

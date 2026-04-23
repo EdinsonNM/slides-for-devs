@@ -11,11 +11,14 @@ const CANVAS_MEDIA_BOUNDS_MARGIN = 1.08;
 export interface Canvas3DPanelProps {
   embeddedInCanvas?: boolean;
   canvasPanelSlide?: Slide;
+  /** Id del bloque `mediaPanel` en el lienzo (si hay varios paneles). */
+  canvasMediaElementId?: string;
 }
 
 export function Canvas3DPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
+  canvasMediaElementId,
 }: Canvas3DPanelProps = {}) {
   const {
     currentSlide,
@@ -24,9 +27,9 @@ export function Canvas3DPanel({
 
   const handleViewCommit = useCallback(
     (s: Presenter3dViewState) => {
-      setCurrentSlideCanvas3dViewState(s);
+      setCurrentSlideCanvas3dViewState(s, canvasMediaElementId);
     },
-    [setCurrentSlideCanvas3dViewState],
+    [canvasMediaElementId, setCurrentSlideCanvas3dViewState],
   );
 
   if (!currentSlide) return null;
@@ -45,10 +48,11 @@ export function Canvas3DPanel({
         {!embeddedInCanvas ? (
           <Canvas3dModelSourceActions
             httpGlbUrl={glbUrl?.startsWith("http") ? glbUrl : ""}
+            canvasMediaElementId={canvasMediaElementId}
           />
         ) : null}
         <Canvas3DViewport
-          slideId={currentSlide.id}
+          slideId={slide.id}
           glbUrl={glbUrl}
           viewState={slide.canvas3dViewState}
           onViewStateCommit={handleViewCommit}
