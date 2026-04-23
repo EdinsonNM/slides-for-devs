@@ -1,10 +1,13 @@
-import { Plus, ScanSearch, Wand2, ZoomIn, ZoomOut } from "lucide-react";
+import { Plus, ScanSearch, Trash2, Wand2, ZoomIn, ZoomOut } from "lucide-react";
 import type { MindMapCanvasController } from "./useMindMapCanvasController";
 import { slideCanvasToolbarIconBtnClass, slideCanvasToolbarPillRowClass } from "../../canvas/slideCanvasToolbarStyles";
 import { cn } from "../../../utils/cn";
 
 export function MindMapCanvasToolbar(ctrl: MindMapCanvasController) {
-  const { readOnly, resetView, addNode, slideTextOverlayToolbar } = ctrl;
+  const { readOnly, resetView, addNode, removeSelectedNode, slideTextOverlayToolbar, data, selectedNodeId } =
+    ctrl;
+  const selected = data.nodes.find((n) => n.id === selectedNodeId);
+  const canDelete = Boolean(selected && selected.kind !== "root");
 
   return (
     <>
@@ -21,6 +24,22 @@ export function MindMapCanvasToolbar(ctrl: MindMapCanvasController) {
             <>
               <button type="button" onClick={addNode} className={slideCanvasToolbarIconBtnClass} title="Añadir nodo (Manual)">
                 <Plus size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={removeSelectedNode}
+                disabled={!canDelete}
+                className={cn(
+                  slideCanvasToolbarIconBtnClass,
+                  "text-rose-600 dark:text-rose-400 disabled:opacity-35 disabled:pointer-events-none",
+                )}
+                title={
+                  canDelete
+                    ? "Eliminar nodo seleccionado y sus ramas"
+                    : "Selecciona un nodo (no la raíz) para eliminarlo"
+                }
+              >
+                <Trash2 size={18} />
               </button>
               <div className="h-px bg-stone-200 dark:bg-stone-700 w-full" />
               <button 

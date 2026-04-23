@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Boxes, Image as ImageIcon, Map as MapIcon, PencilRuler, Table2 } from "lucide-react";
 import {
   SLIDE_LAYOUT_TEMPLATE_ID,
@@ -87,22 +88,74 @@ function PreviewIsometricFlow() {
 }
 
 function PreviewMindMap() {
+  const reduced = useReducedMotion() ?? false;
   return (
-    <div className="w-full aspect-video bg-stone-900 border border-stone-200 dark:border-border rounded-lg overflow-hidden relative flex items-center justify-center">
-      {/* Curved lines */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <path d="M 50 50 Q 30 70 20 80" fill="none" stroke="#334155" strokeWidth="1" />
-        <path d="M 50 50 Q 80 40 90 20" fill="none" stroke="#334155" strokeWidth="1" />
-        <path d="M 50 50 Q 20 30 15 20" fill="none" stroke="#334155" strokeWidth="1" />
-        <path d="M 50 50 Q 70 80 85 85" fill="none" stroke="#334155" strokeWidth="1" />
+    <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border border-stone-200 bg-stone-900 dark:border-border">
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+        <path
+          d="M 50 50 Q 30 70 20 80"
+          fill="none"
+          className="stroke-slate-600/90"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 50 50 Q 80 40 90 20"
+          fill="none"
+          className="stroke-slate-600/90"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 50 50 Q 20 30 15 20"
+          fill="none"
+          className="stroke-slate-600/90"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 50 50 Q 70 80 85 85"
+          fill="none"
+          className="stroke-slate-600/90"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
       </svg>
-      {/* Central Node */}
-      <div className="absolute w-5 h-5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] z-10" />
-      {/* Leaf Nodes */}
-      <div className="absolute w-3 h-3 rounded-full bg-emerald-500 top-[20%] left-[15%] z-10" />
-      <div className="absolute w-3 h-3 rounded-full bg-amber-500 top-[80%] left-[20%] z-10" />
-      <div className="absolute w-3 h-3 rounded-full bg-purple-500 top-[20%] left-[90%] z-10" />
-      <div className="absolute w-3 h-3 rounded-full bg-rose-500 top-[85%] left-[85%] z-10" />
+      <motion.div
+        className="absolute top-1/2 left-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500"
+        style={{ boxShadow: "0 0 12px rgba(59,130,246,0.55)" }}
+        animate={reduced ? { opacity: 1 } : { scale: [1, 1.06, 1], boxShadow: ["0 0 8px rgba(59,130,246,0.4)", "0 0 16px rgba(59,130,246,0.75)", "0 0 8px rgba(59,130,246,0.4)"] }}
+        transition={reduced ? { duration: 0 } : { duration: 2.8, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+      />
+      {[
+        { c: "bg-emerald-500", pos: "top-[20%] left-[15%]" },
+        { c: "bg-amber-500", pos: "top-[80%] left-[20%]" },
+        { c: "bg-purple-500", pos: "top-[20%] left-[90%]" },
+        { c: "bg-rose-500", pos: "top-[85%] left-[85%]" },
+      ].map((o, i) => (
+        <motion.div
+          key={i}
+          className={`z-10 absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ${o.c} ${o.pos}`}
+          initial={reduced ? false : { scale: 0, opacity: 0 }}
+          animate={reduced ? { scale: 1, opacity: 1 } : { scale: 1, opacity: [0.72, 1, 0.72] }}
+          transition={
+            reduced
+              ? { duration: 0 }
+              : {
+                  type: "spring" as const,
+                  stiffness: 360,
+                  damping: 20,
+                  delay: 0.1 + i * 0.05,
+                  opacity: {
+                    duration: 2.4,
+                    repeat: Number.POSITIVE_INFINITY,
+                    ease: "easeInOut",
+                    delay: 0.2 * i,
+                  },
+                }
+          }
+        />
+      ))}
     </div>
   );
 }
