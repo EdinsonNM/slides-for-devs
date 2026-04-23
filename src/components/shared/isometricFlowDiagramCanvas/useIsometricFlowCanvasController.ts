@@ -166,14 +166,14 @@ export function useIsometricFlowCanvasController({
 
   const emit = useCallback(
     (next: IsometricFlowDiagram) => {
-      if (!onChange) return;
+      if (readOnly || !onChange) return;
       const vr = viewRectRef.current;
       onChange({
         ...next,
         view: { x: vr.x, y: vr.y, w: vr.w, h: vr.h },
       });
     },
-    [onChange],
+    [onChange, readOnly],
   );
 
   const applyViewRect = useCallback(
@@ -494,6 +494,13 @@ export function useIsometricFlowCanvasController({
       ) {
         return;
       }
+      // Con la vista previa / presentador encima, el «rect» del editor puede coincidir en coordenadas
+      // y varios isométricos (editor + readOnly) escuchan `wheel` en `window`. Sin esto, el
+      // canvas de edición debajo aplica `applyViewRect`+onChange aunque el píxel de frente sea otro.
+      const top = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (!top) return;
+      const host = root?.contains(svg) ? root : svg;
+      if (!host.contains(top)) return;
       ev.preventDefault();
       ev.stopPropagation();
       const { x: sx, y: sy } = clientToSvg(svg, ev.clientX, ev.clientY);
@@ -509,15 +516,17 @@ export function useIsometricFlowCanvasController({
   }, [iconPickerOpen, applyViewRect]);
 
   useEffect(() => {
+    if (readOnly) return;
     if (isometricDataSyncKey == null) return;
     const next = data.view
       ? { x: data.view.x, y: data.view.y, w: data.view.w, h: data.view.h }
       : defaultIsoViewRect();
     setViewRect(next);
     viewRectRef.current = next;
-    // Solo cuando cambia el JSON o la diapositiva persistidos (ver prop `isometricDataSyncKey`), no al editar.
+    // Solo en edición: al cambiar guardar/deshacer/diapositiva, rever `data`. En presentador el zoom
+    // es local y `onChange` no existía; re-aplicar el view persistido chocaba con rueda/pan (saltos al soltar).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isometricDataSyncKey]);
+  }, [isometricDataSyncKey, readOnly]);
 
   useEffect(() => {
     if (!panDrag) return;
@@ -991,7 +1000,18 @@ export function useIsometricFlowCanvasController({
         if (!s) return n;
         return { ...n, gx: s.gx + dgx, gy: s.gy + dgy };
       });
-      emitRef.current({ ...d, nodes: nextNodes });
+      const movedIdSet = new Set(Object.keys(drag.startById));
+      const nextLinks = d.links.map((l) => {
+        const { source, target } = getResolvedLinkEndpoints(l);
+        if (!movedIdSet.has(source) || !movedIdSet.has(target) || !l.routeWaypoints?.length) {
+          return l;
+        }
+        return {
+          ...l,
+          routeWaypoints: l.routeWaypoints.map((p) => ({ gx: p.gx + dgx, gy: p.gy + dgy })),
+        };
+      });
+      emitRef.current({ ...d, nodes: nextNodes, links: nextLinks });
     };
 
     const onUp = () => {
