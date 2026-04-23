@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  startTransition,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -493,10 +494,17 @@ export function SlideCanvasSlide() {
 
   const applyCanvasLayerReorder = useCallback(
     (elementId: string, move: CanvasLayerReorderMove) => {
-      patchCurrentSlideCanvasScene((scene) => {
-        const next = reorderCanvasElementLayer(scene.elements, elementId, move);
-        if (!next) return scene;
-        return { ...scene, elements: next };
+      /**
+       * `syncSlideRootFromCanvas` + re-render de todo el lienzo (y visores R3F) pesa; marcar
+       * la actualización como transición evita congelar el hilo mientras el usuario sigue
+       * interactuando (p. ej. cierre del menú contextual de capas).
+       */
+      startTransition(() => {
+        patchCurrentSlideCanvasScene((scene) => {
+          const next = reorderCanvasElementLayer(scene.elements, elementId, move);
+          if (!next) return scene;
+          return { ...scene, elements: next };
+        });
       });
     },
     [patchCurrentSlideCanvasScene],
