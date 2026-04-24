@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import { parseCanvas3dSceneData } from "../../domain/entities/Canvas3dSceneData";
+import {
+  CANVAS3D_TRANSFORM_MODE_EVENT,
+  type Canvas3dTransformModeEventDetail,
+} from "../../utils/canvas3dEditorBridge";
 import type {
   Canvas3dModelTransform,
   Canvas3dTransformGizmoMode,
@@ -72,6 +76,25 @@ export function SlideContentCanvas3d() {
     });
   }, []);
 
+  useEffect(() => {
+    const onSetMode = (e: Event) => {
+      const ce = e as CustomEvent<Canvas3dTransformModeEventDetail>;
+      const m = ce.detail?.mode;
+      if (m === "translate" || m === "rotate" || m === "scale") {
+        setTransformMode(m);
+      }
+    };
+    window.addEventListener(
+      CANVAS3D_TRANSFORM_MODE_EVENT,
+      onSetMode as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        CANVAS3D_TRANSFORM_MODE_EVENT,
+        onSetMode as EventListener,
+      );
+  }, []);
+
   if (!currentSlide || currentSlide.type !== SLIDE_TYPE.CANVAS_3D || !scene) {
     return null;
   }
@@ -108,43 +131,6 @@ export function SlideContentCanvas3d() {
           className="h-full w-full min-h-[120px]"
         />
       </div>
-      {hasSelection ? (
-        <div className="pointer-events-auto absolute right-2 top-2 z-[2] flex gap-1 rounded-lg border border-stone-200/80 bg-white/90 p-0.5 shadow-sm dark:border-border dark:bg-surface-elevated/95">
-          <button
-            type="button"
-            onClick={() => setTransformMode("translate")}
-            className={
-              transformMode === "translate"
-                ? "rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white"
-                : "rounded-md px-2 py-1 text-[10px] font-medium text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/10"
-            }
-          >
-            Mover
-          </button>
-          <button
-            type="button"
-            onClick={() => setTransformMode("rotate")}
-            className={
-              transformMode === "rotate"
-                ? "rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white"
-                : "rounded-md px-2 py-1 text-[10px] font-medium text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/10"
-            }
-          >
-            Girar
-          </button>
-          <button
-            type="button"
-            onClick={() => setTransformMode("scale")}
-            className={
-              transformMode === "scale"
-                ? "rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white"
-                : "rounded-md px-2 py-1 text-[10px] font-medium text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/10"
-            }
-          >
-            Escalar
-          </button>
-        </div>
-      ) : null}
       {/* Expone nombres de clips al inspector vía evento (mismo patrón que varios mediaPanel 3D). */}
       <Canvas3dSceneClipNamesBridge clipNamesByInstanceId={clipNamesByInstanceId} />
     </div>
