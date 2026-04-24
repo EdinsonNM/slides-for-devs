@@ -1,7 +1,12 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { GripVertical } from "lucide-react";
 import type { MindMapCanvasController } from "./useMindMapCanvasController";
 import type { MindMapNode, MindMapLink } from "../../../domain/entities/MindMapDiagram";
+import {
+  MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X,
+  MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y,
+} from "../../../domain/entities/MindMapDiagram";
 import { cn } from "../../../utils/cn";
 
 const WORLD = 2000;
@@ -101,6 +106,9 @@ function mindMapViewBox(
   };
 }
 
+const DESCRIPTION_PANEL_W = 300;
+const DESCRIPTION_PANEL_H = 380;
+
 export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
   const {
     data,
@@ -110,7 +118,10 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
     selectedNodeId,
     toggleNodeCollapse,
     updateNodeLabel,
+    updateNodeDescription,
+    setNodeDescriptionOffset,
     readOnly,
+    zoom,
   } = ctrl;
 
   const reduced = useReducedMotion() ?? false;
@@ -131,7 +142,7 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
     return () => ro.disconnect();
   }, []);
 
-  const { minX, minY, vbW, vbH } = mindMapViewBox(vp.w, vp.h, ctrl.panX, ctrl.panY, ctrl.zoom);
+  const { minX, minY, vbW, vbH } = mindMapViewBox(vp.w, vp.h, ctrl.panX, ctrl.panY, zoom);
   const viewBoxStr = `${minX} ${minY} ${vbW} ${vbH}`;
 
   const { visibleNodes, visibleLinks, nodeStaggerMap } = useMemo(() => {
@@ -191,6 +202,87 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
     },
     [handlePointerDownNode],
   );
+
+  const descDragRef = useRef<{
+    nodeId: string;
+    startClientX: number;
+    startClientY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  } | null>(null);
+
+  const onDescriptionDragPointerDown = useCallback(
+    (node: MindMapNode, e: React.PointerEvent) => {
+      if (readOnly) return;
+      e.stopPropagation();
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      const startOffsetX = node.descriptionOffsetX ?? MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X;
+      const startOffsetY = node.descriptionOffsetY ?? MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y;
+      descDragRef.current = {
+        nodeId: node.id,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startOffsetX,
+        startOffsetY,
+      };
+    },
+    [readOnly],
+  );
+
+  const onDescriptionDragPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const st = descDragRef.current;
+      if (!st || e.buttons !== 1) return;
+      e.stopPropagation();
+      const dwx = (e.clientX - st.startClientX) / zoom;
+      const dwy = (e.clientY - st.startClientY) / zoom;
+      setNodeDescriptionOffset(st.nodeId, st.startOffsetX + dwx, st.startOffsetY + dwy);
+    },
+    [zoom, setNodeDescriptionOffset],
+  );
+
+  const onDescriptionDragPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation();
+      descDragRef.current = null;
+      if (e.currentTarget instanceof HTMLElement && e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    },
+    [],
+  );
+
+  const descriptionTarget = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return data.nodes.find((n) => n.id === selectedNodeId) ?? null;
+  }, [data.nodes, selectedNodeId]);
+
+  const isSelectedNodeVisible = useMemo(
+    () =>
+      selectedNodeId != null && visibleNodes.some((n) => n.id === selectedNodeId),
+    [visibleNodes, selectedNodeId],
+  );
+
+  const showDescriptionPanel = Boolean(
+    descriptionTarget &&
+      isSelectedNodeVisible &&
+      (!readOnly ||
+        (descriptionTarget.description && descriptionTarget.description.trim().length > 0)),
+  );
+
+  const selectedDescriptionNode = useMemo((): (MindMapNode & { ncx: number; ncy: number; rx: number; ry: number }) | null => {
+    if (!showDescriptionPanel || !descriptionTarget) return null;
+    const rx = descriptionTarget.id === activeDragNodeId && dragPos ? dragPos.x : descriptionTarget.x;
+    const ry = descriptionTarget.id === activeDragNodeId && dragPos ? dragPos.y : descriptionTarget.y;
+    return {
+      ...descriptionTarget,
+      ncx: CX + rx,
+      ncy: CY + ry,
+      rx,
+      ry,
+    };
+  }, [activeDragNodeId, dragPos, descriptionTarget, showDescriptionPanel]);
 
   /* Alineado con `IsoGridBackground` (rejilla isométrica). */
   const gridStroke = "rgba(148, 163, 184, 0.45)";
@@ -441,6 +533,62 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
           );
         })}
         </AnimatePresence>
+
+        {selectedDescriptionNode ? (
+          (() => {
+            const n = selectedDescriptionNode;
+            const ox = n.descriptionOffsetX ?? MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X;
+            const oy = n.descriptionOffsetY ?? MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y;
+            return (
+              <foreignObject
+                key={`mm-desc-${n.id}`}
+                x={n.ncx + ox}
+                y={n.ncy + oy}
+                width={DESCRIPTION_PANEL_W}
+                height={DESCRIPTION_PANEL_H}
+                className="overflow-visible"
+              >
+                <div
+                  data-mind-map-ui
+                  className={cn(
+                    "flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-sky-500/70 bg-white/95 shadow-lg backdrop-blur-sm dark:border-sky-500/50 dark:bg-slate-900/95",
+                  )}
+                  style={{ pointerEvents: "auto" }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div
+                    className={cn(
+                      "flex shrink-0 items-center gap-2 border-b border-slate-200/80 px-2 py-1.5 dark:border-slate-600/80",
+                      !readOnly && "cursor-grab active:cursor-grabbing",
+                    )}
+                    onPointerDown={(e) => onDescriptionDragPointerDown(n, e)}
+                    onPointerMove={onDescriptionDragPointerMove}
+                    onPointerUp={onDescriptionDragPointerUp}
+                    onPointerCancel={onDescriptionDragPointerUp}
+                  >
+                    <GripVertical
+                      className="h-4 w-4 shrink-0 text-slate-400"
+                      aria-hidden
+                    />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      Descripción
+                    </span>
+                  </div>
+                  <textarea
+                    className="min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-3 py-2 text-left text-[12px] leading-relaxed text-slate-800 outline-none ring-0 placeholder:text-slate-400 focus:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
+                    readOnly={readOnly}
+                    placeholder="Añade más detalle (el título del nodo puede ser breve)…"
+                    value={n.description ?? ""}
+                    onChange={(e) => updateNodeDescription(n.id, e.target.value)}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    rows={12}
+                    spellCheck
+                  />
+                </div>
+              </foreignObject>
+            );
+          })()
+        ) : null}
       </svg>
     </div>
   );

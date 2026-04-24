@@ -2,6 +2,10 @@
 
 export const MIND_MAP_VERSION = 1 as const;
 
+/** Esquina superior izquierda del panel de descripción, rel. al centro del nodo (unidades de mundo). */
+export const MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X = -150;
+export const MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y = 56;
+
 export interface MindMapNode {
   id: string;
   /** Posición X en el lienzo (centro del nodo = 0) */
@@ -9,6 +13,19 @@ export interface MindMapNode {
   /** Posición Y en el lienzo (centro del nodo = 0) */
   y: number;
   label: string;
+  /**
+   * Texto largo opcional; se muestra en un panel flotante al seleccionar el nodo
+   * (en edición siempre; en presentación/preview si hay contenido). Los labels
+   * del nodo pueden permanecer cortos (truncate) sin perder el detalle aquí.
+   */
+  description?: string;
+  /**
+   * Desplazamiento en coordenadas de mundo (mismo eje que x,y del nodo) desde el
+   * centro del nodo hasta la esquina superior izquierda del panel de descripción.
+   * Si faltan, se usan valores por defecto al renderizar.
+   */
+  descriptionOffsetX?: number;
+  descriptionOffsetY?: number;
   /** Color del nodo para su círculo y líneas derivadas (hex o HSL) */
   color: string;
   /** Etiqueta central, rama principal o subparada */
@@ -70,7 +87,23 @@ export function parseMindMapDiagram(raw: string | undefined | null): MindMapDiag
       const color = typeof n.color === "string" ? n.color : "#3b82f6";
       const kind = n.kind === "root" || n.kind === "branch" || n.kind === "leaf" ? n.kind : "leaf";
       const collapsed = n.collapsed === true;
-      nodes.push({ id: n.id, x: n.x, y: n.y, label, color, kind, collapsed });
+      const description = typeof n.description === "string" ? n.description : undefined;
+      const descriptionOffsetX =
+        isFiniteNumber(n.descriptionOffsetX) ? n.descriptionOffsetX : undefined;
+      const descriptionOffsetY =
+        isFiniteNumber(n.descriptionOffsetY) ? n.descriptionOffsetY : undefined;
+      nodes.push({
+        id: n.id,
+        x: n.x,
+        y: n.y,
+        label,
+        color,
+        kind,
+        collapsed,
+        description,
+        descriptionOffsetX,
+        descriptionOffsetY,
+      });
     }
     
     const links: MindMapLink[] = [];

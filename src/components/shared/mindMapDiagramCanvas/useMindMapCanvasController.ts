@@ -1,7 +1,12 @@
 import { useCallback, useRef, useState, useMemo } from "react";
 import type { IsometricSlideTextOverlayToolbar } from "../isometricFlowDiagramCanvas/isometricFlowDiagramCanvasTypes";
 import type { MindMapDiagram, MindMapNode, MindMapLink } from "../../../domain/entities/MindMapDiagram";
-import { parseMindMapDiagram, serializeMindMapDiagram } from "../../../domain/entities/MindMapDiagram";
+import {
+  MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X,
+  MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y,
+  parseMindMapDiagram,
+  serializeMindMapDiagram,
+} from "../../../domain/entities/MindMapDiagram";
 
 /** Nodo + todos los descendientes por aristas salientes `from → to`. */
 function collectSubtreeNodeIds(links: MindMapLink[], rootId: string): Set<string> {
@@ -50,6 +55,8 @@ export type MindMapCanvasController = {
   setSelectedNodeId: (id: string | null) => void;
   toggleNodeCollapse: (id: string) => void;
   updateNodeLabel: (id: string, label: string) => void;
+  updateNodeDescription: (id: string, description: string) => void;
+  setNodeDescriptionOffset: (id: string, offsetX: number, offsetY: number) => void;
   setZoom: (action: React.SetStateAction<number>) => void;
   /** Elimina el nodo seleccionado y toda su subárbol (no aplica a la raíz). */
   removeSelectedNode: () => void;
@@ -240,6 +247,33 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     onChange({ ...data, nodes: nextNodes });
   }, [data, onChange, readOnly]);
 
+  const updateNodeDescription = useCallback((id: string, description: string) => {
+    if (!onChange || readOnly) return;
+    const nextNodes = data.nodes.map(n => {
+      if (n.id !== id) return n;
+      if (n.descriptionOffsetX === undefined && n.descriptionOffsetY === undefined) {
+        return {
+          ...n,
+          description,
+          descriptionOffsetX: MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X,
+          descriptionOffsetY: MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y,
+        };
+      }
+      return { ...n, description };
+    });
+    onChange({ ...data, nodes: nextNodes });
+  }, [data, onChange, readOnly]);
+
+  const setNodeDescriptionOffset = useCallback((id: string, offsetX: number, offsetY: number) => {
+    if (!onChange || readOnly) return;
+    const nextNodes = data.nodes.map(n =>
+      n.id === id
+        ? { ...n, descriptionOffsetX: Math.round(offsetX), descriptionOffsetY: Math.round(offsetY) }
+        : n,
+    );
+    onChange({ ...data, nodes: nextNodes });
+  }, [data, onChange, readOnly]);
+
   const displayData = useMemo(() => {
     if (Object.keys(collapsedOverrides).length === 0) return data;
     return {
@@ -268,6 +302,8 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     setSelectedNodeId,
     toggleNodeCollapse,
     updateNodeLabel,
+    updateNodeDescription,
+    setNodeDescriptionOffset,
     setZoom,
     removeSelectedNode,
   };
