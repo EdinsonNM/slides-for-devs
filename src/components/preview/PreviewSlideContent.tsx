@@ -13,6 +13,7 @@ import {
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
+import { SlideDeckBackgroundImageLayer } from "../shared/SlideDeckBackgroundImageLayer";
 import {
   deckSectionLabelClass,
   deckSlideContentWrapperClass,
@@ -135,6 +136,7 @@ export function PreviewSlideContent({
     return (
       <div key={slide.id} className={outerClass} style={fullscreenBackdropStyle}>
         {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
+        {useFullscreenDeckBackdrop && <SlideDeckBackgroundImageLayer slide={slide} />}
         {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
           <div className="shrink-0 self-start px-0.5">
             <span
@@ -165,6 +167,9 @@ export function PreviewSlideContent({
           {!hideDeckBackdropBehindCanvas && !isFullscreen && (
             <DeckBackdrop theme={deckVisualTheme} />
           )}
+          {!hideDeckBackdropBehindCanvas && !isFullscreen && (
+            <SlideDeckBackgroundImageLayer slide={slide} />
+          )}
           <SlideCanvasView
             slide={slide}
             className="relative z-[1] min-h-0 flex-1"
@@ -192,6 +197,7 @@ export function PreviewSlideContent({
       )}
     >
       {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
+      {useFullscreenDeckBackdrop && <SlideDeckBackgroundImageLayer slide={slide} />}
       {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
         <div className="shrink-0 self-start px-0.5">
           <span
@@ -219,6 +225,9 @@ export function PreviewSlideContent({
       >
         {!hideDeckBackdropBehindCanvas && !isFullscreen && (
           <DeckBackdrop theme={deckVisualTheme} />
+        )}
+        {!hideDeckBackdropBehindCanvas && !isFullscreen && (
+          <SlideDeckBackgroundImageLayer slide={slide} />
         )}
         <SlideCanvasView
           slide={slide}

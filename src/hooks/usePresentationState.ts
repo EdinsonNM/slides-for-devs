@@ -550,11 +550,13 @@ export function usePresentationState() {
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
     | "slide"
+    | "slideProperties"
     | "characters"
     | "notes"
     | "theme"
     | "resources"
     | "dataRing"
+    | "mapbox"
     | "scene3d"
     | null
   >("slide");
@@ -631,6 +633,7 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideBackgroundImageUrl,
     setCurrentSlideCanvas3dSceneData,
     patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,
@@ -1140,6 +1143,7 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideBackgroundImageUrl,
     setCurrentSlideCanvas3dSceneData,
     patchCurrentSlideCanvas3dScene,
     patchCurrentSlideMatrix,

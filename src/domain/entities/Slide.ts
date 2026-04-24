@@ -122,4 +122,10 @@ export interface Slide {
    * En lienzo, el valor canónico vive en el `payload` de cada `mediaPanel`.
    */
   codeEditorTheme?: SlideCodeEditorTheme;
+  /**
+   * Fondo con imagen (URL o data URL) sobre el tema del deck.
+   * Solo aplica a tipos que usan `DeckBackdrop` (contenido, capítulo, diagrama, matriz); no
+   * sustituye al fondo de la escena 3D (`canvas3dSceneData.backgroundImageUrl`).
+   */
+  slideBackgroundImageUrl?: string;
 }
