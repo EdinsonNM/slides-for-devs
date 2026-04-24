@@ -5,7 +5,8 @@ export function isInspectorSlidePropertiesSectionVisible(type: SlideType): boole
   return (
     type !== SLIDE_TYPE.ISOMETRIC &&
     type !== SLIDE_TYPE.MIND_MAP &&
-    type !== SLIDE_TYPE.MAPS
+    type !== SLIDE_TYPE.MAPS &&
+    type !== SLIDE_TYPE.DOCUMENT
   );
 }
 

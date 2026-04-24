@@ -7,6 +7,7 @@ import {
   Table2,
   GripVertical,
   Map,
+  FileText,
   Network,
   Box,
 } from "lucide-react";
@@ -300,6 +301,22 @@ export function SlideSidebar() {
                       </div>
                       <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
                         Mapas
+                      </span>
+                    </div>
+                  ) : slide.type === SLIDE_TYPE.DOCUMENT ? (
+                    <div className="flex min-h-0 flex-1 flex-col gap-1">
+                      <span className="shrink-0 text-left text-[9px] font-medium leading-tight text-stone-900 line-clamp-1 dark:text-foreground">
+                        {slide.title || "Documento"}
+                      </span>
+                      <div className="flex min-h-0 flex-1 items-center justify-center rounded border border-stone-200 bg-amber-50/90 dark:border-stone-600 dark:bg-amber-950/30">
+                        <FileText
+                          className="size-5 text-amber-800 dark:text-amber-300"
+                          strokeWidth={1.5}
+                          aria-hidden
+                        />
+                      </div>
+                      <span className="shrink-0 text-[7px] uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                        Documento
                       </span>
                     </div>
                   ) : slide.type === SLIDE_TYPE.CANVAS_3D ? (

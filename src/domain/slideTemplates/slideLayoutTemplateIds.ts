@@ -11,6 +11,7 @@ export const SLIDE_LAYOUT_TEMPLATE_ID = {
   MIND_MAP: "mind-map",
   MATRIX: "matrix",
   MAPS: "maps",
+  DOCUMENT: "document",
   CANVAS_3D: "canvas-3d",
 } as const;
 

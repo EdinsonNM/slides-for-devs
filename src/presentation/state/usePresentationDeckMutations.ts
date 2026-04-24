@@ -162,6 +162,17 @@ export function usePresentationDeckMutations(
         }
       }
 
+      if (type === SLIDE_TYPE.DOCUMENT) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        delete (next as Slide).matrixData;
+        delete (next as Slide).mindMapData;
+        delete (next as Slide).mapData;
+        delete (next as Slide).excalidrawData;
+        delete (next as Slide).isometricFlowData;
+        delete (next as Slide).canvas3dSceneData;
+      }
+
       if (type === SLIDE_TYPE.CANVAS_3D) {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
@@ -189,6 +200,10 @@ export function usePresentationDeckMutations(
         delete (next as Slide).matrixData;
         if (!next.contentType) next.contentType = PANEL_CONTENT_KIND.IMAGE;
         if (!next.contentLayout) next.contentLayout = "split";
+      }
+
+      if (type !== SLIDE_TYPE.DOCUMENT) {
+        delete (next as Slide).documentEmbed;
       }
 
       updated[slideIdx] = next;

@@ -11,6 +11,8 @@ export function inferSlideLayoutTemplateId(slide: Slide): SlideLayoutTemplateId 
     return SLIDE_LAYOUT_TEMPLATE_ID.ISOMETRIC_FLOW;
   if (slide.type === SLIDE_TYPE.MIND_MAP) return SLIDE_LAYOUT_TEMPLATE_ID.MIND_MAP;
   if (slide.type === SLIDE_TYPE.MAPS) return SLIDE_LAYOUT_TEMPLATE_ID.MAPS;
+  if (slide.type === SLIDE_TYPE.DOCUMENT)
+    return SLIDE_LAYOUT_TEMPLATE_ID.DOCUMENT;
   if (slide.type === SLIDE_TYPE.CANVAS_3D)
     return SLIDE_LAYOUT_TEMPLATE_ID.CANVAS_3D;
   if (slide.type === SLIDE_TYPE.MATRIX) return SLIDE_LAYOUT_TEMPLATE_ID.MATRIX;

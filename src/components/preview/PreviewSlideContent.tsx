@@ -98,6 +98,7 @@ export function PreviewSlideContent({
     isIsometricSlide ||
     slide.type === SLIDE_TYPE.MIND_MAP ||
     slide.type === SLIDE_TYPE.MAPS ||
+    slide.type === SLIDE_TYPE.DOCUMENT ||
     slide.type === SLIDE_TYPE.CANVAS_3D;
   const isDataMotionRingSlide =
     slide.type === SLIDE_TYPE.CONTENT &&
@@ -159,6 +160,7 @@ export function PreviewSlideContent({
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
             (isIsometricSlide ||
               slide.type === SLIDE_TYPE.MAPS ||
+              slide.type === SLIDE_TYPE.DOCUMENT ||
               slide.type === SLIDE_TYPE.MIND_MAP ||
               slide.type === SLIDE_TYPE.CANVAS_3D) &&
               "bg-background",
@@ -218,6 +220,7 @@ export function PreviewSlideContent({
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
           (isIsometricSlide ||
             slide.type === SLIDE_TYPE.MAPS ||
+            slide.type === SLIDE_TYPE.DOCUMENT ||
             slide.type === SLIDE_TYPE.MIND_MAP ||
             slide.type === SLIDE_TYPE.CANVAS_3D) &&
             "bg-background",

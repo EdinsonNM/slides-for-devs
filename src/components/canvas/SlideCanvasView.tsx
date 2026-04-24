@@ -42,6 +42,7 @@ import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
 import { parseSlideMapData } from "../../domain/entities/SlideMapData";
 import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
+import { SlideDocumentSurface } from "../shared/SlideDocumentSurface";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
@@ -540,6 +541,20 @@ function CanvasElementReadOnly({
               key={`${slide.id}-${slide.mindMapData ? "m" : "empty"}`}
               data={parseMindMapDiagram(slide.mindMapData)}
               readOnly
+              className="h-full w-full"
+            />,
+          )}
+        </div>
+      );
+    case "documentEmbed":
+      if (slide.type !== SLIDE_TYPE.DOCUMENT) return null;
+      return (
+        <div style={box} className={shell}>
+          {rotated(
+            "absolute inset-0 min-h-0",
+            <SlideDocumentSurface
+              embed={slide.documentEmbed}
+              deckContentTone={tone}
               className="h-full w-full"
             />,
           )}

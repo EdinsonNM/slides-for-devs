@@ -79,6 +79,7 @@ import { SlideContentDiagram } from "../editor/SlideContentDiagram";
 import { SlideContentIsometricFlow } from "../editor/SlideContentIsometricFlow";
 import { SlideContentMindMap } from "../editor/SlideContentMindMap";
 import { SlideContentMapbox } from "../editor/SlideContentMapbox";
+import { SlideContentDocument } from "../editor/SlideContentDocument";
 import { SlideContentCanvas3d } from "../editor/SlideContentCanvas3d";
 import type { SlideMatrixData } from "../../domain/entities";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
@@ -990,6 +991,7 @@ export function SlideCanvasSlide() {
     resolveMediaPanelDescriptor(slide).showSlideContentIframeEmbedToolbar();
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
   const isMapsSlide = slide.type === SLIDE_TYPE.MAPS;
+  const isDocumentSlide = slide.type === SLIDE_TYPE.DOCUMENT;
   const isCanvas3dSlide = slide.type === SLIDE_TYPE.CANVAS_3D;
   const isMindMapSlide = slide.type === SLIDE_TYPE.MIND_MAP;
 
@@ -1004,6 +1006,7 @@ export function SlideCanvasSlide() {
         deckSlideContentWrapperClass(deckVisualTheme.contentTone),
         (isIsometricSlide ||
           isMapsSlide ||
+          isDocumentSlide ||
           isMindMapSlide ||
           isCanvas3dSlide) && "bg-background",
         slide.type === SLIDE_TYPE.CONTENT &&
@@ -1021,14 +1024,17 @@ export function SlideCanvasSlide() {
         <SlideContentMindMap />
       )}
       {slide.type === SLIDE_TYPE.MAPS && <SlideContentMapbox />}
+      {slide.type === SLIDE_TYPE.DOCUMENT && <SlideContentDocument />}
       {slide.type === SLIDE_TYPE.CANVAS_3D && <SlideContentCanvas3d />}
       {!isIsometricSlide &&
         slide.type !== SLIDE_TYPE.MIND_MAP &&
         slide.type !== SLIDE_TYPE.MAPS &&
+        slide.type !== SLIDE_TYPE.DOCUMENT &&
         slide.type !== SLIDE_TYPE.CANVAS_3D && <DeckBackdrop theme={deckVisualTheme} />}
       {!isIsometricSlide &&
         slide.type !== SLIDE_TYPE.MIND_MAP &&
         slide.type !== SLIDE_TYPE.MAPS &&
+        slide.type !== SLIDE_TYPE.DOCUMENT &&
         slide.type !== SLIDE_TYPE.CANVAS_3D && <SlideDeckBackgroundImageLayer slide={slide} />}
       {alignmentGuides ? (
         <SlideCanvasAlignmentGuides
@@ -1140,6 +1146,9 @@ export function SlideCanvasSlide() {
             return false;
           }
           if (slide.type === SLIDE_TYPE.MAPS && el.kind === "mapboxMap") {
+            return false;
+          }
+          if (slide.type === SLIDE_TYPE.DOCUMENT && el.kind === "documentEmbed") {
             return false;
           }
           return true;

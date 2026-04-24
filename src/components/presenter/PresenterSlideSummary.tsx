@@ -50,6 +50,10 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           <p className="text-stone-400 text-xs">Mapa mental</p>
         ) : slide.type === SLIDE_TYPE.MAPS ? (
           <p className="text-stone-400 text-xs">Mapa Mapbox</p>
+        ) : slide.type === SLIDE_TYPE.DOCUMENT ? (
+          <p className="text-stone-400 text-xs line-clamp-2">
+            {slide.documentEmbed?.fileName?.trim() || "Documento incrustado"}
+          </p>
         ) : slide.type === SLIDE_TYPE.CANVAS_3D ? (
           <p className="text-stone-400 text-xs">Escena 3D</p>
         ) : slide.type === SLIDE_TYPE.ISOMETRIC ? (
@@ -105,6 +109,11 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           {slide.type === SLIDE_TYPE.MAPS && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Mapas
+            </span>
+          )}
+          {slide.type === SLIDE_TYPE.DOCUMENT && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              Documento
             </span>
           )}
           {slide.type === SLIDE_TYPE.CANVAS_3D && (
