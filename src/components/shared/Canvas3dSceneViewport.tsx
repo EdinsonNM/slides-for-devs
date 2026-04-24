@@ -21,8 +21,11 @@ import {
   DEFAULT_PRESENTER_3D_VIEW,
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
-import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
-import { DEFAULT_CANVAS_3D_MODEL_TRANSFORM } from "../../utils/canvas3dModelTransform";
+import {
+  DEFAULT_CANVAS_3D_MODEL_TRANSFORM,
+  type Canvas3dModelTransform,
+  type Canvas3dTransformGizmoMode,
+} from "../../utils/canvas3dModelTransform";
 import type {
   Canvas3dPrimitiveKind,
   Canvas3dSceneInstance,
@@ -55,6 +58,20 @@ function centerObjectAtOrigin(root: THREE.Object3D): void {
 function glbSourceForLoader(url: string): string {
   if (url.startsWith("data:")) return url;
   return encodeURI(url);
+}
+
+/** Rejilla de referencia visible pero sin `raycast`, para no bloquear `onPointerMissed` (deselect). */
+function GroundReferenceGrid() {
+  const ref = useRef<THREE.GridHelper | null>(null);
+  useLayoutEffect(() => {
+    const o = ref.current;
+    if (!o) return;
+    const noRay: THREE.Object3D["raycast"] = () => {};
+    o.traverse((c) => {
+      c.raycast = noRay;
+    });
+  }, []);
+  return <gridHelper ref={ref} args={[10, 10, 0x888888, 0x444444]} />;
 }
 
 function BasicPrimitiveMesh({
@@ -194,12 +211,15 @@ function Canvas3dR3fSceneModel({
   transformMode,
   onTransformCommit,
   onAnimationClipNames,
+  onSelect,
 }: {
   instance: Canvas3dSceneInstance;
   selected: boolean;
-  transformMode: "translate" | "rotate" | null;
+  transformMode: Canvas3dTransformGizmoMode | null;
   onTransformCommit?: (id: string, t: Canvas3dModelTransform) => void;
   onAnimationClipNames?: (id: string, names: string[]) => void;
+  /** Sólo en edición: el clic en el modelo selecciona la instancia. */
+  onSelect?: (id: string) => void;
 }) {
   const [modelGroup, setModelGroup] = useState<THREE.Group | null>(null);
   const mt = instance.modelTransform ?? DEFAULT_CANVAS_3D_MODEL_TRANSFORM;
@@ -209,7 +229,8 @@ function Canvas3dR3fSceneModel({
     if (!modelGroup) return;
     modelGroup.position.set(mt.position[0], mt.position[1], mt.position[2]);
     modelGroup.rotation.set(mt.rotation[0], mt.rotation[1], mt.rotation[2]);
-  }, [modelGroup, mtKey, mt.position, mt.rotation]);
+    modelGroup.scale.set(mt.scale[0], mt.scale[1], mt.scale[2]);
+  }, [modelGroup, mtKey, mt.position, mt.rotation, mt.scale]);
 
   const readFromGroup = useCallback((): Canvas3dModelTransform | null => {
     if (!modelGroup) return null;
@@ -224,6 +245,7 @@ function Canvas3dR3fSceneModel({
         modelGroup.rotation.y,
         modelGroup.rotation.z,
       ],
+      scale: [modelGroup.scale.x, modelGroup.scale.y, modelGroup.scale.z],
     };
   }, [modelGroup]);
 
@@ -233,6 +255,16 @@ function Canvas3dR3fSceneModel({
         ref={setModelGroup}
         position={mt.position}
         rotation={mt.rotation}
+        scale={mt.scale}
+        onPointerDown={(e) => {
+          if (!onSelect || e.button !== 0) return;
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          if (!onSelect) return;
+          e.stopPropagation();
+          onSelect(instance.id);
+        }}
       >
         {instance.source === "primitive" && instance.primitiveKind ? (
           <BasicPrimitiveMesh
@@ -346,9 +378,15 @@ export interface Canvas3dSceneViewportProps {
   viewState?: Presenter3dViewState | null;
   onViewStateCommit?: (s: Presenter3dViewState) => void;
   selectedInstanceId?: string | null;
-  transformControlsMode?: "translate" | "rotate" | null;
+  transformControlsMode?: Canvas3dTransformGizmoMode | null;
   onInstanceTransformCommit?: (id: string, t: Canvas3dModelTransform) => void;
   onAnimationClipNames?: (instanceId: string, names: string[]) => void;
+  /**
+   * Edición: al hacer clic en un modelo, selecciona esa instancia. Clic en el vacío
+   * del lienzo 3D deselecciona. Si no se pasa, el comportamiento es el de un visor
+   * (p. ej. presentación) sin cambiar la selección.
+   */
+  onSelectInstance?: (id: string | null) => void;
   disableControls?: boolean;
   showInteractionHint?: boolean;
   showGroundGrid?: boolean;
@@ -371,6 +409,7 @@ export function Canvas3dSceneViewport({
   transformControlsMode = null,
   onInstanceTransformCommit,
   onAnimationClipNames,
+  onSelectInstance,
   disableControls,
   showInteractionHint = true,
   showGroundGrid = true,
@@ -405,6 +444,9 @@ export function Canvas3dSceneViewport({
               transformMode: transformControlsMode,
               onTransformCommit: onInstanceTransformCommit,
               onAnimationClipNames,
+              onSelect: onSelectInstance
+                ? (id: string) => onSelectInstance(id)
+                : undefined,
             }),
           )}
         </group>
@@ -427,6 +469,14 @@ export function Canvas3dSceneViewport({
         <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
           dpr={skipEnvironmentMaps ? 1 : undefined}
+          onPointerMissed={
+            onSelectInstance
+              ? (e) => {
+                  if (e.button !== 0) return;
+                  onSelectInstance(null);
+                }
+              : undefined
+          }
           camera={{
             position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
               number,
@@ -480,9 +530,7 @@ export function Canvas3dSceneViewport({
             intensity={0.35}
             color="#ffffff"
           />
-          {showGroundGrid ? (
-            <gridHelper args={[10, 10, 0x888888, 0x444444]} />
-          ) : null}
+          {showGroundGrid ? <GroundReferenceGrid /> : null}
           <Suspense fallback={null}>
             {!skipEnvironmentMaps ? (
               <Environment preset="city" environmentIntensity={0.85} />
@@ -498,8 +546,12 @@ export function Canvas3dSceneViewport({
       )}
       {!disableControls && showInteractionHint && hasModels && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
-          Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar · rueda
-          o pellizco: zoom
+          {onSelectInstance
+            ? "Clic en un objeto: seleccionar · en vacío: deseleccionar · arrastrar vacío: girar cámara ·"
+            : null}
+          {onSelectInstance ? " " : null}
+          Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar · rueda o
+          pellizco: zoom
         </p>
       )}
     </div>

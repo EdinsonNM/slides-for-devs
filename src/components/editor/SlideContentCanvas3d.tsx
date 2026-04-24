@@ -2,13 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import { parseCanvas3dSceneData } from "../../domain/entities/Canvas3dSceneData";
-import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
+import type {
+  Canvas3dModelTransform,
+  Canvas3dTransformGizmoMode,
+} from "../../utils/canvas3dModelTransform";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
 
 export function SlideContentCanvas3d() {
   const { currentSlide, patchCurrentSlideCanvas3dScene } = usePresentation();
-  const [transformMode, setTransformMode] = useState<"translate" | "rotate">(
+  const [transformMode, setTransformMode] = useState<Canvas3dTransformGizmoMode>(
     "translate",
   );
   const [clipNamesByInstanceId, setClipNamesByInstanceId] = useState<
@@ -38,6 +41,19 @@ export function SlideContentCanvas3d() {
           i.id === id ? { ...i, modelTransform: t } : i,
         ),
       }));
+    },
+    [patchCurrentSlideCanvas3dScene],
+  );
+
+  const handleSelectInstance = useCallback(
+    (id: string | null) => {
+      patchCurrentSlideCanvas3dScene((data) => {
+        if (id == null) {
+          return { ...data, selectedInstanceId: undefined };
+        }
+        if (!data.instances.some((i) => i.id === id)) return data;
+        return { ...data, selectedInstanceId: id };
+      });
     },
     [patchCurrentSlideCanvas3dScene],
   );
@@ -85,6 +101,7 @@ export function SlideContentCanvas3d() {
           selectedInstanceId={hasSelection ? selectedId : null}
           transformControlsMode={hasSelection ? transformMode : null}
           onInstanceTransformCommit={handleInstanceTransformCommit}
+          onSelectInstance={handleSelectInstance}
           onAnimationClipNames={handleAnimationClipNames}
           showInteractionHint
           showGroundGrid
@@ -114,6 +131,17 @@ export function SlideContentCanvas3d() {
             }
           >
             Girar
+          </button>
+          <button
+            type="button"
+            onClick={() => setTransformMode("scale")}
+            className={
+              transformMode === "scale"
+                ? "rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white"
+                : "rounded-md px-2 py-1 text-[10px] font-medium text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/10"
+            }
+          >
+            Escalar
           </button>
         </div>
       ) : null}

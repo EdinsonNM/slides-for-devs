@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { Box, Move3d, RotateCw, Settings2 } from "lucide-react";
+import { Box, Move3d, RotateCw, Scale3d, Settings2 } from "lucide-react";
 import { BaseModal } from "../modals/BaseModal";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { Canvas3dAnimationClipSelect } from "./Canvas3dAnimationClipSelect";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
-import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
-import { DEFAULT_CANVAS_3D_MODEL_TRANSFORM } from "../../utils/canvas3dModelTransform";
+import {
+  DEFAULT_CANVAS_3D_MODEL_TRANSFORM,
+  type Canvas3dModelTransform,
+  type Canvas3dTransformGizmoMode,
+} from "../../utils/canvas3dModelTransform";
 import { cn } from "../../utils/cn";
-
-type TransformMode = "translate" | "rotate";
 
 export interface Canvas3dTransformModalProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ export function Canvas3dTransformModal({
   const [draft, setDraft] = useState<Canvas3dModelTransform>(
     modelTransform ?? DEFAULT_CANVAS_3D_MODEL_TRANSFORM,
   );
-  const [mode, setMode] = useState<TransformMode>("translate");
+  const [mode, setMode] = useState<Canvas3dTransformGizmoMode>("translate");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -51,7 +52,7 @@ export function Canvas3dTransformModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Configurar modelo"
-      subtitle="Centro con el gizmo (mover / rotar), animación GLB y vista previa."
+      subtitle="Centro con el gizmo (mover, rotar, escala), animación GLB y vista previa."
       icon={
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
           <Settings2 size={20} />
@@ -87,6 +88,19 @@ export function Canvas3dTransformModal({
             >
               <RotateCw size={14} />
               Rotar
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                mode === "scale"
+                  ? "bg-emerald-600 text-white"
+                  : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/10",
+              )}
+              onClick={() => setMode("scale")}
+            >
+              <Scale3d size={14} />
+              Escalar
             </button>
           </div>
           <button

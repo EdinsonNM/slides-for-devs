@@ -123,7 +123,11 @@ export function Scene3dEditorCore({
       primitiveKind: kind,
       primitiveColor: "#64748b",
       displayName: PRIMITIVE_LABELS[kind],
-      modelTransform: { position, rotation },
+      modelTransform: {
+        ...DEFAULT_CANVAS_3D_MODEL_TRANSFORM,
+        position,
+        rotation,
+      },
     };
     persist({
       ...scene,
@@ -147,7 +151,11 @@ export function Scene3dEditorCore({
       glbUrl: trimmed,
       characterId: meta?.characterId,
       displayName: meta?.displayName,
-      modelTransform: { position, rotation },
+      modelTransform: {
+        ...DEFAULT_CANVAS_3D_MODEL_TRANSFORM,
+        position,
+        rotation,
+      },
     };
     persist({
       ...scene,
@@ -565,7 +573,7 @@ export function Scene3dEditorCore({
             </label>
           )}
           <p className="text-[10px] text-stone-500 dark:text-stone-400">
-            En el lienzo: «Mover» / «Girar» y gizmo, o órbita de cámara.
+            En el lienzo: «Mover» / «Girar» / «Escalar» y gizmo, o órbita de cámara.
           </p>
           <button
             type="button"
@@ -599,6 +607,44 @@ export function Scene3dEditorCore({
                     pos[idx] = v;
                     patchSelected({
                       modelTransform: { ...base, position: pos },
+                    });
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          <p className="text-[10px] font-medium text-stone-500 dark:text-stone-400">
+            Escala (por eje)
+          </p>
+          <div className="grid grid-cols-3 gap-1 text-[10px]">
+            {(["x", "y", "z"] as const).map((axis, idx) => (
+              <label
+                key={`s-${axis}`}
+                className="flex flex-col text-stone-500 dark:text-stone-400"
+              >
+                S{axis}
+                <input
+                  type="number"
+                  step={0.05}
+                  min={0.01}
+                  className="mt-0.5 rounded border border-stone-200 bg-white px-1 py-0.5 text-[11px] dark:border-border dark:bg-surface"
+                  value={
+                    (selected.modelTransform ?? DEFAULT_CANVAS_3D_MODEL_TRANSFORM)
+                      .scale[idx] ?? 1
+                  }
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v) || v < 0.01) return;
+                    const base =
+                      selected.modelTransform ?? DEFAULT_CANVAS_3D_MODEL_TRANSFORM;
+                    const s: [number, number, number] = [
+                      base.scale[0],
+                      base.scale[1],
+                      base.scale[2],
+                    ];
+                    s[idx] = v;
+                    patchSelected({
+                      modelTransform: { ...base, scale: s },
                     });
                   }}
                 />

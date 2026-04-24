@@ -21,7 +21,10 @@ import {
   DEFAULT_PRESENTER_3D_VIEW,
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
-import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
+import type {
+  Canvas3dModelTransform,
+  Canvas3dTransformGizmoMode,
+} from "../../utils/canvas3dModelTransform";
 import {
   R3fViewportResizeToHost,
   useHostElementSize,
@@ -132,6 +135,7 @@ function Canvas3DModel({
     <group
       position={modelTransform?.position ?? [0, 0, 0]}
       rotation={modelTransform?.rotation ?? [0, 0, 0]}
+      scale={modelTransform?.scale ?? [1, 1, 1]}
     >
       <SkinnedGltfPrimitive
         glbUrl={glbUrl}
@@ -155,7 +159,7 @@ function Canvas3DTransformControls({
   modelTransform?: Canvas3dModelTransform | null;
   animationClipName?: string;
   onAnimationClipNames?: (names: string[]) => void;
-  mode: "translate" | "rotate";
+  mode: Canvas3dTransformGizmoMode;
   onModelTransformChange?: (s: Canvas3dModelTransform) => void;
   onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
 }) {
@@ -174,6 +178,7 @@ function Canvas3DTransformControls({
         modelGroup.rotation.y,
         modelGroup.rotation.z,
       ],
+      scale: [modelGroup.scale.x, modelGroup.scale.y, modelGroup.scale.z],
     };
   }, [modelGroup]);
 
@@ -183,6 +188,7 @@ function Canvas3DTransformControls({
         ref={setModelGroup}
         position={modelTransform?.position ?? [0, 0, 0]}
         rotation={modelTransform?.rotation ?? [0, 0, 0]}
+        scale={modelTransform?.scale ?? [1, 1, 1]}
       >
         <SkinnedGltfPrimitive
           glbUrl={glbUrl}
@@ -300,7 +306,7 @@ export interface Canvas3DViewportProps {
    */
   animationClipName?: string;
   onAnimationClipNames?: (names: string[]) => void;
-  transformControlsMode?: "translate" | "rotate";
+  transformControlsMode?: Canvas3dTransformGizmoMode;
   onModelTransformChange?: (s: Canvas3dModelTransform) => void;
   onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
   /**
