@@ -107,8 +107,8 @@ function proseClassesForDeckTone(tone: DeckContentTone | undefined): string {
 }
 
 /**
- * Wrapper consistente de ReactMarkdown + remarkGfm + remarkBreaks para contenido de slides.
- * GFM primero evita interacciones raras entre plugins; breaks añade <br> en párrafos.
+ * Wrapper de ReactMarkdown + remarkGfm; `remarkBreaks` solo en modo edición (no en .md
+ * importado) para aproximarse a GFM/GitHub y no insertar <br> entre líneas consecutivas.
  */
 export function SlideMarkdown({
   children,
@@ -142,7 +142,13 @@ export function SlideMarkdown({
       )}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
+        remarkPlugins={
+          githubReadme
+            ? // Sin remark-breaks: alinea con GFM/GitHub; los saltos simples en un párrafo no
+              // vuelan `<br>` y los badges `[![x]]()` en líneas seguidas quedan en fila.
+              [remarkGfm]
+            : [remarkGfm, remarkBreaks]
+        }
         rehypePlugins={slideMarkdownRehypePlugins}
         components={{
           ...components,
@@ -160,6 +166,9 @@ export function SlideMarkdown({
   );
 }
 
-const defaultMarkdownParagraph: NonNullable<Components["p"]> = (props) => (
-  <p {...props} />
-);
+/** `react-markdown` pasa `node` (hast); no volcar al DOM (evita atributos inválidos). */
+const defaultMarkdownParagraph: NonNullable<Components["p"]> = ({
+  node: _node,
+  children,
+  ...rest
+}) => <p {...rest}>{children}</p>;

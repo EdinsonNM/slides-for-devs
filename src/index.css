@@ -325,6 +325,44 @@
     box-sizing: content-box;
   }
 
+  /**
+   * Preflight (Tailwind) pone imágenes en `display: block` → cada badge `a>img` en un mismo
+   * <p> se apila en columna. Forzar en línea como en GitHub.
+   */
+  .markdown-body-gh :where(p) :where(a) > :where(img) {
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /**
+   * Badges (shields.io): rehype puede unir <p> o quedar un <p> con varios a>img; flex + gap
+   * asegura fila, centrado bajo <div align="center">, y separación.
+   */
+  .markdown-body-gh p:has(> a > img):has(> a + a) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+  }
+
+  .markdown-body-gh p:has(> a:only-child img:only-child) {
+    display: inline-block;
+    margin: 0.2rem 0.45rem 0.4rem 0;
+    vertical-align: middle;
+  }
+
+  .markdown-body-gh p:has(> a:only-child img:only-child) img,
+  .markdown-body-gh p:has(> a:only-child img:only-child) a {
+    vertical-align: middle;
+  }
+
+  .markdown-body-gh p:has(> img:only-child) {
+    display: inline-block;
+    margin: 0.2rem 0.45rem 0.4rem 0;
+    vertical-align: middle;
+  }
+
   .markdown-body-gh :where(del) {
     text-decoration: line-through;
   }
