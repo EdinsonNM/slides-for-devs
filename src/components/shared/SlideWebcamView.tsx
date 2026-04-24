@@ -42,11 +42,6 @@ export function SlideWebcamView({ state, className }: SlideWebcamViewProps) {
         audio: false,
       });
       streamRef.current = stream;
-      const el = videoRef.current;
-      if (el) {
-        el.srcObject = stream;
-        await el.play();
-      }
       setStatus("active");
     } catch (e) {
       const msg =
@@ -57,6 +52,21 @@ export function SlideWebcamView({ state, className }: SlideWebcamViewProps) {
       setStatus("error");
     }
   }, [stopStream]);
+
+  // El <video> solo existe cuando `status === "active"`, así que el stream se obtuvo mientras
+  // aún no había ref. Tras el cambio a "active" el video se monta; aquí enlazamos y reproducimos.
+  useEffect(() => {
+    if (status !== "active") return;
+    const stream = streamRef.current;
+    const el = videoRef.current;
+    if (!stream || !el) return;
+    if (el.srcObject !== stream) {
+      el.srcObject = stream;
+    }
+    void el.play().catch(() => {
+      // Autoplay a veces falla; el usuario sigue pudiendo usar Reintentar.
+    });
+  }, [status]);
 
   useEffect(() => {
     void startStream();
