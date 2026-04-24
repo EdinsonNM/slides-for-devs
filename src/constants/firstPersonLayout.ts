@@ -9,6 +9,10 @@ export const FIRST_PERSON_LAYOUTS = {
   CONTENT_PRIMARY: "content-primary",
   /** 50% cámara / 50% contenido (división fija, responsive). */
   SPLIT_50: "split-50",
+  /** ~65% diapositiva izq. · cámara estrecha dcha. (desktop en fila). */
+  SPLIT_65_SLIDE_LEFT: "split-65-slide-left",
+  /** Cámara estrecha izq. · ~65% diapositiva dcha. */
+  SPLIT_65_SLIDE_RIGHT: "split-65-slide-right",
 } as const;
 
 export type FirstPersonLayout =
@@ -18,9 +22,24 @@ export const FIRST_PERSON_LAYOUT_LABELS: Record<FirstPersonLayout, string> = {
   [FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY]: "Cámara grande · slides flotante",
   [FIRST_PERSON_LAYOUTS.CONTENT_PRIMARY]: "Contenido grande · cámara pequeña",
   [FIRST_PERSON_LAYOUTS.SPLIT_50]: "Mitad y mitad",
+  [FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_LEFT]: "Contenido izq. · cámara estrecha dcha.",
+  [FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_RIGHT]: "Cámara estrecha izq. · contenido dcha.",
 };
 
 export const FIRST_PERSON_LAYOUT_STORAGE_KEY = "slaim-first-person-layout";
+
+const FIRST_PERSON_KEY_ORDER_STORAGE_KEY = "slaim-first-person-key-order";
+
+/** Todos los modos; el orden de teclas 1,2,…,0 se persiste y puede reordenarse (DnD). */
+export const DEFAULT_FIRST_PERSON_KEY_ORDER: FirstPersonLayout[] = [
+  FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY,
+  FIRST_PERSON_LAYOUTS.CONTENT_PRIMARY,
+  FIRST_PERSON_LAYOUTS.SPLIT_50,
+  FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_LEFT,
+  FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_RIGHT,
+];
+
+const ALL_FIRST_PERSON_LAYOUTS_SET = new Set<string>(DEFAULT_FIRST_PERSON_KEY_ORDER);
 
 const FIRST_PERSON_FLOAT_STORAGE_KEY = "slaim-first-person-float-v1";
 
@@ -57,14 +76,77 @@ const DEFAULT_FLOAT: Record<FirstPersonLayout, FirstPersonFloatState> = {
   [FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY]: { x: 0.78, y: 0.26, scale: 1 },
   [FIRST_PERSON_LAYOUTS.CONTENT_PRIMARY]: { x: 0.22, y: 0.26, scale: 1 },
   [FIRST_PERSON_LAYOUTS.SPLIT_50]: { x: 0.5, y: 0.5, scale: 1 },
+  [FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_LEFT]: { x: 0.5, y: 0.5, scale: 1 },
+  [FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_RIGHT]: { x: 0.5, y: 0.5, scale: 1 },
 };
 
 export function isFirstPersonLayout(value: unknown): value is FirstPersonLayout {
   return (
-    value === FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY ||
-    value === FIRST_PERSON_LAYOUTS.CONTENT_PRIMARY ||
-    value === FIRST_PERSON_LAYOUTS.SPLIT_50
+    typeof value === "string" && ALL_FIRST_PERSON_LAYOUTS_SET.has(value)
   );
+}
+
+export function isFirstPersonFixedSplitLayout(
+  layout: FirstPersonLayout,
+): boolean {
+  return (
+    layout === FIRST_PERSON_LAYOUTS.SPLIT_50 ||
+    layout === FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_LEFT ||
+    layout === FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_RIGHT
+  );
+}
+
+export function normalizeFirstPersonKeyOrder(
+  raw: FirstPersonLayout[] | undefined,
+): FirstPersonLayout[] {
+  const seen = new Set<FirstPersonLayout>();
+  const out: FirstPersonLayout[] = [];
+  for (const v of raw ?? []) {
+    if (isFirstPersonLayout(v) && !seen.has(v)) {
+      out.push(v);
+      seen.add(v);
+    }
+  }
+  for (const v of DEFAULT_FIRST_PERSON_KEY_ORDER) {
+    if (!seen.has(v)) {
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+export function readFirstPersonKeyOrder(): FirstPersonLayout[] {
+  if (typeof window === "undefined") {
+    return [...DEFAULT_FIRST_PERSON_KEY_ORDER];
+  }
+  try {
+    const s = window.localStorage.getItem(FIRST_PERSON_KEY_ORDER_STORAGE_KEY);
+    if (!s) return [...DEFAULT_FIRST_PERSON_KEY_ORDER];
+    const parsed = JSON.parse(s) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [...DEFAULT_FIRST_PERSON_KEY_ORDER];
+    }
+    return normalizeFirstPersonKeyOrder(
+      parsed.filter(isFirstPersonLayout) as FirstPersonLayout[],
+    );
+  } catch {
+    return [...DEFAULT_FIRST_PERSON_KEY_ORDER];
+  }
+}
+
+export function writeFirstPersonKeyOrder(
+  order: FirstPersonLayout[],
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const normalized = normalizeFirstPersonKeyOrder(order);
+    window.localStorage.setItem(
+      FIRST_PERSON_KEY_ORDER_STORAGE_KEY,
+      JSON.stringify(normalized),
+    );
+  } catch {
+    // ignore
+  }
 }
 
 export function readFirstPersonFloat(

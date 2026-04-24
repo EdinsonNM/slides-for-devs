@@ -13,6 +13,7 @@ import {
   FIRST_PERSON_FLOAT_SCALE_MAX,
   FIRST_PERSON_FLOAT_SCALE_MIN,
   FIRST_PERSON_LAYOUTS,
+  isFirstPersonFixedSplitLayout,
   type FirstPersonFloatState,
   type FirstPersonLayout,
   readFirstPersonFloat,
@@ -192,7 +193,7 @@ export function FirstPersonStage({
   };
 
   const onGripPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (layout === FIRST_PERSON_LAYOUTS.SPLIT_50) return;
+    if (isFirstPersonFixedSplitLayout(layout)) return;
     e.preventDefault();
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -307,7 +308,7 @@ export function FirstPersonStage({
     } catch {
       // ignore
     }
-    if (layout !== FIRST_PERSON_LAYOUTS.SPLIT_50) {
+    if (!isFirstPersonFixedSplitLayout(layout)) {
       const stage = stageRef.current;
       if (stage) {
         const rect = stage.getBoundingClientRect();
@@ -372,6 +373,96 @@ export function FirstPersonStage({
                   disableEntryMotion
                   registerPresenterMapFlyTo={registerPresenterMapFlyTo}
                   r3fHostMeasureKey={`${slideR3fKey}-split`}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_LEFT) {
+    return (
+      <div
+        className={cn(
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden md:flex-row",
+          mainShell,
+        )}
+      >
+        <ClaudeDotFadeLayer variant={lightAppearance ? "light" : "dark"} className="z-1" />
+        <div className="relative z-10 flex min-h-0 w-full min-w-0 border-b border-white/10 p-2 md:min-w-0 md:w-[min(65%,calc(100%-9rem))] md:flex-1 md:border-b-0 md:border-r md:p-3">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-white/10">
+            <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
+              <motion.div
+                key={slide.id}
+                custom={slideDirection}
+                variants={powerPointVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.32, ease: "easeInOut" }}
+                className="flex h-full min-h-0 w-full min-w-0 flex-col"
+              >
+                <PreviewSlideContent
+                  layout="fullscreen"
+                  slide={slide}
+                  imageWidthPercent={imageWidthPercent}
+                  panelHeightPercent={panelHeightPercent}
+                  slideIndex={slideIndex}
+                  disableEntryMotion
+                  registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+                  r3fHostMeasureKey={`${slideR3fKey}-split65-left`}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+        <div className="relative z-10 flex w-full min-w-0 min-h-0 border-white/10 p-2 md:min-w-44 md:max-w-[40%] md:basis-[35%] md:p-3">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl">
+            <SlideWebcamView state={webcamState} className="h-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === FIRST_PERSON_LAYOUTS.SPLIT_65_SLIDE_RIGHT) {
+    return (
+      <div
+        className={cn(
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden md:flex-row",
+          mainShell,
+        )}
+      >
+        <ClaudeDotFadeLayer variant={lightAppearance ? "light" : "dark"} className="z-1" />
+        <div className="relative z-10 flex w-full min-w-0 min-h-0 border-b border-white/10 p-2 md:min-w-44 md:max-w-[40%] md:basis-[35%] md:border-b-0 md:border-r md:p-3">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl">
+            <SlideWebcamView state={webcamState} className="h-full" />
+          </div>
+        </div>
+        <div className="relative z-10 flex min-h-0 w-full min-w-0 p-2 md:min-w-0 md:w-[min(65%,calc(100%-9rem))] md:flex-1 md:p-3">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-white/10">
+            <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
+              <motion.div
+                key={slide.id}
+                custom={slideDirection}
+                variants={powerPointVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.32, ease: "easeInOut" }}
+                className="flex h-full min-h-0 w-full min-w-0 flex-col"
+              >
+                <PreviewSlideContent
+                  layout="fullscreen"
+                  slide={slide}
+                  imageWidthPercent={imageWidthPercent}
+                  panelHeightPercent={panelHeightPercent}
+                  slideIndex={slideIndex}
+                  disableEntryMotion
+                  registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+                  r3fHostMeasureKey={`${slideR3fKey}-split65-right`}
                 />
               </motion.div>
             </AnimatePresence>

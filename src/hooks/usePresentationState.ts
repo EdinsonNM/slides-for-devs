@@ -84,7 +84,9 @@ import {
   FIRST_PERSON_LAYOUT_STORAGE_KEY,
   FIRST_PERSON_LAYOUTS,
   isFirstPersonLayout,
+  readFirstPersonKeyOrder,
   type FirstPersonLayout,
+  writeFirstPersonKeyOrder,
 } from "../constants/firstPersonLayout";
 import {
   PRESENTER_MODE_STORAGE_KEY,
@@ -309,6 +311,9 @@ export function usePresentationState() {
       return isFirstPersonLayout(stored) ? stored : FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY;
     },
   );
+  const [firstPersonKeyOrder, setFirstPersonKeyOrder] = useState<
+    FirstPersonLayout[]
+  >(() => readFirstPersonKeyOrder());
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
 
   const {
@@ -649,6 +654,10 @@ export function usePresentationState() {
       firstPersonLayout,
     );
   }, [firstPersonLayout]);
+
+  useEffect(() => {
+    writeFirstPersonKeyOrder(firstPersonKeyOrder);
+  }, [firstPersonKeyOrder]);
 
   const {
     patchCurrentSlideMatrix,
@@ -1117,6 +1126,8 @@ export function usePresentationState() {
     setPresenterMode,
     firstPersonLayout,
     setFirstPersonLayout,
+    firstPersonKeyOrder,
+    setFirstPersonKeyOrder,
     diagramFlushRef,
     isometricFlowFlushRef,
     diagramRemountToken,
