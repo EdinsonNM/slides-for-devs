@@ -211,7 +211,7 @@ function ContinuousCameraStage({
                       slideIndex={idx}
                       disableEntryMotion
                       hideSectionLabel
-                      r3fHostMeasureKey={`camera-continuous:${currentIndex}`}
+                      r3fHostMeasureKey={`camera-continuous:${slide.id}`}
                       registerPresenterMapFlyTo={
                         registerPresenterMapFlyTo && idx === currentIndex
                       }

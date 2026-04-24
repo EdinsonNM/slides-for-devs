@@ -6,7 +6,8 @@ import {
   useState,
   type ChangeEventHandler,
 } from "react";
-import { Plus, Trash2, Upload, User } from "lucide-react";
+import { Image as ImageIcon, Plus, Sparkles, Trash2, Upload, User } from "lucide-react";
+import { usePresentation } from "../../context/PresentationContext";
 import {
   CANVAS_3D_PRIMITIVE_KINDS,
   type Canvas3dPrimitiveKind,
@@ -60,6 +61,16 @@ export function Scene3dEditorCore({
     [],
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgFileRef = useRef<HTMLInputElement>(null);
+  const { patchCurrentSlideCanvas3dScene, currentSlide, setShowImageModal } =
+    usePresentation();
+  const [bgUrlDraft, setBgUrlDraft] = useState(() =>
+    scene.backgroundImageUrl?.trim() ?? "",
+  );
+
+  useEffect(() => {
+    setBgUrlDraft(scene.backgroundImageUrl?.trim() ?? "");
+  }, [scene.backgroundImageUrl]);
 
   useEffect(() => {
     void fetchPublicModelsCatalog().then(setPublicModels);
@@ -173,6 +184,23 @@ export function Scene3dEditorCore({
     });
   };
 
+  const onPickBackgroundImage: ChangeEventHandler<HTMLInputElement> = (ev) => {
+    const f = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!f || !f.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : "";
+      if (url) {
+        patchCurrentSlideCanvas3dScene((d) => ({
+          ...d,
+          backgroundImageUrl: url,
+        }));
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+
   const onPickLocalGlb: ChangeEventHandler<HTMLInputElement> = (ev) => {
     const f = ev.target.files?.[0];
     ev.target.value = "";
@@ -210,6 +238,103 @@ export function Scene3dEditorCore({
         scrollClassName,
       )}
     >
+      <div className="rounded-lg border border-stone-200/90 bg-stone-50/50 p-2.5 dark:border-border dark:bg-white/5">
+        <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-stone-600 dark:text-stone-400">
+          Fondo del slide
+        </p>
+        <p className="mb-2 text-[10px] leading-snug text-stone-500 dark:text-stone-400">
+          Imagen detrás del 3D (el lienzo es transparente). Carga, URL o reutiliza la
+          de la diapositiva; la IA pone la imagen en el slide — luego «Usar imagen del
+          slide».
+        </p>
+        <input
+          ref={bgFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onPickBackgroundImage}
+        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => bgFileRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-[10px] font-medium hover:bg-white dark:border-border dark:hover:bg-white/10"
+          >
+            <ImageIcon className="size-3" aria-hidden />
+            Subir…
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowImageModal(true);
+            }}
+            className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-800 hover:bg-violet-100 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/50"
+          >
+            <Sparkles className="size-3" aria-hidden />
+            Generar (IA)…
+          </button>
+          {currentSlide?.imageUrl?.trim() ? (
+            <button
+              type="button"
+              onClick={() => {
+                const u = currentSlide.imageUrl?.trim();
+                if (u) {
+                  patchCurrentSlideCanvas3dScene((d) => ({
+                    ...d,
+                    backgroundImageUrl: u,
+                  }));
+                }
+              }}
+              className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-900 hover:bg-emerald-100 dark:border-emerald-800/50 dark:bg-emerald-950/50 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+            >
+              Usar imagen del slide
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-2 flex flex-wrap items-end gap-1.5">
+          <label className="min-w-0 flex-1 text-[10px] text-stone-500 dark:text-stone-400">
+            URL
+            <input
+              type="url"
+              value={bgUrlDraft}
+              onChange={(e) => setBgUrlDraft(e.target.value)}
+              placeholder="https://…"
+              className="mt-0.5 w-full rounded border border-stone-200 bg-white px-1.5 py-1 font-mono text-[10px] dark:border-border dark:bg-surface"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const t = bgUrlDraft.trim();
+              if (t) {
+                patchCurrentSlideCanvas3dScene((d) => ({
+                  ...d,
+                  backgroundImageUrl: t,
+                }));
+              }
+            }}
+            className="shrink-0 rounded-md border border-stone-200 px-2 py-1 text-[10px] font-medium hover:bg-stone-100 dark:border-border dark:hover:bg-white/10"
+          >
+            Aplicar
+          </button>
+        </div>
+        {scene.backgroundImageUrl?.trim() ? (
+          <button
+            type="button"
+            onClick={() => {
+              patchCurrentSlideCanvas3dScene((d) => {
+                const next: Canvas3dSceneData = { ...d };
+                delete next.backgroundImageUrl;
+                return next;
+              });
+            }}
+            className="mt-2 text-[10px] text-red-600 hover:underline dark:text-red-400"
+          >
+            Quitar fondo
+          </button>
+        ) : null}
+      </div>
+
       <div>
         <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-stone-600 dark:text-stone-400">
           Formas básicas

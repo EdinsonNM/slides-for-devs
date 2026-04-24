@@ -65,21 +65,32 @@ export function SlideContentCanvas3d() {
     selectedId && scene.instances.some((i) => i.id === selectedId),
   );
 
+  const bg = scene.backgroundImageUrl?.trim();
+
   return (
     <div className="absolute inset-0 z-0 flex min-h-0 min-w-0 flex-col">
-      <Canvas3dSceneViewport
-        slideId={currentSlide.id}
-        instances={scene.instances}
-        viewState={scene.viewState}
-        onViewStateCommit={handleViewCommit}
-        selectedInstanceId={hasSelection ? selectedId : null}
-        transformControlsMode={hasSelection ? transformMode : null}
-        onInstanceTransformCommit={handleInstanceTransformCommit}
-        onAnimationClipNames={handleAnimationClipNames}
-        showInteractionHint
-        showGroundGrid
-        className="h-full w-full min-h-[120px]"
-      />
+      {bg ? (
+        <img
+          src={bg}
+          alt=""
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+        />
+      ) : null}
+      <div className="relative z-[1] min-h-0 flex-1">
+        <Canvas3dSceneViewport
+          slideId={currentSlide.id}
+          instances={scene.instances}
+          viewState={scene.viewState}
+          onViewStateCommit={handleViewCommit}
+          selectedInstanceId={hasSelection ? selectedId : null}
+          transformControlsMode={hasSelection ? transformMode : null}
+          onInstanceTransformCommit={handleInstanceTransformCommit}
+          onAnimationClipNames={handleAnimationClipNames}
+          showInteractionHint
+          showGroundGrid
+          className="h-full w-full min-h-[120px]"
+        />
+      </div>
       {hasSelection ? (
         <div className="pointer-events-auto absolute right-2 top-2 z-[2] flex gap-1 rounded-lg border border-stone-200/80 bg-white/90 p-0.5 shadow-sm dark:border-border dark:bg-surface-elevated/95">
           <button

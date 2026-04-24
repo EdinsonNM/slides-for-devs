@@ -52,6 +52,11 @@ export interface Canvas3dSceneData {
   instances: Canvas3dSceneInstance[];
   viewState?: Presenter3dViewState;
   selectedInstanceId?: string;
+  /**
+   * Fondo detrás del lienzo 3D (URL https o `data:`). El canvas WebGL va con alpha;
+   * la imagen se pinta en capa inferior (editor y presentador).
+   */
+  backgroundImageUrl?: string;
 }
 
 export function createDefaultCanvas3dSceneData(): Canvas3dSceneData {
@@ -127,11 +132,16 @@ export function parseCanvas3dSceneData(raw: string | undefined | null): Canvas3d
       typeof o.selectedInstanceId === "string" && o.selectedInstanceId.trim()
         ? o.selectedInstanceId
         : undefined;
+    const backgroundImageUrl =
+      typeof o.backgroundImageUrl === "string" && o.backgroundImageUrl.trim()
+        ? o.backgroundImageUrl.trim()
+        : undefined;
     return {
       schemaVersion: CANVAS_3D_SCENE_SCHEMA_VERSION,
       instances,
       ...(viewState ? { viewState } : {}),
       ...(selectedInstanceId ? { selectedInstanceId } : {}),
+      ...(backgroundImageUrl ? { backgroundImageUrl } : {}),
     };
   } catch {
     return fallback;

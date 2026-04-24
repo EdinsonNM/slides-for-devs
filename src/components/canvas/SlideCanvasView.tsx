@@ -598,23 +598,32 @@ export function SlideCanvasView({
     <div className={cn("relative h-full min-h-0 w-full min-w-0", className)}>
       {canvas3dScene ? (
         <div className="absolute inset-0 z-0 min-h-0 w-full">
-          <DeferHeavyWebglMount
-            enabled={Boolean(minimalCanvas3dChrome)}
-            className="h-full min-h-[120px] w-full"
-          >
-            <Canvas3dSceneViewport
-              slideId={slide.id}
-              instances={canvas3dScene.instances}
-              viewState={canvas3dScene.viewState}
-              selectedInstanceId={null}
-              transformControlsMode={null}
-              showInteractionHint={!minimalCanvas3dChrome}
-              showGroundGrid={!minimalCanvas3dChrome}
-              className="h-full min-h-[120px] w-full"
-              hostMeasureKey={r3fHostMeasureKey}
-              skipEnvironmentMaps={minimalCanvas3dChrome}
+          {canvas3dScene.backgroundImageUrl?.trim() ? (
+            <img
+              src={canvas3dScene.backgroundImageUrl.trim()}
+              alt=""
+              className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
             />
-          </DeferHeavyWebglMount>
+          ) : null}
+          <div className="relative z-[1] h-full min-h-0 w-full">
+            <DeferHeavyWebglMount
+              enabled={Boolean(minimalCanvas3dChrome)}
+              className="h-full min-h-[120px] w-full"
+            >
+              <Canvas3dSceneViewport
+                slideId={slide.id}
+                instances={canvas3dScene.instances}
+                viewState={canvas3dScene.viewState}
+                selectedInstanceId={null}
+                transformControlsMode={null}
+                showInteractionHint={!minimalCanvas3dChrome}
+                showGroundGrid={!minimalCanvas3dChrome}
+                className="h-full min-h-[120px] w-full"
+                hostMeasureKey={r3fHostMeasureKey}
+                skipEnvironmentMaps={minimalCanvas3dChrome}
+              />
+            </DeferHeavyWebglMount>
+          </div>
         </div>
       ) : null}
       {sorted.map((el) => (

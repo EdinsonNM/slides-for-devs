@@ -6,8 +6,6 @@ import { Canvas3dModelSourceActions } from "./Canvas3dModelSourceActions";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Slide } from "../../types";
 
-const CANVAS_MEDIA_BOUNDS_MARGIN = 1.08;
-
 export interface Canvas3DPanelProps {
   embeddedInCanvas?: boolean;
   canvasPanelSlide?: Slide;
@@ -153,9 +151,6 @@ export function Canvas3DPanel({
             embeddedInCanvas && r3fUseLiveWebgl && !isPreviewMode
               ? setThrottledFrameSnapshotRef
               : undefined
-          }
-          boundsMargin={
-            embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined
           }
           className={cn("min-h-0 flex-1", embeddedInCanvas ? "" : "rounded-xl")}
         />

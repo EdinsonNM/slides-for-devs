@@ -6,6 +6,8 @@ export type HostElementSize = { width: number; height: number };
 /**
  * Mide el rect real de un elemento host (px enteros) y se actualiza con ResizeObserver.
  * Útil cuando el `Canvas` de R3F vive bajo transforms/animaciones y la medición inicial falla.
+ * No se pone el tamaño a 0 al cambiar `observeKey`: el `measure()` inmediato en el mismo
+ * `useLayoutEffect` actualiza; resetear a 0 provocaba un frame con buffer WebGL inválido (CLS en presentador).
  */
 export function useHostElementSize(
   observeKey: string,
@@ -15,17 +17,8 @@ export function useHostElementSize(
     width: 0,
     height: 0,
   });
-  const prevObserveKeyRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
-    const rebinds =
-      prevObserveKeyRef.current != null && prevObserveKeyRef.current !== observeKey;
-    prevObserveKeyRef.current = observeKey;
-
-    if (rebinds) {
-      setHostSize({ width: 0, height: 0 });
-    }
-
     const el = hostRef.current;
     if (!el) return;
 

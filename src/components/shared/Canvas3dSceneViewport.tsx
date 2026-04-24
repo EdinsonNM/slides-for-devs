@@ -27,7 +27,6 @@ import type {
   Canvas3dPrimitiveKind,
   Canvas3dSceneInstance,
 } from "../../domain/entities/Canvas3dSceneData";
-import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
 import {
   R3fViewportResizeToHost,
   useHostElementSize,
@@ -269,46 +268,46 @@ function Canvas3DOrbitControls({
   viewState,
   onViewCommit,
   disableControls,
-  useAutoframing,
 }: {
   controlKey: string;
   viewState?: Presenter3dViewState | null;
   onViewCommit?: (s: Presenter3dViewState) => void;
   disableControls?: boolean;
-  useAutoframing: boolean;
 }) {
   const ref = useRef<OrbitControlsImpl>(null);
   const { camera } = useThree();
-  const appliedForKey = useRef<string | null>(null);
-  const pendingApply = useRef(false);
-
-  useFixedTargetOrbitPan(ref, Boolean(!disableControls));
+  const viewStateSig = useMemo(
+    () => (viewState ? JSON.stringify(viewState) : ""),
+    [viewState],
+  );
+  const appliedStateKeyRef = useRef<string | null>(null);
+  const pendingApply = useRef(true);
 
   useEffect(() => {
     pendingApply.current = true;
-    appliedForKey.current = null;
-  }, [controlKey]);
+    appliedStateKeyRef.current = null;
+  }, [controlKey, viewStateSig]);
 
   useFrame(() => {
     if (!pendingApply.current) return;
     const ctrl = ref.current;
     if (!ctrl) return;
-    if (appliedForKey.current === controlKey) {
+    const stateKey = `${controlKey}|${viewStateSig}`;
+    if (appliedStateKeyRef.current === stateKey) {
       pendingApply.current = false;
       return;
     }
-    /* Con instancias, `Bounds` encuadra; no pisar con `viewState` guardado (suele ser de escena vacía). */
-    if (viewState && !useAutoframing) {
+    if (viewState) {
       const v = viewState;
       camera.position.set(v.position[0], v.position[1], v.position[2]);
       ctrl.target.set(v.target[0], v.target[1], v.target[2]);
-    } else if (!useAutoframing) {
+    } else {
       const v = DEFAULT_PRESENTER_3D_VIEW;
       camera.position.set(v.position[0], v.position[1], v.position[2]);
       ctrl.target.set(v.target[0], v.target[1], v.target[2]);
     }
     ctrl.update();
-    appliedForKey.current = controlKey;
+    appliedStateKeyRef.current = stateKey;
     pendingApply.current = false;
   });
 
@@ -320,7 +319,7 @@ function Canvas3DOrbitControls({
       dampingFactor={0.08}
       rotateSpeed={0.85}
       zoomSpeed={0.9}
-      enablePan={false}
+      enablePan={!disableControls}
       enableRotate={!disableControls}
       enableZoom={!disableControls}
       minPolarAngle={0.08}
@@ -391,9 +390,6 @@ export function Canvas3dSceneViewport({
   const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
   const r3fFragmentKey = `${slideId}\u0001scene\u0001${digest}`;
-
-  /** Con instancias, no reinyectar cámara desde `viewState` (evita lucha con la órbita). */
-  const useAutoframing = instances.length > 0;
 
   let sceneBody: ReactNode;
   if (instances.length === 0) {
@@ -467,7 +463,6 @@ export function Canvas3dSceneViewport({
             viewState={viewState ?? null}
             onViewCommit={onViewStateCommit}
             disableControls={disableControls}
-            useAutoframing={useAutoframing}
           />
           <ambientLight intensity={skipEnvironmentMaps ? 0.52 : 0.35} />
           <directionalLight
@@ -503,8 +498,8 @@ export function Canvas3dSceneViewport({
       )}
       {!disableControls && showInteractionHint && hasModels && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
-          Clic + arrastre para girar · rueda o pellizco para zoom · clic derecho para
-          desplazar
+          Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar · rueda
+          o pellizco: zoom
         </p>
       )}
     </div>

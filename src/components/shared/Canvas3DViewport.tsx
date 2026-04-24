@@ -10,14 +10,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import {
-  Bounds,
-  Environment,
-  OrbitControls,
-  TransformControls,
-  useBounds,
-  useGLTF,
-} from "@react-three/drei";
+import { Environment, OrbitControls, TransformControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkinnedScene } from "three/examples/jsm/utils/SkeletonUtils.js";
 
@@ -29,7 +22,6 @@ import {
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
-import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
 import {
   R3fViewportResizeToHost,
   useHostElementSize,
@@ -53,18 +45,6 @@ function centerObjectAtOrigin(root: THREE.Object3D): void {
   box.getCenter(center);
   root.position.sub(center);
   root.updateMatrixWorld(true);
-}
-
-function BoundsAutoRefresh({ refreshKey }: { refreshKey: string }) {
-  const api = useBounds();
-  useLayoutEffect(() => {
-    api.refresh().clip().fit();
-    const id = requestAnimationFrame(() => {
-      api.refresh().clip().fit();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [api, refreshKey]);
-  return null;
 }
 
 function glbSourceForLoader(url: string): string {
@@ -248,8 +228,6 @@ function Canvas3DOrbitControls({
   const appliedForKey = useRef<string | null>(null);
   const pendingApply = useRef(false);
 
-  useFixedTargetOrbitPan(ref, Boolean(!disableControls));
-
   useEffect(() => {
     pendingApply.current = true;
     appliedForKey.current = null;
@@ -285,7 +263,7 @@ function Canvas3DOrbitControls({
       dampingFactor={0.08}
       rotateSpeed={0.85}
       zoomSpeed={0.9}
-      enablePan={false}
+      enablePan={!disableControls}
       enableRotate={!disableControls}
       enableZoom={!disableControls}
       minPolarAngle={0.08}
@@ -316,7 +294,6 @@ export interface Canvas3DViewportProps {
   /** Rejilla de referencia bajo el modelo (solo útil en edición). */
   showGroundGrid?: boolean;
   className?: string;
-  boundsMargin?: number;
   modelTransform?: Canvas3dModelTransform | null;
   /**
    * Clips del GLB: ausente en slide = reproducir la primera; `""` = ninguna; nombre = clip concreta.
@@ -365,7 +342,6 @@ export function Canvas3DViewport({
   showInteractionHint = true,
   showGroundGrid = true,
   className,
-  boundsMargin = 1.25,
   modelTransform,
   animationClipName,
   onAnimationClipNames,
@@ -382,7 +358,6 @@ export function Canvas3DViewport({
   const controlKey = `${slideId}|${trimmed}`;
   const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
-  const boundsRefreshKey = `${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
 
   const r3fFragmentKey = `${slideId}\u0001${trimmed}\u0001${r3fInstanceId ?? "main"}`;
 
@@ -400,20 +375,6 @@ export function Canvas3DViewport({
         onModelTransformChange={onModelTransformChange}
         onModelTransformCommit={onModelTransformCommit}
       />
-    );
-  } else if (viewState == null) {
-    sceneBody = (
-      <Bounds margin={boundsMargin} clip>
-        <group key={trimmed}>
-          <Canvas3DModel
-            glbUrl={trimmed}
-            modelTransform={modelTransform}
-            animationClipName={animationClipName}
-            onAnimationClipNames={onAnimationClipNames}
-          />
-        </group>
-        <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
-      </Bounds>
     );
   } else {
     sceneBody = (
@@ -515,7 +476,8 @@ export function Canvas3DViewport({
       )}
       {!disableControls && showInteractionHint && trimmed && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
-          Clic + arrastre para girar · rueda o pellizco para zoom · clic derecho para desplazar
+          Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar · rueda
+          o pellizco: zoom
         </p>
       )}
     </div>

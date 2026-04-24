@@ -34,7 +34,6 @@ import {
   type Presenter3dViewState,
   presenter3dViewIsTooTightHeadOn,
 } from "../../utils/presenter3dView";
-import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
 import {
   R3fViewportResizeToHost,
   useHostElementSize,
@@ -224,8 +223,6 @@ function PersistedOrbitControls({
   const appliedForSlideId = useRef<string | null>(null);
   const pendingApply = useRef(false);
 
-  useFixedTargetOrbitPan(ref, Boolean(!disableControls));
-
   useEffect(() => {
     pendingApply.current = true;
     appliedForSlideId.current = null;
@@ -261,7 +258,7 @@ function PersistedOrbitControls({
       dampingFactor={0.08}
       rotateSpeed={0.85}
       zoomSpeed={0.9}
-      enablePan={false}
+      enablePan={!disableControls}
       enableRotate={!disableControls}
       enableZoom={!disableControls}
       minPolarAngle={0.35}
@@ -466,8 +463,8 @@ export function Device3DViewport({
       </Fragment>
       {!disableControls && showInteractionHint && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
-          Clic + arrastre o trackpad para girar · rueda o pellizco para zoom ·
-          clic derecho para desplazar
+          Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar ·
+          rueda o pellizco: zoom
         </p>
       )}
     </div>
