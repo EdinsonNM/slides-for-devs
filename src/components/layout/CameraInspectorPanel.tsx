@@ -9,6 +9,7 @@ import {
 import { readMediaPayloadFromElement } from "../../domain/slideCanvas/slideCanvasPayload";
 import { isSlideCanvasMediaPayload } from "../../domain/entities/SlideCanvas";
 import {
+  WEBCAM_INTENSITY_MAX,
   WEBCAM_MASK_SHAPE,
   type WebcamMaskShape,
   normalizeWebcamPanelState,
@@ -88,7 +89,8 @@ export function CameraInspectorPanel() {
           </span>
         </div>
         <p className="mt-1 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-          La imagen en vivo se muestra en el bloque del lienzo. Ajusta máscara y espejo aquí.
+          La imagen en vivo se muestra en el bloque del lienzo. El desenfoque de fondo y la suavidad
+          (smoothness) actúan sobre la silueta detectada, no solo sobre el rostro.
         </p>
       </div>
 
@@ -120,6 +122,70 @@ export function CameraInspectorPanel() {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label
+                htmlFor="webcam-bg-blur"
+                className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Desenfoque del fondo
+              </label>
+              <span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400">
+                {state.backgroundBlurStrength}
+              </span>
+            </div>
+            <input
+              id="webcam-bg-blur"
+              type="range"
+              min={0}
+              max={WEBCAM_INTENSITY_MAX}
+              value={state.backgroundBlurStrength}
+              onChange={(e) =>
+                setCurrentSlideWebcam({
+                  ...state,
+                  backgroundBlurStrength: Number(e.target.value),
+                })
+              }
+              className="h-2 w-full cursor-pointer accent-violet-600 dark:accent-violet-500"
+            />
+            <p className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
+              Requiere carga de segmentación; si falla, se muestra cámara sin efecto.
+            </p>
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label
+                htmlFor="webcam-fg-smooth"
+                className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Suavidad (primer plano)
+              </label>
+              <span className="text-[10px] tabular-nums text-stone-500 dark:text-stone-400">
+                {state.faceSmoothStrength}
+              </span>
+            </div>
+            <input
+              id="webcam-fg-smooth"
+              type="range"
+              min={0}
+              max={WEBCAM_INTENSITY_MAX}
+              value={state.faceSmoothStrength}
+              onChange={(e) =>
+                setCurrentSlideWebcam({
+                  ...state,
+                  faceSmoothStrength: Number(e.target.value),
+                })
+              }
+              className="h-2 w-full cursor-pointer accent-violet-600 dark:accent-violet-500"
+            />
+            <p className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
+              Atenúa textura y microcontraste en la figura (efecto tipo cámara beauty), no un simple
+              desenfoque global.
+            </p>
           </div>
         </div>
 

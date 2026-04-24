@@ -20,7 +20,10 @@ export interface WebcamPanelState {
   mirrored: boolean;
   /** 0 = sin blur de fondo; 100 = máximo. */
   backgroundBlurStrength: number;
-  /** 0 = sin suavizado; 100 = máximo en primer plano (silueta segmentada). */
+  /**
+   * Suavidad del primer plano (0–100): atenúa textura sobre la silueta segmentada, estilo “beauty” / smoothness.
+   * Persistido como `faceSmoothStrength` por compatibilidad con datos guardados.
+   */
   faceSmoothStrength: number;
 }
 
