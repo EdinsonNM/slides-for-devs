@@ -43,6 +43,7 @@ import { parseSlideMapData } from "../../domain/entities/SlideMapData";
 import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
+import { DeferHeavyWebglMount } from "../shared/DeferHeavyWebglMount";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
 import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
@@ -94,6 +95,7 @@ function mediaBlock(
   presenterCanvas?: { slide: Slide; element: SlideCanvasElement },
   r3fHostMeasureKey?: string,
   minimalCanvas3dChrome?: boolean,
+  r3fStackRevision = 0,
 ) {
   const panel = resolveMediaPanelDescriptor(deckSlide);
   switch (panel.kind) {
@@ -153,56 +155,73 @@ function mediaBlock(
           ? presenter3dDisplayPropsFromCanvasElement(fullSlide, el)
           : null;
       const canvasBlock = el != null && fromPayload != null;
+      const deferWebgl = Boolean(minimalCanvas3dChrome);
       return (
         <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
-          <Device3DViewport
-            slideId={fullSlide.id}
-            orbitScopeSuffix={el?.id}
-            deviceId={
-              canvasBlock
-                ? fromPayload.deviceId
-                : ((deckSlide.presenter3dDeviceId as string | undefined) ??
-                  DEFAULT_DEVICE_3D_ID)
-            }
-            screenMedia={
-              canvasBlock
-                ? fromPayload.screenMedia
-                : (deckSlide.presenter3dScreenMedia ?? "image")
-            }
-            imageUrl={
-              canvasBlock ? fromPayload.imageUrl : deckSlide.imageUrl
-            }
-            videoUrl={
-              canvasBlock ? fromPayload.videoUrl : deckSlide.videoUrl
-            }
-            viewState={
-              canvasBlock
-                ? fromPayload.viewState
-                : deckSlide.presenter3dViewState
-            }
-            showInteractionHint={false}
-            className="h-full min-h-[120px]"
-            hostMeasureKey={r3fHostMeasureKey}
-          />
+          <DeferHeavyWebglMount
+            enabled={deferWebgl}
+            className="h-full min-h-[120px] w-full"
+          >
+            <Device3DViewport
+              slideId={fullSlide.id}
+              orbitScopeSuffix={el?.id}
+              deviceId={
+                canvasBlock
+                  ? fromPayload.deviceId
+                  : ((deckSlide.presenter3dDeviceId as string | undefined) ??
+                    DEFAULT_DEVICE_3D_ID)
+              }
+              screenMedia={
+                canvasBlock
+                  ? fromPayload.screenMedia
+                  : (deckSlide.presenter3dScreenMedia ?? "image")
+              }
+              imageUrl={
+                canvasBlock ? fromPayload.imageUrl : deckSlide.imageUrl
+              }
+              videoUrl={
+                canvasBlock ? fromPayload.videoUrl : deckSlide.videoUrl
+              }
+              viewState={
+                canvasBlock
+                  ? fromPayload.viewState
+                  : deckSlide.presenter3dViewState
+              }
+              showInteractionHint={false}
+              className="h-full min-h-[120px]"
+              hostMeasureKey={r3fHostMeasureKey}
+              stackRevision={r3fStackRevision}
+              skipEnvironmentMaps={deferWebgl}
+            />
+          </DeferHeavyWebglMount>
         </div>
       );
     }
-    case PANEL_CONTENT_KIND.CANVAS_3D:
+    case PANEL_CONTENT_KIND.CANVAS_3D: {
+      const deferWebgl = Boolean(minimalCanvas3dChrome);
       return (
         <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
-          <Canvas3DViewport
-            slideId={deckSlide.id}
-            glbUrl={deckSlide.canvas3dGlbUrl}
-            viewState={deckSlide.canvas3dViewState}
-            modelTransform={deckSlide.canvas3dModelTransform}
-            animationClipName={deckSlide.canvas3dAnimationClipName}
-            showInteractionHint={!minimalCanvas3dChrome}
-            showGroundGrid={!minimalCanvas3dChrome}
-            className="h-full min-h-[120px]"
-            hostMeasureKey={r3fHostMeasureKey}
-          />
+          <DeferHeavyWebglMount
+            enabled={deferWebgl}
+            className="h-full min-h-[120px] w-full"
+          >
+            <Canvas3DViewport
+              slideId={deckSlide.id}
+              glbUrl={deckSlide.canvas3dGlbUrl}
+              viewState={deckSlide.canvas3dViewState}
+              modelTransform={deckSlide.canvas3dModelTransform}
+              animationClipName={deckSlide.canvas3dAnimationClipName}
+              showInteractionHint={!minimalCanvas3dChrome}
+              showGroundGrid={!minimalCanvas3dChrome}
+              className="h-full min-h-[120px]"
+              hostMeasureKey={r3fHostMeasureKey}
+              stackRevision={r3fStackRevision}
+              skipEnvironmentMaps={deferWebgl}
+            />
+          </DeferHeavyWebglMount>
         </div>
       );
+    }
     case PANEL_CONTENT_KIND.DATA_MOTION_RING:
       return (
         <div className="h-full min-h-0 w-full overflow-visible rounded-xl">
@@ -291,6 +310,7 @@ function CanvasElementReadOnly({
       ? slideAppearanceForMediaElement(slide, element)
       : slide;
   const { rect, kind, z } = element;
+  const r3fStackRevision = Math.round(Number.isFinite(z) ? z : 0);
   const rotation = element.rotation ?? 0;
   const box: CSSProperties = {
     left: `${rect.x}%`,
@@ -415,6 +435,7 @@ function CanvasElementReadOnly({
               { slide, element },
               r3fHostMeasureKey,
               minimalCanvas3dChrome,
+              r3fStackRevision,
             ),
           )}
         </div>

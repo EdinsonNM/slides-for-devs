@@ -35,6 +35,7 @@ import {
   useHostElementSize,
 } from "./r3fHostViewportSync";
 import { R3fWebglContextLostGuard } from "./R3fWebglContextLostGuard";
+import { R3fWebglThrottledSnapshot } from "./R3fWebglThrottledSnapshot";
 
 function disposeClonedGeometries(root: THREE.Object3D) {
   root.traverse((obj) => {
@@ -327,12 +328,29 @@ export interface Canvas3DViewportProps {
   onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
   /**
    * Clave opcional para forzar re-medición del host cuando el layout cambia sin resize CSS
-   * (p. ej. presentación con transforms, orden z en el lienzo). **No** forma parte de la
-   * identidad de montaje del &lt;Canvas&gt; (evita recrear el contexto WebGL al cambiar solo `z`).
+   * (p. ej. presentación con transforms). **No** entra en la `key` del &lt;Canvas&gt;.
    */
   hostMeasureKey?: string;
   /** Id. estable del `mediaPanel` (varios visores 3D en un slide); aísla la `key` de React. */
   r3fInstanceId?: string | null;
+  /**
+   * Orden de apilado en el lienzo (p. ej. `z` del `mediaPanel`). Fuerza re-medición y
+   * `setSize` (vía `hostObserveKey`) al reordenar **sin** remontar el `<Canvas>`: remount
+   * por `key` destruía el contexto WebGL y podía hundir la GPU / cerrar la pestaña.
+   * @default 0
+   */
+  stackRevision?: number;
+  /**
+   * Si se pasa, captura periódica (data URL) del canvas WebGL mientras el visor está montado
+   * (p. ej. “vista congelada” al deseleccionar el `mediaPanel` en el editor).
+   */
+  onThrottledFrameSnapshot?: (dataUrl: string) => void;
+  /**
+   * Sin mapas HDR de `Environment` (presentación / pantalla completa): menos red y primer
+   * frame mucho antes; la iluminación pasa a ser solo luces direccionales + ambiente.
+   * @default false
+   */
+  skipEnvironmentMaps?: boolean;
 }
 
 /**
@@ -356,10 +374,13 @@ export function Canvas3DViewport({
   onModelTransformCommit,
   hostMeasureKey,
   r3fInstanceId = null,
+  stackRevision = 0,
+  onThrottledFrameSnapshot,
+  skipEnvironmentMaps = false,
 }: Canvas3DViewportProps) {
   const trimmed = glbUrl?.trim() ?? "";
   const controlKey = `${slideId}|${trimmed}`;
-  const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}`;
+  const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
   const boundsRefreshKey = `${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
 
@@ -419,6 +440,7 @@ export function Canvas3DViewport({
       <Fragment key={`r3f-canvas3d-${r3fFragmentKey}`}>
         <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
+          dpr={skipEnvironmentMaps ? 1 : undefined}
           camera={{
             position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
               number,
@@ -442,6 +464,11 @@ export function Canvas3DViewport({
           }}
         >
           <R3fWebglContextLostGuard />
+          {onThrottledFrameSnapshot != null && trimmed ? (
+            <R3fWebglThrottledSnapshot
+              onSnapshot={onThrottledFrameSnapshot}
+            />
+          ) : null}
           <R3fViewportResizeToHost
             width={hostSize.width}
             height={hostSize.height}
@@ -454,7 +481,7 @@ export function Canvas3DViewport({
             disableControls={disableControls}
             useAutoframing={viewState == null}
           />
-          <ambientLight intensity={0.35} />
+          <ambientLight intensity={skipEnvironmentMaps ? 0.52 : 0.35} />
           <directionalLight
             position={[6, 8, 6]}
             intensity={1.1}
@@ -474,7 +501,9 @@ export function Canvas3DViewport({
             <gridHelper args={[10, 10, 0x888888, 0x444444]} />
           ) : null}
           <Suspense fallback={null}>
-            <Environment preset="city" environmentIntensity={0.85} />
+            {!skipEnvironmentMaps ? (
+              <Environment preset="city" environmentIntensity={0.85} />
+            ) : null}
             {sceneBody}
           </Suspense>
         </Canvas>

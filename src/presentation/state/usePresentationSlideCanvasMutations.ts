@@ -73,11 +73,9 @@ export function usePresentationSlideCanvasMutations(
             ).mediaPanelElementId
           : null;
 
-      let didPatchScene = false;
       d.setSlides((prev) => {
         const cur = prev[idx];
         if (!cur?.canvasScene) return prev;
-        didPatchScene = true;
         const nextScene = updater(cur.canvasScene);
         const out = [...prev];
         out[idx] = syncSlideRootFromCanvas({
@@ -86,10 +84,6 @@ export function usePresentationSlideCanvasMutations(
         });
         return out;
       });
-
-      if (didPatchScene) {
-        d.bumpCanvasSceneLayoutEpoch();
-      }
 
       /**
        * Tras reordenar capas, el primer `mediaPanel` en z cambia pero `canvasTextTargetsRef`
@@ -149,7 +143,6 @@ export function usePresentationSlideCanvasMutations(
     ) => {
       const d = depsRef.current;
       let newMediaPanelId: string | null = null;
-      let didAppend = false;
       d.setSlides((prev) => {
         const idx = d.currentIndexRef.current;
         const raw = prev[idx];
@@ -164,7 +157,6 @@ export function usePresentationSlideCanvasMutations(
           options,
         );
         if (!appended) return prev;
-        didAppend = true;
         const { elements: nextElements, created } = appended;
         if (created.kind === "mediaPanel") {
           newMediaPanelId = created.id;
@@ -183,9 +175,6 @@ export function usePresentationSlideCanvasMutations(
             rehydrateCodeBuffers: true,
           });
         }, 0);
-      }
-      if (didAppend) {
-        d.bumpCanvasSceneLayoutEpoch();
       }
     },
     [],

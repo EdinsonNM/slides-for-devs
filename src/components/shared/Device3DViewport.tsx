@@ -40,6 +40,7 @@ import {
   useHostElementSize,
 } from "./r3fHostViewportSync";
 import { R3fWebglContextLostGuard } from "./R3fWebglContextLostGuard";
+import { R3fWebglThrottledSnapshot } from "./R3fWebglThrottledSnapshot";
 
 function isScreenMaterial(mesh: THREE.Mesh, mat: THREE.Material): boolean {
   const mn = (mesh.name || "").toLowerCase();
@@ -308,6 +309,18 @@ export interface Device3DViewportProps {
    * cambia sin mutar el tamaño CSS (p. ej. modo presentación “cámara continua” con transforms).
    */
   hostMeasureKey?: string;
+  /**
+   * Orden de apilado: va en `hostObserveKey` para re-medir sin remontar el WebGL
+   * (el remount por `key` era demasiado pesado y podía crashear el proceso).
+   * @default 0
+   */
+  stackRevision?: number;
+  onThrottledFrameSnapshot?: (dataUrl: string) => void;
+  /**
+   * Sin IBL `Environment` (presentación): evita descargar HDR y acelera el primer frame.
+   * @default false
+   */
+  skipEnvironmentMaps?: boolean;
 }
 
 export function Device3DViewport({
@@ -324,10 +337,13 @@ export function Device3DViewport({
   className,
   boundsMargin = 1.42,
   hostMeasureKey,
+  stackRevision = 0,
+  onThrottledFrameSnapshot,
+  skipEnvironmentMaps = false,
 }: Device3DViewportProps) {
   const orbitScopeKey = `${slideId}:${orbitScopeSuffix ?? "main"}`;
   const glbUrl = resolveDevice3dGlbUrl(deviceId);
-  const hostObserveKey = `${orbitScopeKey}|${hostMeasureKey ?? "static"}`;
+  const hostObserveKey = `${orbitScopeKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
 
   const resolvedViewState =
@@ -385,6 +401,7 @@ export function Device3DViewport({
       <Fragment key={`r3f-device-${orbitScopeKey}`}>
         <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
+          dpr={skipEnvironmentMaps ? 1 : undefined}
           camera={{
             position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
               number,
@@ -408,6 +425,9 @@ export function Device3DViewport({
           }}
         >
           <R3fWebglContextLostGuard />
+          {onThrottledFrameSnapshot != null ? (
+            <R3fWebglThrottledSnapshot onSnapshot={onThrottledFrameSnapshot} />
+          ) : null}
           <R3fViewportResizeToHost
             width={hostSize.width}
             height={hostSize.height}
@@ -420,7 +440,7 @@ export function Device3DViewport({
             disableControls={disableControls}
             useAutoframing={resolvedViewState == null}
           />
-          <ambientLight intensity={0.22} />
+          <ambientLight intensity={skipEnvironmentMaps ? 0.4 : 0.22} />
           <directionalLight
             position={[5.5, 7, 5]}
             intensity={1.15}
@@ -437,7 +457,9 @@ export function Device3DViewport({
             color="#ffffff"
           />
           <Suspense fallback={null}>
-            <Environment preset="studio" environmentIntensity={0.92} />
+            {!skipEnvironmentMaps ? (
+              <Environment preset="studio" environmentIntensity={0.92} />
+            ) : null}
             {sceneBody}
           </Suspense>
         </Canvas>

@@ -301,7 +301,7 @@ export function SlideCanvasSlide() {
     syncCanvasTextEditTargetsFromSelection,
     setCanvasMediaPanelEditTarget,
     canvasMediaPanelElementId,
-    canvasSceneLayoutEpoch,
+    isPreviewMode,
     ingestImageFileOnCurrentSlide,
     clipboardElement,
     setClipboardElement,
@@ -1231,7 +1231,7 @@ export function SlideCanvasSlide() {
           canvas3dAnimClipNamesByPanelId={canvas3dAnimClipNamesByPanelId}
           onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
           slideCanvasChromePortalRef={slideCanvasChromePortalRef}
-          canvasSceneLayoutEpoch={canvasSceneLayoutEpoch}
+          isPreviewMode={isPreviewMode}
         />
       ))}
       {canvasElContextMenu != null && canvasContextIdx >= 0 ? (
@@ -1519,7 +1519,7 @@ function CanvasElementEditor({
   canvas3dAnimClipNamesByPanelId,
   onCanvas3dAnimationClipNames,
   slideCanvasChromePortalRef,
-  canvasSceneLayoutEpoch,
+  isPreviewMode: deckIsPreviewMode,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -1629,8 +1629,8 @@ function CanvasElementEditor({
     names: string[],
   ) => void;
   slideCanvasChromePortalRef: RefObject<HTMLDivElement | null>;
-  /** Subida al parchear el lienzo; re-sincroniza medición R3F sin clave de remount por `z`. */
-  canvasSceneLayoutEpoch: number;
+  /** Vista previa / presentador en la misma pestaña: no montar WebGL 3D en el lienzo (evita duplicar contextos con el overlay). */
+  isPreviewMode: boolean;
 }) {
   const tone = deckContentTone;
   const { theme: globalCodeEditorTheme } = useCodeEditorTheme();
@@ -2605,12 +2605,20 @@ function CanvasElementEditor({
     case "mediaPanel": {
       const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
       /**
-       * Estable por `mediaPanel` (sin `z`): al reordenar, `reorderCanvasElementLayer` reasigna
-       * z a *todos* los elementos; incluir `z` disparaba ola de setSize/ResizeObserver y peor
-       * presión de GPU con varias imágenes + Canvas 3D. El `canvasSceneLayoutEpoch` sube solo
-       * al parchear la escena / añadir capas, para que R3F vuelva a medir sin remontar WebGL.
+       * En el lienzo: 3D en vivo solo con el bloque seleccionado y sin vista previa abierta;
+       * si no, imagen congelada. Con `isPreviewMode`, el overlay ya pinta el 3D: aquí no montar WebGL.
        */
-      const canvasR3fHostMeasureKey = `canvas-r3f:${id}@${canvasSceneLayoutEpoch}`;
+      const r3fUseLiveWebgl =
+        mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D ||
+        mediaPanelDesc.kind === PANEL_CONTENT_KIND.PRESENTER_3D
+          ? isSelected && !deckIsPreviewMode
+          : true;
+      /**
+       * Clave de medición estable por `mediaPanel` (sin `z`); el remount de WebGL 3D va por
+       * `r3fStackRevision` (`zRank`), no por esta clave, para no disparar ola de setSize en
+       * todos los visores al reordenar.
+       */
+      const canvasR3fHostMeasureKey = `canvas-r3f:${id}`;
       const dataRingPanel = mediaPanelDesc.kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
       const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
       const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
@@ -2734,6 +2742,8 @@ function CanvasElementEditor({
                     canvasPanelSlide={panelSlide}
                     canvasMediaElementId={id}
                     canvasR3fHostMeasureKey={canvasR3fHostMeasureKey}
+                    r3fStackRevision={zRank}
+                    r3fUseLiveWebgl={r3fUseLiveWebgl}
                     onCanvas3dAnimationClipNames={
                       mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D
                         ? onCanvas3dAnimationClipNames
@@ -2749,6 +2759,8 @@ function CanvasElementEditor({
                 canvasPanelSlide={panelSlide}
                 canvasMediaElementId={id}
                 canvasR3fHostMeasureKey={canvasR3fHostMeasureKey}
+                r3fStackRevision={zRank}
+                r3fUseLiveWebgl={r3fUseLiveWebgl}
                 onCanvas3dAnimationClipNames={
                   mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D
                     ? onCanvas3dAnimationClipNames

@@ -28,6 +28,17 @@ export interface SlideRightPanelProps {
    * el orden z u otro layout sin resize CSS (misma idea que `SlideCanvasView` en presentación).
    */
   canvasR3fHostMeasureKey?: string;
+  /**
+   * Orden de apilado (z) del `mediaPanel`: fuerza re-medición 3D al reordenar, sin destruir WebGL.
+   * @default 0
+   */
+  r3fStackRevision?: number;
+  /**
+   * Lienzo: `false` mientras el `mediaPanel` 3D / presentador no está seleccionado (vista
+   * congelada, sin WebGL en vivo). En el panel derecho del deck se omite (sigue en vivo).
+   * @default true
+   */
+  r3fUseLiveWebgl?: boolean;
   onCanvas3dAnimationClipNames?: (
     mediaPanelElementId: string,
     names: string[],
@@ -40,6 +51,8 @@ export function SlideRightPanel({
   canvasPanelSlide,
   canvasMediaElementId,
   canvasR3fHostMeasureKey,
+  r3fStackRevision = 0,
+  r3fUseLiveWebgl = true,
   onCanvas3dAnimationClipNames,
 }: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
@@ -96,6 +109,8 @@ export function SlideRightPanel({
           canvasPanelSlide={canvasPanelSlide}
           canvasMediaElementId={canvasMediaElementId}
           hostMeasureKey={canvasR3fHostMeasureKey}
+          stackRevision={r3fStackRevision}
+          r3fUseLiveWebgl={r3fUseLiveWebgl}
         />
       ) : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ? (
         <Canvas3DPanel
@@ -103,6 +118,8 @@ export function SlideRightPanel({
           canvasPanelSlide={canvasPanelSlide}
           canvasMediaElementId={canvasMediaElementId}
           hostMeasureKey={canvasR3fHostMeasureKey}
+          stackRevision={r3fStackRevision}
+          r3fUseLiveWebgl={r3fUseLiveWebgl}
           onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
         />
       ) : panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ? (

@@ -29,6 +29,16 @@ export interface Presenter3DPanelProps {
   canvasMediaElementId?: string;
   /** Lienzo: fuerza re-medición del host WebGL (p. ej. tras cambiar orden z). */
   hostMeasureKey?: string;
+  /**
+   * Apilado en el lienzo: re-sincro 3D al reordenar sin remontar el contexto WebGL.
+   * @default 0
+   */
+  stackRevision?: number;
+  /**
+   * Lienzo: `false` = vista congelada, sin `Device3DViewport` en vivo.
+   * @default true
+   */
+  r3fUseLiveWebgl?: boolean;
 }
 
 export function Presenter3DPanel({
@@ -36,6 +46,8 @@ export function Presenter3DPanel({
   canvasPanelSlide,
   canvasMediaElementId,
   hostMeasureKey,
+  stackRevision = 0,
+  r3fUseLiveWebgl = true,
 }: Presenter3DPanelProps = {}) {
   const {
     currentSlide,
@@ -45,6 +57,7 @@ export function Presenter3DPanel({
     setCurrentSlidePresenter3dDeviceId,
     setCurrentSlidePresenter3dScreenMedia,
     setCurrentSlidePresenter3dViewState,
+    isPreviewMode,
   } = usePresentation();
 
   const isLgUp = useMinWidthLg();
@@ -242,6 +255,26 @@ export function Presenter3DPanel({
       </p>
     ) : null;
 
+  const [throttledFrameSnapshot, setThrottledFrameSnapshot] = useState<
+    string | null
+  >(null);
+  const setThrottledFrameSnapshotRef = useCallback(
+    (s: string) => {
+      setThrottledFrameSnapshot(s);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setThrottledFrameSnapshot(null);
+  }, [
+    deviceId,
+    screenMedia,
+    textureImageUrl,
+    textureVideoUrl,
+    deckSlide.id,
+  ]);
+
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
       {toolbar}
@@ -252,22 +285,50 @@ export function Presenter3DPanel({
           embeddedInCanvas ? "bg-white p-0 dark:bg-surface-elevated" : "p-2",
         )}
       >
-        <Device3DViewport
-          slideId={deckSlide.id}
-          orbitScopeSuffix={canvasMediaElementId}
-          deviceId={deviceId}
-          screenMedia={screenMedia}
-          imageUrl={textureImageUrl}
-          videoUrl={textureVideoUrl}
-          viewState={orbitViewState}
-          onViewStateCommit={handleViewCommit}
-          hostMeasureKey={hostMeasureKey}
-          boundsMargin={
-            embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined
-          }
-          showInteractionHint={!embeddedInCanvas}
-          className={cn("min-h-0 flex-1", embeddedInCanvas ? "" : "rounded-xl")}
-        />
+        {!r3fUseLiveWebgl ? (
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 items-center justify-center overflow-hidden",
+              !embeddedInCanvas && "rounded-xl",
+            )}
+          >
+            {throttledFrameSnapshot != null ? (
+              <img
+                src={throttledFrameSnapshot}
+                alt=""
+                className="h-full w-full min-h-0 min-w-0 object-contain"
+              />
+            ) : (
+              <p className="px-3 text-center text-xs text-stone-500 dark:text-stone-400">
+                Selecciona el bloque presentador 3D en el lienzo para verlo en
+                vivo
+              </p>
+            )}
+          </div>
+        ) : (
+          <Device3DViewport
+            slideId={deckSlide.id}
+            orbitScopeSuffix={canvasMediaElementId}
+            deviceId={deviceId}
+            screenMedia={screenMedia}
+            imageUrl={textureImageUrl}
+            videoUrl={textureVideoUrl}
+            viewState={orbitViewState}
+            onViewStateCommit={handleViewCommit}
+            hostMeasureKey={hostMeasureKey}
+            stackRevision={stackRevision}
+            onThrottledFrameSnapshot={
+              embeddedInCanvas && r3fUseLiveWebgl && !isPreviewMode
+                ? setThrottledFrameSnapshotRef
+                : undefined
+            }
+            boundsMargin={
+              embeddedInCanvas ? CANVAS_MEDIA_BOUNDS_MARGIN : undefined
+            }
+            showInteractionHint={!embeddedInCanvas}
+            className={cn("min-h-0 flex-1", embeddedInCanvas ? "" : "rounded-xl")}
+          />
+        )}
       </div>
     </div>
   );
