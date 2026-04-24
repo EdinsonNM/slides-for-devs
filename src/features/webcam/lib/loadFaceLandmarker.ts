@@ -37,3 +37,24 @@ export function loadFaceLandmarker(): Promise<FaceLandmarker> {
   });
   return landmarkerPromise;
 }
+
+/**
+ * Cierra el `FaceLandmarker` y libera recursos. Idempotente.
+ */
+export function disposeFaceLandmarker(): Promise<void> {
+  const pending = landmarkerPromise;
+  landmarkerPromise = null;
+  lastError = null;
+  if (!pending) {
+    return Promise.resolve();
+  }
+  return pending
+    .then((lm) => {
+      try {
+        lm.close();
+      } catch {
+        /* ya cerrado */
+      }
+    })
+    .catch(() => undefined);
+}

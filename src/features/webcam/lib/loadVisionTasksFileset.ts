@@ -14,3 +14,8 @@ export function loadVisionTasksFileset(): Promise<VisionWasmFileset> {
   filesetPromise = FilesetResolver.forVisionTasks(wasmPath, false);
   return filesetPromise;
 }
+
+/** Tras cerrar todos los `VisionTaskRunner` que usaban este fileset, permite la próxima carga limpia. */
+export function resetVisionTasksFileset(): void {
+  filesetPromise = null;
+}

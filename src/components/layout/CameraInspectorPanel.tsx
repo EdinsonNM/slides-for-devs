@@ -183,8 +183,8 @@ export function CameraInspectorPanel() {
               className="h-2 w-full cursor-pointer accent-violet-600 dark:accent-violet-500"
             />
             <p className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-              MediaPipe Face Landmarker mantiene ojos/iris nítidos y suaviza piel; no es Face Mesh + shader
-              WebGL, pero prioriza la mirada frente al resto de la figura.
+              El segmentador distingue persona/fondo; la suavidad se limita al óvalo del rostro (y ojos
+              nítidos). Brazos, cuerpo y manos fuera de ese óvalo se mantienen nítidos.
             </p>
           </div>
         </div>

@@ -3,30 +3,35 @@ import type { FaceLandmarker, ImageSegmenter } from "@mediapipe/tasks-vision";
 import { useUserMediaStream } from "../hooks/useUserMediaStream";
 import { cn } from "../../../utils/cn";
 import type { WebcamPanelState } from "../../../domain/webcam/webcamPanelModel";
-import { WEBCAM_PORTRAIT_MAX_WIDTH, WEBCAM_PORTRAIT_MIN_FRAME_MS } from "../constants";
+import {
+  WEBCAM_PORTRAIT_MAX_WIDTH,
+  WEBCAM_PORTRAIT_MIN_FRAME_MS,
+  WEBCAM_SEGMENT_EVERY_N_FRAMES,
+  WEBCAM_FACE_LM_EVERY_N_FRAMES,
+} from "../constants";
 import {
   backgroundStrengthToBlurPx,
   compositePortraitOntoContext,
   renderVideoBuffers,
   copyFirstConfidenceMask,
 } from "../lib/compositePortraitFrame";
+import { fillFaceOvalInfluenceMap } from "../lib/faceOvalInfluenceMap";
 import { fillEyeRegionPreserveMap } from "../lib/eyeRegionPreserveMap";
 import { loadSelfieImageSegmenter } from "../lib/loadImageSegmenter";
 import { loadFaceLandmarker } from "../lib/loadFaceLandmarker";
 import { nextSegmenterFrameTimestampMs } from "../mediapipeFrameTimestamp";
+import { disposeAllWebcamMediaPipe } from "../lib/disposeWebcamMediaPipe";
 import { VideoOff, RefreshCw } from "lucide-react";
 
 type Scratch = {
   sharp: HTMLCanvasElement;
   blurred: HTMLCanvasElement;
-  smooth: HTMLCanvasElement;
 };
 
 function makeScratch(): Scratch {
   return {
     sharp: document.createElement("canvas"),
     blurred: document.createElement("canvas"),
-    smooth: document.createElement("canvas"),
   };
 }
 
@@ -51,7 +56,16 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
   const faceLmRef = useRef<FaceLandmarker | null>(null);
   const faceLmLoadRef = useRef<Promise<unknown> | null>(null);
   const eyeMapBufferRef = useRef<Float32Array | null>(null);
+  const faceOvalMapBufferRef = useRef<Float32Array | null>(null);
   const lastFrRef = useRef(0);
+  const workKeyRef = useRef<string>("");
+  const effectFrameIndexRef = useRef(0);
+  const lastPersonMaskRef = useRef<{
+    data: Float32Array;
+    width: number;
+    height: number;
+  } | null>(null);
+  const faceLandmarkMapsReadyRef = useRef(false);
   const [portraitError, setPortraitError] = useState(false);
   const [portraitReady, setPortraitReady] = useState(false);
 
@@ -66,6 +80,9 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      segRef.current = null;
+      faceLmRef.current = null;
+      void disposeAllWebcamMediaPipe();
       return;
     }
 
@@ -84,6 +101,10 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
     setPortraitError(false);
     setPortraitReady(false);
     lastFrRef.current = 0;
+    workKeyRef.current = "";
+    effectFrameIndexRef.current = 0;
+    lastPersonMaskRef.current = null;
+    faceLandmarkMapsReadyRef.current = false;
     let cancelled = false;
 
     void loadSelfieImageSegmenter()
@@ -136,6 +157,18 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
 
       const workW = Math.min(WEBCAM_PORTRAIT_MAX_WIDTH, vw);
       const workH = Math.round((workW / vw) * vh);
+      const wk = `${workW}x${workH}`;
+      if (workKeyRef.current !== wk) {
+        workKeyRef.current = wk;
+        effectFrameIndexRef.current = 0;
+        lastPersonMaskRef.current = null;
+        faceLandmarkMapsReadyRef.current = false;
+      }
+      const frameIdx = effectFrameIndexRef.current;
+      effectFrameIndexRef.current = frameIdx + 1;
+      if (st.faceSmoothStrength === 0) {
+        faceLandmarkMapsReadyRef.current = false;
+      }
       const bgBlurPx = backgroundStrengthToBlurPx(st.backgroundBlurStrength);
       const scr = scratchRef.current;
       if (!scr) {
@@ -150,9 +183,20 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         st.faceSmoothStrength,
         scr,
       );
-      const timeMs = nextSegmenterFrameTimestampMs();
-      const result = seg.segmentForVideo(v, timeMs);
-      const mask = copyFirstConfidenceMask(result);
+      const runSegment =
+        lastPersonMaskRef.current === null || frameIdx % WEBCAM_SEGMENT_EVERY_N_FRAMES === 0;
+      let mask: { data: Float32Array; width: number; height: number } | null = null;
+      if (runSegment) {
+        const timeMs = nextSegmenterFrameTimestampMs();
+        const result = seg.segmentForVideo(v, timeMs);
+        const m = copyFirstConfidenceMask(result);
+        if (m) {
+          lastPersonMaskRef.current = m;
+        }
+        mask = m;
+      } else {
+        mask = lastPersonMaskRef.current;
+      }
       if (!mask) {
         rafRef.current = requestAnimationFrame(runFrame);
         return;
@@ -165,6 +209,7 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         return;
       }
       let eyeMap: Float32Array | null = null;
+      let faceOvalMap: Float32Array | null = null;
       if (st.faceSmoothStrength > 0) {
         if (!faceLmRef.current && !faceLmLoadRef.current) {
           faceLmLoadRef.current = loadFaceLandmarker()
@@ -181,14 +226,26 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
             });
         }
         if (faceLmRef.current) {
-          const tsFace = nextSegmenterFrameTimestampMs();
-          const fr = faceLmRef.current.detectForVideo(v, tsFace);
-          if (!eyeMapBufferRef.current || eyeMapBufferRef.current.length !== workW * workH) {
-            eyeMapBufferRef.current = new Float32Array(workW * workH);
+          const runFaceLandmarks =
+            !faceLandmarkMapsReadyRef.current ||
+            frameIdx % WEBCAM_FACE_LM_EVERY_N_FRAMES === 0;
+          if (runFaceLandmarks) {
+            const tsFace = nextSegmenterFrameTimestampMs();
+            const fr = faceLmRef.current.detectForVideo(v, tsFace);
+            if (!eyeMapBufferRef.current || eyeMapBufferRef.current.length !== workW * workH) {
+              eyeMapBufferRef.current = new Float32Array(workW * workH);
+            }
+            if (!faceOvalMapBufferRef.current || faceOvalMapBufferRef.current.length !== workW * workH) {
+              faceOvalMapBufferRef.current = new Float32Array(workW * workH);
+            }
+            const ebuf = eyeMapBufferRef.current;
+            const fbuf = faceOvalMapBufferRef.current;
+            fillEyeRegionPreserveMap(fr.faceLandmarks[0], workW, workH, ebuf);
+            fillFaceOvalInfluenceMap(fr.faceLandmarks[0], workW, workH, fbuf);
+            faceLandmarkMapsReadyRef.current = true;
           }
-          const buf = eyeMapBufferRef.current;
-          fillEyeRegionPreserveMap(fr.faceLandmarks[0], workW, workH, buf);
-          eyeMap = buf;
+          eyeMap = eyeMapBufferRef.current;
+          faceOvalMap = faceOvalMapBufferRef.current;
         }
       }
       compositePortraitOntoContext(
@@ -203,6 +260,7 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         mask.height,
         st.faceSmoothStrength,
         eyeMap,
+        faceOvalMap,
       );
       rafRef.current = requestAnimationFrame(runFrame);
     };
@@ -214,6 +272,9 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      segRef.current = null;
+      faceLmRef.current = null;
+      void disposeAllWebcamMediaPipe();
     };
   }, [usePortrait, status, videoRef]);
 

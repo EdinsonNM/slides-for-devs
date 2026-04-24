@@ -39,7 +39,31 @@ export function loadSelfieImageSegmenter(): Promise<ImageSegmenter> {
 }
 
 export function resetImageSegmenterSingletonForTests(): void {
+  void disposeSelfieImageSegmenter();
+}
+
+/**
+ * Cierra el `ImageSegmenter` y deja de retenerlo (libera grafos / wasm asociado al task).
+ * Idempotente: seguro llamar aunque no haya instancia o la carga esté en curso.
+ */
+export function disposeSelfieImageSegmenter(): Promise<void> {
+  const pending = segmenterPromise;
   segmenterPromise = null;
   lastError = null;
-  resetSegmenterFrameTimestampClock();
+  if (!pending) {
+    resetSegmenterFrameTimestampClock();
+    return Promise.resolve();
+  }
+  return pending
+    .then((s) => {
+      try {
+        s.close();
+      } catch {
+        /* ya cerrado o estado inválido */
+      }
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      resetSegmenterFrameTimestampClock();
+    });
 }

@@ -1,5 +1,6 @@
 import type { ImageSegmenterResult } from "@mediapipe/tasks-vision";
 import { WEBCAM_INTENSITY_MAX } from "../../../domain/webcam/webcamPanelModel";
+import { bilateralFilterRGB } from "./bilateralFilter";
 
 /**
  * Convierte intensidad 0–100 a radio de desenfoque de fondo (píxeles aproximados a escala de trabajo).
@@ -7,45 +8,6 @@ import { WEBCAM_INTENSITY_MAX } from "../../../domain/webcam/webcamPanelModel";
 export function backgroundStrengthToBlurPx(strength: number): number {
   const s = Math.min(WEBCAM_INTENSITY_MAX, Math.max(0, strength));
   return (s / WEBCAM_INTENSITY_MAX) * 24;
-}
-
-/**
- * Pasa bajo frecuencia (blur muy pequeño) para separar “textura” de bordes grandes.
- * Radio acotado: Meet/Zoom no aplica un desenfoque fuerte a toda la cara, atenúan piel.
- */
-function lowPassBlurPxForTouchUp(strength: number): number {
-  const t = Math.min(1, Math.max(0, strength / WEBCAM_INTENSITY_MAX));
-  return 0.85 + t * 0.95;
-}
-
-/**
- * “Retoque” / suavidad tipo cámara: baja frecuencia + detalle = original;
- * se atenúa solo el término de detalle (frec. altas) → menos poros/textura, sin apariencia de desenfocado.
- */
-function buildAppearanceTouchUpLayer(
-  sharp: ImageData,
-  low: ImageData,
-  w: number,
-  h: number,
-  strength: number,
-): ImageData {
-  const u = Math.min(1, Math.max(0, strength / WEBCAM_INTENSITY_MAX));
-  const uEff = u * u * (3 - 2 * u);
-  const k = uEff * 0.56;
-  const out = new Uint8ClampedArray(w * h * 4);
-  const sd = sharp.data;
-  const ld = low.data;
-  for (let i = 0, n = w * h; i < n; i++) {
-    const p = i * 4;
-    for (const c of [0, 1, 2] as const) {
-      const s = sd[p + c]!;
-      const l = ld[p + c]!;
-      const hi = s - l;
-      out[p + c] = Math.max(0, Math.min(255, Math.round(l + hi * (1 - k))));
-    }
-    out[p + 3] = 255;
-  }
-  return new ImageData(out, w, h);
 }
 
 function sampleBilinear(
@@ -92,7 +54,7 @@ export function copyFirstConfidenceMask(
 
 /**
  * Pinta en `outCtx` el retrato: fondo con blur y figura nítida o suavizada según máscara.
- * `eyePreserveMap`: por píxel, 1 = nítido (ojos, Face Landmarker), 0 = suavidad plena.
+ * `eyePreserveMap`: 1 = nítido (ojos). `faceOvalInfluence`: 1 = suavidad permitida; fuera de rostro 0 (cuerpo nítido).
  */
 export function compositePortraitOntoContext(
   outCtx: CanvasRenderingContext2D,
@@ -106,6 +68,7 @@ export function compositePortraitOntoContext(
   mh: number,
   faceSmoothStrength: number,
   eyePreserveMap: Float32Array | null,
+  faceOvalInfluence: Float32Array | null,
 ): void {
   const sFlat = new Uint8ClampedArray(w * h * 4);
   const tBase = faceSmoothStrength / WEBCAM_INTENSITY_MAX;
@@ -120,7 +83,11 @@ export function compositePortraitOntoContext(
         eyePreserveMap !== null && pIdx < eyePreserveMap.length
           ? Math.max(0, Math.min(1, eyePreserveMap[pIdx]!))
           : 0;
-      const t = tBase * (1 - eyeW * 0.98);
+      const faceW =
+        faceOvalInfluence !== null && pIdx < faceOvalInfluence.length
+          ? Math.max(0, Math.min(1, faceOvalInfluence[pIdx]!))
+          : 0;
+      const t = tBase * (1 - eyeW * 0.98) * faceW;
       const i = pIdx * 4;
       for (const c of [0, 1, 2] as const) {
         const sh = imageSharp.data[i + c]!;
@@ -138,7 +105,6 @@ export function compositePortraitOntoContext(
 type Scratch = {
   sharp: HTMLCanvasElement;
   blurred: HTMLCanvasElement;
-  smooth: HTMLCanvasElement;
 };
 
 function ensureCanvas(
@@ -156,7 +122,7 @@ function ensureCanvas(
 }
 
 /**
- * Rellena búferes de imagen a partir de un fotograma de vídeo: blur de fondo y capa de suavidad (smoothness) en primer plano.
+ * Rellena búferes: fondo con Gauss (canvas blur) y primer plano “suave” con **bilateral** (edge-preserving).
  */
 export function renderVideoBuffers(
   video: HTMLVideoElement,
@@ -168,7 +134,6 @@ export function renderVideoBuffers(
 ): { imageSharp: ImageData; imageBlurred: ImageData; imageSmooth: ImageData } {
   const ctxS = ensureCanvas(scratch.sharp, w, h);
   const ctxB = ensureCanvas(scratch.blurred, w, h);
-  const ctxF = ensureCanvas(scratch.smooth, w, h);
 
   ctxS.filter = "none";
   ctxS.clearRect(0, 0, w, h);
@@ -186,25 +151,10 @@ export function renderVideoBuffers(
   const imageBlurred = ctxB.getImageData(0, 0, w, h);
   ctxB.filter = "none";
 
-  let imageSmooth: ImageData;
-  if (foregroundSmoothness <= 0) {
-    imageSmooth = imageSharp;
-  } else {
-    const sigma = lowPassBlurPxForTouchUp(foregroundSmoothness);
-    ctxF.filter = "none";
-    ctxF.clearRect(0, 0, w, h);
-    ctxF.filter = `blur(${sigma.toFixed(2)}px)`;
-    ctxF.drawImage(video, 0, 0, w, h);
-    const imageLow = ctxF.getImageData(0, 0, w, h);
-    ctxF.filter = "none";
-    imageSmooth = buildAppearanceTouchUpLayer(
-      imageSharp,
-      imageLow,
-      w,
-      h,
-      foregroundSmoothness,
-    );
-  }
+  const imageSmooth =
+    foregroundSmoothness <= 0
+      ? imageSharp
+      : bilateralFilterRGB(imageSharp, w, h, foregroundSmoothness);
 
   return { imageSharp, imageBlurred, imageSmooth };
 }

@@ -26,8 +26,17 @@ export function mediapipeWasmBasePath(): string {
   return `${base}mediapipe/wasm/`;
 }
 
-/** Ancho máximo de trabajo para compuesta (reduce CPU y memoria). */
-export const WEBCAM_PORTRAIT_MAX_WIDTH = 480;
+/** Ancho máximo de trabajo para compuesta (menos píxeles = menos ML + bilateral). */
+export const WEBCAM_PORTRAIT_MAX_WIDTH = 360;
 
-/** Cadencia mínima entre fotogramas con efecto (ms). */
-export const WEBCAM_PORTRAIT_MIN_FRAME_MS = 45;
+/** Cadencia mínima entre pasadas del pipeline con efectos (~11 fps en el canvas de retrato). */
+export const WEBCAM_PORTRAIT_MIN_FRAME_MS = 90;
+
+/** Ejecutar segmentación solo 1 de cada N pasadas (reutilizar máscara el resto). */
+export const WEBCAM_SEGMENT_EVERY_N_FRAMES = 2;
+
+/** Ejecutar Face Landmarker solo 1 de cada N pasadas (reutilizar mapas ojo/óvalo). */
+export const WEBCAM_FACE_LM_EVERY_N_FRAMES = 3;
+
+/** Radio máx. del kernel bilateral (vecinos ≈ (2r+1)²). */
+export const WEBCAM_BILATERAL_MAX_RADIUS = 2;
