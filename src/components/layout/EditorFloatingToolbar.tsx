@@ -23,6 +23,7 @@ import {
   Box,
   BarChart3,
   StickyNote,
+  Webcam,
   type LucideIcon,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
@@ -110,6 +111,7 @@ const PANEL_INSERT_MENU_ITEMS: {
   { id: PANEL_CONTENT_KIND.PRESENTER_3D, label: "Presentador 3D", Icon: MonitorPlay },
   { id: PANEL_CONTENT_KIND.CANVAS_3D, label: "Canvas 3D", Icon: Box },
   { id: PANEL_CONTENT_KIND.DATA_MOTION_RING, label: "Aro de datos 3D", Icon: BarChart3 },
+  { id: PANEL_CONTENT_KIND.CAMERA, label: "Cámara", Icon: Webcam },
 ];
 
 export function EditorFloatingToolbar({

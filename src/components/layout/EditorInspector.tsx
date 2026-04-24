@@ -25,6 +25,7 @@ import { CameraInspectorPanel } from "./CameraInspectorPanel";
 import { RailTooltip } from "../shared/RailTooltip";
 import { SLIDE_TYPE } from "../../domain/entities";
 import {
+  isInspectorCameraSectionVisible,
   isInspectorMapSlideSectionVisible,
   isInspectorScene3dSectionVisible,
   isInspectorSlidePropertiesSectionVisible,
@@ -75,7 +76,12 @@ const SECTION_DEFS: SectionDef[] = [
     icon: Box,
     isVisibleForSlideType: isInspectorScene3dSectionVisible,
   },
-  { id: "camera", label: "Cámara", icon: Webcam },
+  {
+    id: "camera",
+    label: "Cámara",
+    icon: Webcam,
+    isVisibleForSlideType: isInspectorCameraSectionVisible,
+  },
 ];
 
 export function EditorInspector() {
@@ -103,6 +109,8 @@ export function EditorInspector() {
     if (inspectorSection === "scene3d" && t !== SLIDE_TYPE.CANVAS_3D) {
       setInspectorSection("slide");
     } else if (inspectorSection === "mapbox" && t !== SLIDE_TYPE.MAPS) {
+      setInspectorSection("slide");
+    } else if (inspectorSection === "camera" && !isInspectorCameraSectionVisible(t)) {
       setInspectorSection("slide");
     } else if (
       inspectorSection === "slideProperties" &&

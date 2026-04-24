@@ -2,6 +2,7 @@ import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
 import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import type { WebcamPanelState } from "../webcam/webcamPanelModel";
 import type { SlideCanvasScene, SlideCodeEditorTheme } from "./SlideCanvas";
 import type { SlideMatrixData } from "./SlideMatrix";
 
@@ -91,6 +92,10 @@ export interface Slide {
    * Configuración del panel «aro de datos 3D» (`PANEL_CONTENT_KIND.DATA_MOTION_RING`).
    */
   dataMotionRing?: DataMotionRingState;
+  /**
+   * Vista de cámara en vivo (`PANEL_CONTENT_KIND.CAMERA`): máscara y espejo.
+   */
+  webcam?: WebcamPanelState;
   contentLayout?: "split" | "full" | "panel-full";
   imageWidthPercent?: number;
   panelHeightPercent?: number;

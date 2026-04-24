@@ -48,6 +48,8 @@ import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
 import { DeferHeavyWebglMount } from "../shared/DeferHeavyWebglMount";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
 import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
+import { SlideWebcamView } from "../shared/SlideWebcamView";
+import { normalizeWebcamPanelState } from "../../domain/webcam/webcamPanelModel";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import {
   PANEL_CONTENT_KIND,
@@ -230,6 +232,15 @@ function mediaBlock(
           <DataMotionRingExperience
             state={normalizeDataMotionRingState(deckSlide.dataMotionRing)}
             className="h-full min-h-[120px]"
+          />
+        </div>
+      );
+    case PANEL_CONTENT_KIND.CAMERA:
+      return (
+        <div className="flex h-full min-h-0 w-full items-stretch justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900/40">
+          <SlideWebcamView
+            state={normalizeWebcamPanelState(deckSlide.webcam)}
+            className="h-full min-h-[120px] w-full"
           />
         </div>
       );

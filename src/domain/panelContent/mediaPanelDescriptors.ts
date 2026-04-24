@@ -242,6 +242,22 @@ export class DataMotionRingMediaPanelDescriptor extends MediaPanelDescriptor {
   }
 }
 
+export class CameraMediaPanelDescriptor extends MediaPanelDescriptor {
+  readonly kind = PANEL_CONTENT_KIND.CAMERA;
+
+  override splitPanelOccupied(): boolean {
+    return true;
+  }
+
+  override presenterSummaryBadge(): string | null {
+    return "Cámara";
+  }
+
+  override sidebarSplitStripSurfaceClass(): string {
+    return "bg-fuchsia-100/80 dark:bg-fuchsia-950/40";
+  }
+}
+
 const DESCRIPTORS: Record<PanelContentKind, MediaPanelDescriptor> = {
   [PANEL_CONTENT_KIND.IMAGE]: new ImageMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CODE]: new CodeMediaPanelDescriptor(),
@@ -251,6 +267,7 @@ const DESCRIPTORS: Record<PanelContentKind, MediaPanelDescriptor> = {
   [PANEL_CONTENT_KIND.PRESENTER_3D]: new Presenter3dMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.CANVAS_3D]: new Canvas3dMediaPanelDescriptor(),
   [PANEL_CONTENT_KIND.DATA_MOTION_RING]: new DataMotionRingMediaPanelDescriptor(),
+  [PANEL_CONTENT_KIND.CAMERA]: new CameraMediaPanelDescriptor(),
 };
 
 export function resolveMediaPanelDescriptor(

@@ -30,6 +30,11 @@ import {
   type DataMotionRingState,
 } from "../../domain/dataMotionRing/dataMotionRingModel";
 import {
+  createDefaultWebcamPanelState,
+  normalizeWebcamPanelState,
+  type WebcamPanelState,
+} from "../../domain/webcam/webcamPanelModel";
+import {
   PANEL_CONTENT_KIND,
   normalizePanelContentKind,
   resolveMediaPanelDescriptor,
@@ -340,6 +345,9 @@ export function usePresentationSlideCanvasMutations(
             if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.DATA_MOTION_RING) {
               delete (o as { dataMotionRing?: unknown }).dataMotionRing;
             }
+            if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.CAMERA) {
+              delete (o as { webcam?: unknown }).webcam;
+            }
             return o;
           },
         );
@@ -364,7 +372,46 @@ export function usePresentationSlideCanvasMutations(
             }),
           );
         }
+        if (contentType === PANEL_CONTENT_KIND.CAMERA) {
+          next = patchSlideMediaPanelByElementId(
+            next,
+            d.canvasTextTargetsRef.current.mediaPanelElementId,
+            (m) => ({
+              ...m,
+              webcam: m.webcam ?? createDefaultWebcamPanelState(),
+            }),
+          );
+        }
         updated[idx] = next;
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const setCurrentSlideWebcam = useCallback(
+    (webcam: WebcamPanelState) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (
+        !slide ||
+        (slide.type !== SLIDE_TYPE.CONTENT && slide.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        return;
+      }
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(
+          cur,
+          d.canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            webcam: normalizeWebcamPanelState(webcam),
+          }),
+        );
         return updated;
       });
     },
@@ -645,5 +692,6 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
+    setCurrentSlideWebcam,
   };
 }

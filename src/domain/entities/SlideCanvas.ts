@@ -3,6 +3,7 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import type { WebcamPanelState } from "../webcam/webcamPanelModel";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
 import { isPanelContentKind } from "../panelContent/panelContentKind";
 
@@ -73,6 +74,8 @@ export type SlideCanvasMediaPayload = {
   /** Ver `Slide.canvas3dAnimationClipName`. */
   canvas3dAnimationClipName?: string;
   dataMotionRing?: DataMotionRingState;
+  /** Panel cámara en vivo: forma de recorte y espejo. */
+  webcam?: WebcamPanelState;
   /** Solo panel código en lienzo: tema claro/oscuro independiente por bloque. */
   codeEditorTheme?: SlideCodeEditorTheme;
 };

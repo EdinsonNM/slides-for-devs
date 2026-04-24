@@ -9,6 +9,7 @@ import { IframeEmbedPanel } from "./IframeEmbedPanel";
 import { Presenter3DPanel } from "./Presenter3DPanel";
 import { Canvas3DPanel } from "./Canvas3DPanel";
 import { DataMotionRingPanel } from "./DataMotionRingPanel";
+import { WebcamPanel } from "./WebcamPanel";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
@@ -71,7 +72,8 @@ export function SlideRightPanel({
         embeddedInCanvas
           ? "bg-transparent"
           : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ||
-              panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING
+              panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ||
+              panelKind === PANEL_CONTENT_KIND.CAMERA
             ? "bg-transparent"
             : "bg-white dark:bg-surface",
         fullWidth
@@ -128,6 +130,8 @@ export function SlideRightPanel({
           canvasPanelSlide={canvasPanelSlide}
           currentSlide={currentSlide}
         />
+      ) : panelKind === PANEL_CONTENT_KIND.CAMERA ? (
+        <WebcamPanel canvasPanelSlide={canvasPanelSlide} />
       ) : panelKind === PANEL_CONTENT_KIND.RIVE ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
           Rive está desactivado temporalmente en el editor.

@@ -13,6 +13,7 @@ import {
   type SlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
 import { createDefaultDataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import { createDefaultWebcamPanelState } from "../webcam/webcamPanelModel";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 
 /**
@@ -41,6 +42,13 @@ function mediaPayloadForNewPanel(
       type: "media",
       contentType: PANEL_CONTENT_KIND.DATA_MOTION_RING,
       dataMotionRing: createDefaultDataMotionRingState(),
+    };
+  }
+  if (contentType === PANEL_CONTENT_KIND.CAMERA) {
+    return {
+      type: "media",
+      contentType: PANEL_CONTENT_KIND.CAMERA,
+      webcam: createDefaultWebcamPanelState(),
     };
   }
   return base;

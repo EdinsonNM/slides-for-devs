@@ -17,6 +17,11 @@ export function isInspectorMapSlideSectionVisible(type: SlideType): boolean {
   return type === SLIDE_TYPE.MAPS;
 }
 
+/** Inspector «Cámara»: solo en diapositivas con lienzo y panel de media (contenido / capítulo). */
+export function isInspectorCameraSectionVisible(type: SlideType): boolean {
+  return type === SLIDE_TYPE.CONTENT || type === SLIDE_TYPE.CHAPTER;
+}
+
 /**
  * Tipos donde `slideBackgroundImageUrl` se pinta detrás del lienzo 2D (junto a `DeckBackdrop`).
  */

@@ -648,6 +648,7 @@ export function usePresentationState() {
     setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
+    setCurrentSlideWebcam,
   } = usePresentationSlideCanvasMutations({
     setSlides,
     currentIndexRef,
@@ -1162,6 +1163,7 @@ export function usePresentationState() {
     setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
+    setCurrentSlideWebcam,
     handleGenerate,
     homePromptAttachments,
     addHomePromptAttachment,
