@@ -15,6 +15,7 @@ import {
   normalizeSlideMatrixData,
   type DeckContentTone,
 } from "../../domain/entities";
+import { parseCanvas3dSceneData } from "../../domain/entities/Canvas3dSceneData";
 import { deckMutedTextClass } from "../../utils/deckSlideChrome";
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
@@ -43,6 +44,7 @@ import { parseSlideMapData } from "../../domain/entities/SlideMapData";
 import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
+import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
 import { DeferHeavyWebglMount } from "../shared/DeferHeavyWebglMount";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
 import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
@@ -587,9 +589,34 @@ export function SlideCanvasView({
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
+  const canvas3dScene =
+    slide.type === SLIDE_TYPE.CANVAS_3D
+      ? parseCanvas3dSceneData(slide.canvas3dSceneData)
+      : null;
 
   return (
     <div className={cn("relative h-full min-h-0 w-full min-w-0", className)}>
+      {canvas3dScene ? (
+        <div className="absolute inset-0 z-0 min-h-0 w-full">
+          <DeferHeavyWebglMount
+            enabled={Boolean(minimalCanvas3dChrome)}
+            className="h-full min-h-[120px] w-full"
+          >
+            <Canvas3dSceneViewport
+              slideId={slide.id}
+              instances={canvas3dScene.instances}
+              viewState={canvas3dScene.viewState}
+              selectedInstanceId={null}
+              transformControlsMode={null}
+              showInteractionHint={!minimalCanvas3dChrome}
+              showGroundGrid={!minimalCanvas3dChrome}
+              className="h-full min-h-[120px] w-full"
+              hostMeasureKey={r3fHostMeasureKey}
+              skipEnvironmentMaps={minimalCanvas3dChrome}
+            />
+          </DeferHeavyWebglMount>
+        </div>
+      ) : null}
       {sorted.map((el) => (
         <CanvasElementReadOnly
           key={el.id}

@@ -50,6 +50,8 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           <p className="text-stone-400 text-xs">Mapa mental</p>
         ) : slide.type === SLIDE_TYPE.MAPS ? (
           <p className="text-stone-400 text-xs">Mapa Mapbox</p>
+        ) : slide.type === SLIDE_TYPE.CANVAS_3D ? (
+          <p className="text-stone-400 text-xs">Escena 3D</p>
         ) : slide.type === SLIDE_TYPE.ISOMETRIC ? (
           <>
             {slide.subtitle?.trim() ? (
@@ -103,6 +105,11 @@ export function PresenterSlideSummary({ slide, layout = "inline" }: PresenterSli
           {slide.type === SLIDE_TYPE.MAPS && (
             <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
               Mapas
+            </span>
+          )}
+          {slide.type === SLIDE_TYPE.CANVAS_3D && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-stone-700 rounded text-stone-400">
+              3D
             </span>
           )}
           {slide.type === SLIDE_TYPE.MATRIX && (

@@ -555,6 +555,7 @@ export function usePresentationState() {
     | "theme"
     | "resources"
     | "dataRing"
+    | "scene3d"
     | null
   >("slide");
 
@@ -630,6 +631,8 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideCanvas3dSceneData,
+    patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,
@@ -1137,6 +1140,8 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideCanvas3dSceneData,
+    patchCurrentSlideCanvas3dScene,
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
     cycleCodeEditorThemeForMediaPanel,

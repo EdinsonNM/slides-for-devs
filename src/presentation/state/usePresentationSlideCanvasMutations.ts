@@ -36,6 +36,11 @@ import {
 } from "../../domain/panelContent";
 import type { Slide } from "../../types";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import {
+  parseCanvas3dSceneData,
+  serializeCanvas3dSceneData,
+  type Canvas3dSceneData,
+} from "../../domain/entities/Canvas3dSceneData";
 import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { PresentationSlideCanvasMutationsDeps } from "./presentationSlideCanvasMutationsDeps";
 
@@ -235,6 +240,41 @@ export function usePresentationSlideCanvasMutations(
       return updated;
     });
   }, []);
+
+  const setCurrentSlideCanvas3dSceneData = useCallback((data: string) => {
+    const d = depsRef.current;
+    const idx = d.currentIndexRef.current;
+    const slide = d.slidesRef.current[idx];
+    if (!slide || slide.type !== SLIDE_TYPE.CANVAS_3D) return;
+    d.setSlides((prev) => {
+      const cur = prev[idx];
+      if (!cur || cur.type !== SLIDE_TYPE.CANVAS_3D) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...cur, canvas3dSceneData: data };
+      return updated;
+    });
+  }, []);
+
+  /** Unifica lectura/escritura: evita cierres obsoletos al combinar cámara + instancias (p. ej. orbit tras añadir GLB). */
+  const patchCurrentSlideCanvas3dScene = useCallback(
+    (updater: (data: Canvas3dSceneData) => Canvas3dSceneData) => {
+      const d = depsRef.current;
+      d.setSlides((prev) => {
+        const idx = d.currentIndexRef.current;
+        const cur = prev[idx];
+        if (!cur || cur.type !== SLIDE_TYPE.CANVAS_3D) return prev;
+        const data = parseCanvas3dSceneData(cur.canvas3dSceneData);
+        const next = updater(data);
+        const out = [...prev];
+        out[idx] = {
+          ...cur,
+          canvas3dSceneData: serializeCanvas3dSceneData(next),
+        };
+        return out;
+      });
+    },
+    [],
+  );
 
   const setCurrentSlideContentLayout = useCallback(
     (contentLayout: "split" | "full" | "panel-full") => {
@@ -572,6 +612,8 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideCanvas3dSceneData,
+    patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,

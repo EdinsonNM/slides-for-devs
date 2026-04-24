@@ -15,6 +15,10 @@ import {
   serializeSlideMapData,
 } from "../../domain/entities/SlideMapData";
 import {
+  createDefaultCanvas3dSceneData,
+  serializeCanvas3dSceneData,
+} from "../../domain/entities/Canvas3dSceneData";
+import {
   PANEL_CONTENT_KIND,
   PANEL_CONTENT_TOGGLE_ORDER,
   normalizePanelContentKind,
@@ -130,6 +134,10 @@ export function usePresentationDeckMutations(
         delete (next as Slide).mapData;
       }
 
+      if (type !== SLIDE_TYPE.CANVAS_3D) {
+        delete (next as Slide).canvas3dSceneData;
+      }
+
       if (type === SLIDE_TYPE.MAPS) {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
@@ -137,6 +145,19 @@ export function usePresentationDeckMutations(
         delete (next as Slide).mindMapData;
         if (!next.mapData) {
           next.mapData = serializeSlideMapData(createDefaultSlideMapData());
+        }
+      }
+
+      if (type === SLIDE_TYPE.CANVAS_3D) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        delete (next as Slide).matrixData;
+        delete (next as Slide).mindMapData;
+        delete (next as Slide).mapData;
+        if (!next.canvas3dSceneData) {
+          next.canvas3dSceneData = serializeCanvas3dSceneData(
+            createDefaultCanvas3dSceneData(),
+          );
         }
       }
 

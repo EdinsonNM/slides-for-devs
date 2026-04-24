@@ -428,6 +428,32 @@ async function addSlideToPptx(
     return;
   }
 
+  if (slide.type === SLIDE_TYPE.CANVAS_3D) {
+    s.addText(slide.title || "Canvas 3D", {
+      x: 0.5,
+      y: 0.3,
+      w: "90%",
+      h: 0.6,
+      fontSize: 28,
+      bold: true,
+      fontFace: "Arial",
+    });
+    s.addText(
+      "(Escena 3D WebGL – revisar en la app; la exportación PPTX no rasteriza varios GLB)",
+      {
+        x: 0.5,
+        y: 2.5,
+        w: "90%",
+        h: 0.5,
+        fontSize: 14,
+        color: "7F7F7F",
+        align: "center",
+        fontFace: "Arial",
+      },
+    );
+    return;
+  }
+
   if (slide.type === SLIDE_TYPE.ISOMETRIC) {
     let y = 0.3;
     s.addText(slide.title || "Diagrama isométrico", {

@@ -96,7 +96,8 @@ export function PreviewSlideContent({
   const hideDeckBackdropBehindCanvas =
     isIsometricSlide ||
     slide.type === SLIDE_TYPE.MIND_MAP ||
-    slide.type === SLIDE_TYPE.MAPS;
+    slide.type === SLIDE_TYPE.MAPS ||
+    slide.type === SLIDE_TYPE.CANVAS_3D;
   const isDataMotionRingSlide =
     slide.type === SLIDE_TYPE.CONTENT &&
     resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
@@ -156,7 +157,8 @@ export function PreviewSlideContent({
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
             (isIsometricSlide ||
               slide.type === SLIDE_TYPE.MAPS ||
-              slide.type === SLIDE_TYPE.MIND_MAP) &&
+              slide.type === SLIDE_TYPE.MIND_MAP ||
+              slide.type === SLIDE_TYPE.CANVAS_3D) &&
               "bg-background",
           )}
         >
@@ -210,7 +212,8 @@ export function PreviewSlideContent({
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
           (isIsometricSlide ||
             slide.type === SLIDE_TYPE.MAPS ||
-            slide.type === SLIDE_TYPE.MIND_MAP) &&
+            slide.type === SLIDE_TYPE.MIND_MAP ||
+            slide.type === SLIDE_TYPE.CANVAS_3D) &&
             "bg-background",
         )}
       >

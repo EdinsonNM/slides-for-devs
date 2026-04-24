@@ -5,6 +5,7 @@ import {
   Palette,
   LibraryBig,
   BarChart3,
+  Box,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -13,10 +14,18 @@ import { CharactersPanel } from "./CharactersPanel";
 import { ResourcesPanel } from "./ResourcesPanel";
 import { PresenterNotesPanel } from "../editor/PresenterNotesPanel";
 import { DataMotionRingInspectorPanel } from "./DataMotionRingInspectorPanel";
+import { Scene3dInspectorPanel } from "./Scene3dInspectorPanel";
 import { RailTooltip } from "../shared/RailTooltip";
 
 const SECTIONS: {
-  id: "slide" | "characters" | "notes" | "theme" | "resources" | "dataRing";
+  id:
+    | "slide"
+    | "characters"
+    | "notes"
+    | "theme"
+    | "resources"
+    | "dataRing"
+    | "scene3d";
   label: string;
   icon: typeof LayoutTemplate;
 }[] = [
@@ -26,6 +35,7 @@ const SECTIONS: {
   { id: "theme", label: "Diseño y Tema", icon: Palette },
   { id: "resources", label: "Recursos", icon: LibraryBig },
   { id: "dataRing", label: "Aro de datos", icon: BarChart3 },
+  { id: "scene3d", label: "Escena 3D", icon: Box },
 ];
 
 export function EditorInspector() {
@@ -56,7 +66,7 @@ export function EditorInspector() {
       setShowCharactersPanel(true);
       setShowSlideStylePanel(false);
       setIsNotesPanelOpen(false);
-    } else if (id === "resources" || id === "dataRing") {
+    } else if (id === "resources" || id === "dataRing" || id === "scene3d") {
       setShowSlideStylePanel(false);
       setShowCharactersPanel(false);
       setIsNotesPanelOpen(false);
@@ -120,6 +130,7 @@ export function EditorInspector() {
             <ResourcesPanel variant="inspector" />
           )}
           {inspectorSection === "dataRing" && <DataMotionRingInspectorPanel />}
+          {inspectorSection === "scene3d" && <Scene3dInspectorPanel />}
         </div>
       )}
     </aside>

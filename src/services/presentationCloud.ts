@@ -602,6 +602,9 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     editorHeight: s.editorHeight ?? null,
     matrixData: s.matrixData ?? null,
     isometricFlowData: s.isometricFlowData ?? null,
+    mindMapData: s.mindMapData ?? null,
+    mapData: s.mapData ?? null,
+    canvas3dSceneData: s.canvas3dSceneData ?? null,
   };
 }
 
@@ -650,6 +653,10 @@ function plainToSlide(p: Record<string, unknown>): Slide {
       p.excalidrawData != null ? String(p.excalidrawData) : undefined,
     isometricFlowData:
       p.isometricFlowData != null ? String(p.isometricFlowData) : undefined,
+    mindMapData: p.mindMapData != null ? String(p.mindMapData) : undefined,
+    mapData: p.mapData != null ? String(p.mapData) : undefined,
+    canvas3dSceneData:
+      p.canvas3dSceneData != null ? String(p.canvas3dSceneData) : undefined,
     editorHeight:
       typeof p.editorHeight === "number" ? p.editorHeight : undefined,
     matrixData:

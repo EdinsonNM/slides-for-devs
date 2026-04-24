@@ -16,6 +16,8 @@ export const SLIDE_TYPE = {
   MATRIX: "matrix",
   /** Mapa interactivo Mapbox (marcadores y rutas). */
   MAPS: "maps",
+  /** Escena 3D exclusiva (varios GLB / personajes con animación y posición). */
+  CANVAS_3D: "canvas-3d",
 } as const;
 
 export type SlideType = (typeof SLIDE_TYPE)[keyof typeof SLIDE_TYPE];
@@ -109,6 +111,8 @@ export interface Slide {
   mindMapData?: string;
   /** JSON `SlideMapData` cuando `type === SLIDE_TYPE.MAPS`. */
   mapData?: string;
+  /** JSON `Canvas3dSceneData` cuando `type === SLIDE_TYPE.CANVAS_3D`. */
+  canvas3dSceneData?: string;
   /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
   matrixData?: SlideMatrixData;
   /** Posicionamiento libre de bloques en el lienzo (% del área del slide). */

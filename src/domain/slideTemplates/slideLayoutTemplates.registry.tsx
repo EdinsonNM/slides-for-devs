@@ -1,6 +1,12 @@
 import type { ReactElement } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Boxes, Image as ImageIcon, Map as MapIcon, PencilRuler, Table2 } from "lucide-react";
+import {
+  Boxes,
+  Image as ImageIcon,
+  Map as MapIcon,
+  PencilRuler,
+  Table2,
+} from "lucide-react";
 import {
   SLIDE_LAYOUT_TEMPLATE_ID,
   type SlideLayoutTemplateId,
@@ -173,6 +179,19 @@ function PreviewMaps() {
   );
 }
 
+function PreviewCanvas3d() {
+  return (
+    <div className="w-full aspect-video rounded-lg border border-stone-200 bg-linear-to-br from-violet-50 to-sky-50 dark:border-border dark:from-violet-950/50 dark:to-sky-950/40 overflow-hidden flex items-center justify-center p-2">
+      <div className="flex items-center justify-center gap-2 rounded-lg border border-violet-200/80 bg-white/80 dark:border-violet-800/60 dark:bg-surface-elevated/70 px-3 py-2 shadow-sm">
+        <Boxes className="size-5 text-violet-600 dark:text-violet-400" strokeWidth={1.75} />
+        <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-800/90 dark:text-violet-200/90">
+          3D
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function PreviewMatrix() {
   return (
     <div className="w-full aspect-video bg-white dark:bg-surface-elevated border border-stone-200 dark:border-border rounded-lg overflow-hidden flex flex-col p-1 gap-0.5">
@@ -232,5 +251,10 @@ export const SLIDE_LAYOUT_TEMPLATE_REGISTRY: readonly SlideLayoutTemplateDefinit
     id: SLIDE_LAYOUT_TEMPLATE_ID.MAPS,
     label: "Mapas",
     Preview: PreviewMaps,
+  },
+  {
+    id: SLIDE_LAYOUT_TEMPLATE_ID.CANVAS_3D,
+    label: "Escena 3D",
+    Preview: PreviewCanvas3d,
   },
 ];

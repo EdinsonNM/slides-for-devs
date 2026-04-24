@@ -11,6 +11,31 @@ function canvasFullBleedElementNotFull(
   return x > 0.5 || y > 0.5 || w < 99 || h < 99;
 }
 
+const FULL_BLEED_KINDS_FOR_OTHER_SLIDE_TYPES = new Set([
+  "mapboxMap",
+  "isometricFlow",
+  "mindMap",
+]);
+
+/**
+ * Slides CANVAS_3D no llevan capa de mapa/isométrico/mapa mental en el canvas.
+ * Un bug previo hacía que `patchLegacyIsometricCanvasScene` tratara CANVAS_3D como MAPS
+ * e insertara un `mapboxMap` a pantalla completa, tapando el visor 3D y bloqueando punteros.
+ */
+function stripForeignFullBleedFromCanvas3dSlide(slide: Slide): Slide {
+  if (slide.type !== SLIDE_TYPE.CANVAS_3D) return slide;
+  const cs = slide.canvasScene;
+  if (!isSlideCanvasScene(cs)) return slide;
+  const filtered = cs.elements.filter(
+    (e) => !FULL_BLEED_KINDS_FOR_OTHER_SLIDE_TYPES.has(e.kind),
+  );
+  if (filtered.length === cs.elements.length) return slide;
+  return {
+    ...slide,
+    canvasScene: { ...cs, elements: normalizeCanvasElementsZOrder(filtered) },
+  };
+}
+
 /** Diagrama isométrico no a pantalla completa (p. ej. layout antiguo): restaura rect y z sin borrar bloques de texto. */
 function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
   if (
@@ -63,6 +88,7 @@ export function ensureSlideCanvasScene(slide: Slide): Slide {
   } else {
     s = patchLegacyIsometricCanvasScene(s);
   }
+  s = stripForeignFullBleedFromCanvas3dSlide(s);
   return upgradeSlideToBlockModel(s);
 }
 
