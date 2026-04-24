@@ -21,6 +21,7 @@ import {
   requestElementFullscreen,
 } from "../../utils/fullscreenApi";
 import { ClaudeDotFadeLayer } from "../shared/ClaudeDotFadeLayer";
+import { FirstPersonStage } from "./FirstPersonStage";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
@@ -282,6 +283,8 @@ export function PreviewOverlay() {
     effectiveGeminiModel,
     presenterMode,
     setPresenterMode,
+    firstPersonLayout,
+    setFirstPersonLayout,
   } = usePresentation();
   const nextSlideRef = useRef(nextSlide);
   const prevSlideRef = useRef(prevSlide);
@@ -524,6 +527,8 @@ export function PreviewOverlay() {
           onClose={handleClosePreview}
           presenterMode={presenterMode}
           onPresenterModeChange={setPresenterMode}
+          firstPersonLayout={firstPersonLayout}
+          onFirstPersonLayoutChange={setFirstPersonLayout}
           nativeFullscreen={{
             supported: nativeFullscreenSupported,
             active: browserFullscreenActive,
@@ -532,7 +537,20 @@ export function PreviewOverlay() {
         />
 
         <div className="relative z-50 isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-transparent p-0 pointer-events-auto">
-          {presenterMode === PRESENTER_MODES.CAMERA ? (
+          {presenterMode === PRESENTER_MODES.FIRST_PERSON ? (
+            <FirstPersonStage
+              slide={currentSlide}
+              slideIndex={currentIndex}
+              slideDirection={slideDirection}
+              imageWidthPercent={imageWidthPercent}
+              panelHeightPercent={panelHeightPercent}
+              layout={firstPersonLayout}
+              lightAppearance={previewShellLight}
+              shellLight={previewOverlayShellBgLight}
+              shellDark={previewOverlayShellBgDark}
+              registerPresenterMapFlyTo={showMapSearchBar}
+            />
+          ) : presenterMode === PRESENTER_MODES.CAMERA ? (
             <ContinuousCameraStage
               slides={slides}
               currentIndex={currentIndex}

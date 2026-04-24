@@ -81,6 +81,12 @@ import type { ApplySavedPresentationEditorContext } from "../presentation/state/
 import type { WebCloudEditSession } from "../presentation/state/webCloudSession";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
 import {
+  FIRST_PERSON_LAYOUT_STORAGE_KEY,
+  FIRST_PERSON_LAYOUTS,
+  isFirstPersonLayout,
+  type FirstPersonLayout,
+} from "../constants/firstPersonLayout";
+import {
   PRESENTER_MODE_STORAGE_KEY,
   PRESENTER_MODES,
   isPresenterMode,
@@ -292,6 +298,17 @@ export function usePresentationState() {
     const stored = window.localStorage.getItem(PRESENTER_MODE_STORAGE_KEY);
     return isPresenterMode(stored) ? stored : PRESENTER_MODES.POWERPOINT;
   });
+  const [firstPersonLayout, setFirstPersonLayout] = useState<FirstPersonLayout>(
+    () => {
+      if (typeof window === "undefined") {
+        return FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY;
+      }
+      const stored = window.localStorage.getItem(
+        FIRST_PERSON_LAYOUT_STORAGE_KEY,
+      );
+      return isFirstPersonLayout(stored) ? stored : FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY;
+    },
+  );
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
 
   const {
@@ -624,6 +641,14 @@ export function usePresentationState() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(PRESENTER_MODE_STORAGE_KEY, presenterMode);
   }, [presenterMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      FIRST_PERSON_LAYOUT_STORAGE_KEY,
+      firstPersonLayout,
+    );
+  }, [firstPersonLayout]);
 
   const {
     patchCurrentSlideMatrix,
@@ -1090,6 +1115,8 @@ export function usePresentationState() {
     setIsPreviewMode,
     presenterMode,
     setPresenterMode,
+    firstPersonLayout,
+    setFirstPersonLayout,
     diagramFlushRef,
     isometricFlowFlushRef,
     diagramRemountToken,
