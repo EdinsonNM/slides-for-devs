@@ -183,8 +183,8 @@ export function CameraInspectorPanel() {
               className="h-2 w-full cursor-pointer accent-violet-600 dark:accent-violet-500"
             />
             <p className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-              Atenúa textura y microcontraste en la figura (efecto tipo cámara beauty), no un simple
-              desenfoque global.
+              Atenúa detalle fino de piel/textura (similar a “retocar apariencia” en Meet), sin desenfocar
+              toda la figura como un solo blur.
             </p>
           </div>
         </div>

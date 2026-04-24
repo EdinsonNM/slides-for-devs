@@ -11,6 +11,7 @@ import {
   copyFirstConfidenceMask,
 } from "../lib/compositePortraitFrame";
 import { loadSelfieImageSegmenter } from "../lib/loadImageSegmenter";
+import { nextSegmenterFrameTimestampMs } from "../mediapipeFrameTimestamp";
 import { VideoOff, RefreshCw } from "lucide-react";
 
 type Scratch = {
@@ -45,7 +46,6 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
   const scratchRef = useRef<Scratch | null>(null);
   const rafRef = useRef<number | null>(null);
   const segRef = useRef<ImageSegmenter | null>(null);
-  const t0Ref = useRef(0);
   const lastFrRef = useRef(0);
   const [portraitError, setPortraitError] = useState(false);
   const [portraitReady, setPortraitReady] = useState(false);
@@ -78,7 +78,6 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
 
     setPortraitError(false);
     setPortraitReady(false);
-    t0Ref.current = performance.now();
     lastFrRef.current = 0;
     let cancelled = false;
 
@@ -88,7 +87,6 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
           return;
         }
         segRef.current = s;
-        t0Ref.current = performance.now();
         setPortraitReady(true);
       })
       .catch(() => {
@@ -147,7 +145,7 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         st.faceSmoothStrength,
         scr,
       );
-      const timeMs = now - t0Ref.current;
+      const timeMs = nextSegmenterFrameTimestampMs();
       const result = seg.segmentForVideo(v, timeMs);
       const mask = copyFirstConfidenceMask(result);
       if (!mask) {

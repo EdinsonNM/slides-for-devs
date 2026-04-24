@@ -10,19 +10,42 @@ export function backgroundStrengthToBlurPx(strength: number): number {
 }
 
 /**
- * Cadena CSS para la capa de “suavidad” (smoothness): poco blur + microcontraste reducido,
- * no un desenfoque fuerte aislado (evita aspecto “plastificado” excesivo).
+ * Pasa bajo frecuencia (blur muy pequeño) para separar “textura” de bordes grandes.
+ * Radio acotado: Meet/Zoom no aplica un desenfoque fuerte a toda la cara, atenúan piel.
  */
-export function foregroundSmoothnessFilter(strength: number): string {
+function lowPassBlurPxForTouchUp(strength: number): number {
   const t = Math.min(1, Math.max(0, strength / WEBCAM_INTENSITY_MAX));
-  if (t < 0.004) {
-    return "none";
+  return 0.85 + t * 0.95;
+}
+
+/**
+ * “Retoque” / suavidad tipo cámara: baja frecuencia + detalle = original;
+ * se atenúa solo el término de detalle (frec. altas) → menos poros/textura, sin apariencia de desenfocado.
+ */
+function buildAppearanceTouchUpLayer(
+  sharp: ImageData,
+  low: ImageData,
+  w: number,
+  h: number,
+  strength: number,
+): ImageData {
+  const u = Math.min(1, Math.max(0, strength / WEBCAM_INTENSITY_MAX));
+  const uEff = u * u * (3 - 2 * u);
+  const k = uEff * 0.56;
+  const out = new Uint8ClampedArray(w * h * 4);
+  const sd = sharp.data;
+  const ld = low.data;
+  for (let i = 0, n = w * h; i < n; i++) {
+    const p = i * 4;
+    for (const c of [0, 1, 2] as const) {
+      const s = sd[p + c]!;
+      const l = ld[p + c]!;
+      const hi = s - l;
+      out[p + c] = Math.max(0, Math.min(255, Math.round(l + hi * (1 - k))));
+    }
+    out[p + 3] = 255;
   }
-  const blurPx = 0.32 + t * 1.28;
-  const contrast = 1 - t * 0.12;
-  const brightness = 1 + t * 0.03;
-  const saturate = 1 - t * 0.06;
-  return `blur(${blurPx.toFixed(2)}px) contrast(${contrast.toFixed(3)}) brightness(${brightness.toFixed(3)}) saturate(${saturate.toFixed(3)})`;
+  return new ImageData(out, w, h);
 }
 
 function sampleBilinear(
@@ -85,8 +108,7 @@ export function compositePortraitOntoContext(
 ): void {
   const sFlat = new Uint8ClampedArray(w * h * 4);
   const tRaw = faceSmoothStrength / WEBCAM_INTENSITY_MAX;
-  /** Mezcla hacia la capa suave con leve retención de textura fina (más “smoothness” que barro). */
-  const t = tRaw * (0.78 + 0.22 * (1 - tRaw));
+  const t = tRaw;
   for (let y = 0; y < h; y++) {
     const v = (y + 0.5) / h;
     for (let x = 0; x < w; x++) {
@@ -158,12 +180,25 @@ export function renderVideoBuffers(
   const imageBlurred = ctxB.getImageData(0, 0, w, h);
   ctxB.filter = "none";
 
-  const smoothFilter = foregroundSmoothnessFilter(foregroundSmoothness);
-  ctxF.filter = smoothFilter;
-  ctxF.clearRect(0, 0, w, h);
-  ctxF.drawImage(video, 0, 0, w, h);
-  const imageSmooth = ctxF.getImageData(0, 0, w, h);
-  ctxF.filter = "none";
+  let imageSmooth: ImageData;
+  if (foregroundSmoothness <= 0) {
+    imageSmooth = imageSharp;
+  } else {
+    const sigma = lowPassBlurPxForTouchUp(foregroundSmoothness);
+    ctxF.filter = "none";
+    ctxF.clearRect(0, 0, w, h);
+    ctxF.filter = `blur(${sigma.toFixed(2)}px)`;
+    ctxF.drawImage(video, 0, 0, w, h);
+    const imageLow = ctxF.getImageData(0, 0, w, h);
+    ctxF.filter = "none";
+    imageSmooth = buildAppearanceTouchUpLayer(
+      imageSharp,
+      imageLow,
+      w,
+      h,
+      foregroundSmoothness,
+    );
+  }
 
   return { imageSharp, imageBlurred, imageSmooth };
 }
