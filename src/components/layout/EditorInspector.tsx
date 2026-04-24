@@ -9,6 +9,7 @@ import {
   Box,
   Image,
   Map,
+  Webcam,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
@@ -20,6 +21,7 @@ import { DataMotionRingInspectorPanel } from "./DataMotionRingInspectorPanel";
 import { Scene3dInspectorPanel } from "./Scene3dInspectorPanel";
 import { MapSlideInspectorPanel } from "./MapSlideInspectorPanel";
 import { SlidePropertiesInspectorPanel } from "./SlidePropertiesInspectorPanel";
+import { CameraInspectorPanel } from "./CameraInspectorPanel";
 import { RailTooltip } from "../shared/RailTooltip";
 import { SLIDE_TYPE } from "../../domain/entities";
 import {
@@ -37,7 +39,8 @@ type InspectorSectionId =
   | "resources"
   | "dataRing"
   | "mapbox"
-  | "scene3d";
+  | "scene3d"
+  | "camera";
 
 type SectionDef = {
   id: InspectorSectionId;
@@ -72,6 +75,7 @@ const SECTION_DEFS: SectionDef[] = [
     icon: Box,
     isVisibleForSlideType: isInspectorScene3dSectionVisible,
   },
+  { id: "camera", label: "Cámara", icon: Webcam },
 ];
 
 export function EditorInspector() {
@@ -131,7 +135,8 @@ export function EditorInspector() {
       id === "dataRing" ||
       id === "scene3d" ||
       id === "mapbox" ||
-      id === "slideProperties"
+      id === "slideProperties" ||
+      id === "camera"
     ) {
       setShowSlideStylePanel(false);
       setShowCharactersPanel(false);
@@ -193,6 +198,7 @@ export function EditorInspector() {
           {inspectorSection === "dataRing" && <DataMotionRingInspectorPanel />}
           {inspectorSection === "mapbox" && <MapSlideInspectorPanel />}
           {inspectorSection === "scene3d" && <Scene3dInspectorPanel />}
+          {inspectorSection === "camera" && <CameraInspectorPanel />}
         </div>
       )}
     </aside>

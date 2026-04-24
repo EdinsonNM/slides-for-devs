@@ -558,6 +558,7 @@ export function usePresentationState() {
     | "dataRing"
     | "mapbox"
     | "scene3d"
+    | "camera"
     | null
   >("slide");
 
