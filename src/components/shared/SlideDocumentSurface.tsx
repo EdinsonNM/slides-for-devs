@@ -13,6 +13,11 @@ type LoadState = "idle" | "loading" | "ready" | "error";
 export interface SlideDocumentSurfaceProps {
   embed: SlideDocumentEmbed | undefined;
   deckContentTone: DeckContentTone;
+  /**
+   * Paleta del bloque README (texto/ tablas) alineada con fondo claro/oscuro de la app o slide.
+   * `dark` = texto claro (UI oscura), `light` = texto oscuro (UI clara).
+   */
+  importedGithubScheme?: "light" | "dark";
   className?: string;
   /** Controles adicionales (p. ej. carga) encima del documento, solo editor. */
   topChrome?: ReactNode;
@@ -21,6 +26,7 @@ export interface SlideDocumentSurfaceProps {
 export function SlideDocumentSurface({
   embed,
   deckContentTone,
+  importedGithubScheme,
   className,
   topChrome,
 }: SlideDocumentSurfaceProps) {
@@ -163,7 +169,13 @@ export function SlideDocumentSurface({
           </div>
         ) : null}
         <div className="px-4 py-3">
-          <SlideMarkdown contentTone={tone}>{raw}</SlideMarkdown>
+          <SlideMarkdown
+            contentTone={tone}
+            preprocess="importedFile"
+            importedGithubScheme={importedGithubScheme}
+          >
+            {raw}
+          </SlideMarkdown>
         </div>
       </div>
     );

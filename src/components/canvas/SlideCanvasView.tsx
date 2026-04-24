@@ -308,6 +308,7 @@ function CanvasElementReadOnly({
   mapAppearance = "light",
   registerPresenterMapFlyTo = false,
   minimalCanvas3dChrome = false,
+  readmeGithubScheme,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -317,6 +318,10 @@ function CanvasElementReadOnly({
   mapAppearance?: MapboxCanvasAppearance;
   registerPresenterMapFlyTo?: boolean;
   minimalCanvas3dChrome?: boolean;
+  /**
+   * README .md: paleta según app/slide (oscuro = `dark`). Alinea texto con `bg-background`.
+   */
+  readmeGithubScheme: "light" | "dark";
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -555,6 +560,7 @@ function CanvasElementReadOnly({
             <SlideDocumentSurface
               embed={slide.documentEmbed}
               deckContentTone={tone}
+              importedGithubScheme={readmeGithubScheme}
               className="h-full w-full"
             />,
           )}
@@ -612,6 +618,12 @@ export function SlideCanvasView({
   const mapAppearance: MapboxCanvasAppearance = theme?.isDark
     ? "dark"
     : "light";
+  const readmeGithubScheme: "light" | "dark" =
+    (theme?.isDark ??
+      (typeof document !== "undefined" &&
+        document.documentElement.classList.contains("dark")))
+      ? "dark"
+      : "light";
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
@@ -662,6 +674,7 @@ export function SlideCanvasView({
           mapAppearance={mapAppearance}
           registerPresenterMapFlyTo={registerPresenterMapFlyTo}
           minimalCanvas3dChrome={minimalCanvas3dChrome}
+          readmeGithubScheme={readmeGithubScheme}
         />
       ))}
     </div>

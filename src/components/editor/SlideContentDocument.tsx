@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { FileUp, Trash2 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
+import { useThemeOptional } from "../../context/ThemeContext";
 import {
   inferSlideDocumentKind,
   readFileAsDataUrl,
@@ -15,10 +16,18 @@ const ACCEPT =
 export function SlideContentDocument() {
   const { currentSlide, setCurrentSlideDocumentEmbed, deckVisualTheme } =
     usePresentation();
+  const theme = useThemeOptional();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const embed = currentSlide?.documentEmbed;
   const tone = deckVisualTheme.contentTone;
+  /** README: colores alineados con el fondo real (slide `bg-background` = tema app). */
+  const importedGithubScheme: "light" | "dark" =
+    (theme?.isDark ??
+      (typeof document !== "undefined" &&
+        document.documentElement.classList.contains("dark")))
+      ? "dark"
+      : "light";
 
   const onPickFile = useCallback(
     async (fileList: FileList | null) => {
@@ -89,6 +98,7 @@ export function SlideContentDocument() {
       <SlideDocumentSurface
         embed={embed}
         deckContentTone={tone}
+        importedGithubScheme={importedGithubScheme}
         className="min-h-0 flex-1"
         topChrome={chrome}
       />

@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import { slideMarkdownRehypePlugins } from "../../utils/slideMarkdownPipeline";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Send, Loader2 } from "lucide-react";
@@ -96,6 +97,7 @@ export function PresenterChat({
                 <div className="prose prose-invert prose-sm max-w-none prose-p:text-white prose-li:text-stone-100 prose-strong:text-white prose-headings:text-white prose-code:text-amber-200 prose-pre:bg-stone-900 prose-pre:border prose-pre:border-stone-600 [&>*]:text-white [&_ul]:text-stone-100 [&_ol]:text-stone-100">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkBreaks]}
+                    rehypePlugins={slideMarkdownRehypePlugins}
                     components={markdownComponents}
                   >
                     {msg.content}

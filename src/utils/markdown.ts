@@ -96,3 +96,12 @@ export function formatMarkdownForDisplay(content: string): string {
     expandExtraBlankLineRuns(formatMarkdownChunkCore(chunk)),
   ).trim();
 }
+
+/**
+ * Solo normaliza finales de línea y recorta: para .md importados (README) donde
+ * `formatMarkdownForDisplay` podría alterar el texto fuera de bloques de código.
+ */
+export function formatMarkdownImportedFile(content: string): string {
+  if (!content) return "";
+  return normalizeNewlines(content).trim();
+}
