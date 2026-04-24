@@ -146,7 +146,6 @@ export function Scene3dEditorCore({
       ...scene,
       instances: [...scene.instances, inst],
       selectedInstanceId: inst.id,
-      viewState: undefined,
     });
   };
 
@@ -174,7 +173,6 @@ export function Scene3dEditorCore({
       ...scene,
       instances: [...scene.instances, inst],
       selectedInstanceId: inst.id,
-      viewState: undefined,
     });
   };
 
