@@ -1,6 +1,7 @@
-import { FilesetResolver, ImageSegmenter } from "@mediapipe/tasks-vision";
-import { mediapipeWasmBasePath, selfieSegmenterModelUrl } from "../constants";
+import { ImageSegmenter } from "@mediapipe/tasks-vision";
+import { selfieSegmenterModelUrl } from "../constants";
 import { resetSegmenterFrameTimestampClock } from "../mediapipeFrameTimestamp";
+import { loadVisionTasksFileset } from "./loadVisionTasksFileset";
 
 let segmenterPromise: Promise<ImageSegmenter> | null = null;
 let lastError: Error | null = null;
@@ -19,9 +20,7 @@ export function loadSelfieImageSegmenter(): Promise<ImageSegmenter> {
   lastError = null;
   segmenterPromise = (async () => {
     resetSegmenterFrameTimestampClock();
-    const wasmPath = mediapipeWasmBasePath();
-    // `false`: bundle wasm sin ESM; con `true` el `.js` usa `import.meta` y falla al cargarse como script clásico desde `public/`.
-    const wasm = await FilesetResolver.forVisionTasks(wasmPath, false);
+    const wasm = await loadVisionTasksFileset();
     return await ImageSegmenter.createFromOptions(wasm, {
       baseOptions: {
         modelAssetPath: selfieSegmenterModelUrl(),

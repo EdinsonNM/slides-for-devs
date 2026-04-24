@@ -183,8 +183,8 @@ export function CameraInspectorPanel() {
               className="h-2 w-full cursor-pointer accent-violet-600 dark:accent-violet-500"
             />
             <p className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-              Atenúa detalle fino de piel/textura (similar a “retocar apariencia” en Meet), sin desenfocar
-              toda la figura como un solo blur.
+              MediaPipe Face Landmarker mantiene ojos/iris nítidos y suaviza piel; no es Face Mesh + shader
+              WebGL, pero prioriza la mirada frente al resto de la figura.
             </p>
           </div>
         </div>

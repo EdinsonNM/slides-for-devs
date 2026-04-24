@@ -8,6 +8,12 @@ export function selfieSegmenterModelUrl(): string {
   return `${join}mediapipe/selfie_segmenter.tflite`;
 }
 
+export function faceLandmarkerModelUrl(): string {
+  const base = import.meta.env.BASE_URL;
+  const join = base.endsWith("/") ? base : `${base}/`;
+  return `${join}mediapipe/face_landmarker.task`;
+}
+
 /**
  * Ruta a los `.wasm` servidos bajo `public/mediapipe/wasm` (copiado desde `node_modules/@mediapipe/tasks-vision/wasm`).
  * `import.meta.env.BASE_URL` añade el prefijo en apps desplegadas bajo subpath.

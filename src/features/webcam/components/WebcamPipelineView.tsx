@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ImageSegmenter } from "@mediapipe/tasks-vision";
+import type { FaceLandmarker, ImageSegmenter } from "@mediapipe/tasks-vision";
 import { useUserMediaStream } from "../hooks/useUserMediaStream";
 import { cn } from "../../../utils/cn";
 import type { WebcamPanelState } from "../../../domain/webcam/webcamPanelModel";
@@ -10,7 +10,9 @@ import {
   renderVideoBuffers,
   copyFirstConfidenceMask,
 } from "../lib/compositePortraitFrame";
+import { fillEyeRegionPreserveMap } from "../lib/eyeRegionPreserveMap";
 import { loadSelfieImageSegmenter } from "../lib/loadImageSegmenter";
+import { loadFaceLandmarker } from "../lib/loadFaceLandmarker";
 import { nextSegmenterFrameTimestampMs } from "../mediapipeFrameTimestamp";
 import { VideoOff, RefreshCw } from "lucide-react";
 
@@ -46,6 +48,9 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
   const scratchRef = useRef<Scratch | null>(null);
   const rafRef = useRef<number | null>(null);
   const segRef = useRef<ImageSegmenter | null>(null);
+  const faceLmRef = useRef<FaceLandmarker | null>(null);
+  const faceLmLoadRef = useRef<Promise<unknown> | null>(null);
+  const eyeMapBufferRef = useRef<Float32Array | null>(null);
   const lastFrRef = useRef(0);
   const [portraitError, setPortraitError] = useState(false);
   const [portraitReady, setPortraitReady] = useState(false);
@@ -159,6 +164,33 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         rafRef.current = requestAnimationFrame(runFrame);
         return;
       }
+      let eyeMap: Float32Array | null = null;
+      if (st.faceSmoothStrength > 0) {
+        if (!faceLmRef.current && !faceLmLoadRef.current) {
+          faceLmLoadRef.current = loadFaceLandmarker()
+            .then((lm) => {
+              faceLmRef.current = lm;
+              return lm;
+            })
+            .catch(() => {
+              faceLmRef.current = null;
+              return null;
+            })
+            .finally(() => {
+              faceLmLoadRef.current = null;
+            });
+        }
+        if (faceLmRef.current) {
+          const tsFace = nextSegmenterFrameTimestampMs();
+          const fr = faceLmRef.current.detectForVideo(v, tsFace);
+          if (!eyeMapBufferRef.current || eyeMapBufferRef.current.length !== workW * workH) {
+            eyeMapBufferRef.current = new Float32Array(workW * workH);
+          }
+          const buf = eyeMapBufferRef.current;
+          fillEyeRegionPreserveMap(fr.faceLandmarks[0], workW, workH, buf);
+          eyeMap = buf;
+        }
+      }
       compositePortraitOntoContext(
         octx,
         workW,
@@ -170,6 +202,7 @@ export function WebcamPipelineView({ state, className, mirrored = false }: Webca
         mask.width,
         mask.height,
         st.faceSmoothStrength,
+        eyeMap,
       );
       rafRef.current = requestAnimationFrame(runFrame);
     };

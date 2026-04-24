@@ -92,7 +92,7 @@ export function copyFirstConfidenceMask(
 
 /**
  * Pinta en `outCtx` el retrato: fondo con blur y figura nítida o suavizada según máscara.
- * Usa búferes de trabajo ya dibujados (mismo rectángulo `w`×`h`).
+ * `eyePreserveMap`: por píxel, 1 = nítido (ojos, Face Landmarker), 0 = suavidad plena.
  */
 export function compositePortraitOntoContext(
   outCtx: CanvasRenderingContext2D,
@@ -105,17 +105,23 @@ export function compositePortraitOntoContext(
   mw: number,
   mh: number,
   faceSmoothStrength: number,
+  eyePreserveMap: Float32Array | null,
 ): void {
   const sFlat = new Uint8ClampedArray(w * h * 4);
-  const tRaw = faceSmoothStrength / WEBCAM_INTENSITY_MAX;
-  const t = tRaw;
+  const tBase = faceSmoothStrength / WEBCAM_INTENSITY_MAX;
   for (let y = 0; y < h; y++) {
     const v = (y + 0.5) / h;
     for (let x = 0; x < w; x++) {
       const u = (x + 0.5) / w;
       const m = sampleBilinear(mask, mw, mh, u, v);
       const mClamped = Math.min(1, Math.max(0, m));
-      const i = (y * w + x) * 4;
+      const pIdx = y * w + x;
+      const eyeW =
+        eyePreserveMap !== null && pIdx < eyePreserveMap.length
+          ? Math.max(0, Math.min(1, eyePreserveMap[pIdx]!))
+          : 0;
+      const t = tBase * (1 - eyeW * 0.98);
+      const i = pIdx * 4;
       for (const c of [0, 1, 2] as const) {
         const sh = imageSharp.data[i + c]!;
         const sm = imageSmooth.data[i + c]!;
