@@ -5,6 +5,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import type { SlideMapData, SlideMapRoute } from "../../domain/entities/SlideMapData";
 import { registerMapSlideViewportCapture } from "../../map/mapSlideCaptureBridge";
 import {
+  createPresenterMapFlyToOwnerId,
   registerPresenterMapFlyTo,
   requestPresenterMapFlyTo,
 } from "../../map/mapPresenterFlyToBridge";
@@ -261,6 +262,10 @@ export function SlideMapboxCanvas({
 }: SlideMapboxCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const presenterFlyToOwnerIdRef = useRef(0);
+  if (presenterFlyToOwnerIdRef.current === 0) {
+    presenterFlyToOwnerIdRef.current = createPresenterMapFlyToOwnerId();
+  }
   const registerFlyToRef = useRef(registerPresenterFlyToBridge);
   registerFlyToRef.current = registerPresenterFlyToBridge;
   const [searchValue, setSearchValue] = useState("");
@@ -308,22 +313,32 @@ export function SlideMapboxCanvas({
   }, []);
 
   const syncPresenterFlyToBridge = useCallback((_map: mapboxgl.Map) => {
+    const ownerId = presenterFlyToOwnerIdRef.current;
     if (!registerFlyToRef.current) {
-      registerPresenterMapFlyTo(null);
+      /* No borrar el registro de otra instancia (p. ej. carrusel con varios mapas). */
+      registerPresenterMapFlyTo(ownerId, null);
       return;
     }
-    registerPresenterMapFlyTo((center, zoom) => {
+    registerPresenterMapFlyTo(ownerId, (center, zoom) => {
       const m = mapRef.current;
-      if (!m?.isStyleLoaded()) return;
-      try {
-        m.flyTo({
-          center: [center.lng, center.lat],
-          zoom: zoom ?? 12,
-          duration: 1800,
-          essential: true,
-        });
-      } catch {
-        /* */
+      if (!m) return;
+      const doFly = () => {
+        if (!m.isStyleLoaded()) return;
+        try {
+          m.flyTo({
+            center: [center.lng, center.lat],
+            zoom: zoom ?? 12,
+            duration: 1800,
+            essential: true,
+          });
+        } catch {
+          /* */
+        }
+      };
+      if (m.isStyleLoaded()) {
+        doFly();
+      } else {
+        m.once("load", doFly);
       }
     });
   }, []);
@@ -352,6 +367,7 @@ export function SlideMapboxCanvas({
     });
     mapRef.current = map;
     styleUrlRef.current = mapData.styleUrl;
+    syncPresenterFlyToBridge(map);
 
     const onMoveEnd = () => {
       if (programmaticRef.current) return;
@@ -376,7 +392,7 @@ export function SlideMapboxCanvas({
       ro.disconnect();
       map.off("moveend", onMoveEnd);
       map.off("load", paint);
-      registerPresenterMapFlyTo(null);
+      registerPresenterMapFlyTo(presenterFlyToOwnerIdRef.current, null);
       for (const mk of markersByIdRef.current.values()) mk.remove();
       markersByIdRef.current.clear();
       const m = mapRef.current;
