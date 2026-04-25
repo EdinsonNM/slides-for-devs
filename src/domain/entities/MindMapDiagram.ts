@@ -2,10 +2,6 @@
 
 export const MIND_MAP_VERSION = 1 as const;
 
-/** Esquina superior izquierda del panel de descripción, rel. al centro del nodo (unidades de mundo). */
-export const MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_X = -150;
-export const MIND_MAP_DEFAULT_DESCRIPTION_OFFSET_Y = 56;
-
 export interface MindMapNode {
   id: string;
   /** Posición X en el lienzo (centro del nodo = 0) */
@@ -20,12 +16,14 @@ export interface MindMapNode {
    */
   description?: string;
   /**
-   * Desplazamiento en coordenadas de mundo (mismo eje que x,y del nodo) desde el
-   * centro del nodo hasta la esquina superior izquierda del panel de descripción.
-   * Si faltan, se usan valores por defecto al renderizar.
+   * Obsoleto: el panel se fija a la derecha e inferior del nodo. Se acepta en
+   * parse por compatibilidad con datos viejos.
    */
   descriptionOffsetX?: number;
   descriptionOffsetY?: number;
+  /** Ancho y alto del bloque de descripción (unidades de mundo SVG / mismo eje que el viewBox). */
+  descriptionWidth?: number;
+  descriptionHeight?: number;
   /** Color del nodo para su círculo y líneas derivadas (hex o HSL) */
   color: string;
   /** Etiqueta central, rama principal o subparada */
@@ -92,6 +90,8 @@ export function parseMindMapDiagram(raw: string | undefined | null): MindMapDiag
         isFiniteNumber(n.descriptionOffsetX) ? n.descriptionOffsetX : undefined;
       const descriptionOffsetY =
         isFiniteNumber(n.descriptionOffsetY) ? n.descriptionOffsetY : undefined;
+      const descriptionWidth = isFiniteNumber(n.descriptionWidth) ? n.descriptionWidth : undefined;
+      const descriptionHeight = isFiniteNumber(n.descriptionHeight) ? n.descriptionHeight : undefined;
       nodes.push({
         id: n.id,
         x: n.x,
@@ -103,6 +103,8 @@ export function parseMindMapDiagram(raw: string | undefined | null): MindMapDiag
         description,
         descriptionOffsetX,
         descriptionOffsetY,
+        descriptionWidth,
+        descriptionHeight,
       });
     }
     
