@@ -32,8 +32,12 @@ export type PresentationAiModalsDeps = {
   deckVisualTheme: DeckVisualTheme;
   deckNarrativePresetId: string;
   narrativeNotes: string;
+  presentationReadme: string;
   setDeckNarrativePresetId: (id: string | ((prev: string) => string)) => void;
   setNarrativeNotes: (notes: string | ((prev: string) => string)) => void;
+  setPresentationReadme: (
+    markdown: string | ((prev: string) => string),
+  ) => void;
   presentationModelId: string;
   presentationModelOption: PresentationModelOptionLite;
   /** Mismo criterio que en el orquestador (`presentationModelOption` + fallback flash). */

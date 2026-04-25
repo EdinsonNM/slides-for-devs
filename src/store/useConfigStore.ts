@@ -8,6 +8,7 @@ export interface ConfigState {
   deckVisualTheme: DeckVisualTheme;
   deckNarrativePresetId: string;
   narrativeNotes: string;
+  presentationReadme: string;
   presentationModelId: string;
   apiKeysVersion: number;
 
@@ -19,6 +20,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
   deckVisualTheme: DEFAULT_DECK_VISUAL_THEME,
   deckNarrativePresetId: DEFAULT_DECK_NARRATIVE_PRESET_ID,
   narrativeNotes: "",
+  presentationReadme: "",
   presentationModelId: DEFAULT_PRESENTATION_MODEL_ID,
   apiKeysVersion: 0,
 

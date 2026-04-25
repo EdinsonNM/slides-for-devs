@@ -172,3 +172,49 @@ export async function presenterChat(
   });
   return (response.text || "").trim();
 }
+
+export async function generatePresentationReadme(
+  slides: Slide[],
+  topic: string,
+  currentReadme: string,
+  model: string = DEFAULT_TEXT_MODEL,
+): Promise<string> {
+  const deckTopic = topic.trim() || "Presentación sin título";
+  const deckContext = slides
+    .map((slide, index) => {
+      const title = slide.title?.trim() || `Slide ${index + 1}`;
+      const content = slide.content?.trim() || "(sin contenido)";
+      return `## Slide ${index + 1}: ${title}\n${content}`;
+    })
+    .join("\n\n");
+
+  const existingReadme = currentReadme.trim();
+  const prompt = [
+    "Eres un asistente experto en documentación técnica.",
+    "Genera un README en Markdown para la presentación dada.",
+    "Debe ser claro, accionable y orientado a desarrolladores.",
+    "Incluye secciones: Objetivo, Audiencia, Agenda/Resumen, Conceptos clave, Referencias, Cómo reutilizar este deck, Notas del presentador.",
+    "Usa títulos en español y bullets concretos.",
+    "Devuelve solo Markdown válido (sin bloques ``` ni texto adicional).",
+    "",
+    `Título de la presentación: ${deckTopic}`,
+    "",
+    "Contenido de slides:",
+    deckContext,
+    "",
+    existingReadme
+      ? `README actual (puedes mejorarlo/reestructurarlo):\n${existingReadme}`
+      : "No existe README actual todavía.",
+  ].join("\n");
+
+  const response = await getClient().models.generateContent({
+    model: model || DEFAULT_TEXT_MODEL,
+    contents: prompt,
+  });
+  const text = (response.text || "").trim();
+  return text
+    .replace(/^```markdown\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}

@@ -75,6 +75,7 @@ export function usePresentationOrchestratorRefSync(
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     formatMarkdown,
   } = args;
 
@@ -105,6 +106,7 @@ export function usePresentationOrchestratorRefSync(
       setDeckVisualThemeState,
       setDeckNarrativePresetId,
       setNarrativeNotes,
+      setPresentationReadme,
       formatMarkdown,
     };
   }, [
@@ -118,6 +120,7 @@ export function usePresentationOrchestratorRefSync(
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     formatMarkdown,
   ]);
 
@@ -133,6 +136,7 @@ export function usePresentationOrchestratorRefSync(
       setDeckVisualThemeState,
       setDeckNarrativePresetId,
       setNarrativeNotes,
+      setPresentationReadme,
       coverPrefetchSavedAtRef,
       setCoverImageCache,
       setHomeFirstSlideReplicaBySavedId,
@@ -150,6 +154,7 @@ export function usePresentationOrchestratorRefSync(
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
     setHomeFirstSlideReplicaBySavedId,

@@ -192,6 +192,7 @@ export async function loadPresentation(
       deckVisualTheme: rec.deckVisualTheme,
       deckNarrativePresetId: rec.deckNarrativePresetId,
       narrativeNotes: rec.narrativeNotes,
+      presentationReadme: rec.presentationReadme,
     };
   }
   return invoke<SavedPresentation>("load_presentation", {

@@ -109,6 +109,7 @@ export function usePresentationEditorTabs(deps: PresentationEditorTabsDeps) {
       deckVisualTheme: d.deckVisualTheme,
       deckNarrativePresetId: d.deckNarrativePresetId,
       narrativeNotes: d.narrativeNotes,
+      presentationReadme: d.presentationReadme,
     };
   }, [
     flushDiagramPending,
@@ -121,6 +122,7 @@ export function usePresentationEditorTabs(deps: PresentationEditorTabsDeps) {
     deps.deckVisualTheme,
     deps.deckNarrativePresetId,
     deps.narrativeNotes,
+    deps.presentationReadme,
   ]);
 
   const setPresentationTitleDraft = useCallback((value: string | null) => {
@@ -147,6 +149,7 @@ export function usePresentationEditorTabs(deps: PresentationEditorTabsDeps) {
         snap.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
       );
       d.setNarrativeNotes(snap.narrativeNotes ?? "");
+      d.setPresentationReadme(snap.presentationReadme ?? "");
     },
     [],
   );
@@ -191,6 +194,7 @@ export function usePresentationEditorTabs(deps: PresentationEditorTabsDeps) {
     d.setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     d.setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
     d.setNarrativeNotes("");
+    d.setPresentationReadme("");
     setEditorTabs((tabs) => [...tabs, { id: newId, title: "Sin título" }]);
     setActiveEditorTabId(newId);
   }, [activeEditorTabId, captureWorkspaceSnapshot]);

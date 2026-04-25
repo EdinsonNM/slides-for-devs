@@ -39,6 +39,10 @@ export function usePresentationSavePresentation(
           presentation.narrativeNotes !== undefined
             ? presentation.narrativeNotes?.trim() || undefined
             : d.narrativeNotes.trim() || undefined,
+        presentationReadme:
+          presentation.presentationReadme !== undefined
+            ? presentation.presentationReadme?.trim() || undefined
+            : d.presentationReadme.trim() || undefined,
       };
       const dirtySlideIds = full.slides.map((slide) => slide.id);
       let savedId: string | null = null;

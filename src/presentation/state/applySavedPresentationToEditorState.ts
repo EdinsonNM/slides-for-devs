@@ -32,6 +32,9 @@ export type ApplySavedPresentationEditorContext = {
     id: string | ((prev: string) => string),
   ) => void;
   setNarrativeNotes: (notes: string | ((prev: string) => string)) => void;
+  setPresentationReadme: (
+    markdown: string | ((prev: string) => string),
+  ) => void;
   coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
   setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
   setHomeFirstSlideReplicaBySavedId: Dispatch<
@@ -75,6 +78,7 @@ export function applySavedPresentationToEditorState(
     saved.deckNarrativePresetId ?? DEFAULT_DECK_NARRATIVE_PRESET_ID,
   );
   ctx.setNarrativeNotes(saved.narrativeNotes ?? "");
+  ctx.setPresentationReadme(saved.presentationReadme ?? "");
   ctx.coverPrefetchSavedAtRef.current[saved.id] = saved.savedAt;
   const deckCoverUrl = firstSlideDeckCoverImageUrl(saved.slides[0]);
   if (deckCoverUrl) {

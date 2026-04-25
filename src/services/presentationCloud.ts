@@ -829,6 +829,7 @@ export async function pushPresentationToCloud(
     deckVisualTheme: saved.deckVisualTheme ?? null,
     deckNarrativePresetId: saved.deckNarrativePresetId ?? null,
     narrativeNotes: saved.narrativeNotes ?? null,
+    presentationReadme: saved.presentationReadme ?? null,
     slideImagePaths,
     excalidrawPaths,
     /** Portada Slaim dedicada en Storage (no `slide_0.*`). */
@@ -1443,6 +1444,11 @@ export async function pullPresentationFromCloud(
     notesRaw != null && String(notesRaw).trim() !== ""
       ? String(notesRaw).trim()
       : undefined;
+  const readmeRaw = data.presentationReadme;
+  const presentationReadme =
+    readmeRaw != null && String(readmeRaw).trim() !== ""
+      ? String(readmeRaw).trim()
+      : undefined;
 
   return {
     presentation: {
@@ -1455,6 +1461,7 @@ export async function pullPresentationFromCloud(
       ...(deckVisualTheme ? { deckVisualTheme } : {}),
       ...(deckNarrativePresetId ? { deckNarrativePresetId } : {}),
       ...(narrativeNotes ? { narrativeNotes } : {}),
+      ...(presentationReadme ? { presentationReadme } : {}),
       slides,
     },
     cloudRevision: Number.isFinite(cloudRevision) ? cloudRevision : 0,

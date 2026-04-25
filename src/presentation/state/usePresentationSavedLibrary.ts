@@ -34,6 +34,7 @@ export function usePresentationSavedLibrary(deps: PresentationSavedLibraryDeps) 
       setDeckVisualThemeState: deps.setDeckVisualThemeState,
       setDeckNarrativePresetId: deps.setDeckNarrativePresetId,
       setNarrativeNotes: deps.setNarrativeNotes,
+      setPresentationReadme: deps.setPresentationReadme,
       coverPrefetchSavedAtRef: deps.coverPrefetchSavedAtRef,
       setCoverImageCache: deps.setCoverImageCache,
       setHomeFirstSlideReplicaBySavedId: deps.setHomeFirstSlideReplicaBySavedId,

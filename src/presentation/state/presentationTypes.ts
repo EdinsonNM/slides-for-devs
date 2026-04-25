@@ -16,6 +16,7 @@ export type EditorWorkspaceSnapshot = {
   deckVisualTheme: DeckVisualTheme;
   deckNarrativePresetId?: string;
   narrativeNotes?: string;
+  presentationReadme?: string;
 };
 
 export type EditorTab = {

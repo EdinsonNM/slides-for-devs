@@ -138,6 +138,8 @@ export function usePresentationState() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     presentationModelId,
     setPresentationModelId,
     apiKeysVersion,
@@ -168,6 +170,8 @@ export function usePresentationState() {
     setIsSidebarOpen,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
     showCodeGenModal,
     setShowCodeGenModal,
     showCharacterCreatorModal,
@@ -511,6 +515,8 @@ export function usePresentationState() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     slidesUndoRef,
     slidesRedoRef,
     editTitleRef,
@@ -551,6 +557,7 @@ export function usePresentationState() {
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
     setHomeFirstSlideReplicaBySavedId,
@@ -703,6 +710,7 @@ export function usePresentationState() {
     deckVisualTheme,
     deckNarrativePresetId,
     narrativeNotes,
+    presentationReadme,
     setSaveMessage,
     localAccountScope,
     lastOpenedSessionKey,
@@ -743,7 +751,9 @@ export function usePresentationState() {
     codeGenLanguage,
     setCodeGenLanguage,
     isGeneratingCode,
+    isGeneratingReadme,
     handleGenerate,
+    handleGenerateReadmeWithAi,
     openGenerateFullDeckModal,
     handleConfirmGenerateFullDeck,
     addHomePromptAttachment,
@@ -792,8 +802,10 @@ export function usePresentationState() {
     deckVisualTheme,
     deckNarrativePresetId,
     narrativeNotes,
+    presentationReadme,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     presentationModelId,
     presentationModelOption,
     effectiveGeminiModel,
@@ -854,6 +866,7 @@ export function usePresentationState() {
     setSelectedCharacterId(null);
     setCurrentIndex(0);
     clearEditorTabsForGoHome();
+    setIsReadmePanelOpen(false);
   }, [localAccountScope, clearEditorTabsForGoHome, resetHomePromptAttachments]);
 
   const {
@@ -935,6 +948,7 @@ export function usePresentationState() {
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     formatMarkdown,
   });
 
@@ -978,6 +992,8 @@ export function usePresentationState() {
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
     setNarrativeNotes("");
+    setPresentationReadme("");
+    setIsReadmePanelOpen(false);
     await savePresentationNow({
       topic: "",
       slides: deck,
@@ -985,6 +1001,7 @@ export function usePresentationState() {
       deckVisualTheme: DEFAULT_DECK_VISUAL_THEME,
       deckNarrativePresetId: DEFAULT_DECK_NARRATIVE_PRESET_ID,
       narrativeNotes: undefined,
+      presentationReadme: undefined,
     });
     await refreshSavedList();
   }, [savePresentationNow, refreshSavedList, clearPendingGeneration]);
@@ -1026,6 +1043,8 @@ export function usePresentationState() {
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
     setNarrativeNotes("");
+    setPresentationReadme("");
+    setIsReadmePanelOpen(false);
     clearEditorTabsForGoHome();
     try {
       sessionStorage.removeItem(lastOpenedSessionKey);
@@ -1043,6 +1062,8 @@ export function usePresentationState() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     setPresentationTitleDraft,
     presentationModelId,
     setPresentationModelId,
@@ -1063,6 +1084,7 @@ export function usePresentationState() {
     isGeneratingImage,
     isGeneratingPromptAlternatives,
     isProcessing,
+    isGeneratingReadme,
     showImageModal,
     setShowImageModal,
     showImageUploadModal,
@@ -1205,6 +1227,7 @@ export function usePresentationState() {
     setCurrentSlideDataMotionRing,
     setCurrentSlideWebcam,
     handleGenerate,
+    handleGenerateReadmeWithAi,
     homePromptAttachments,
     addHomePromptAttachment,
     removeHomePromptAttachment,
@@ -1300,6 +1323,8 @@ export function usePresentationState() {
     setIsSidebarOpen,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
     pendingGeneration,
     isSyncingCharactersCloud,
     handlePushAllCharactersToCloud,

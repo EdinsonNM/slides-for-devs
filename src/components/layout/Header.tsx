@@ -10,6 +10,7 @@ import {
   Loader2,
   Mic,
   StickyNote,
+  BookText,
   UserPlus,
   FileDown,
   Image as ImageIcon,
@@ -54,6 +55,8 @@ export function Header(props: HeaderProps) {
     setShowSpeechModal,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
     showCharactersPanel,
     setShowCharactersPanel,
     showSlideStylePanel,
@@ -205,8 +208,26 @@ export function Header(props: HeaderProps) {
             ? "Ocultar notas del presentador"
             : "Mostrar notas del presentador"
         }
-        onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
+        onClick={() => {
+          setIsNotesPanelOpen(!isNotesPanelOpen);
+          setIsReadmePanelOpen(false);
+        }}
         className={cn(isNotesPanelOpen && panelActiveClass)}
+      />
+      <IconButton
+        variant="default"
+        icon={<BookText size={18} />}
+        aria-label={isReadmePanelOpen ? "Ocultar README" : "Mostrar README"}
+        title={
+          isReadmePanelOpen
+            ? "Ocultar README de la presentación"
+            : "Mostrar README de la presentación"
+        }
+        onClick={() => {
+          setIsReadmePanelOpen(!isReadmePanelOpen);
+          setIsNotesPanelOpen(false);
+        }}
+        className={cn(isReadmePanelOpen && panelActiveClass)}
       />
       <IconButton
         variant="default"
@@ -444,6 +465,21 @@ export function Header(props: HeaderProps) {
                 >
                   <FolderOpen size={16} className="shrink-0 opacity-70" />
                   Mis presentaciones
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
+                    isReadmePanelOpen && "bg-stone-100 dark:bg-surface",
+                  )}
+                  onClick={() => {
+                    setIsReadmePanelOpen(!isReadmePanelOpen);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <BookText size={16} className="shrink-0 opacity-70" />
+                  README de la presentación
                 </button>
                 <button
                   type="button"

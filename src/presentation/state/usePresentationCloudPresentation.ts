@@ -395,6 +395,7 @@ export function usePresentationCloudPresentation(
                 deckVisualTheme: pulled.deckVisualTheme,
                 deckNarrativePresetId: pulled.deckNarrativePresetId,
                 narrativeNotes: pulled.narrativeNotes,
+                presentationReadme: pulled.presentationReadme,
               },
               d.localAccountScope,
             );
@@ -576,6 +577,7 @@ export function usePresentationCloudPresentation(
           ),
           deckNarrativePresetId: presentation.deckNarrativePresetId,
           narrativeNotes: presentation.narrativeNotes,
+          presentationReadme: presentation.presentationReadme,
         },
         d.localAccountScope,
       );
@@ -617,6 +619,7 @@ export function usePresentationCloudPresentation(
             DEFAULT_DECK_NARRATIVE_PRESET_ID,
         );
         ed.setNarrativeNotes(presentation.narrativeNotes ?? "");
+        ed.setPresentationReadme(presentation.presentationReadme ?? "");
       }
       await d.refreshSavedList();
     } catch (e) {

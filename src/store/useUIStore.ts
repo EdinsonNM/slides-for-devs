@@ -17,6 +17,7 @@ export interface UIState {
   
   isSidebarOpen: boolean;
   isNotesPanelOpen: boolean;
+  isReadmePanelOpen: boolean;
   showCharactersPanel: boolean;
   showSlideStylePanel: boolean;
 
@@ -40,6 +41,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   isSidebarOpen: true,
   isNotesPanelOpen: false,
+  isReadmePanelOpen: false,
   showCharactersPanel: false,
   showSlideStylePanel: false,
 

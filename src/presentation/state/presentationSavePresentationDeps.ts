@@ -11,6 +11,7 @@ export type PresentationSavePresentationDeps = {
   deckVisualTheme: DeckVisualTheme;
   deckNarrativePresetId: string;
   narrativeNotes: string;
+  presentationReadme: string;
   setSaveMessage: (msg: string | null) => void;
   localAccountScope: string;
   lastOpenedSessionKey: string;
