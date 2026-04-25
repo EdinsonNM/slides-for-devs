@@ -289,6 +289,25 @@ export function usePresentationSlideCanvasMutations(
     });
   }, []);
 
+  const setCurrentSlideBackgroundColor = useCallback((color: string | undefined) => {
+    const d = depsRef.current;
+    const idx = d.currentIndexRef.current;
+    d.setSlides((prev) => {
+      const cur = prev[idx];
+      if (!cur) return prev;
+      const trimmed = color?.trim();
+      const next: Slide = { ...cur };
+      if (trimmed) {
+        next.slideBackgroundColor = trimmed;
+      } else {
+        delete (next as { slideBackgroundColor?: string }).slideBackgroundColor;
+      }
+      const out = [...prev];
+      out[idx] = next;
+      return out;
+    });
+  }, []);
+
   const setCurrentSlideCanvas3dSceneData = useCallback((data: string) => {
     const d = depsRef.current;
     const idx = d.currentIndexRef.current;
@@ -704,6 +723,7 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideMapData,
     setCurrentSlideDocumentEmbed,
     setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideBackgroundColor,
     setCurrentSlideCanvas3dSceneData,
     patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,

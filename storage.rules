@@ -13,14 +13,17 @@ service firebase.storage {
         (
           firestore.exists(presentationPath(ownerId, presId)) &&
           (
+            presentationFirestoreData(ownerId, presId).publicationVisibility == "public" ||
             (
-              presentationFirestoreData(ownerId, presId).sharedWith is list &&
-              request.auth.uid in presentationFirestoreData(ownerId, presId).sharedWith
-            ) ||
-            (
-              request.auth.token.email != null &&
-              presentationFirestoreData(ownerId, presId).shareInviteEmails is list &&
-              request.auth.token.email.lower() in presentationFirestoreData(ownerId, presId).shareInviteEmails
+              (
+                presentationFirestoreData(ownerId, presId).sharedWith is list &&
+                request.auth.uid in presentationFirestoreData(ownerId, presId).sharedWith
+              ) ||
+              (
+                request.auth.token.email != null &&
+                presentationFirestoreData(ownerId, presId).shareInviteEmails is list &&
+                request.auth.token.email.lower() in presentationFirestoreData(ownerId, presId).shareInviteEmails
+              )
             )
           )
         )

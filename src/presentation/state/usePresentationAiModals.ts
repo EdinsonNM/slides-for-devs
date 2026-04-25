@@ -881,7 +881,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
           d.setSlides((prev) => {
             const index = d.currentIndexRef.current;
             const raw = prev[index];
-            if (!raw || raw.type !== SLIDE_TYPE.CONTENT) return prev;
+            if (!raw) return prev;
             const cur = ensureSlideCanvasScene(raw);
             const scene = cur.canvasScene;
             if (!scene) return prev;

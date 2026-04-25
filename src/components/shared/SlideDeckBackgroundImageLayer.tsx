@@ -15,7 +15,7 @@ export function SlideDeckBackgroundImageLayer({ slide, className }: SlideDeckBac
   if (!url || !slideTypeUsesSlideDeckBackgroundImage(slide.type)) return null;
   return (
     <div
-      className={cn("pointer-events-none absolute inset-0 z-0", className)}
+      className={cn("pointer-events-none absolute inset-0 z-[1]", className)}
       style={{
         backgroundImage: `url(${url})`,
         backgroundSize: "cover",

@@ -24,7 +24,8 @@ export function isInspectorCameraSectionVisible(type: SlideType): boolean {
 }
 
 /**
- * Tipos donde `slideBackgroundImageUrl` se pinta detrás del lienzo 2D (junto a `DeckBackdrop`).
+ * Tipos donde `slideBackgroundImageUrl` / `slideBackgroundColor` se pintan detrás del lienzo 2D
+ * (junto a `DeckBackdrop`).
  */
 export function slideTypeUsesSlideDeckBackgroundImage(type: SlideType): boolean {
   return (

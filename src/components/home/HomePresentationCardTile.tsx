@@ -53,7 +53,7 @@ function cardEntranceTransition(index: number, reducedMotion: boolean | null) {
 }
 
 /** Capa de fondo (portada o gradiente) a pantalla completa, sin animación al hover. */
-function HeroCardMediaLayer({
+export function HeroCardMediaLayer({
   coverUrl,
   gradientClass,
 }: {

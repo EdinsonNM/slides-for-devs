@@ -1,14 +1,34 @@
-import { useMemo, useState } from "react";
-import { Bell, BookOpen, Briefcase, GraduationCap, Palette, Search, Star } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  Bell,
+  BookOpen,
+  Briefcase,
+  GraduationCap,
+  LayoutGrid,
+  Loader2,
+  Palette,
+  Search,
+  Star,
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { cn } from "../../utils/cn";
+import {
+  listPublicPresentationsForExplore,
+  type PublicPresentationExploreItem,
+} from "../../services/presentationCloud";
+import { DEFAULT_DECK_VISUAL_THEME } from "../../domain/entities";
+import { getFirebaseConfig, initFirebase } from "../../services/firebase";
+import { formatCloudSharedListError } from "../../utils/cloudSyncErrors";
+import { HeroCardMediaLayer } from "./HomePresentationCardTile";
+import { HomeDeckSlideReplicaFill } from "./HomeDeckSlideReplicaFill";
 
 export interface PublicPresentationsMockProps {
   onOpenConfig?: () => void;
 }
 
-type CategoryId = "negocios" | "educacion" | "tecnologia" | "creatividad";
+type CategoryId = "todas" | "negocios" | "educacion" | "tecnologia" | "creatividad";
 
 interface CategoryDef {
   id: CategoryId;
@@ -17,120 +37,218 @@ interface CategoryDef {
 }
 
 const CATEGORIES: CategoryDef[] = [
+  { id: "todas", label: "Todas", icon: LayoutGrid },
   { id: "negocios", label: "Negocios", icon: Briefcase },
   { id: "educacion", label: "Educación", icon: GraduationCap },
   { id: "tecnologia", label: "Tecnología", icon: BookOpen },
   { id: "creatividad", label: "Creatividad", icon: Palette },
 ];
 
-interface MockTopUser {
-  id: string;
-  name: string;
-  handle: string;
-  stars: number;
-  rating: number;
-  avatar: string;
-}
+const HERO_BANNER_AUTOPLAY_MS = 7_500;
 
-const TOP_USERS_BY_CATEGORY: Record<CategoryId, MockTopUser[]> = {
-  negocios: [
-    { id: "u1", name: "María V.", handle: "@mvia", stars: 5, rating: 4.9, avatar: "from-fuchsia-500 to-violet-600" },
-    { id: "u2", name: "Jonás K.", handle: "@jonas_okr", stars: 5, rating: 4.85, avatar: "from-amber-400 to-orange-600" },
-    { id: "u3", name: "Elena Rui", handle: "@elena_pm", stars: 4, rating: 4.7, avatar: "from-sky-400 to-cyan-600" },
-    { id: "u4", name: "Team Labs", handle: "@teamlabs", stars: 5, rating: 4.8, avatar: "from-emerald-500 to-teal-700" },
-  ],
-  educacion: [
-    { id: "u5", name: "Profe Díaz", handle: "@profe.diaz", stars: 5, rating: 4.95, avatar: "from-violet-500 to-purple-700" },
-    { id: "u6", name: "Aula 42", handle: "@aula42", stars: 4, rating: 4.75, avatar: "from-rose-400 to-rose-700" },
-    { id: "u7", name: "Lucía M.", handle: "@lucia.learns", stars: 4, rating: 4.65, avatar: "from-amber-300 to-amber-600" },
-  ],
-  tecnologia: [
-    { id: "u8", name: "devops.paula", handle: "@paula_ops", stars: 5, rating: 4.92, avatar: "from-cyan-500 to-blue-700" },
-    { id: "u9", name: "Lin", handle: "@lin_wgpu", stars: 4, rating: 4.88, avatar: "from-emerald-500 to-cyan-600" },
-    { id: "u10", name: "CiberPepe", handle: "@ciberpepe", stars: 4, rating: 4.7, avatar: "from-red-500 to-rose-800" },
-    { id: "u11", name: "Ana R.", handle: "@ana.r_ci", stars: 4, rating: 4.6, avatar: "from-indigo-500 to-violet-700" },
-  ],
-  creatividad: [
-    { id: "u12", name: "Samuel", handle: "@samuel.slides", stars: 5, rating: 4.9, avatar: "from-amber-500 to-rose-600" },
-    { id: "u13", name: "Mika Studio", handle: "@mikastudio", stars: 4, rating: 4.72, avatar: "from-fuchsia-500 to-pink-600" },
-    { id: "u14", name: "Nórdico", handle: "@nordico", stars: 4, rating: 4.68, avatar: "from-slate-400 to-slate-700" },
-  ],
+const BANNER_MEDIA_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const BANNER_MEDIA_SPRING = {
+  type: "spring" as const,
+  stiffness: 340,
+  damping: 36,
+  mass: 0.88,
 };
 
-interface MockTopSlide {
-  id: string;
-  title: string;
-  deckTitle: string;
-  author: string;
-  score: number;
-  views: number;
-  blurb: string;
+/** Misma prioridad que `HomePresentationCardTile` (nube): portada Slaim → réplica slide 0 → gradiente. */
+const EXPLORE_CARD_FALLBACK_GRADIENT =
+  "from-sky-900/50 via-slate-800/80 to-slate-900/90";
+
+function PublicExploreItemPreviewMedia({
+  item,
+  className,
+  fit = "cover",
+  lockReplicaInteraction = false,
+}: {
+  item: PublicPresentationExploreItem;
+  className?: string;
+  fit?: "cover" | "fill";
+  /**
+   * En el hero, si solo hay réplica del slide 0, bloquea clics, foco y scroll dentro del lienzo
+   * (el iframe/canvas de la preview no debe capturar eventos).
+   */
+  lockReplicaInteraction?: boolean;
+}) {
+  const coverUrl = item.homePreviewImageUrl?.trim();
+  const hasCover = !!coverUrl;
+  const slide = item.homeFirstSlideReplica;
+  const hasReplica = !!slide && !hasCover;
+  return (
+    <div className={cn("relative overflow-hidden bg-stone-300 dark:bg-stone-800", className)}>
+      {hasCover ? (
+        <img
+          src={coverUrl}
+          alt=""
+          className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-fill")}
+          draggable={false}
+        />
+      ) : hasReplica ? (
+        <div
+          className={cn(
+            "absolute inset-0",
+            lockReplicaInteraction && "touch-none select-none overscroll-none",
+          )}
+          aria-hidden
+          inert={lockReplicaInteraction ? true : undefined}
+        >
+          <HomeDeckSlideReplicaFill
+            slide={slide}
+            deckVisualTheme={item.homePreviewDeckVisualTheme ?? DEFAULT_DECK_VISUAL_THEME}
+          />
+        </div>
+      ) : (
+        <HeroCardMediaLayer coverUrl={undefined} gradientClass={EXPLORE_CARD_FALLBACK_GRADIENT} />
+      )}
+    </div>
+  );
 }
 
-const TOP_SLIDES_BY_CATEGORY: Record<CategoryId, MockTopSlide[]> = {
-  negocios: [
-    { id: "s1", title: "Matriz de priorización", deckTitle: "Q4 sin caos", author: "María V.", score: 9.4, views: 4200, blurb: "Cómo ordenar iniciativas cuando todo es urgente: impacto, esfuerzo y acuerdo." },
-    { id: "s2", title: "North Star y métricas", deckTitle: "Producto 101", author: "Jonás K.", score: 9.1, views: 8900, blurb: "Diagrama para alinear métricas de negocio y producto en una sola historia." },
-    { id: "s3", title: "Stakeholders map", deckTitle: "Comunicar en escala", author: "Elena Rui", score: 8.8, views: 2100, blurb: "Cómo mapear poder e interés para priorizar comunicación de estado." },
-  ],
-  educacion: [
-    { id: "s4", title: "Objetivos de aprendizaje", deckTitle: "Diseñar un módulo", author: "Profe Díaz", score: 9.6, views: 15000, blurb: "Plantilla clara: verbo, evidencia y criterio de logro alineado a Bloom." },
-    { id: "s5", title: "Ritmo y pausas", deckTitle: "Clases 60 min", author: "Aula 42", score: 9.0, views: 6200, blurb: "Distribución de bloques para mantener atención sin sobrecargar." },
-  ],
-  tecnologia: [
-    { id: "s6", title: "Pipeline CI en 6 pasos", deckTitle: "Entrega continua", author: "devops.paula", score: 9.5, views: 11200, blurb: "De commit a release con calidad y rollback seguro." },
-    { id: "s7", title: "WebGPU vs WebGL", deckTitle: "Gráficos en el navegador", author: "Lin", score: 9.2, views: 7800, blurb: "Comparativa directa de capacidades, límites y casos de uso." },
-    { id: "s8", title: "Rate limiting por IP", deckTitle: "APIs en producción", author: "CiberPepe", score: 8.9, views: 5400, blurb: "Estrategia token bucket y controles defensivos mínimos." },
-    { id: "s9", title: "Script de build reutilizable", deckTitle: "Python en el CI", author: "Ana R.", score: 8.6, views: 3300, blurb: "Base reusable para versionar, empaquetar y reportar resultados." },
-  ],
-  creatividad: [
-    { id: "s10", title: "Grid y ritmo", deckTitle: "Slides que respiran", author: "Samuel", score: 9.3, views: 18500, blurb: "Alineación y márgenes para una narrativa visual más clara." },
-    { id: "s11", title: "Paleta y contraste", deckTitle: "Accesible por defecto", author: "Mika Studio", score: 9.0, views: 9200, blurb: "Cómo elegir paleta legible sin perder identidad visual." },
-  ],
-};
-
-interface StreamGridCard {
-  id: string;
-  title: string;
-  subtitle: string;
-  streamer: string;
+function publicItemKey(p: PublicPresentationExploreItem): string {
+  return `${p.ownerUid}::${p.cloudId}`;
 }
 
-function buildGridCards(categoryId: CategoryId): StreamGridCard[] {
-  const source = TOP_SLIDES_BY_CATEGORY[categoryId];
-  const cards: StreamGridCard[] = [];
-  for (let i = 0; i < 8; i += 1) {
-    const base = source[i % source.length]!;
-    cards.push({
-      id: `${base.id}-${i}`,
-      title: base.title,
-      subtitle: base.deckTitle,
-      streamer: base.author,
-    });
+/**
+ * Clasifica cada publicación en una de las 4 pestañas de la UI a partir de
+ * `publicationCategories` (valores de `PRESENTATION_CATEGORY_OPTIONS`).
+ */
+function primaryCategoryId(item: PublicPresentationExploreItem): CategoryId {
+  const c = new Set(item.publicationCategories);
+  if (c.size === 0) return "tecnologia";
+  if (["Productividad", "Arquitectura"].some((x) => c.has(x))) return "negocios";
+  if (["Data", "AI/ML"].some((x) => c.has(x))) return "educacion";
+  if (
+    ["Frontend", "Backend", "DevOps", "Cloud", "Testing", "Seguridad"].some((x) =>
+      c.has(x),
+    )
+  ) {
+    return "tecnologia";
   }
-  return cards;
+  return "creatividad";
+}
+
+function categoryDefForPrimaryBucket(item: PublicPresentationExploreItem) {
+  const pid = primaryCategoryId(item);
+  return CATEGORIES.find((c) => c.id === pid);
+}
+
+function shortUid(uid: string, len = 8): string {
+  if (uid.length <= len) return uid;
+  return `${uid.slice(0, len)}…`;
 }
 
 export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMockProps) {
   const { user } = useAuth();
+  const reduceMotion = useReducedMotion();
   const greetingTitle = useMemo(() => {
     const d = user?.displayName?.trim();
     if (!d) return "Hola de nuevo";
     return `Hola, ${d.split(/\s+/)[0] ?? d}`;
   }, [user?.displayName]);
 
-  const [categoryId, setCategoryId] = useState<CategoryId>(CATEGORIES[0]!.id);
-  const topUsers = TOP_USERS_BY_CATEGORY[categoryId];
-  const topSlides = TOP_SLIDES_BY_CATEGORY[categoryId];
-  const [selectedSlideId, setSelectedSlideId] = useState(() => topSlides[0]?.id ?? "");
-  const selectedSlide = topSlides.find((s) => s.id === selectedSlideId) ?? topSlides[0] ?? null;
+  const [categoryId, setCategoryId] = useState<CategoryId>("todas");
+  const [allItems, setAllItems] = useState<PublicPresentationExploreItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState("");
+  const [pauseAutoplayOnHero, setPauseAutoplayOnHero] = useState(false);
+  const [pauseAutoplayOnTendencias, setPauseAutoplayOnTendencias] = useState(false);
+  const filteredRef = useRef<PublicPresentationExploreItem[]>([]);
+
+  const load = useCallback(async () => {
+    const fb = await initFirebase();
+    if (!fb?.firestore || !user) {
+      setAllItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await listPublicPresentationsForExplore();
+      setAllItems(rows);
+    } catch (e) {
+      console.error(e);
+      const cfg = await getFirebaseConfig();
+      setLoadError(formatCloudSharedListError(e, cfg?.projectId));
+      setAllItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filtered = useMemo(
+    () =>
+      categoryId === "todas"
+        ? allItems
+        : allItems.filter((it) => primaryCategoryId(it) === categoryId),
+    [allItems, categoryId],
+  );
+
+  filteredRef.current = filtered;
+
+  const autoplayHeroPaused = pauseAutoplayOnHero || pauseAutoplayOnTendencias;
+
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelectedKey("");
+      return;
+    }
+    setSelectedKey((prev) => {
+      if (prev && filtered.some((x) => publicItemKey(x) === prev)) return prev;
+      return publicItemKey(filtered[0]!);
+    });
+  }, [filtered]);
+
+  useEffect(() => {
+    if (loading || autoplayHeroPaused) return;
+    const list = filteredRef.current;
+    if (list.length < 2) return;
+    const t = window.setInterval(() => {
+      setSelectedKey((prev) => {
+        const cur = filteredRef.current;
+        if (cur.length < 2) return prev;
+        const idx = cur.findIndex((x) => publicItemKey(x) === prev);
+        const i = idx >= 0 ? idx : 0;
+        return publicItemKey(cur[(i + 1) % cur.length]!);
+      });
+    }, HERO_BANNER_AUTOPLAY_MS);
+    return () => window.clearInterval(t);
+  }, [loading, autoplayHeroPaused, filtered]);
+
+  const selected = filtered.find((x) => publicItemKey(x) === selectedKey) ?? filtered[0] ?? null;
+  const hasExploreHeroCover = !!selected?.homePreviewImageUrl?.trim();
+  const hasExploreHeroReplica =
+    !!selected?.homeFirstSlideReplica && !hasExploreHeroCover;
+  const hasExploreHeroVisual = hasExploreHeroCover || hasExploreHeroReplica;
+
   const category = CATEGORIES.find((c) => c.id === categoryId) ?? CATEGORIES[0];
-  const gridCards = useMemo(() => buildGridCards(categoryId), [categoryId]);
+  const authorsSectionTitle =
+    categoryId === "todas" ? "Autores" : `Autores en ${category?.label ?? ""}`;
+
+  const topTendencia = useMemo(() => filtered.slice(0, 5), [filtered]);
+
+  const destacados = useMemo(() => {
+    const m = new Map<string, { ownerUid: string; count: number }>();
+    for (const it of filtered) {
+      const cur = m.get(it.ownerUid);
+      if (cur) cur.count += 1;
+      else m.set(it.ownerUid, { ownerUid: it.ownerUid, count: 1 });
+    }
+    return [...m.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [filtered]);
 
   const onPickCategory = (id: CategoryId) => {
     setCategoryId(id);
-    const next = TOP_SLIDES_BY_CATEGORY[id];
-    setSelectedSlideId(next[0]?.id ?? "");
   };
 
   return (
@@ -143,7 +261,7 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-300/80 bg-white text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 dark:border-white/10 dark:bg-white/3 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-stone-200"
-            aria-label="Búsqueda (no disponible aún)"
+            aria-label="Búsqueda (próximamente)"
             disabled
           >
             <Search className="h-4 w-4" strokeWidth={1.75} />
@@ -151,7 +269,7 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-300/80 bg-white text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 dark:border-white/10 dark:bg-white/3 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-stone-200"
-            aria-label="Notificaciones (no disponible aún)"
+            aria-label="Notificaciones (próximamente)"
             disabled
           >
             <Bell className="h-4 w-4" strokeWidth={1.75} />
@@ -161,160 +279,328 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
       </header>
 
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">
+        {loadError && (
+          <div
+            role="alert"
+            className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50/95 px-3 py-2 text-sm text-red-900 dark:border-red-800/50 dark:bg-red-950/50 dark:text-red-100"
+          >
+            {loadError}
+          </div>
+        )}
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 sm:py-5">
-          <section className="grid min-h-[460px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-            <button
-              type="button"
-              onClick={() => setSelectedSlideId(selectedSlide?.id ?? "")}
-              className="group relative min-h-[460px] overflow-hidden rounded-3xl border border-stone-300/70 bg-linear-to-br from-stone-300 to-stone-200 text-left dark:border-white/10 dark:from-[#1b1f2a] dark:to-[#11131a]"
-            >
-              <img
-                src="/home-banner-architecture.png"
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-                draggable={false}
-                aria-hidden
-              />
-              <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/35 to-black/15" />
-              <div className="relative flex h-full max-w-xl flex-col justify-end p-5 sm:p-7">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-stone-200">{category.label}</p>
-                <h2 className="mt-2 line-clamp-2 text-2xl font-semibold leading-tight text-white sm:text-4xl">
-                  {selectedSlide?.title}
-                </h2>
-                <p className="mt-2 line-clamp-2 text-sm text-stone-200/90 sm:text-base">{selectedSlide?.blurb}</p>
-              </div>
-            </button>
-
-            <aside className="rounded-3xl border border-stone-300/70 bg-white p-3 dark:border-white/10 dark:bg-[#0f1118] sm:p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-600 dark:text-stone-500">
-                Tendencias
+          {loading ? (
+            <div className="flex min-h-[320px] items-center justify-center">
+              <Loader2 className="h-10 w-10 animate-spin text-stone-400" aria-label="Cargando" />
+            </div>
+          ) : !selected && filtered.length === 0 ? (
+            <div className="rounded-3xl border border-stone-200/80 bg-white/80 px-4 py-16 text-center text-stone-600 dark:border-white/10 dark:bg-white/3 dark:text-stone-300">
+              <p className="text-base font-medium text-stone-800 dark:text-stone-100">
+                {allItems.length === 0
+                  ? "Aún no hay publicaciones públicas en Slaim."
+                  : "No hay publicaciones en esta categoría."}
               </p>
-              <div className="mt-3 space-y-2.5">
-                {topSlides.slice(0, 5).map((slide) => (
-                  <button
-                    key={slide.id}
-                    type="button"
-                    onClick={() => setSelectedSlideId(slide.id)}
-                    className={cn(
-                      "group flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition",
-                      slide.id === selectedSlideId
-                        ? "bg-stone-200 dark:bg-white/10"
-                        : "hover:bg-stone-100 dark:hover:bg-white/5",
-                    )}
-                  >
-                    <div className="h-12 w-20 shrink-0 rounded-lg bg-linear-to-br from-stone-300 to-stone-200 dark:from-stone-700 dark:to-stone-800" />
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-xs font-medium text-stone-800 dark:text-stone-100">{slide.title}</p>
-                      <p className="mt-0.5 line-clamp-1 text-[11px] text-stone-600 dark:text-stone-500">{slide.author}</p>
+              {allItems.length > 0 && (
+                <p className="mt-2 text-sm">Prueba otra pestaña de categoría.</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+                <button
+                  type="button"
+                  onClick={() => setSelectedKey(selected ? publicItemKey(selected) : "")}
+                  onPointerEnter={() => setPauseAutoplayOnHero(true)}
+                  onPointerLeave={() => setPauseAutoplayOnHero(false)}
+                  className={cn(
+                    "group relative z-0 w-full min-h-0 aspect-video overflow-hidden rounded-3xl border border-stone-300/70 text-left dark:border-white/10",
+                    hasExploreHeroVisual
+                      ? "bg-stone-900"
+                      : "bg-linear-to-br from-stone-300 to-stone-200 dark:from-[#1b1f2a] dark:to-[#11131a]",
+                  )}
+                >
+                  {selected && (
+                    <div className="absolute inset-0 z-0 overflow-hidden">
+                      <AnimatePresence initial={false} mode="sync">
+                        <motion.div
+                          key={selectedKey}
+                          className="absolute inset-0 h-full min-h-0 w-full"
+                          initial={
+                            reduceMotion
+                              ? { opacity: 0 }
+                              : { opacity: 0, scale: 1.04 }
+                          }
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={
+                            reduceMotion
+                              ? { opacity: 0 }
+                              : { opacity: 0, scale: 0.985 }
+                          }
+                          transition={
+                            reduceMotion
+                              ? { duration: 0.16, ease: "easeOut" }
+                              : {
+                                  opacity: { duration: 0.42, ease: BANNER_MEDIA_EASE },
+                                  scale: BANNER_MEDIA_SPRING,
+                                }
+                          }
+                        >
+                          <PublicExploreItemPreviewMedia
+                            item={selected}
+                            className="h-full min-h-0 w-full"
+                            fit="cover"
+                            lockReplicaInteraction={hasExploreHeroReplica}
+                          />
+                        </motion.div>
+                      </AnimatePresence>
                     </div>
-                  </button>
-                ))}
-              </div>
-            </aside>
-          </section>
-
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-base font-semibold tracking-tight text-stone-800 dark:text-stone-100 sm:text-lg">
-                Usuarios destacados en {category.label}
-              </h3>
-            </div>
-            <ul className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {topUsers.map((u, idx) => (
-                <li
-                  key={u.id}
-                  className="flex min-w-[230px] shrink-0 items-center gap-3 rounded-xl border border-stone-200/80 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/3"
-                >
-                  <span className="w-5 shrink-0 text-center text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-                    {idx + 1}
-                  </span>
-                  <div
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br text-[11px] font-bold text-white",
-                      u.avatar,
-                    )}
-                  >
-                    {u.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-stone-900 dark:text-stone-100">{u.name}</p>
-                    <p className="truncate text-[10px] text-stone-600 dark:text-stone-500">{u.handle}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={`${u.id}-${i}`}
-                        className={cn(
-                          "h-3 w-3",
-                          i < u.stars ? "fill-amber-400 text-amber-400" : "text-stone-400 dark:text-stone-600",
-                        )}
-                      />
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section>
-            <div className="mb-3 flex flex-col items-start gap-3">
-              <h3 className="text-base font-semibold tracking-tight text-stone-800 dark:text-stone-100 sm:text-lg">
-                Top streams
-              </h3>
-              <div
-                className="flex w-full items-center gap-5 border-b border-stone-200 pb-1 dark:border-white/10 sm:gap-6"
-                role="tablist"
-                aria-label="Categorías"
-              >
-                {CATEGORIES.map((c) => {
-                  const active = c.id === categoryId;
-                  const Icon = c.icon;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => onPickCategory(c.id)}
-                      className={cn(
-                        "relative inline-flex items-center gap-1.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition",
-                        active
-                          ? "text-stone-900 dark:text-stone-100"
-                          : "text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300",
-                      )}
+                  )}
+                  {hasExploreHeroVisual ? (
+                    <div
+                      className="pointer-events-none absolute inset-x-0 bottom-0 z-1 h-[52%] bg-linear-to-t from-black/58 via-black/12 to-transparent"
+                      aria-hidden
+                    />
+                  ) : (
+                    <div
+                      className="pointer-events-none absolute inset-0 z-1 bg-linear-to-t from-black/78 via-black/25 to-transparent"
+                      aria-hidden
+                    />
+                  )}
+                  <AnimatePresence initial={false} mode="wait">
+                    <motion.div
+                      key={selectedKey}
+                      className="relative z-2 flex h-full min-h-0 max-w-xl flex-col justify-end p-5 sm:p-7 text-left"
+                      initial={
+                        reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }
+                      }
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={
+                        reduceMotion
+                          ? { opacity: 0 }
+                          : { opacity: 0, y: -6 }
+                      }
+                      transition={
+                        reduceMotion
+                          ? { duration: 0.14, ease: "easeOut" }
+                          : {
+                              y: {
+                                type: "spring",
+                                stiffness: 420,
+                                damping: 38,
+                                mass: 0.85,
+                              },
+                              opacity: { duration: 0.3, ease: BANNER_MEDIA_EASE },
+                            }
+                      }
                     >
-                      <Icon className="h-3 w-3" />
-                      {c.label}
-                      {active ? (
-                        <span className="absolute inset-x-0 -bottom-[5px] h-[2px] rounded-full bg-rose-500/90" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-stone-200">
+                        {category?.label}
+                      </p>
+                      <h2 className="mt-2 line-clamp-2 text-2xl font-semibold leading-tight text-white sm:text-4xl">
+                        {selected?.topic || "—"}
+                      </h2>
+                      <p className="mt-2 line-clamp-3 text-sm text-stone-200/90 sm:text-base">
+                        {selected?.description?.trim()
+                          ? selected.description
+                          : "Sin descripción. El autor puede añadirla en la configuración de publicación."}
+                      </p>
+                      {selected && (
+                        <p className="mt-2 text-xs text-stone-300/90">
+                          Por {shortUid(selected.ownerUid)}
+                          {selected.publicationLevel ? ` · Nivel: ${selected.publicationLevel}` : null}
+                        </p>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </button>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {gridCards.map((card) => (
-                <article
-                  key={card.id}
-                  className="overflow-hidden rounded-2xl border border-stone-300/70 bg-white dark:border-white/10 dark:bg-[#0f1118]"
-                >
-                  <div className="relative h-32 bg-linear-to-br from-stone-300 to-stone-200 dark:from-stone-700 dark:to-stone-800">
-                    <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/25 to-transparent" />
-                    <p className="absolute bottom-2 left-2.5 right-2.5 line-clamp-1 text-sm font-semibold text-white">
-                      {card.title}
-                    </p>
+                <aside className="flex h-full min-h-0 min-w-0 flex-col rounded-3xl border border-stone-300/70 bg-white p-3 dark:border-white/10 dark:bg-[#0f1118] sm:p-4">
+                  <p className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-600 dark:text-stone-500">
+                    Tendencias
+                  </p>
+                  <div
+                    className="mt-3 flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto"
+                    onPointerEnter={() => setPauseAutoplayOnTendencias(true)}
+                    onPointerLeave={() => setPauseAutoplayOnTendencias(false)}
+                  >
+                    {topTendencia.length === 0 ? (
+                      <p className="text-xs text-stone-500">Nada en esta categoría aún.</p>
+                    ) : (
+                      topTendencia.map((it) => {
+                        const k = publicItemKey(it);
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setSelectedKey(k)}
+                            className={cn(
+                              "group flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition",
+                              k === selectedKey
+                                ? "bg-stone-200 dark:bg-white/10"
+                                : "hover:bg-stone-100 dark:hover:bg-white/5",
+                            )}
+                          >
+                            <PublicExploreItemPreviewMedia
+                              item={it}
+                              className="h-12 w-20 shrink-0 overflow-hidden rounded-lg"
+                              fit="cover"
+                            />
+                            <div className="min-w-0">
+                              <p className="line-clamp-1 text-xs font-medium text-stone-800 dark:text-stone-100">
+                                {it.topic}
+                              </p>
+                              <p className="mt-0.5 line-clamp-1 text-[11px] text-stone-600 dark:text-stone-500">
+                                {shortUid(it.ownerUid)} · {it.publicationTags[0] ?? "público"}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
-                  <div className="space-y-0.5 p-3">
-                    <p className="line-clamp-1 text-xs font-medium text-stone-800 dark:text-stone-100">{card.subtitle}</p>
-                    <p className="line-clamp-1 text-[11px] text-stone-600 dark:text-stone-500">{card.streamer}</p>
-                    <p className="text-[11px] text-stone-500">{category.label}</p>
+                </aside>
+              </section>
+
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-base font-semibold tracking-tight text-stone-800 dark:text-stone-100 sm:text-lg">
+                    {authorsSectionTitle}
+                  </h3>
+                </div>
+                {destacados.length === 0 ? (
+                  <p className="text-sm text-stone-500">Sin autores con varias publicaciones en esta categoría.</p>
+                ) : (
+                  <ul className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {destacados.map((u, idx) => (
+                      <li
+                        key={u.ownerUid}
+                        className="flex min-w-[230px] shrink-0 items-center gap-3 rounded-xl border border-stone-200/80 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/3"
+                      >
+                        <span className="w-5 shrink-0 text-center text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+                          {idx + 1}
+                        </span>
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-700 text-[11px] font-bold text-white",
+                          )}
+                        >
+                          {u.ownerUid.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-stone-900 dark:text-stone-100">
+                            {shortUid(u.ownerUid, 10)}
+                          </p>
+                          <p className="truncate text-[10px] text-stone-600 dark:text-stone-500">
+                            {u.count} pública{u.count === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Star
+                              key={`${u.ownerUid}-star-${i}`}
+                              className={cn(
+                                "h-3 w-3",
+                                i < Math.min(5, u.count) ? "fill-amber-400 text-amber-400" : "text-stone-400 dark:text-stone-600",
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section>
+                <div className="mb-3 flex flex-col items-start gap-3">
+                  <h3 className="text-base font-semibold tracking-tight text-stone-800 dark:text-stone-100 sm:text-lg">
+                    Publicaciones
+                  </h3>
+                  <div
+                    className="flex w-full items-center gap-5 border-b border-stone-200 pb-1 dark:border-white/10 sm:gap-6"
+                    role="tablist"
+                    aria-label="Categorías"
+                  >
+                    {CATEGORIES.map((c) => {
+                      const active = c.id === categoryId;
+                      const Icon = c.icon;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          onClick={() => onPickCategory(c.id)}
+                          className={cn(
+                            "relative inline-flex items-center gap-1.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition",
+                            active
+                              ? "text-stone-900 dark:text-stone-100"
+                              : "text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300",
+                          )}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {c.label}
+                          {active ? (
+                            <span className="absolute inset-x-0 -bottom-[5px] h-[2px] rounded-full bg-rose-500/90" />
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
-                </article>
-              ))}
-            </div>
-          </section>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {filtered.map((card) => {
+                    const k = publicItemKey(card);
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setSelectedKey(k)}
+                        className="w-full text-left"
+                      >
+                        <article
+                          className={cn(
+                            "h-full overflow-hidden rounded-2xl border border-stone-300/70 transition hover:ring-2 hover:ring-stone-300/50 dark:border-white/10 dark:bg-[#0f1118] dark:hover:ring-white/15",
+                            k === selectedKey && "ring-2 ring-emerald-500/50",
+                          )}
+                        >
+                          <div className="relative aspect-video w-full overflow-hidden">
+                            <PublicExploreItemPreviewMedia
+                              item={card}
+                              className="absolute inset-0 h-full w-full"
+                              fit="cover"
+                            />
+                            <div className="absolute inset-0 z-1 bg-linear-to-t from-black/65 via-black/25 to-transparent" />
+                            <p className="absolute bottom-2 left-2.5 right-2.5 z-2 line-clamp-1 text-sm font-semibold text-white">
+                              {card.topic}
+                            </p>
+                          </div>
+                          <div className="space-y-0.5 p-3">
+                            <p className="line-clamp-1 text-xs font-medium text-stone-800 dark:text-stone-100">
+                              {card.description?.trim()
+                                ? card.description.slice(0, 80) +
+                                    (card.description.length > 80 ? "…" : "")
+                                : "Sin descripción"}
+                            </p>
+                            <p className="line-clamp-1 text-[11px] text-stone-600 dark:text-stone-500">
+                              {shortUid(card.ownerUid)} · {card.publicationLevel}
+                            </p>
+                            <p className="text-[11px] text-stone-500">
+                              {card.publicationCategories.length > 0
+                                ? card.publicationCategories.join(" · ")
+                                : categoryId === "todas"
+                                  ? (categoryDefForPrimaryBucket(card)?.label ?? "—")
+                                  : (category?.label ?? "—")}
+                            </p>
+                          </div>
+                        </article>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </main>
     </div>

@@ -306,6 +306,40 @@ function normalizePublicationCategories(values: string[]): string[] {
   ];
 }
 
+/**
+ * Metadatos de publicación en el doc principal (`publication*`).
+ * `pushPresentationToCloud` sustituye el documento entero; hay que reinyectar estos campos
+ * igual que `sharedWith` / `shareInviteEmails`, si no desaparecen al guardar/sincronizar.
+ */
+function preservedPublicationFieldsFromDoc(d: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const rawVis = d.publicationVisibility;
+  if (rawVis === "public" || rawVis === "unlisted" || rawVis === "private") {
+    out.publicationVisibility = rawVis;
+  }
+  if (typeof d.publicationDescription === "string") {
+    out.publicationDescription = d.publicationDescription;
+  }
+  if (Array.isArray(d.publicationTags)) {
+    out.publicationTags = normalizePublicationTags(
+      d.publicationTags.filter((x): x is string => typeof x === "string"),
+    );
+  }
+  const rl = d.publicationLevel;
+  if (rl === "basic" || rl === "intermediate" || rl === "advanced") {
+    out.publicationLevel = rl;
+  }
+  if (Array.isArray(d.publicationCategories)) {
+    out.publicationCategories = normalizePublicationCategories(
+      d.publicationCategories.filter((x): x is string => typeof x === "string"),
+    );
+  }
+  if (d.publicationPublishedAt != null) {
+    out.publicationPublishedAt = d.publicationPublishedAt;
+  }
+  return out;
+}
+
 export async function getPresentationPublicationMetadata(
   ownerUid: string,
   cloudId: string
@@ -401,6 +435,157 @@ export interface CloudPresentationListItem {
   homeFirstSlideReplica?: Slide;
   /** Tema del doc principal (para pintar la réplica como en el editor). */
   homePreviewDeckVisualTheme?: DeckVisualTheme;
+}
+
+/**
+ * Fila para la pantalla “público” (explorar): publicaciones con
+ * `publicationVisibility == "public"`.
+ */
+export interface PublicPresentationExploreItem {
+  cloudId: string;
+  ownerUid: string;
+  topic: string;
+  description: string;
+  publicationTags: string[];
+  publicationLevel: PresentationPublicationLevel;
+  publicationCategories: string[];
+  publicationPublishedAt: string | null;
+  savedAt: string;
+  updatedAt: string | null;
+  homePreviewImageUrl?: string;
+  homeFirstSlideReplica?: Slide;
+  homePreviewDeckVisualTheme?: DeckVisualTheme;
+}
+
+function explorePublicationFromMainData(
+  data: Record<string, unknown>,
+): Pick<
+  PublicPresentationExploreItem,
+  | "description"
+  | "publicationTags"
+  | "publicationLevel"
+  | "publicationCategories"
+  | "publicationPublishedAt"
+> {
+  const rawTags = Array.isArray(data.publicationTags)
+    ? data.publicationTags.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawCategories = Array.isArray(data.publicationCategories)
+    ? data.publicationCategories.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawLevel = data.publicationLevel;
+  return {
+    description:
+      typeof data.publicationDescription === "string" ? data.publicationDescription : "",
+    publicationTags: [
+      ...new Set(
+        rawTags
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .slice(0, 12),
+      ),
+    ],
+    publicationLevel:
+      rawLevel === "basic" || rawLevel === "intermediate" || rawLevel === "advanced"
+        ? rawLevel
+        : "intermediate",
+    publicationCategories: [
+      ...new Set(
+        rawCategories
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .slice(0, 8),
+      ),
+    ],
+    publicationPublishedAt: timestampToIso(data.publicationPublishedAt),
+  };
+}
+
+/**
+ * Listado global (usuarios con sesión) de presentaciones marcadas como **públicas** en
+ * Firestore. Rellena portada/réplica como en el home.
+ */
+export async function listPublicPresentationsForExplore(): Promise<
+  PublicPresentationExploreItem[]
+> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  if (!inst.auth.currentUser) {
+    throw new Error("Inicia sesion para ver las publicaciones publicas.");
+  }
+  if (!inst.storage) {
+    throw new Error("Firebase Storage no esta disponible.");
+  }
+  const { firestore: db, storage: st } = inst;
+
+  const qy = query(
+    collectionGroup(db, "presentations"),
+    where("publicationVisibility", "==", "public"),
+  );
+  const snap = await getDocs(qy);
+  const rows: {
+    ownerUid: string;
+    cloudId: string;
+    data: Record<string, unknown>;
+  }[] = [];
+  for (const d of snap.docs) {
+    const ownerUid = d.ref.parent.parent?.id;
+    if (!ownerUid) continue;
+    rows.push({
+      ownerUid,
+      cloudId: d.id,
+      data: d.data() as Record<string, unknown>,
+    });
+  }
+
+  let listItems: CloudPresentationListItem[] = rows.map((r) => {
+    const data = r.data;
+    return {
+      cloudId: r.cloudId,
+      ownerUid: r.ownerUid,
+      source: "mine" as const,
+      topic: String(data.topic ?? ""),
+      savedAt: String(data.savedAt ?? ""),
+      updatedAt: timestampToIso(data.updatedAt),
+    };
+  });
+
+  const mainByOwnerCloud = new Map(
+    rows.map((r) => [`${r.ownerUid}::${r.cloudId}`, r.data]),
+  );
+
+  listItems = await enrichCloudPresentationItemsWithDeckCoverPreview(
+    db,
+    st,
+    listItems,
+    mainByOwnerCloud,
+  );
+
+  const out: PublicPresentationExploreItem[] = listItems.map((it, i) => {
+    const { data } = rows[i]!;
+    const ex = explorePublicationFromMainData(data);
+    return {
+      cloudId: it.cloudId,
+      ownerUid: it.ownerUid,
+      topic: it.topic,
+      savedAt: it.savedAt,
+      updatedAt: it.updatedAt,
+      description: ex.description,
+      publicationTags: ex.publicationTags,
+      publicationLevel: ex.publicationLevel,
+      publicationCategories: ex.publicationCategories,
+      publicationPublishedAt: ex.publicationPublishedAt,
+      homePreviewImageUrl: it.homePreviewImageUrl,
+      homeFirstSlideReplica: it.homeFirstSlideReplica,
+      homePreviewDeckVisualTheme: it.homePreviewDeckVisualTheme,
+    };
+  });
+  out.sort((a, b) => {
+    const ta = a.publicationPublishedAt || a.updatedAt || a.savedAt;
+    const tb = b.publicationPublishedAt || b.updatedAt || b.savedAt;
+    return tb.localeCompare(ta);
+  });
+  return out;
 }
 
 function userPresentationsRef(db: import("firebase/firestore").Firestore, uid: string) {
@@ -717,6 +902,8 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     mindMapData: s.mindMapData ?? null,
     mapData: s.mapData ?? null,
     canvas3dSceneData: s.canvas3dSceneData ?? null,
+    slideBackgroundImageUrl: s.slideBackgroundImageUrl ?? null,
+    slideBackgroundColor: s.slideBackgroundColor ?? null,
   };
 }
 
@@ -776,6 +963,10 @@ function plainToSlide(p: Record<string, unknown>): Slide {
         ? normalizeSlideMatrixData(p.matrixData)
         : undefined,
     canvasScene: parseCanvasSceneFromPlain(p.canvasScene),
+    slideBackgroundImageUrl:
+      p.slideBackgroundImageUrl != null ? String(p.slideBackgroundImageUrl) : undefined,
+    slideBackgroundColor:
+      p.slideBackgroundColor != null ? String(p.slideBackgroundColor) : undefined,
   };
 }
 
@@ -963,6 +1154,7 @@ export async function pushPresentationToCloud(
 
     let preservedSharedWith: string[] = [];
     let preservedShareInviteEmails: string[] = [];
+    let preservedPublicationFields: Record<string, unknown> = {};
     if (snap.exists()) {
       const d = snap.data() as Record<string, unknown>;
       const sw = d.sharedWith;
@@ -970,6 +1162,7 @@ export async function pushPresentationToCloud(
         preservedSharedWith = sw.filter((x): x is string => typeof x === "string");
       }
       preservedShareInviteEmails = shareInviteEmailsFromDocData(d);
+      preservedPublicationFields = preservedPublicationFieldsFromDoc(d);
     }
 
     if (!force && snap.exists()) {
@@ -984,6 +1177,7 @@ export async function pushPresentationToCloud(
     const nextRev = snap.exists() ? remoteRev + 1 : 1;
     transaction.set(docRef, {
       ...safeMainPayload,
+      ...preservedPublicationFields,
       sharedWith: preservedSharedWith,
       shareInviteEmails: preservedShareInviteEmails,
       revision: nextRev,

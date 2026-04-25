@@ -140,4 +140,9 @@ export interface Slide {
    * sustituye al fondo de la escena 3D (`canvas3dSceneData.backgroundImageUrl`).
    */
   slideBackgroundImageUrl?: string;
+  /**
+   * Color sólido opcional encima del tema del deck y debajo de `slideBackgroundImageUrl`.
+   * Valor CSS (p. ej. `#0f172a`); solo aplica a los mismos tipos que la imagen de fondo del slide.
+   */
+  slideBackgroundColor?: string;
 }

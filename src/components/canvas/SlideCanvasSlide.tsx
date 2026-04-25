@@ -90,6 +90,7 @@ import {
 } from "./SlideCanvasCanvaChrome";
 import { SlideCanvasHoverOutline } from "./SlideCanvasHoverOutline";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
+import { SlideDeckBackgroundColorLayer } from "../shared/SlideDeckBackgroundColorLayer";
 import { SlideDeckBackgroundImageLayer } from "../shared/SlideDeckBackgroundImageLayer";
 import {
   deckIaToolbarBtnClass,
@@ -1031,6 +1032,11 @@ export function SlideCanvasSlide() {
         slide.type !== SLIDE_TYPE.MAPS &&
         slide.type !== SLIDE_TYPE.DOCUMENT &&
         slide.type !== SLIDE_TYPE.CANVAS_3D && <DeckBackdrop theme={deckVisualTheme} />}
+      {!isIsometricSlide &&
+        slide.type !== SLIDE_TYPE.MIND_MAP &&
+        slide.type !== SLIDE_TYPE.MAPS &&
+        slide.type !== SLIDE_TYPE.DOCUMENT &&
+        slide.type !== SLIDE_TYPE.CANVAS_3D && <SlideDeckBackgroundColorLayer slide={slide} />}
       {!isIsometricSlide &&
         slide.type !== SLIDE_TYPE.MIND_MAP &&
         slide.type !== SLIDE_TYPE.MAPS &&
