@@ -172,6 +172,8 @@ export function usePresentationState() {
     setIsNotesPanelOpen,
     isReadmePanelOpen,
     setIsReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+    setIsPresentationSettingsPanelOpen,
     showCodeGenModal,
     setShowCodeGenModal,
     showCharacterCreatorModal,
@@ -867,6 +869,7 @@ export function usePresentationState() {
     setCurrentIndex(0);
     clearEditorTabsForGoHome();
     setIsReadmePanelOpen(false);
+    setIsPresentationSettingsPanelOpen(false);
   }, [localAccountScope, clearEditorTabsForGoHome, resetHomePromptAttachments]);
 
   const {
@@ -994,6 +997,7 @@ export function usePresentationState() {
     setNarrativeNotes("");
     setPresentationReadme("");
     setIsReadmePanelOpen(false);
+    setIsPresentationSettingsPanelOpen(false);
     await savePresentationNow({
       topic: "",
       slides: deck,
@@ -1045,6 +1049,7 @@ export function usePresentationState() {
     setNarrativeNotes("");
     setPresentationReadme("");
     setIsReadmePanelOpen(false);
+    setIsPresentationSettingsPanelOpen(false);
     clearEditorTabsForGoHome();
     try {
       sessionStorage.removeItem(lastOpenedSessionKey);
@@ -1325,6 +1330,8 @@ export function usePresentationState() {
     setIsNotesPanelOpen,
     isReadmePanelOpen,
     setIsReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+    setIsPresentationSettingsPanelOpen,
     pendingGeneration,
     isSyncingCharactersCloud,
     handlePushAllCharactersToCloud,

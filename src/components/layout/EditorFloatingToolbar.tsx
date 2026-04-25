@@ -157,10 +157,11 @@ export function EditorFloatingToolbar({
     setGenerateSlideContentPrompt,
     addCanvasElementToCurrentSlide,
     isReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
   } = usePresentation();
 
   if (slides.length === 0) return null;
-  if (isReadmePanelOpen) return null;
+  if (isReadmePanelOpen || isPresentationSettingsPanelOpen) return null;
 
   const matrixData = normalizeSlideMatrixData(
     currentSlide?.matrixData ?? createEmptySlideMatrixData(),

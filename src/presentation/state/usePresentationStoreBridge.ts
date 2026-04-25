@@ -111,6 +111,11 @@ export function usePresentationStoreBridge() {
   const setIsNotesPanelOpen = useCallback(createUISetter("isNotesPanelOpen"), []);
   const isReadmePanelOpen = uiState.isReadmePanelOpen;
   const setIsReadmePanelOpen = useCallback(createUISetter("isReadmePanelOpen"), []);
+  const isPresentationSettingsPanelOpen = uiState.isPresentationSettingsPanelOpen;
+  const setIsPresentationSettingsPanelOpen = useCallback(
+    createUISetter("isPresentationSettingsPanelOpen"),
+    [],
+  );
   const showCodeGenModal = uiState.showCodeGenModal;
   const setShowCodeGenModal = useCallback(createUISetter("showCodeGenModal"), []);
   const showCharacterCreatorModal = uiState.showCharacterCreatorModal;
@@ -192,6 +197,8 @@ export function usePresentationStoreBridge() {
     setIsNotesPanelOpen,
     isReadmePanelOpen,
     setIsReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+    setIsPresentationSettingsPanelOpen,
     showCodeGenModal,
     setShowCodeGenModal,
     showCharacterCreatorModal,

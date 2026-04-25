@@ -13,6 +13,7 @@ import {
   Mic,
   StickyNote,
   BookText,
+  Settings2,
 } from "lucide-react";
 import { PRESENTATION_MODELS } from "../../constants/presentationModels";
 import { usePresentation } from "../../context/PresentationContext";
@@ -46,6 +47,8 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
     setIsNotesPanelOpen,
     setIsReadmePanelOpen,
     isReadmePanelOpen,
+    setIsPresentationSettingsPanelOpen,
+    isPresentationSettingsPanelOpen,
     setShowSpeechModal,
     presentationModelId,
     presentationModels,
@@ -56,25 +59,38 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
   const [pptxExportDetail, setPptxExportDetail] = useState<string | null>(null);
   const [exportingSlideImage, setExportingSlideImage] = useState(false);
 
-  const goPanels = (which: "characters" | "template" | "notes" | "readme") => {
+  const goPanels = (
+    which: "characters" | "template" | "notes" | "readme" | "presentationSettings",
+  ) => {
     if (which === "characters") {
       setInspectorSection("characters");
       setShowCharactersPanel(true);
       setShowSlideStylePanel(false);
       setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
     } else if (which === "template") {
       setInspectorSection("slide");
       setShowSlideStylePanel(true);
       setShowCharactersPanel(false);
       setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
     } else if (which === "notes") {
       setInspectorSection("notes");
       setIsNotesPanelOpen(true);
       setShowCharactersPanel(false);
       setShowSlideStylePanel(false);
       setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
+    } else if (which === "presentationSettings") {
+      setIsPresentationSettingsPanelOpen(true);
+      setIsReadmePanelOpen(false);
+      setIsNotesPanelOpen(false);
+      setShowCharactersPanel(false);
+      setShowSlideStylePanel(false);
+      setInspectorSection(null);
     } else {
       setIsReadmePanelOpen(true);
+      setIsPresentationSettingsPanelOpen(false);
       setIsNotesPanelOpen(false);
       setShowCharactersPanel(false);
       setShowSlideStylePanel(false);
@@ -317,6 +333,23 @@ export function EditorLeftRail({ onOpenConfig: _onOpenConfig }: EditorLeftRailPr
             onClick={() => goPanels("readme")}
           >
             <BookText size={18} strokeWidth={2} />
+          </button>
+        </RailTooltip>
+        <RailTooltip
+          label="Configuración de la presentación"
+          detail="Publicación en Slaim: visibilidad, descripción, tags, nivel y categorías."
+        >
+          <button
+            type="button"
+            className={cn(
+              railIconBtnClass,
+              isPresentationSettingsPanelOpen && "bg-stone-200/60 dark:bg-white/10",
+            )}
+            aria-label="Configuración de la presentación"
+            disabled={!hasSlides}
+            onClick={() => goPanels("presentationSettings")}
+          >
+            <Settings2 size={18} strokeWidth={2} />
           </button>
         </RailTooltip>
       </div>

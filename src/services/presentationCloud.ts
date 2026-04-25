@@ -13,6 +13,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
   type DocumentReference,
@@ -269,6 +270,117 @@ export interface PresentationShareAccess {
   sharedWithUids: string[];
   /** Correos normalizados (minúsculas); acceso si coinciden con `request.auth.token.email`. */
   shareInviteEmails: string[];
+}
+
+export type PresentationPublicationVisibility = "public" | "private" | "unlisted";
+export type PresentationPublicationLevel = "basic" | "intermediate" | "advanced";
+
+export interface PresentationPublicationMetadata {
+  visibility: PresentationPublicationVisibility;
+  description: string;
+  tags: string[];
+  level: PresentationPublicationLevel;
+  categories: string[];
+  publishedAt: string | null;
+}
+
+function normalizePublicationTags(values: string[]): string[] {
+  return [
+    ...new Set(
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .slice(0, 12)
+    ),
+  ];
+}
+
+function normalizePublicationCategories(values: string[]): string[] {
+  return [
+    ...new Set(
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .slice(0, 8)
+    ),
+  ];
+}
+
+export async function getPresentationPublicationMetadata(
+  ownerUid: string,
+  cloudId: string
+): Promise<PresentationPublicationMetadata> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser) {
+    throw new Error("Inicia sesion para ver la publicacion.");
+  }
+  const snap = await getDoc(presentationDoc(db, ownerUid, cloudId));
+  if (!snap.exists()) {
+    throw new Error("La presentacion no esta en la nube. Sincronizala primero.");
+  }
+  const data = snap.data() as Record<string, unknown>;
+  const rawTags = Array.isArray(data.publicationTags)
+    ? data.publicationTags.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawCategories = Array.isArray(data.publicationCategories)
+    ? data.publicationCategories.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawVisibility = data.publicationVisibility;
+  const visibility: PresentationPublicationVisibility =
+    rawVisibility === "public" || rawVisibility === "unlisted" || rawVisibility === "private"
+      ? rawVisibility
+      : "private";
+  const rawLevel = data.publicationLevel;
+  const level: PresentationPublicationLevel =
+    rawLevel === "basic" || rawLevel === "intermediate" || rawLevel === "advanced"
+      ? rawLevel
+      : "intermediate";
+  return {
+    visibility,
+    description:
+      typeof data.publicationDescription === "string" ? data.publicationDescription : "",
+    tags: normalizePublicationTags(rawTags),
+    level,
+    categories: normalizePublicationCategories(rawCategories),
+    publishedAt: timestampToIso(data.publicationPublishedAt),
+  };
+}
+
+export async function setPresentationPublicationMetadata(
+  ownerUid: string,
+  cloudId: string,
+  metadata: Omit<PresentationPublicationMetadata, "publishedAt">
+): Promise<void> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
+    throw new Error("Solo el propietario puede cambiar la publicacion.");
+  }
+  const dref = presentationDoc(db, ownerUid, cloudId);
+  const snap = await getDoc(dref);
+  if (!snap.exists()) {
+    throw new Error("La presentacion no esta en la nube. Sincronizala primero.");
+  }
+  const visibility: PresentationPublicationVisibility =
+    metadata.visibility === "public" || metadata.visibility === "unlisted"
+      ? metadata.visibility
+      : "private";
+  const level: PresentationPublicationLevel =
+    metadata.level === "basic" || metadata.level === "advanced"
+      ? metadata.level
+      : "intermediate";
+  await updateDoc(dref, {
+    publicationVisibility: visibility,
+    publicationDescription: metadata.description.trim().slice(0, 500),
+    publicationTags: normalizePublicationTags(metadata.tags),
+    publicationLevel: level,
+    publicationCategories: normalizePublicationCategories(metadata.categories),
+    publicationPublishedAt:
+      visibility === "public" || visibility === "unlisted" ? serverTimestamp() : null,
+  });
 }
 
 export interface CloudPresentationListItem {

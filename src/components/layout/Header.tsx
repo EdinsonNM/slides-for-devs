@@ -57,6 +57,7 @@ export function Header(props: HeaderProps) {
     setIsNotesPanelOpen,
     isReadmePanelOpen,
     setIsReadmePanelOpen,
+    setIsPresentationSettingsPanelOpen,
     showCharactersPanel,
     setShowCharactersPanel,
     showSlideStylePanel,
@@ -164,6 +165,8 @@ export function Header(props: HeaderProps) {
       setShowCharactersPanel(false);
     } else {
       setShowSlideStylePanel(false);
+      setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
       setShowCharactersPanel(true);
     }
   };
@@ -173,6 +176,8 @@ export function Header(props: HeaderProps) {
       setShowSlideStylePanel(false);
     } else {
       setShowCharactersPanel(false);
+      setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
       setShowSlideStylePanel(true);
     }
   };
@@ -211,6 +216,7 @@ export function Header(props: HeaderProps) {
         onClick={() => {
           setIsNotesPanelOpen(!isNotesPanelOpen);
           setIsReadmePanelOpen(false);
+          setIsPresentationSettingsPanelOpen(false);
         }}
         className={cn(isNotesPanelOpen && panelActiveClass)}
       />
@@ -225,6 +231,7 @@ export function Header(props: HeaderProps) {
         }
         onClick={() => {
           setIsReadmePanelOpen(!isReadmePanelOpen);
+          setIsPresentationSettingsPanelOpen(false);
           setIsNotesPanelOpen(false);
         }}
         className={cn(isReadmePanelOpen && panelActiveClass)}
@@ -475,6 +482,7 @@ export function Header(props: HeaderProps) {
                   )}
                   onClick={() => {
                     setIsReadmePanelOpen(!isReadmePanelOpen);
+                    setIsPresentationSettingsPanelOpen(false);
                     setMoreMenuOpen(false);
                   }}
                 >
