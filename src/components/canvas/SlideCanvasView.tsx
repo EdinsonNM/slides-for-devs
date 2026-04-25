@@ -15,6 +15,7 @@ import {
   normalizeSlideMatrixData,
   type DeckContentTone,
 } from "../../domain/entities";
+import { parseCanvas3dSceneData } from "../../domain/entities/Canvas3dSceneData";
 import { deckMutedTextClass } from "../../utils/deckSlideChrome";
 import type { SlideCanvasElement } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
@@ -43,13 +44,19 @@ import { parseSlideMapData } from "../../domain/entities/SlideMapData";
 import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
+import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
+import { DeferHeavyWebglMount } from "../shared/DeferHeavyWebglMount";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
 import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
+import { SlideWebcamView } from "../shared/SlideWebcamView";
+import { normalizeWebcamPanelState } from "../../domain/webcam/webcamPanelModel";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
+import { useThemeOptional } from "../../context/ThemeContext";
+import type { MapboxCanvasAppearance } from "../shared/SlideMapboxCanvas";
 
 const { Alignment, Fit, Layout } = RiveReact;
 
@@ -73,6 +80,16 @@ export interface SlideCanvasViewProps {
    * sin resize CSS (p. ej. presentación con transforms).
    */
   r3fHostMeasureKey?: string;
+  /**
+   * Solo ventana de presentación: conecta el mapa a la búsqueda por dirección/país.
+   * @default false
+   */
+  registerPresenterMapFlyTo?: boolean;
+  /**
+   * Presentación / pantalla completa: Canvas 3D sin rejilla ni texto de ayuda de órbita.
+   * @default false
+   */
+  minimalCanvas3dChrome?: boolean;
 }
 
 function mediaBlock(
@@ -81,6 +98,8 @@ function mediaBlock(
   /** Presentador 3D: slide + elemento para leer solo el `payload` del bloque (sin espejo raíz). */
   presenterCanvas?: { slide: Slide; element: SlideCanvasElement },
   r3fHostMeasureKey?: string,
+  minimalCanvas3dChrome?: boolean,
+  r3fStackRevision = 0,
 ) {
   const panel = resolveMediaPanelDescriptor(deckSlide);
   switch (panel.kind) {
@@ -140,59 +159,88 @@ function mediaBlock(
           ? presenter3dDisplayPropsFromCanvasElement(fullSlide, el)
           : null;
       const canvasBlock = el != null && fromPayload != null;
+      const deferWebgl = Boolean(minimalCanvas3dChrome);
       return (
         <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
-          <Device3DViewport
-            slideId={fullSlide.id}
-            orbitScopeSuffix={el?.id}
-            deviceId={
-              canvasBlock
-                ? fromPayload.deviceId
-                : ((deckSlide.presenter3dDeviceId as string | undefined) ??
-                  DEFAULT_DEVICE_3D_ID)
-            }
-            screenMedia={
-              canvasBlock
-                ? fromPayload.screenMedia
-                : (deckSlide.presenter3dScreenMedia ?? "image")
-            }
-            imageUrl={
-              canvasBlock ? fromPayload.imageUrl : deckSlide.imageUrl
-            }
-            videoUrl={
-              canvasBlock ? fromPayload.videoUrl : deckSlide.videoUrl
-            }
-            viewState={
-              canvasBlock
-                ? fromPayload.viewState
-                : deckSlide.presenter3dViewState
-            }
-            showInteractionHint={false}
-            className="h-full min-h-[120px]"
-            hostMeasureKey={r3fHostMeasureKey}
-          />
+          <DeferHeavyWebglMount
+            enabled={deferWebgl}
+            className="h-full min-h-[120px] w-full"
+          >
+            <Device3DViewport
+              slideId={fullSlide.id}
+              orbitScopeSuffix={el?.id}
+              deviceId={
+                canvasBlock
+                  ? fromPayload.deviceId
+                  : ((deckSlide.presenter3dDeviceId as string | undefined) ??
+                    DEFAULT_DEVICE_3D_ID)
+              }
+              screenMedia={
+                canvasBlock
+                  ? fromPayload.screenMedia
+                  : (deckSlide.presenter3dScreenMedia ?? "image")
+              }
+              imageUrl={
+                canvasBlock ? fromPayload.imageUrl : deckSlide.imageUrl
+              }
+              videoUrl={
+                canvasBlock ? fromPayload.videoUrl : deckSlide.videoUrl
+              }
+              viewState={
+                canvasBlock
+                  ? fromPayload.viewState
+                  : deckSlide.presenter3dViewState
+              }
+              showInteractionHint={false}
+              className="h-full min-h-[120px]"
+              hostMeasureKey={r3fHostMeasureKey}
+              stackRevision={r3fStackRevision}
+              skipEnvironmentMaps={deferWebgl}
+            />
+          </DeferHeavyWebglMount>
         </div>
       );
     }
-    case PANEL_CONTENT_KIND.CANVAS_3D:
+    case PANEL_CONTENT_KIND.CANVAS_3D: {
+      const deferWebgl = Boolean(minimalCanvas3dChrome);
       return (
         <div className="h-full min-h-0 w-full overflow-hidden rounded-xl">
-          <Canvas3DViewport
-            slideId={deckSlide.id}
-            glbUrl={deckSlide.canvas3dGlbUrl}
-            viewState={deckSlide.canvas3dViewState}
-            showInteractionHint
-            className="h-full min-h-[120px]"
-            hostMeasureKey={r3fHostMeasureKey}
-          />
+          <DeferHeavyWebglMount
+            enabled={deferWebgl}
+            className="h-full min-h-[120px] w-full"
+          >
+            <Canvas3DViewport
+              slideId={deckSlide.id}
+              glbUrl={deckSlide.canvas3dGlbUrl}
+              viewState={deckSlide.canvas3dViewState}
+              modelTransform={deckSlide.canvas3dModelTransform}
+              animationClipName={deckSlide.canvas3dAnimationClipName}
+              showInteractionHint={!minimalCanvas3dChrome}
+              showGroundGrid={!minimalCanvas3dChrome}
+              className="h-full min-h-[120px]"
+              hostMeasureKey={r3fHostMeasureKey}
+              stackRevision={r3fStackRevision}
+              skipEnvironmentMaps={deferWebgl}
+            />
+          </DeferHeavyWebglMount>
         </div>
       );
+    }
     case PANEL_CONTENT_KIND.DATA_MOTION_RING:
       return (
         <div className="h-full min-h-0 w-full overflow-visible rounded-xl">
           <DataMotionRingExperience
             state={normalizeDataMotionRingState(deckSlide.dataMotionRing)}
             className="h-full min-h-[120px]"
+          />
+        </div>
+      );
+    case PANEL_CONTENT_KIND.CAMERA:
+      return (
+        <div className="flex h-full min-h-0 w-full items-stretch justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900/40">
+          <SlideWebcamView
+            state={normalizeWebcamPanelState(deckSlide.webcam)}
+            className="h-full min-h-[120px] w-full"
           />
         </div>
       );
@@ -256,11 +304,18 @@ function CanvasElementReadOnly({
   slide,
   deckContentTone,
   r3fHostMeasureKey,
+  mapAppearance = "light",
+  registerPresenterMapFlyTo = false,
+  minimalCanvas3dChrome = false,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
   deckContentTone: DeckContentTone;
   r3fHostMeasureKey?: string;
+  /** Cielo / niebla Mapbox según tema de la app. */
+  mapAppearance?: MapboxCanvasAppearance;
+  registerPresenterMapFlyTo?: boolean;
+  minimalCanvas3dChrome?: boolean;
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -268,6 +323,7 @@ function CanvasElementReadOnly({
       ? slideAppearanceForMediaElement(slide, element)
       : slide;
   const { rect, kind, z } = element;
+  const r3fStackRevision = Math.round(Number.isFinite(z) ? z : 0);
   const rotation = element.rotation ?? 0;
   const box: CSSProperties = {
     left: `${rect.x}%`,
@@ -386,7 +442,14 @@ function CanvasElementReadOnly({
         <div style={box} className={shell}>
           {rotated(
             "h-full p-1 md:p-2",
-            mediaBlock(panelSlide, tone, { slide, element }, r3fHostMeasureKey),
+            mediaBlock(
+              panelSlide,
+              tone,
+              { slide, element },
+              r3fHostMeasureKey,
+              minimalCanvas3dChrome,
+              r3fStackRevision,
+            ),
           )}
         </div>
       );
@@ -462,6 +525,7 @@ function CanvasElementReadOnly({
               data={parseIsometricFlowDiagram(slide.isometricFlowData)}
               readOnly
               className="h-full w-full"
+              isometricDataSyncKey={`${slide.id}|${slide.isometricFlowData ?? ""}`}
             />,
           )}
         </div>
@@ -504,9 +568,12 @@ function CanvasElementReadOnly({
               key={`${slide.id}-map`}
               mapData={parseSlideMapData(slide.mapData)}
               accessToken={MAPBOX_ENV_TOKEN}
+              appearance={mapAppearance}
               readOnly
               persistViewportOnMoveEnd={false}
               registerViewportCaptureBridge={false}
+              registerPresenterFlyToBridge={registerPresenterMapFlyTo}
+              showPresenterSearchInput={registerPresenterMapFlyTo}
               className="h-full w-full"
             />,
           )}
@@ -523,13 +590,53 @@ export function SlideCanvasView({
   className,
   deckContentTone = "dark",
   r3fHostMeasureKey,
+  registerPresenterMapFlyTo = false,
+  minimalCanvas3dChrome = false,
 }: SlideCanvasViewProps) {
+  const theme = useThemeOptional();
+  const mapAppearance: MapboxCanvasAppearance = theme?.isDark
+    ? "dark"
+    : "light";
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
+  const canvas3dScene =
+    slide.type === SLIDE_TYPE.CANVAS_3D
+      ? parseCanvas3dSceneData(slide.canvas3dSceneData)
+      : null;
 
   return (
     <div className={cn("relative h-full min-h-0 w-full min-w-0", className)}>
+      {canvas3dScene ? (
+        <div className="absolute inset-0 z-0 min-h-0 w-full">
+          {canvas3dScene.backgroundImageUrl?.trim() ? (
+            <img
+              src={canvas3dScene.backgroundImageUrl.trim()}
+              alt=""
+              className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+            />
+          ) : null}
+          <div className="relative z-[1] h-full min-h-0 w-full">
+            <DeferHeavyWebglMount
+              enabled={Boolean(minimalCanvas3dChrome)}
+              className="h-full min-h-[120px] w-full"
+            >
+              <Canvas3dSceneViewport
+                slideId={slide.id}
+                instances={canvas3dScene.instances}
+                viewState={canvas3dScene.viewState}
+                selectedInstanceId={null}
+                transformControlsMode={null}
+                showInteractionHint={!minimalCanvas3dChrome}
+                showGroundGrid={!minimalCanvas3dChrome}
+                className="h-full min-h-[120px] w-full"
+                hostMeasureKey={r3fHostMeasureKey}
+                skipEnvironmentMaps={minimalCanvas3dChrome}
+              />
+            </DeferHeavyWebglMount>
+          </div>
+        </div>
+      ) : null}
       {sorted.map((el) => (
         <CanvasElementReadOnly
           key={el.id}
@@ -537,6 +644,9 @@ export function SlideCanvasView({
           slide={ensured}
           deckContentTone={deckContentTone}
           r3fHostMeasureKey={r3fHostMeasureKey}
+          mapAppearance={mapAppearance}
+          registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+          minimalCanvas3dChrome={minimalCanvas3dChrome}
         />
       ))}
     </div>

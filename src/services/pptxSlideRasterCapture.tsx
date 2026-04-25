@@ -61,6 +61,7 @@ function extraPaintDelayMs(slide: Slide): number {
   /** Iconos SVG remotos + manifiestos: necesita más tiempo que un slide de texto. */
   if (slide.type === SLIDE_TYPE.ISOMETRIC) return 2400;
   if (slide.type === SLIDE_TYPE.MAPS) return 1400;
+  if (slide.type === SLIDE_TYPE.CANVAS_3D) return 1200;
   if (slide.type === SLIDE_TYPE.MATRIX) return 180;
   if (slide.type === SLIDE_TYPE.CHAPTER) return 120;
   if (slide.type !== SLIDE_TYPE.CONTENT) return 200;
@@ -75,6 +76,7 @@ function extraPaintDelayMs(slide: Slide): number {
   }
   if (kind === PANEL_CONTENT_KIND.RIVE && slide.riveUrl?.trim()) return 520;
   if (kind === PANEL_CONTENT_KIND.DATA_MOTION_RING) return 380;
+  if (kind === PANEL_CONTENT_KIND.CAMERA) return 400;
   return 220;
 }
 

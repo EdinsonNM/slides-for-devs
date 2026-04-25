@@ -7,7 +7,6 @@ import {
   Box,
   Check,
   ChevronDown,
-  Cloud,
   Cpu,
   CreditCard,
   FileText,
@@ -461,9 +460,6 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
     geminiImageModels,
     imageProvider,
     setImageProvider,
-    cloudSyncAvailable,
-    autoCloudSyncOnSave,
-    setAutoCloudSyncOnSave,
   } = usePresentation();
 
   const [planMode, setPlanMode] = useState<PlanMode>(readStoredPlanMode);
@@ -1134,33 +1130,6 @@ export function ApiConfigurationScreen({ onSaved }: ApiConfigurationScreenProps)
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="max-w-2xl space-y-5">
-                {cloudSyncAvailable && (
-                  <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-stone-200 dark:border-border p-3 hover:bg-stone-50 dark:hover:bg-stone-800/40">
-                    <input
-                      type="checkbox"
-                      checked={autoCloudSyncOnSave}
-                      onChange={(e) => setAutoCloudSyncOnSave(e.target.checked)}
-                      className="rounded border-stone-300 dark:border-stone-600 shrink-0 mt-0.5"
-                    />
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2 text-sm font-medium text-stone-800 dark:text-foreground">
-                        <Cloud
-                          size={16}
-                          className="shrink-0 opacity-80"
-                          aria-hidden
-                        />
-                        Subir a la nube al guardar
-                      </span>
-                      <span className="block text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                        Cada guardado sincroniza la deck si iniciaste sesión en
-                        escritorio.
-                      </span>
-                    </span>
-                  </label>
-                )}
               </div>
 
               {touched && !canSaveFree && (

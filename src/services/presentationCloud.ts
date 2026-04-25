@@ -43,6 +43,7 @@ import {
   type SlideCanvasScene,
 } from "../domain/entities";
 import { parsePresenter3dViewState } from "../utils/presenter3dView";
+import { parseCanvas3dModelTransform } from "../utils/canvas3dModelTransform";
 import type { SavedPresentation } from "../types";
 import { initFirebase } from "./firebase";
 import {
@@ -590,7 +591,9 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     presenter3dScreenMedia: s.presenter3dScreenMedia ?? null,
     presenter3dViewState: s.presenter3dViewState ?? null,
     canvas3dGlbUrl: s.canvas3dGlbUrl ?? null,
+    canvas3dAnimationClipName: s.canvas3dAnimationClipName ?? null,
     canvas3dViewState: s.canvas3dViewState ?? null,
+    canvas3dModelTransform: s.canvas3dModelTransform ?? null,
     imageWidthPercent: s.imageWidthPercent ?? null,
     contentLayout: s.contentLayout ?? null,
     panelHeightPercent: s.panelHeightPercent ?? null,
@@ -599,6 +602,9 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     editorHeight: s.editorHeight ?? null,
     matrixData: s.matrixData ?? null,
     isometricFlowData: s.isometricFlowData ?? null,
+    mindMapData: s.mindMapData ?? null,
+    mapData: s.mapData ?? null,
+    canvas3dSceneData: s.canvas3dSceneData ?? null,
   };
 }
 
@@ -629,7 +635,12 @@ function plainToSlide(p: Record<string, unknown>): Slide {
         : undefined,
     presenter3dViewState: parsePresenter3dViewState(p.presenter3dViewState),
     canvas3dGlbUrl: p.canvas3dGlbUrl != null ? String(p.canvas3dGlbUrl) : undefined,
+    canvas3dAnimationClipName:
+      p.canvas3dAnimationClipName != null
+        ? String(p.canvas3dAnimationClipName)
+        : undefined,
     canvas3dViewState: parsePresenter3dViewState(p.canvas3dViewState),
+    canvas3dModelTransform: parseCanvas3dModelTransform(p.canvas3dModelTransform),
     imageWidthPercent:
       typeof p.imageWidthPercent === "number" ? p.imageWidthPercent : undefined,
     contentLayout: p.contentLayout as Slide["contentLayout"] | undefined,
@@ -642,6 +653,10 @@ function plainToSlide(p: Record<string, unknown>): Slide {
       p.excalidrawData != null ? String(p.excalidrawData) : undefined,
     isometricFlowData:
       p.isometricFlowData != null ? String(p.isometricFlowData) : undefined,
+    mindMapData: p.mindMapData != null ? String(p.mindMapData) : undefined,
+    mapData: p.mapData != null ? String(p.mapData) : undefined,
+    canvas3dSceneData:
+      p.canvas3dSceneData != null ? String(p.canvas3dSceneData) : undefined,
     editorHeight:
       typeof p.editorHeight === "number" ? p.editorHeight : undefined,
     matrixData:

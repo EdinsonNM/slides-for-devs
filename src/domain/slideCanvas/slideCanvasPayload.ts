@@ -21,6 +21,7 @@ import {
 } from "../entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../../utils/slideRichText";
 import { normalizeDataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import { normalizeWebcamPanelState } from "../webcam/webcamPanelModel";
 
 export type {
   SlideCanvasElementPayload,
@@ -92,7 +93,10 @@ export function mediaPayloadFromSlideRoot(slide: Slide): SlideCanvasMediaPayload
     presenter3dViewState: slide.presenter3dViewState,
     canvas3dGlbUrl: slide.canvas3dGlbUrl,
     canvas3dViewState: slide.canvas3dViewState,
+    canvas3dModelTransform: slide.canvas3dModelTransform,
+    canvas3dAnimationClipName: slide.canvas3dAnimationClipName,
     dataMotionRing: slide.dataMotionRing,
+    webcam: slide.webcam,
   };
 }
 
@@ -123,8 +127,14 @@ const ROOT_MEDIA_KEYS_INHERITABLE_BY_KIND: Record<
     "presenter3dScreenMedia",
     "presenter3dViewState",
   ],
-  [PANEL_CONTENT_KIND.CANVAS_3D]: ["canvas3dGlbUrl", "canvas3dViewState"],
+  [PANEL_CONTENT_KIND.CANVAS_3D]: [
+    "canvas3dGlbUrl",
+    "canvas3dViewState",
+    "canvas3dModelTransform",
+    "canvas3dAnimationClipName",
+  ],
   [PANEL_CONTENT_KIND.DATA_MOTION_RING]: ["dataMotionRing"],
+  [PANEL_CONTENT_KIND.CAMERA]: ["webcam"],
 };
 
 function mergeFirstMediaPanelPayloadFromRoot(
@@ -205,6 +215,12 @@ export function mergeMediaPayloadIntoSlide(
   if (media.canvas3dViewState !== undefined) {
     next.canvas3dViewState = media.canvas3dViewState;
   }
+  if (media.canvas3dModelTransform !== undefined) {
+    next.canvas3dModelTransform = media.canvas3dModelTransform;
+  }
+  if (media.canvas3dAnimationClipName !== undefined) {
+    next.canvas3dAnimationClipName = media.canvas3dAnimationClipName;
+  }
   if (
     normalizePanelContentKind(media.contentType) ===
     PANEL_CONTENT_KIND.DATA_MOTION_RING
@@ -214,6 +230,13 @@ export function mergeMediaPayloadIntoSlide(
     }
   } else {
     delete (next as { dataMotionRing?: unknown }).dataMotionRing;
+  }
+  if (normalizePanelContentKind(media.contentType) === PANEL_CONTENT_KIND.CAMERA) {
+    if (media.webcam !== undefined) {
+      next.webcam = normalizeWebcamPanelState(media.webcam);
+    }
+  } else {
+    delete (next as { webcam?: unknown }).webcam;
   }
   if (media.codeEditorTheme !== undefined) {
     next.codeEditorTheme = media.codeEditorTheme;
@@ -242,7 +265,10 @@ function slideWithoutMirroredPanelRootForView(slide: Slide): Slide {
     presenter3dViewState: _p3vs,
     canvas3dGlbUrl: _c3g,
     canvas3dViewState: _c3vs,
+    canvas3dModelTransform: _c3mt,
+    canvas3dAnimationClipName: _c3ac,
     dataMotionRing: _dmr,
+    webcam: _wbc,
     codeEditorTheme: _cet,
     ...rest
   } = slide as Slide;
@@ -393,10 +419,24 @@ export function readMediaPayloadFromElement(
 
   let base: SlideCanvasMediaPayload;
   if (isSlideCanvasMediaPayload(p)) {
-    base =
-      firstId === el.id
-        ? mergeFirstMediaPanelPayloadFromRoot(slide, p)
-        : { ...p };
+    if (firstId === el.id) {
+      base = mergeFirstMediaPanelPayloadFromRoot(slide, p);
+    } else {
+      const kind = normalizePanelContentKind(p.contentType);
+      /**
+       * Si el primer `mediaPanel` en z ya no es este bloque, la raíz del slide puede seguir
+       * guardando GLB / vista 3D del orden anterior. Esos tipos solo heredan claves propias
+       * desde la raíz (no `imageUrl` de otro panel).
+       */
+      if (
+        kind === PANEL_CONTENT_KIND.CANVAS_3D ||
+        kind === PANEL_CONTENT_KIND.PRESENTER_3D
+      ) {
+        base = mergeFirstMediaPanelPayloadFromRoot(slide, p);
+      } else {
+        base = { ...p };
+      }
+    }
   } else if (firstId === el.id) {
     base = mediaPayloadFromSlideRoot(slide);
   } else {

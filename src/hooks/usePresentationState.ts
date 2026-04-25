@@ -132,7 +132,6 @@ export function usePresentationState() {
     setNarrativeNotes,
     presentationModelId,
     setPresentationModelId,
-    autoCloudSyncOnSave,
     apiKeysVersion,
     setApiKeysVersion,
     showImageModal,
@@ -171,7 +170,7 @@ export function usePresentationState() {
     setShowSlideStylePanel,
   } = usePresentationStoreBridge();
 
-  const { setAutoCloudSyncOnSave } = usePresentationBootstrapPersistence();
+  usePresentationBootstrapPersistence();
 
   const { user, firebaseReady } = useAuth();
   const localAccountScope = useMemo(
@@ -232,7 +231,6 @@ export function usePresentationState() {
   const cloudPresentation = usePresentationCloudPresentation({
     user,
     localAccountScope,
-    autoCloudSyncOnSave,
     savedList,
     refreshSavedList,
     openSavedPresentationRef,
@@ -444,7 +442,6 @@ export function usePresentationState() {
     localAccountScope,
     geminiImageModelId,
     user,
-    autoCloudSyncOnSave,
     runAutoSyncAfterSaveRef,
   });
 
@@ -553,11 +550,15 @@ export function usePresentationState() {
   /** Pestaña activa del panel derecho estilo Figma. */
   const [inspectorSection, setInspectorSection] = useState<
     | "slide"
+    | "slideProperties"
     | "characters"
     | "notes"
     | "theme"
     | "resources"
     | "dataRing"
+    | "mapbox"
+    | "scene3d"
+    | "camera"
     | null
   >("slide");
 
@@ -633,6 +634,9 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideCanvas3dSceneData,
+    patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,
@@ -640,8 +644,11 @@ export function usePresentationState() {
     setCurrentSlidePresenter3dViewState,
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
+    setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
+    setCurrentSlideWebcam,
   } = usePresentationSlideCanvasMutations({
     setSlides,
     currentIndexRef,
@@ -664,7 +671,6 @@ export function usePresentationState() {
     setSaveMessage,
     localAccountScope,
     lastOpenedSessionKey,
-    autoCloudSyncOnSave,
     user,
     maybeAutoSyncAfterLocalSave,
     webCloudSessionRef,
@@ -777,7 +783,6 @@ export function usePresentationState() {
     savePresentationNow,
     runAutoSyncAfterSaveRef,
     user,
-    autoCloudSyncOnSave,
     showImageModal,
     setShowImageModal,
     setShowImageUploadModal,
@@ -834,7 +839,6 @@ export function usePresentationState() {
     queryClient,
     localAccountScope,
     user,
-    autoCloudSyncOnSave,
     savedCharacters,
     setSlides,
     slidesRef,
@@ -1141,6 +1145,9 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideCanvas3dSceneData,
+    patchCurrentSlideCanvas3dScene,
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
     cycleCodeEditorThemeForMediaPanel,
@@ -1152,8 +1159,11 @@ export function usePresentationState() {
     setCurrentSlidePresenter3dViewState,
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
+    setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
+    setCurrentSlideWebcam,
     handleGenerate,
     homePromptAttachments,
     addHomePromptAttachment,
@@ -1205,8 +1215,6 @@ export function usePresentationState() {
     sharePresentationLocalId,
     openSharePresentationModal,
     closeSharePresentationModal,
-    autoCloudSyncOnSave,
-    setAutoCloudSyncOnSave,
     cloudSyncConflict,
     dismissCloudSyncConflict,
     resolveCloudConflictUseRemote,

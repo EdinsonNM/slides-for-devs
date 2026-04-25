@@ -1,33 +1,36 @@
 import React, {
+  Fragment,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import {
-  Bounds,
-  Center,
-  Environment,
-  OrbitControls,
-  useBounds,
-  useGLTF,
-} from "@react-three/drei";
+import { Environment, OrbitControls, TransformControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { clone as cloneSkinnedScene } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 type OrbitControlsImpl = React.ElementRef<typeof OrbitControls>;
+type TransformControlsImpl = React.ElementRef<typeof TransformControls>;
 import { cn } from "../../utils/cn";
 import {
   DEFAULT_PRESENTER_3D_VIEW,
   type Presenter3dViewState,
 } from "../../utils/presenter3dView";
-import { useFixedTargetOrbitPan } from "../../hooks/useFixedTargetOrbitPan";
+import type {
+  Canvas3dModelTransform,
+  Canvas3dTransformGizmoMode,
+} from "../../utils/canvas3dModelTransform";
 import {
   R3fViewportResizeToHost,
   useHostElementSize,
 } from "./r3fHostViewportSync";
+import { R3fWebglContextLostGuard } from "./R3fWebglContextLostGuard";
+import { R3fWebglThrottledSnapshot } from "./R3fWebglThrottledSnapshot";
 
 function disposeClonedGeometries(root: THREE.Object3D) {
   root.traverse((obj) => {
@@ -37,16 +40,14 @@ function disposeClonedGeometries(root: THREE.Object3D) {
   });
 }
 
-function BoundsAutoRefresh({ refreshKey }: { refreshKey: string }) {
-  const api = useBounds();
-  useLayoutEffect(() => {
-    api.refresh().clip().fit();
-    const id = requestAnimationFrame(() => {
-      api.refresh().clip().fit();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [api, refreshKey]);
-  return null;
+function centerObjectAtOrigin(root: THREE.Object3D): void {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  if (box.isEmpty()) return;
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  root.position.sub(center);
+  root.updateMatrixWorld(true);
 }
 
 function glbSourceForLoader(url: string): string {
@@ -54,19 +55,163 @@ function glbSourceForLoader(url: string): string {
   return encodeURI(url);
 }
 
-function ArbitraryGLTF({ glbUrl }: { glbUrl: string }) {
+/**
+ * Clon skinned + clips del GLB. `animationClipName`: ausente = primera clip; `""` = ninguna; nombre = esa clip.
+ */
+function SkinnedGltfPrimitive({
+  glbUrl,
+  animationClipName,
+  onAnimationClipNames,
+}: {
+  glbUrl: string;
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
+}) {
   const src = glbSourceForLoader(glbUrl);
-  const { scene } = useGLTF(src);
-  const root = useMemo(() => scene.clone(true), [scene, glbUrl]);
+  const { scene, animations } = useGLTF(src);
+  const root = useMemo(() => {
+    const cloned = cloneSkinnedScene(scene);
+    centerObjectAtOrigin(cloned);
+    return cloned;
+  }, [scene, glbUrl]);
+
+  const mixer = useMemo(() => new THREE.AnimationMixer(root), [root]);
+  const onNamesRef = useRef(onAnimationClipNames);
+  onNamesRef.current = onAnimationClipNames;
 
   useEffect(() => {
     return () => disposeClonedGeometries(root);
   }, [root]);
 
+  useEffect(() => {
+    return () => {
+      mixer.stopAllAction();
+    };
+  }, [mixer]);
+
+  const namesDigest = useMemo(
+    () => animations.map((a) => a.name).join("\u0001"),
+    [animations],
+  );
+
+  useLayoutEffect(() => {
+    onNamesRef.current?.(animations.map((a) => a.name));
+  }, [animations, namesDigest]);
+
+  useEffect(() => {
+    mixer.stopAllAction();
+    if (animations.length === 0) return;
+    if (animationClipName === "") return;
+    let clip: THREE.AnimationClip | undefined;
+    if (animationClipName == null) {
+      clip = animations[0];
+    } else {
+      clip =
+        animations.find((c) => c.name === animationClipName) ??
+        animations[0];
+    }
+    if (clip) mixer.clipAction(clip).play();
+  }, [mixer, animations, animationClipName, glbUrl]);
+
+  useFrame((_, delta) => {
+    mixer.update(delta);
+  });
+
+  return <primitive object={root} />;
+}
+
+function Canvas3DModel({
+  glbUrl,
+  modelTransform,
+  animationClipName,
+  onAnimationClipNames,
+}: {
+  glbUrl: string;
+  modelTransform?: Canvas3dModelTransform | null;
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
+}) {
   return (
-    <Center cacheKey={glbUrl}>
-      <primitive object={root} />
-    </Center>
+    <group
+      position={modelTransform?.position ?? [0, 0, 0]}
+      rotation={modelTransform?.rotation ?? [0, 0, 0]}
+      scale={modelTransform?.scale ?? [1, 1, 1]}
+    >
+      <SkinnedGltfPrimitive
+        glbUrl={glbUrl}
+        animationClipName={animationClipName}
+        onAnimationClipNames={onAnimationClipNames}
+      />
+    </group>
+  );
+}
+
+function Canvas3DTransformControls({
+  glbUrl,
+  modelTransform,
+  animationClipName,
+  onAnimationClipNames,
+  mode,
+  onModelTransformChange,
+  onModelTransformCommit,
+}: {
+  glbUrl: string;
+  modelTransform?: Canvas3dModelTransform | null;
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
+  mode: Canvas3dTransformGizmoMode;
+  onModelTransformChange?: (s: Canvas3dModelTransform) => void;
+  onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
+}) {
+  const [modelGroup, setModelGroup] = useState<THREE.Group | null>(null);
+
+  const readFromGroup = useCallback((): Canvas3dModelTransform | null => {
+    if (!modelGroup) return null;
+    return {
+      position: [
+        modelGroup.position.x,
+        modelGroup.position.y,
+        modelGroup.position.z,
+      ],
+      rotation: [
+        modelGroup.rotation.x,
+        modelGroup.rotation.y,
+        modelGroup.rotation.z,
+      ],
+      scale: [modelGroup.scale.x, modelGroup.scale.y, modelGroup.scale.z],
+    };
+  }, [modelGroup]);
+
+  return (
+    <>
+      <group
+        ref={setModelGroup}
+        position={modelTransform?.position ?? [0, 0, 0]}
+        rotation={modelTransform?.rotation ?? [0, 0, 0]}
+        scale={modelTransform?.scale ?? [1, 1, 1]}
+      >
+        <SkinnedGltfPrimitive
+          glbUrl={glbUrl}
+          animationClipName={animationClipName}
+          onAnimationClipNames={onAnimationClipNames}
+        />
+      </group>
+
+      {modelGroup ? (
+        <TransformControls
+          object={modelGroup}
+          mode={mode}
+          onObjectChange={() => {
+            const next = readFromGroup();
+            if (next) onModelTransformChange?.(next);
+          }}
+          onMouseUp={() => {
+            const next = readFromGroup();
+            if (next) onModelTransformCommit?.(next);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -88,8 +233,6 @@ function Canvas3DOrbitControls({
   const { camera } = useThree();
   const appliedForKey = useRef<string | null>(null);
   const pendingApply = useRef(false);
-
-  useFixedTargetOrbitPan(ref, Boolean(!disableControls));
 
   useEffect(() => {
     pendingApply.current = true;
@@ -126,7 +269,7 @@ function Canvas3DOrbitControls({
       dampingFactor={0.08}
       rotateSpeed={0.85}
       zoomSpeed={0.9}
-      enablePan={false}
+      enablePan={!disableControls}
       enableRotate={!disableControls}
       enableZoom={!disableControls}
       minPolarAngle={0.08}
@@ -154,13 +297,43 @@ export interface Canvas3DViewportProps {
   onViewStateCommit?: (s: Presenter3dViewState) => void;
   disableControls?: boolean;
   showInteractionHint?: boolean;
+  /** Rejilla de referencia bajo el modelo (solo útil en edición). */
+  showGroundGrid?: boolean;
   className?: string;
-  boundsMargin?: number;
+  modelTransform?: Canvas3dModelTransform | null;
+  /**
+   * Clips del GLB: ausente en slide = reproducir la primera; `""` = ninguna; nombre = clip concreta.
+   */
+  animationClipName?: string;
+  onAnimationClipNames?: (names: string[]) => void;
+  transformControlsMode?: Canvas3dTransformGizmoMode;
+  onModelTransformChange?: (s: Canvas3dModelTransform) => void;
+  onModelTransformCommit?: (s: Canvas3dModelTransform) => void;
   /**
    * Clave opcional para forzar re-medición del host cuando el layout cambia sin resize CSS
-   * (p. ej. presentación con transforms).
+   * (p. ej. presentación con transforms). **No** entra en la `key` del &lt;Canvas&gt;.
    */
   hostMeasureKey?: string;
+  /** Id. estable del `mediaPanel` (varios visores 3D en un slide); aísla la `key` de React. */
+  r3fInstanceId?: string | null;
+  /**
+   * Orden de apilado en el lienzo (p. ej. `z` del `mediaPanel`). Fuerza re-medición y
+   * `setSize` (vía `hostObserveKey`) al reordenar **sin** remontar el `<Canvas>`: remount
+   * por `key` destruía el contexto WebGL y podía hundir la GPU / cerrar la pestaña.
+   * @default 0
+   */
+  stackRevision?: number;
+  /**
+   * Si se pasa, captura periódica (data URL) del canvas WebGL mientras el visor está montado
+   * (p. ej. “vista congelada” al deseleccionar el `mediaPanel` en el editor).
+   */
+  onThrottledFrameSnapshot?: (dataUrl: string) => void;
+  /**
+   * Sin mapas HDR de `Environment` (presentación / pantalla completa): menos red y primer
+   * frame mucho antes; la iluminación pasa a ser solo luces direccionales + ambiente.
+   * @default false
+   */
+  skipEnvironmentMaps?: boolean;
 }
 
 /**
@@ -173,32 +346,51 @@ export function Canvas3DViewport({
   onViewStateCommit,
   disableControls,
   showInteractionHint = true,
+  showGroundGrid = true,
   className,
-  boundsMargin = 1.25,
+  modelTransform,
+  animationClipName,
+  onAnimationClipNames,
+  transformControlsMode,
+  onModelTransformChange,
+  onModelTransformCommit,
   hostMeasureKey,
+  r3fInstanceId = null,
+  stackRevision = 0,
+  onThrottledFrameSnapshot,
+  skipEnvironmentMaps = false,
 }: Canvas3DViewportProps) {
   const trimmed = glbUrl?.trim() ?? "";
   const controlKey = `${slideId}|${trimmed}`;
-  const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}`;
+  const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
-  const boundsRefreshKey = `${hostObserveKey}|${hostSize.width}x${hostSize.height}`;
+
+  const r3fFragmentKey = `${slideId}\u0001${trimmed}\u0001${r3fInstanceId ?? "main"}`;
 
   let sceneBody: ReactNode;
   if (!trimmed) {
     sceneBody = null;
-  } else if (viewState == null) {
+  } else if (transformControlsMode) {
     sceneBody = (
-      <Bounds margin={boundsMargin} clip>
-        <group key={trimmed}>
-          <ArbitraryGLTF glbUrl={trimmed} />
-        </group>
-        <BoundsAutoRefresh refreshKey={boundsRefreshKey} />
-      </Bounds>
+      <Canvas3DTransformControls
+        glbUrl={trimmed}
+        modelTransform={modelTransform}
+        animationClipName={animationClipName}
+        onAnimationClipNames={onAnimationClipNames}
+        mode={transformControlsMode}
+        onModelTransformChange={onModelTransformChange}
+        onModelTransformCommit={onModelTransformCommit}
+      />
     );
   } else {
     sceneBody = (
       <group key={trimmed}>
-        <ArbitraryGLTF glbUrl={trimmed} />
+        <Canvas3DModel
+          glbUrl={trimmed}
+          modelTransform={modelTransform}
+          animationClipName={animationClipName}
+          onAnimationClipNames={onAnimationClipNames}
+        />
       </group>
     );
   }
@@ -212,63 +404,77 @@ export function Canvas3DViewport({
         className,
       )}
     >
-      <Canvas
-        className="absolute inset-0 h-full w-full touch-none select-none"
-        camera={{
-          position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
-            number,
-            number,
-            number,
-          ],
-          fov: 45,
-        }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          premultipliedAlpha: false,
-          preserveDrawingBuffer: true,
-        }}
-        onCreated={({ gl, scene }) => {
-          scene.background = null;
-          gl.setClearColor(0x000000, 0);
-          gl.outputColorSpace = THREE.SRGBColorSpace;
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.75;
-        }}
-      >
-        <R3fViewportResizeToHost
-          width={hostSize.width}
-          height={hostSize.height}
-          syncKey={hostObserveKey}
-        />
-        <Canvas3DOrbitControls
-          controlKey={controlKey}
-          viewState={viewState ?? null}
-          onViewCommit={onViewStateCommit}
-          disableControls={disableControls}
-          useAutoframing={viewState == null}
-        />
-        <ambientLight intensity={0.35} />
-        <directionalLight
-          position={[6, 8, 6]}
-          intensity={1.1}
-          color="#fff6ef"
-        />
-        <directionalLight
-          position={[-5, 4, -4]}
-          intensity={0.5}
-          color="#e8eefc"
-        />
-        <directionalLight
-          position={[0, 2, -8]}
-          intensity={0.35}
-          color="#ffffff"
-        />
-        <Suspense fallback={null}>
-          <Environment preset="city" environmentIntensity={0.85} />
-          {sceneBody}
-        </Suspense>
-      </Canvas>
+      <Fragment key={`r3f-canvas3d-${r3fFragmentKey}`}>
+        <Canvas
+          className="absolute inset-0 h-full w-full touch-none select-none"
+          dpr={skipEnvironmentMaps ? 1 : undefined}
+          camera={{
+            position: [...DEFAULT_PRESENTER_3D_VIEW.position] as [
+              number,
+              number,
+              number,
+            ],
+            fov: 45,
+          }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            premultipliedAlpha: false,
+            preserveDrawingBuffer: true,
+          }}
+          onCreated={({ gl, scene }) => {
+            scene.background = null;
+            gl.setClearColor(0x000000, 0);
+            gl.outputColorSpace = THREE.SRGBColorSpace;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 0.75;
+          }}
+        >
+          <R3fWebglContextLostGuard />
+          {onThrottledFrameSnapshot != null && trimmed ? (
+            <R3fWebglThrottledSnapshot
+              onSnapshot={onThrottledFrameSnapshot}
+            />
+          ) : null}
+          <R3fViewportResizeToHost
+            width={hostSize.width}
+            height={hostSize.height}
+            syncKey={hostObserveKey}
+          />
+          <Canvas3DOrbitControls
+            controlKey={controlKey}
+            viewState={viewState ?? null}
+            onViewCommit={onViewStateCommit}
+            disableControls={disableControls}
+            useAutoframing={viewState == null}
+          />
+          <ambientLight intensity={skipEnvironmentMaps ? 0.52 : 0.35} />
+          <directionalLight
+            position={[6, 8, 6]}
+            intensity={1.1}
+            color="#fff6ef"
+          />
+          <directionalLight
+            position={[-5, 4, -4]}
+            intensity={0.5}
+            color="#e8eefc"
+          />
+          <directionalLight
+            position={[0, 2, -8]}
+            intensity={0.35}
+            color="#ffffff"
+          />
+          {showGroundGrid ? (
+            <gridHelper args={[10, 10, 0x888888, 0x444444]} />
+          ) : null}
+          <Suspense fallback={null}>
+            {!skipEnvironmentMaps ? (
+              <Environment preset="city" environmentIntensity={0.85} />
+            ) : null}
+            {sceneBody}
+          </Suspense>
+        </Canvas>
+      </Fragment>
       {!trimmed && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-stone-500 dark:text-stone-400">
           Indica una URL de modelo .glb o sube un archivo desde el inspector o este panel.
@@ -276,7 +482,8 @@ export function Canvas3DViewport({
       )}
       {!disableControls && showInteractionHint && trimmed && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
-          Clic + arrastre para girar · rueda o pellizco para zoom · clic derecho para desplazar
+          Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar · rueda
+          o pellizco: zoom
         </p>
       )}
     </div>

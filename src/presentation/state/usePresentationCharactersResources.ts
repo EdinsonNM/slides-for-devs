@@ -183,6 +183,8 @@ export function usePresentationCharactersResources(
             ...m,
             canvas3dGlbUrl: trimmed || undefined,
             canvas3dViewState: undefined,
+            canvas3dModelTransform: undefined,
+            canvas3dAnimationClipName: undefined,
           }),
         );
         nextDeck = updated;
@@ -235,12 +237,7 @@ export function usePresentationCharactersResources(
       refreshSavedCharacters();
       trackEvent(ANALYTICS_EVENTS.CHARACTER_SAVED);
 
-      if (
-        deps.autoCloudSyncOnSave &&
-        deps.user &&
-        typeof window !== "undefined" &&
-        (window as unknown as { __TAURI__?: unknown }).__TAURI__
-      ) {
+      if (deps.user && typeof window !== "undefined") {
         const fb = await initFirebase();
         if (fb?.firestore) {
           try {
@@ -278,7 +275,6 @@ export function usePresentationCharactersResources(
     [
       deps.savedCharacters,
       deps.localAccountScope,
-      deps.autoCloudSyncOnSave,
       deps.user,
       deps.queryClient,
       refreshSavedCharacters,

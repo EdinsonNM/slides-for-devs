@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { useThemeOptional } from "../../context/ThemeContext";
+
+function excalidrawThemeFromDocument(): "light" | "dark" {
+  if (typeof document === "undefined") return "light";
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
 
 interface ExcalidrawSnapshot {
   elements?: unknown[];
@@ -25,6 +31,9 @@ export function ExcalidrawViewer({
   className,
   fitToViewOnLoad = false,
 }: ExcalidrawViewerProps) {
+  const themeCtx = useThemeOptional();
+  const excalidrawTheme = themeCtx?.effectiveTheme ?? excalidrawThemeFromDocument();
+
   const initialData = useMemo(() => {
     if (!excalidrawData) return null;
     try {
@@ -58,7 +67,7 @@ export function ExcalidrawViewer({
           }
         }}
         viewModeEnabled={true}
-        theme="light"
+        theme={excalidrawTheme}
         UIOptions={{
           canvasActions: {
             loadScene: false,

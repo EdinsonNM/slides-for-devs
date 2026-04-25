@@ -1,7 +1,25 @@
-import { useCallback, useRef, useState, useEffect, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo } from "react";
 import type { IsometricSlideTextOverlayToolbar } from "../isometricFlowDiagramCanvas/isometricFlowDiagramCanvasTypes";
 import type { MindMapDiagram, MindMapNode, MindMapLink } from "../../../domain/entities/MindMapDiagram";
 import { parseMindMapDiagram, serializeMindMapDiagram } from "../../../domain/entities/MindMapDiagram";
+
+/** Nodo + todos los descendientes por aristas salientes `from → to`. */
+function collectSubtreeNodeIds(links: MindMapLink[], rootId: string): Set<string> {
+  const byFrom = new Map<string, string[]>();
+  for (const l of links) {
+    if (!byFrom.has(l.from)) byFrom.set(l.from, []);
+    byFrom.get(l.from)!.push(l.to);
+  }
+  const out = new Set<string>();
+  const stack = [rootId];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (out.has(id)) continue;
+    out.add(id);
+    for (const c of byFrom.get(id) || []) stack.push(c);
+  }
+  return out;
+}
 
 export type MindMapCanvasProps = {
   data: MindMapDiagram;
@@ -33,10 +51,19 @@ export type MindMapCanvasController = {
   toggleNodeCollapse: (id: string) => void;
   updateNodeLabel: (id: string, label: string) => void;
   setZoom: (action: React.SetStateAction<number>) => void;
+  /** Elimina el nodo seleccionado y toda su subárbol (no aplica a la raíz). */
+  removeSelectedNode: () => void;
 };
 
 export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCanvasController {
-  const { data, onChange, readOnly = false, className, slideTextOverlayToolbar, onEditorSurfacePointerDown } = props;
+  const {
+    data,
+    onChange,
+    readOnly = false,
+    className,
+    slideTextOverlayToolbar,
+    onEditorSurfacePointerDown,
+  } = props;
   
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
@@ -60,14 +87,16 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.target instanceof Element && e.target.closest("[data-mind-map-ui]")) return;
     e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {
-      const z = zoom - e.deltaY * 0.01;
-      setZoom(Math.max(0.1, Math.min(5, z)));
-    } else {
+    if (e.shiftKey) {
+      /* Shift + rueda: desplazar el plano. La rueda suelta hace zoom (p. ej. trackpad o mouse). */
       setPanX((x) => x - e.deltaX);
       setPanY((y) => y - e.deltaY);
+      return;
     }
-  }, [zoom]);
+    /* Rueda sin modificadores: zoom; deltaX + deltaY para trackpads. */
+    const d = (e.deltaY + e.deltaX) * 0.0025;
+    setZoom((z) => Math.max(0.1, Math.min(5, z - d)));
+  }, []);
 
   const handlePointerDownBg = useCallback((e: React.PointerEvent) => {
     if (e.target instanceof Element && e.target.closest("[data-mind-map-ui]")) return;
@@ -176,6 +205,23 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     setSelectedNodeId(id);
   }, [data, onChange, readOnly, selectedNodeId]);
 
+  const removeSelectedNode = useCallback(() => {
+    if (!onChange || readOnly || !selectedNodeId) return;
+    const target = data.nodes.find((n) => n.id === selectedNodeId);
+    if (!target || target.kind === "root") return;
+
+    const removeIds = collectSubtreeNodeIds(data.links, selectedNodeId);
+    const nextNodes = data.nodes.filter((n) => !removeIds.has(n.id));
+    const nextLinks = data.links.filter((l) => !removeIds.has(l.from) && !removeIds.has(l.to));
+
+    const parentLink = data.links.find((l) => l.to === selectedNodeId);
+    const parentId = parentLink?.from;
+    onChange({ ...data, nodes: nextNodes, links: nextLinks });
+    setSelectedNodeId(
+      parentId && nextNodes.some((n) => n.id === parentId) ? parentId : null,
+    );
+  }, [data, onChange, readOnly, selectedNodeId]);
+
   const toggleNodeCollapse = useCallback((id: string) => {
     if (!onChange || readOnly) {
       setCollapsedOverrides(prev => {
@@ -223,5 +269,6 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     toggleNodeCollapse,
     updateNodeLabel,
     setZoom,
+    removeSelectedNode,
   };
 }

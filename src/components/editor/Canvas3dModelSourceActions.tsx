@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Box, Link2, RotateCcw, Upload } from "lucide-react";
+import { Box, Link2, RotateCcw, Settings2, Upload } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
@@ -7,26 +7,48 @@ import {
   Canvas3dUrlModal,
 } from "./Canvas3dUrlModal";
 import { Canvas3dMeshyAiModal } from "./Canvas3dMeshyAiModal";
+import { Canvas3dTransformModal } from "./Canvas3dTransformModal";
+import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 
 export interface Canvas3dModelSourceActionsProps {
   /** URL .glb http(s) actual (para rellenar el modal). */
   httpGlbUrl: string;
+  slideId: string;
+  glbUrl?: string | null;
+  viewState?: Presenter3dViewState | null;
+  modelTransform?: Canvas3dModelTransform | null;
+  /** Id explícito del mediaPanel cuando hay varios en el lienzo. */
+  canvasMediaElementId?: string;
+  animationClipNames?: string[];
+  /** Valor persistido en el slide (`undefined` = auto, `""` = ninguna). */
+  animationClipValue?: string;
   className?: string;
 }
 
 /** Controles flotantes sobre el visor del panel lateral (no lienzo). */
 export function Canvas3dModelSourceActions({
   httpGlbUrl,
+  slideId,
+  glbUrl,
+  viewState,
+  modelTransform,
+  canvasMediaElementId,
+  animationClipNames = [],
+  animationClipValue,
   className,
 }: Canvas3dModelSourceActionsProps) {
   const {
     setCurrentSlideCanvas3dGlbUrl,
     clearCurrentSlideCanvas3dViewState,
+    setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     recordGeneratedModel3d,
   } = usePresentation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [meshyModalOpen, setMeshyModalOpen] = useState(false);
+  const [transformModalOpen, setTransformModalOpen] = useState(false);
 
   const onFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,11 +58,13 @@ export function Canvas3dModelSourceActions({
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = typeof reader.result === "string" ? reader.result : "";
-        if (dataUrl) setCurrentSlideCanvas3dGlbUrl(dataUrl);
+        if (dataUrl) {
+          setCurrentSlideCanvas3dGlbUrl(dataUrl, canvasMediaElementId);
+        }
       };
       reader.readAsDataURL(file);
     },
-    [setCurrentSlideCanvas3dGlbUrl],
+    [canvasMediaElementId, setCurrentSlideCanvas3dGlbUrl],
   );
 
   const overlayBtn =
@@ -100,9 +124,23 @@ export function Canvas3dModelSourceActions({
         <button
           type="button"
           className={overlayBtn}
+          title="Configurar modelo (centro, rotación y animación GLB)"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setTransformModalOpen(true)}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Settings2 size={14} aria-hidden />
+            Configurar
+          </span>
+        </button>
+        <button
+          type="button"
+          className={overlayBtn}
           title="Vuelve a encuadrar el modelo automáticamente"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => clearCurrentSlideCanvas3dViewState()}
+          onClick={() =>
+            clearCurrentSlideCanvas3dViewState(canvasMediaElementId)
+          }
         >
           <span className="inline-flex items-center gap-1">
             <RotateCcw size={14} aria-hidden />
@@ -115,15 +153,31 @@ export function Canvas3dModelSourceActions({
         isOpen={urlModalOpen}
         onClose={() => setUrlModalOpen(false)}
         initialUrl={httpGlbUrl}
-        onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url)}
+        onApply={(url) => setCurrentSlideCanvas3dGlbUrl(url, canvasMediaElementId)}
       />
       <Canvas3dMeshyAiModal
         isOpen={meshyModalOpen}
         onClose={() => setMeshyModalOpen(false)}
         onAppliedGlbUrl={(url, meta) => {
-          setCurrentSlideCanvas3dGlbUrl(url);
+          setCurrentSlideCanvas3dGlbUrl(url, canvasMediaElementId);
           void recordGeneratedModel3d(url, meta?.prompt ?? null);
         }}
+      />
+      <Canvas3dTransformModal
+        isOpen={transformModalOpen}
+        onClose={() => setTransformModalOpen(false)}
+        slideId={slideId}
+        glbUrl={glbUrl}
+        viewState={viewState}
+        modelTransform={modelTransform}
+        animationClipName={animationClipValue}
+        animationClipNames={animationClipNames}
+        onAnimationClipChange={(v) =>
+          setCurrentSlideCanvas3dAnimationClipName(v, canvasMediaElementId)
+        }
+        onModelTransformCommit={(next) =>
+          setCurrentSlideCanvas3dModelTransform(next, canvasMediaElementId)
+        }
       />
     </>
   );

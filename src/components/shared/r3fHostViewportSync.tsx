@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useThree } from "@react-three/fiber";
 
 export type HostElementSize = { width: number; height: number };
@@ -6,6 +6,8 @@ export type HostElementSize = { width: number; height: number };
 /**
  * Mide el rect real de un elemento host (px enteros) y se actualiza con ResizeObserver.
  * Útil cuando el `Canvas` de R3F vive bajo transforms/animaciones y la medición inicial falla.
+ * No se pone el tamaño a 0 al cambiar `observeKey`: el `measure()` inmediato en el mismo
+ * `useLayoutEffect` actualiza; resetear a 0 provocaba un frame con buffer WebGL inválido (CLS en presentador).
  */
 export function useHostElementSize(
   observeKey: string,
@@ -68,11 +70,21 @@ export function R3fViewportResizeToHost({
   height: number;
   syncKey?: string;
 }) {
+  const gl = useThree((s) => s.gl);
   const setSize = useThree((s) => s.setSize);
   const invalidate = useThree((s) => s.invalidate);
+  const wasSizeInvalidRef = useRef(true);
 
   useLayoutEffect(() => {
-    if (width <= 0 || height <= 0) return;
+    const invalid = width <= 0 || height <= 0;
+    if (invalid) {
+      wasSizeInvalidRef.current = true;
+      return;
+    }
+
+    const fromInvalid = wasSizeInvalidRef.current;
+    wasSizeInvalidRef.current = false;
+
     setSize(width, height);
     invalidate();
     const id0 = requestAnimationFrame(() => {
@@ -83,11 +95,39 @@ export function R3fViewportResizeToHost({
       setSize(width, height);
       invalidate();
     });
+    const id2 = fromInvalid
+      ? requestAnimationFrame(() => {
+          setSize(width, height);
+          invalidate();
+        })
+      : 0;
     return () => {
       cancelAnimationFrame(id0);
       cancelAnimationFrame(id1);
+      if (fromInvalid && id2) cancelAnimationFrame(id2);
     };
   }, [height, invalidate, setSize, syncKey, width]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onRestored = () => {
+      if (width <= 0 || height <= 0) return;
+      try {
+        setSize(width, height);
+        invalidate();
+        requestAnimationFrame(() => {
+          setSize(width, height);
+          invalidate();
+        });
+      } catch {
+        // Contexto aún inestable durante transición: evitar reventar el hilo si el driver tira
+      }
+    };
+    canvas.addEventListener("webglcontextrestored", onRestored, false);
+    return () => {
+      canvas.removeEventListener("webglcontextrestored", onRestored, false);
+    };
+  }, [gl, height, invalidate, setSize, width]);
 
   return null;
 }

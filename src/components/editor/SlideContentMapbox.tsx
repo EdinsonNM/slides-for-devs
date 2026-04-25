@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { usePresentation } from "../../context/PresentationContext";
+import { useThemeOptional } from "../../context/ThemeContext";
 import {
   parseSlideMapData,
   serializeSlideMapData,
@@ -11,6 +12,8 @@ const TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined;
 
 export function SlideContentMapbox() {
   const { currentSlide, setCurrentSlideMapData } = usePresentation();
+  const theme = useThemeOptional();
+  const appearance = theme?.isDark ? "dark" : "light";
 
   const mapData = useMemo(
     () => parseSlideMapData(currentSlide?.mapData),
@@ -63,6 +66,7 @@ export function SlideContentMapbox() {
         className="h-full w-full"
         mapData={mapData}
         accessToken={token}
+        appearance={appearance}
         readOnly={false}
         persistViewportOnMoveEnd
         onPersistViewport={persistViewport}

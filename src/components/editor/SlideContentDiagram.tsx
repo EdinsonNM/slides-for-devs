@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useEffect } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { usePresentation } from "../../context/PresentationContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const PERSIST_DEBOUNCE_MS = 400;
 
@@ -18,6 +19,7 @@ export function SlideContentDiagram() {
     setCurrentSlideExcalidrawData,
     diagramFlushRef,
   } = usePresentation();
+  const { effectiveTheme } = useTheme();
   const pendingDataRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Último valor que ya guardamos en el contexto; evita setState cuando no hay cambios y corta el bucle de re-renders. */
@@ -126,7 +128,7 @@ export function SlideContentDiagram() {
       <Excalidraw
           initialData={initialData ?? undefined}
           onChange={handleChange}
-          theme="light"
+          theme={effectiveTheme}
           viewModeEnabled={false}
           UIOptions={{
             canvasActions: {

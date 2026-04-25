@@ -8,7 +8,8 @@ import {
   useCallback,
 } from "react";
 import { usePresentation } from "../../context/PresentationContext";
-import type { DeckContentTone } from "../../domain/entities";
+import { useThemeOptional } from "../../context/ThemeContext";
+import { SLIDE_TYPE, type DeckContentTone } from "../../domain/entities";
 import type { Slide } from "../../types";
 import { PRESENTER_MODES } from "../../constants/presenterModes";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
@@ -19,6 +20,7 @@ import {
   getFullscreenElement,
   requestElementFullscreen,
 } from "../../utils/fullscreenApi";
+import { ClaudeDotFadeLayer } from "../shared/ClaudeDotFadeLayer";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
@@ -47,6 +49,18 @@ function previewNavBtnClass(tone: DeckContentTone): string {
 /** Botones fijos compactos: no usar franjas a altura completa (z altos) que tapen el lienzo y bloqueen Rive / 3D. */
 const previewNavBtnFixed =
   "pointer-events-auto fixed top-1/2 z-[106] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full opacity-90 shadow-md transition-opacity hover:opacity-100 motion-reduce:transition-none";
+
+/**
+ * Cascarón opaco: mismos matices que `index.css` (stone / neutros), sin slates azulados ni `rgba` con alpha
+ * en el cuerpo del gradiente (evita que se vea el editor debajo).
+ * Light: --surface-elevated / --background / --surface · Dark: fondo/superficie 23/28/38.
+ */
+const previewOverlayShellBgLight = cn(
+  "bg-[linear-gradient(102deg,rgb(228,227,224)_0%,rgb(245,245,240)_36%,rgb(246,246,246)_100%)]",
+);
+const previewOverlayShellBgDark = cn(
+  "bg-[linear-gradient(168deg,rgb(20,20,20)_0%,rgb(23,23,23)_38%,rgb(28,28,28)_62%,rgb(23,23,23)_100%)]",
+);
 
 type SlideDirection = 1 | -1;
 
@@ -94,11 +108,16 @@ function ContinuousCameraStage({
   currentIndex,
   imageWidthPercent,
   panelHeightPercent,
+  lightAppearance,
+  registerPresenterMapFlyTo = false,
 }: {
   slides: Slide[];
   currentIndex: number;
   imageWidthPercent: number;
   panelHeightPercent: number;
+  /** Alineado con el shell del overlay (tema de app + tono del deck). */
+  lightAppearance: boolean;
+  registerPresenterMapFlyTo?: boolean;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
@@ -138,39 +157,12 @@ function ContinuousCameraStage({
   return (
     <div
       ref={stageRef}
-      className="relative h-full w-full overflow-hidden bg-[radial-gradient(circle_at_center,rgba(15,23,42,0.55),rgba(2,6,23,0.98)_72%)]"
+      className={cn(
+        "relative h-full w-full overflow-hidden",
+        lightAppearance ? previewOverlayShellBgLight : previewOverlayShellBgDark,
+      )}
     >
-      {/*
-        Importante: no aplicar `scale` en un ancestro de WebGL (R3F). Encoge el rect que
-        `getBoundingClientRect`/ResizeObserver ven y el canvas puede quedarse “reducido”.
-        El “alejamiento” es solo visual, en una capa sin lienzo 3D.
-      */}
-      <motion.div
-        key={`camera-dolly-${currentIndex}`}
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
-        initial={{ opacity: 0.2, scale: 1 }}
-        animate={{
-          opacity: [0.18, 0.42, 0.18],
-          scale: [1, 1.14, 1],
-        }}
-        transition={{
-          duration: 0.95,
-          times: [0, 0.46, 1],
-          ease: [0.22, 1, 0.36, 1],
-        }}
-      >
-        <div
-          className="rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-[0_0_80px_rgba(56,189,248,0.12)]"
-          style={{
-            width: slideW > 0 ? `${slideW}px` : "78%",
-            height: slideH > 0 ? `${slideH}px` : "44%",
-            maxWidth: "min(92vw, 1600px)",
-            maxHeight: "85vh",
-          }}
-        />
-      </motion.div>
-
+      <ClaudeDotFadeLayer variant={lightAppearance ? "light" : "dark"} className="z-1" />
       <div className="absolute inset-0 z-10 flex items-center justify-center">
         {slideW > 0 && slideH > 0
           ? slides.map((slide, idx) => {
@@ -188,7 +180,10 @@ function ContinuousCameraStage({
                 <motion.div
                   key={slide.id}
                   className={cn(
-                    "absolute overflow-hidden rounded-2xl border border-white/15 shadow-[0_40px_120px_rgba(0,0,0,0.55)]",
+                    "absolute overflow-hidden rounded-2xl",
+                    lightAppearance
+                      ? "border border-slate-200/90 shadow-[0_28px_90px_rgba(15,23,42,0.1)]"
+                      : "border border-white/15 shadow-[0_40px_120px_rgba(0,0,0,0.55)]",
                     distance === 0 ? "pointer-events-auto" : "pointer-events-none",
                   )}
                   style={{
@@ -216,7 +211,10 @@ function ContinuousCameraStage({
                       slideIndex={idx}
                       disableEntryMotion
                       hideSectionLabel
-                      r3fHostMeasureKey={`camera-continuous:${currentIndex}`}
+                      r3fHostMeasureKey={`camera-continuous:${slide.id}`}
+                      registerPresenterMapFlyTo={
+                        registerPresenterMapFlyTo && idx === currentIndex
+                      }
                     />
                   </div>
                 </motion.div>
@@ -469,8 +467,20 @@ export function PreviewOverlay() {
   }, [currentIndex, isPreviewMode]);
 
   const navTone = deckVisualTheme.contentTone;
+  const themeCtx = useThemeOptional();
+  const appIsDark = themeCtx?.isDark === true;
+  /**
+   * Lienzo claro: documento claro en el deck (`contentTone: "dark"`), y la app en tema claro.
+   * Con app en oscuro, el lienzor del presentador es oscuro aunque el deck sea de diapositiva clara
+   * (misma idea que `useDarkAppSlideChrome` en `DeckBackdrop`).
+   */
+  const previewShellLight = !appIsDark && navTone === "dark";
+  /** Tono de botones / contador: el aspecto del shell, no solo el `contentTone` del deck. */
+  const previewChromeTone: DeckContentTone = previewShellLight ? "dark" : "light";
 
   if (!isPreviewMode || !currentSlide) return null;
+  const showMapSearchBar =
+    currentSlide.type === SLIDE_TYPE.MAPS && presenterMode !== PRESENTER_MODES.JARVIS;
 
   const openPresenterWindow = async () => {
     trackEvent(ANALYTICS_EVENTS.PRESENTER_MODE_OPENED);
@@ -504,7 +514,10 @@ export function PreviewOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-100 flex h-screen w-screen flex-col overflow-hidden bg-black"
+        className={cn(
+          "fixed inset-0 z-100 flex h-screen w-screen flex-col overflow-hidden",
+          previewShellLight ? previewOverlayShellBgLight : previewOverlayShellBgDark,
+        )}
       >
         <PreviewToolbar
           onOpenPresenter={openPresenterWindow}
@@ -525,6 +538,8 @@ export function PreviewOverlay() {
               currentIndex={currentIndex}
               imageWidthPercent={imageWidthPercent}
               panelHeightPercent={panelHeightPercent}
+              lightAppearance={previewShellLight}
+              registerPresenterMapFlyTo={showMapSearchBar}
             />
           ) : (
             <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
@@ -563,6 +578,7 @@ export function PreviewOverlay() {
                     panelHeightPercent={panelHeightPercent}
                     slideIndex={currentIndex}
                     disableEntryMotion
+                    registerPresenterMapFlyTo={showMapSearchBar}
                   />
                 </motion.div>
               )}
@@ -571,7 +587,10 @@ export function PreviewOverlay() {
         </div>
 
         <p
-          className="pointer-events-none fixed bottom-3 left-3 z-105 select-none text-xs font-medium tabular-nums text-white/40 md:bottom-4 md:left-4"
+          className={cn(
+            "pointer-events-none fixed bottom-3 left-3 z-105 select-none text-xs font-medium tabular-nums md:bottom-4 md:left-4",
+            previewChromeTone === "light" ? "text-white/45" : "text-slate-500/90",
+          )}
           aria-live="polite"
         >
           {currentIndex + 1}/{slides.length}
@@ -580,7 +599,7 @@ export function PreviewOverlay() {
         <button
           type="button"
           aria-label="Diapositiva anterior"
-          className={cn(previewNavBtnFixed, "left-3 md:left-4", previewNavBtnClass(navTone))}
+          className={cn(previewNavBtnFixed, "left-3 md:left-4", previewNavBtnClass(previewChromeTone))}
           onClick={handlePrevSlide}
         >
           <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
@@ -588,7 +607,7 @@ export function PreviewOverlay() {
         <button
           type="button"
           aria-label="Diapositiva siguiente"
-          className={cn(previewNavBtnFixed, "right-3 md:right-4", previewNavBtnClass(navTone))}
+          className={cn(previewNavBtnFixed, "right-3 md:right-4", previewNavBtnClass(previewChromeTone))}
           onClick={handleNextSlide}
         >
           <ChevronRight size={28} strokeWidth={2.25} aria-hidden />

@@ -13,6 +13,7 @@ import {
   type SlideCanvasTextPayload,
 } from "../entities/SlideCanvas";
 import { createDefaultDataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import { createDefaultWebcamPanelState } from "../webcam/webcamPanelModel";
 import { normalizeCanvasElementsZOrder } from "./normalizeCanvasElementsZOrder";
 
 /**
@@ -41,6 +42,13 @@ function mediaPayloadForNewPanel(
       type: "media",
       contentType: PANEL_CONTENT_KIND.DATA_MOTION_RING,
       dataMotionRing: createDefaultDataMotionRingState(),
+    };
+  }
+  if (contentType === PANEL_CONTENT_KIND.CAMERA) {
+    return {
+      type: "media",
+      contentType: PANEL_CONTENT_KIND.CAMERA,
+      webcam: createDefaultWebcamPanelState(),
     };
   }
   return base;
@@ -78,7 +86,8 @@ function defaultInsertRect(
   if (
     slide?.type === SLIDE_TYPE.ISOMETRIC ||
     slide?.type === SLIDE_TYPE.MIND_MAP ||
-    slide?.type === SLIDE_TYPE.MAPS
+    slide?.type === SLIDE_TYPE.MAPS ||
+    slide?.type === SLIDE_TYPE.CANVAS_3D
   ) {
     if (kind === "title") return { x: 4, y: 3, w: 88, h: 11 };
     if (kind === "markdown") return { x: 4, y: 76, w: 92, h: 20 };
@@ -113,6 +122,7 @@ export function insertableCanvasElementKindsForSlide(slide: Slide): SlideCanvasE
     case SLIDE_TYPE.ISOMETRIC:
     case SLIDE_TYPE.MIND_MAP:
     case SLIDE_TYPE.MAPS:
+    case SLIDE_TYPE.CANVAS_3D:
       /** Inserción desde el toolbar del diagrama (no se lista en la barra flotante inferior). */
       return ["title", "markdown"];
     default:

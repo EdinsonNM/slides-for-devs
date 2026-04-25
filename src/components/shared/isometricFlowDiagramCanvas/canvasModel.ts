@@ -775,9 +775,6 @@ export function zoomIsoViewTowardPoint(
   const safeH = prev.h > 1e-6 ? prev.h : ISO_VIEW_MAX_W * ISO_VIEW_ASPECT;
   const nx = sx - ((sx - prev.x) / safeW) * nw;
   const ny = sy - ((sy - prev.y) / safeH) * nh;
-  if (nw >= ISO_VIEW_MAX_W - 0.05) {
-    return defaultIsoViewRect();
-  }
   return { x: nx, y: ny, w: nw, h: nh };
 }
 

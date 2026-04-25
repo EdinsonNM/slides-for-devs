@@ -4,16 +4,24 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  startTransition,
   type ReactNode,
   type RefObject,
 } from "react";
 import { flushSync } from "react-dom";
 import {
+  BringToFront,
+  ChevronDown,
+  ChevronUp,
   Frame,
   GripVertical,
+  Layers,
+  Lock,
   RefreshCw,
+  SendToBack,
   Sparkles,
   Split,
+  Unlock,
   Video,
 } from "lucide-react";
 import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
@@ -38,6 +46,10 @@ import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanv
 import { useSlideContainerImageDnD } from "../../hooks/useSlideContainerImageDnD";
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
+import {
+  reorderCanvasElementLayer,
+  type CanvasLayerReorderMove,
+} from "../../domain/slideCanvas/reorderCanvasElementLayer";
 import {
   getCanvasMarkdownBodyDisplay,
   readTextMarkdownFromElement,
@@ -67,12 +79,17 @@ import { SlideContentDiagram } from "../editor/SlideContentDiagram";
 import { SlideContentIsometricFlow } from "../editor/SlideContentIsometricFlow";
 import { SlideContentMindMap } from "../editor/SlideContentMindMap";
 import { SlideContentMapbox } from "../editor/SlideContentMapbox";
+import { SlideContentCanvas3d } from "../editor/SlideContentCanvas3d";
 import type { SlideMatrixData } from "../../domain/entities";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
 import { SlideCanvasAlignmentGuides } from "./SlideCanvasAlignmentGuides";
-import { SlideCanvasCanvaChrome } from "./SlideCanvasCanvaChrome";
+import {
+  CANVAS_CHROME_DATA_ATTR,
+  SlideCanvasCanvaChrome,
+} from "./SlideCanvasCanvaChrome";
 import { SlideCanvasHoverOutline } from "./SlideCanvasHoverOutline";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
+import { SlideDeckBackgroundImageLayer } from "../shared/SlideDeckBackgroundImageLayer";
 import {
   deckIaToolbarBtnClass,
   deckIaToolbarHoverClass,
@@ -104,11 +121,13 @@ const EDIT_FIELD_ATTR = "data-slide-edit-field";
 const CANVAS_KIND_CLICK_PASSTHROUGH = new Set(["isometricFlow", "excalidraw"]);
 /** Solo esta franja inicia arrastre del panel con presentador 3D (el lienzo WebGL captura puntero y chocaba con el movimiento). */
 const CANVAS_DRAG_STRIP_ATTR = "data-slide-canvas-drag-strip";
+/** Menú contextual del lienzo (orden / bloqueo): no debe disparar deselección del fondo. */
+const CANVAS_CTX_MENU_ATTR = "data-slide-canvas-ctx-menu";
 
 /**
- * Orden de apilamiento en el lienzo: solo debe depender de `element.z` (adelante/atrás).
- * Antes `10_000 + z` al seleccionar rompía “enviar atrás” (el seleccionado siempre encima).
- * `stride` + subcapa (hover/selección) mantiene el orden de datos y un pequeño desempate visual.
+ * Orden de apilamiento en el lienzo: solo depende de `element.z` (adelante/atrás).
+ * La selección no debe subir el bloque por encima de otros: solo un pequeño sub-offset
+ * (`stride` + hover/selección) para desempate visual sin cambiar el orden real.
  */
 const CANVAS_Z_STRIDE = 10;
 const CANVAS_Z_SUB_SELECTED = 2;
@@ -116,6 +135,8 @@ const CANVAS_Z_SUB_HOVER = 1;
 
 /** UI flotante del lienzo por encima de los bloques (máx. z de bloque ≈ (n-1)*stride+2; p. ej. ~9992 con n≈1000). */
 const SLIDE_CANVAS_UI_Z = 10_000;
+/** Capa del cromo de selección (marco + toolbar) por encima de cualquier bloque del lienzo. */
+const SLIDE_CANVAS_CHROME_PORTAL_Z = SLIDE_CANVAS_UI_Z + 1;
 
 /**
  * Píxeles mínimos de movimiento antes de iniciar arrastre.
@@ -282,6 +303,7 @@ export function SlideCanvasSlide() {
     syncCanvasTextEditTargetsFromSelection,
     setCanvasMediaPanelEditTarget,
     canvasMediaPanelElementId,
+    isPreviewMode,
     ingestImageFileOnCurrentSlide,
     clipboardElement,
     setClipboardElement,
@@ -293,6 +315,15 @@ export function SlideCanvasSlide() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isDragOverImageFile, setIsDragOverImageFile] = useState(false);
   const [activeField, setActiveField] = useState<TextField | null>(null);
+  const [canvas3dAnimClipNamesByPanelId, setCanvas3dAnimClipNamesByPanelId] =
+    useState<Record<string, string[]>>({});
+  const [canvasElContextMenu, setCanvasElContextMenu] = useState<{
+    elementId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const canvasElContextMenuRef = useRef<HTMLDivElement | null>(null);
+  const slideCanvasChromePortalRef = useRef<HTMLDivElement | null>(null);
   const slideContainerRef = useRef<HTMLDivElement | null>(null);
 
   useSlideContainerImageDnD(
@@ -312,7 +343,26 @@ export function SlideCanvasSlide() {
     setHoveredId(null);
     setActiveField(null);
     setAlignmentGuides(null);
+    setCanvas3dAnimClipNamesByPanelId({});
+    setCanvasElContextMenu(null);
   }, [currentSlide?.id]);
+
+  const onCanvas3dAnimationClipNames = useCallback(
+    (mediaPanelElementId: string, names: string[]) => {
+      setCanvas3dAnimClipNamesByPanelId((prev) => {
+        const prevNames = prev[mediaPanelElementId];
+        if (
+          prevNames &&
+          prevNames.length === names.length &&
+          prevNames.every((n, i) => n === names[i])
+        ) {
+          return prev;
+        }
+        return { ...prev, [mediaPanelElementId]: names };
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isEditing) {
@@ -445,35 +495,79 @@ export function SlideCanvasSlide() {
     [patchCurrentSlideCanvasScene, isEditing, commitSlideEdits],
   );
 
-  const bringCanvasElementForward = useCallback(
-    (elementId: string) => {
-      patchCurrentSlideCanvasScene((scene) => {
-        const maxZ = scene.elements.reduce((m, e) => Math.max(m, e.z), 0);
-        const elements = normalizeCanvasElementsZOrder(
-          scene.elements.map((e) =>
-            e.id === elementId ? { ...e, z: maxZ + 1 } : e,
-          ),
-        );
-        return { ...scene, elements };
+  const applyCanvasLayerReorder = useCallback(
+    (elementId: string, move: CanvasLayerReorderMove) => {
+      /**
+       * `syncSlideRootFromCanvas` + re-render de todo el lienzo (y visores R3F) pesa; marcar
+       * la actualización como transición evita congelar el hilo mientras el usuario sigue
+       * interactuando (p. ej. cierre del menú contextual de capas).
+       */
+      startTransition(() => {
+        patchCurrentSlideCanvasScene((scene) => {
+          const next = reorderCanvasElementLayer(scene.elements, elementId, move);
+          if (!next) return scene;
+          return { ...scene, elements: next };
+        });
       });
     },
     [patchCurrentSlideCanvasScene],
   );
 
+  const bringCanvasElementForward = useCallback(
+    (elementId: string) => applyCanvasLayerReorder(elementId, "forwardOne"),
+    [applyCanvasLayerReorder],
+  );
+
   const sendCanvasElementBackward = useCallback(
+    (elementId: string) => applyCanvasLayerReorder(elementId, "backwardOne"),
+    [applyCanvasLayerReorder],
+  );
+
+  const bringCanvasElementToFront = useCallback(
+    (elementId: string) => applyCanvasLayerReorder(elementId, "toFront"),
+    [applyCanvasLayerReorder],
+  );
+
+  const sendCanvasElementToBack = useCallback(
+    (elementId: string) => applyCanvasLayerReorder(elementId, "toBack"),
+    [applyCanvasLayerReorder],
+  );
+
+  const toggleCanvasElementLocked = useCallback(
     (elementId: string) => {
-      patchCurrentSlideCanvasScene((scene) => {
-        const minZ = scene.elements.reduce((m, e) => Math.min(m, e.z), 0);
-        const elements = normalizeCanvasElementsZOrder(
-          scene.elements.map((e) =>
-            e.id === elementId ? { ...e, z: minZ - 1 } : e,
-          ),
-        );
-        return { ...scene, elements };
-      });
+      patchCurrentSlideCanvasScene((scene) => ({
+        ...scene,
+        elements: scene.elements.map((e) =>
+          e.id === elementId ? { ...e, locked: !e.locked } : e,
+        ),
+      }));
     },
     [patchCurrentSlideCanvasScene],
   );
+
+  const openCanvasElementContextMenu = useCallback(
+    (clientX: number, clientY: number, elementId: string) => {
+      setCanvasElContextMenu({ elementId, x: clientX, y: clientY });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!canvasElContextMenu) return;
+    const onDown = (ev: MouseEvent) => {
+      if (canvasElContextMenuRef.current?.contains(ev.target as Node)) return;
+      setCanvasElContextMenu(null);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setCanvasElContextMenu(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [canvasElContextMenu]);
 
   const attachDragThreshold = useCallback(
     (
@@ -766,6 +860,7 @@ export function SlideCanvasSlide() {
     setHoveredId(null);
     setActiveField(null);
     setCanvasMediaPanelEditTarget(null);
+    setCanvasElContextMenu(null);
   }, [flushCanvasTextCommitIfEditing, setCanvasMediaPanelEditTarget]);
 
   useEffect(() => {
@@ -855,14 +950,24 @@ export function SlideCanvasSlide() {
   const scene = slide.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
   sceneElementsRef.current = sorted;
-  const canvasStackMaxZRank = sorted.reduce(
-    (m, e) => Math.max(m, Math.round(Number.isFinite(e.z) ? e.z : 0)),
-    0,
-  );
+
+  const canvasContextTarget =
+    canvasElContextMenu != null
+      ? (sorted.find((e) => e.id === canvasElContextMenu.elementId) ?? null)
+      : null;
+  const canvasContextIdx =
+    canvasContextTarget != null
+      ? sorted.findIndex((e) => e.id === canvasContextTarget.id)
+      : -1;
+  const canvasContextN = sorted.length;
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     const t = eventTargetElement(e);
     if (!t) return;
+    /* Cromo en portal y menú contextual viven fuera de `data-slide-canvas-el`; sin esto el
+     * pointerdown deselecciona y cierra la UI antes del click (bloqueo / orden no aplican). */
+    if (t.closest(`[${CANVAS_CHROME_DATA_ATTR}]`)) return;
+    if (t.closest(`[${CANVAS_CTX_MENU_ATTR}]`)) return;
     const canvasHit = t.closest("[data-slide-canvas-el]");
     if (canvasHit) {
       const k = canvasHit.getAttribute("data-slide-canvas-kind");
@@ -885,16 +990,22 @@ export function SlideCanvasSlide() {
     resolveMediaPanelDescriptor(slide).showSlideContentIframeEmbedToolbar();
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
   const isMapsSlide = slide.type === SLIDE_TYPE.MAPS;
+  const isCanvas3dSlide = slide.type === SLIDE_TYPE.CANVAS_3D;
+  const isMindMapSlide = slide.type === SLIDE_TYPE.MIND_MAP;
 
   return (
     <div
       ref={slideContainerRef}
+      data-slide-editor-root=""
       id={slide.type === SLIDE_TYPE.CONTENT ? "slide-container" : undefined}
       tabIndex={slide.type === SLIDE_TYPE.CONTENT ? -1 : undefined}
       className={cn(
         "relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
         deckSlideContentWrapperClass(deckVisualTheme.contentTone),
-        (isIsometricSlide || isMapsSlide) && "bg-slate-50 dark:bg-slate-950",
+        (isIsometricSlide ||
+          isMapsSlide ||
+          isMindMapSlide ||
+          isCanvas3dSlide) && "bg-background",
         slide.type === SLIDE_TYPE.CONTENT &&
           isDragOverImageFile &&
           "ring-2 ring-emerald-500/60 ring-inset",
@@ -902,15 +1013,23 @@ export function SlideCanvasSlide() {
       onPointerDown={onBackgroundPointerDown}
     >
       {slide.type === SLIDE_TYPE.ISOMETRIC && (
-        <SlideContentIsometricFlow />
+        <SlideContentIsometricFlow
+          onEditorSurfacePointerDown={dismissSlideCanvasSelection}
+        />
       )}
       {slide.type === SLIDE_TYPE.MIND_MAP && (
         <SlideContentMindMap />
       )}
       {slide.type === SLIDE_TYPE.MAPS && <SlideContentMapbox />}
+      {slide.type === SLIDE_TYPE.CANVAS_3D && <SlideContentCanvas3d />}
       {!isIsometricSlide &&
         slide.type !== SLIDE_TYPE.MIND_MAP &&
-        slide.type !== SLIDE_TYPE.MAPS && <DeckBackdrop theme={deckVisualTheme} />}
+        slide.type !== SLIDE_TYPE.MAPS &&
+        slide.type !== SLIDE_TYPE.CANVAS_3D && <DeckBackdrop theme={deckVisualTheme} />}
+      {!isIsometricSlide &&
+        slide.type !== SLIDE_TYPE.MIND_MAP &&
+        slide.type !== SLIDE_TYPE.MAPS &&
+        slide.type !== SLIDE_TYPE.CANVAS_3D && <SlideDeckBackgroundImageLayer slide={slide} />}
       {alignmentGuides ? (
         <SlideCanvasAlignmentGuides
           vertical={alignmentGuides.vertical}
@@ -1004,6 +1123,12 @@ export function SlideCanvasSlide() {
         </div>
       )}
 
+      <div
+        ref={slideCanvasChromePortalRef}
+        className="pointer-events-none absolute inset-0 overflow-visible"
+        style={{ zIndex: SLIDE_CANVAS_CHROME_PORTAL_Z }}
+      />
+
       {sorted
         .filter((el) => el.kind !== "sectionLabel")
         /* Diapositiva solo isométrica / mapa: ya se pinta el lienzo completo arriba; el bloque en `canvasScene` duplicaría UI (p. ej. dos toolbars). */
@@ -1079,6 +1204,11 @@ export function SlideCanvasSlide() {
           deleteCanvasElement={deleteCanvasElement}
           bringCanvasElementForward={bringCanvasElementForward}
           sendCanvasElementBackward={sendCanvasElementBackward}
+          bringCanvasElementToFront={bringCanvasElementToFront}
+          sendCanvasElementToBack={sendCanvasElementToBack}
+          toggleCanvasElementLocked={toggleCanvasElementLocked}
+          canvasLayerStackIndex={sorted.findIndex((e) => e.id === el.id)}
+          canvasLayerStackCount={sorted.length}
           diagramRemountToken={diagramRemountToken}
           onPatchRect={onPatchRect}
           slideContainerRef={slideContainerRef}
@@ -1107,11 +1237,230 @@ export function SlideCanvasSlide() {
           openCodeGenModal={openCodeGenModal}
           deckContentTone={deckVisualTheme.contentTone}
           onDismissSlideCanvasSelection={dismissSlideCanvasSelection}
-          canvasStackMaxZRank={canvasStackMaxZRank}
+          onOpenCanvasElementContextMenu={openCanvasElementContextMenu}
           canvasMediaPanelElementId={canvasMediaPanelElementId}
           cycleCodeEditorThemeForMediaPanel={cycleCodeEditorThemeForMediaPanel}
+          canvas3dAnimClipNamesByPanelId={canvas3dAnimClipNamesByPanelId}
+          onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
+          slideCanvasChromePortalRef={slideCanvasChromePortalRef}
+          isPreviewMode={isPreviewMode}
         />
       ))}
+      {canvasElContextMenu != null && canvasContextIdx >= 0 ? (
+        <div
+          ref={canvasElContextMenuRef}
+          {...{ [CANVAS_CTX_MENU_ATTR]: "" }}
+          className="fixed z-[12000] min-w-[272px] max-w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-xl border border-stone-200/90 bg-white py-2 text-sm shadow-xl ring-1 ring-black/5 dark:border-stone-600 dark:bg-stone-900 dark:ring-white/10"
+          style={{
+            left: canvasElContextMenu.x,
+            top: canvasElContextMenu.y,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+          aria-label="Orden y bloqueo del panel"
+        >
+          <div className="flex items-center gap-2 px-3 pb-2 pt-0.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400">
+              <Layers size={18} strokeWidth={2} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                Orden de capas
+              </p>
+              <p className="truncate text-xs text-stone-400 dark:text-stone-500">
+                Capa {canvasContextIdx + 1} de {canvasContextN}
+              </p>
+            </div>
+          </div>
+          <div className="mx-2 border-t border-stone-100 dark:border-stone-700/80" />
+          <div className="px-1.5 pt-1.5">
+            <button
+              type="button"
+              role="menuitem"
+              disabled={canvasContextIdx >= canvasContextN - 1}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+                canvasContextIdx < canvasContextN - 1
+                  ? "text-stone-800 hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-800/80"
+                  : "cursor-not-allowed text-stone-400 dark:text-stone-500",
+              )}
+              onClick={() => {
+                if (canvasContextIdx >= canvasContextN - 1) return;
+                bringCanvasElementForward(canvasElContextMenu.elementId);
+                setCanvasElContextMenu(null);
+              }}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+                  canvasContextIdx < canvasContextN - 1
+                    ? "border-stone-200 bg-stone-50 dark:border-stone-600 dark:bg-stone-800"
+                    : "border-transparent bg-stone-50/50 dark:bg-stone-800/40",
+                )}
+                aria-hidden
+              >
+                <ChevronUp size={18} strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium leading-tight">
+                  Traer adelante
+                </span>
+                <span className="block text-xs font-normal text-stone-500 dark:text-stone-400">
+                  Una capa hacia delante
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={canvasContextIdx <= 0}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+                canvasContextIdx > 0
+                  ? "text-stone-800 hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-800/80"
+                  : "cursor-not-allowed text-stone-400 dark:text-stone-500",
+              )}
+              onClick={() => {
+                if (canvasContextIdx <= 0) return;
+                sendCanvasElementBackward(canvasElContextMenu.elementId);
+                setCanvasElContextMenu(null);
+              }}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+                  canvasContextIdx > 0
+                    ? "border-stone-200 bg-stone-50 dark:border-stone-600 dark:bg-stone-800"
+                    : "border-transparent bg-stone-50/50 dark:bg-stone-800/40",
+                )}
+                aria-hidden
+              >
+                <ChevronDown size={18} strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium leading-tight">
+                  Enviar atrás
+                </span>
+                <span className="block text-xs font-normal text-stone-500 dark:text-stone-400">
+                  Una capa hacia detrás
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={canvasContextIdx >= canvasContextN - 1}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+                canvasContextIdx < canvasContextN - 1
+                  ? "text-stone-800 hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-800/80"
+                  : "cursor-not-allowed text-stone-400 dark:text-stone-500",
+              )}
+              onClick={() => {
+                if (canvasContextIdx >= canvasContextN - 1) return;
+                bringCanvasElementToFront(canvasElContextMenu.elementId);
+                setCanvasElContextMenu(null);
+              }}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+                  canvasContextIdx < canvasContextN - 1
+                    ? "border-emerald-200/80 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40"
+                    : "border-transparent bg-stone-50/50 dark:bg-stone-800/40",
+                )}
+                aria-hidden
+              >
+                <BringToFront size={18} strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium leading-tight">
+                  Traer al frente
+                </span>
+                <span className="block text-xs font-normal text-stone-500 dark:text-stone-400">
+                  Sobre todos los paneles
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={canvasContextIdx <= 0}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+                canvasContextIdx > 0
+                  ? "text-stone-800 hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-800/80"
+                  : "cursor-not-allowed text-stone-400 dark:text-stone-500",
+              )}
+              onClick={() => {
+                if (canvasContextIdx <= 0) return;
+                sendCanvasElementToBack(canvasElContextMenu.elementId);
+                setCanvasElContextMenu(null);
+              }}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+                  canvasContextIdx > 0
+                    ? "border-stone-200 bg-stone-50 dark:border-stone-600 dark:bg-stone-800"
+                    : "border-transparent bg-stone-50/50 dark:bg-stone-800/40",
+                )}
+                aria-hidden
+              >
+                <SendToBack size={18} strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium leading-tight">
+                  Enviar al fondo
+                </span>
+                <span className="block text-xs font-normal text-stone-500 dark:text-stone-400">
+                  Detrás de todos los paneles
+                </span>
+              </span>
+            </button>
+          </div>
+          <div className="mx-2 my-1.5 border-t border-stone-100 dark:border-stone-700/80" />
+          <div className="px-1.5 pb-0.5">
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-stone-800 transition-colors hover:bg-stone-100 dark:text-stone-100 dark:hover:bg-stone-800/80"
+              onClick={() => {
+                toggleCanvasElementLocked(canvasElContextMenu.elementId);
+                setCanvasElContextMenu(null);
+              }}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+                  canvasContextTarget?.locked
+                    ? "border-amber-200/90 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/35"
+                    : "border-stone-200 bg-stone-50 dark:border-stone-600 dark:bg-stone-800",
+                )}
+                aria-hidden
+              >
+                {canvasContextTarget?.locked ? (
+                  <Unlock size={18} strokeWidth={2} />
+                ) : (
+                  <Lock size={18} strokeWidth={2} />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium leading-tight">
+                  {canvasContextTarget?.locked
+                    ? "Desbloquear panel"
+                    : "Bloquear panel"}
+                </span>
+                <span className="block text-xs font-normal text-stone-500 dark:text-stone-400">
+                  {canvasContextTarget?.locked
+                    ? "Permitir mover y redimensionar"
+                    : "Evitar mover o redimensionar"}
+                </span>
+              </span>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1155,6 +1504,11 @@ function CanvasElementEditor({
   deleteCanvasElement,
   bringCanvasElementForward,
   sendCanvasElementBackward,
+  bringCanvasElementToFront,
+  sendCanvasElementToBack,
+  toggleCanvasElementLocked,
+  canvasLayerStackIndex,
+  canvasLayerStackCount,
   diagramRemountToken,
   onPatchRect,
   slideContainerRef,
@@ -1171,9 +1525,13 @@ function CanvasElementEditor({
   deckContentTone,
   setCanvasTextEditTarget,
   onDismissSlideCanvasSelection,
-  canvasStackMaxZRank,
+  onOpenCanvasElementContextMenu,
   canvasMediaPanelElementId,
   cycleCodeEditorThemeForMediaPanel,
+  canvas3dAnimClipNamesByPanelId,
+  onCanvas3dAnimationClipNames,
+  slideCanvasChromePortalRef,
+  isPreviewMode: deckIsPreviewMode,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -1238,6 +1596,11 @@ function CanvasElementEditor({
   deleteCanvasElement: (id: string) => void;
   bringCanvasElementForward: (id: string) => void;
   sendCanvasElementBackward: (id: string) => void;
+  bringCanvasElementToFront: (id: string) => void;
+  sendCanvasElementToBack: (id: string) => void;
+  toggleCanvasElementLocked: (id: string) => void;
+  canvasLayerStackIndex: number;
+  canvasLayerStackCount: number;
   diagramRemountToken: number;
   onPatchRect: (id: string, r: SlideCanvasRect) => void;
   slideContainerRef: RefObject<HTMLDivElement | null>;
@@ -1265,10 +1628,21 @@ function CanvasElementEditor({
     elementId: string,
   ) => void;
   onDismissSlideCanvasSelection: () => void;
-  /** Máximo `element.z` del lienzo: el seleccionado se apila por encima de todos (toolbar/cromo). */
-  canvasStackMaxZRank: number;
+  onOpenCanvasElementContextMenu: (
+    clientX: number,
+    clientY: number,
+    elementId: string,
+  ) => void;
   canvasMediaPanelElementId: string | null;
   cycleCodeEditorThemeForMediaPanel: (elementId: string) => void;
+  canvas3dAnimClipNamesByPanelId: Record<string, string[]>;
+  onCanvas3dAnimationClipNames: (
+    mediaPanelElementId: string,
+    names: string[],
+  ) => void;
+  slideCanvasChromePortalRef: RefObject<HTMLDivElement | null>;
+  /** Vista previa / presentador en la misma pestaña: no montar WebGL 3D en el lienzo (evita duplicar contextos con el overlay). */
+  isPreviewMode: boolean;
 }) {
   const tone = deckContentTone;
   const { theme: globalCodeEditorTheme } = useCodeEditorTheme();
@@ -1282,6 +1656,7 @@ function CanvasElementEditor({
     resolveMediaPanelDescriptor(panelSlide).kind ===
       PANEL_CONTENT_KIND.DATA_MOTION_RING;
   const rotation = element.rotation ?? 0;
+  const isLocked = Boolean(element.locked);
 
   const titleAutoMeasureRef = useRef<HTMLDivElement>(null);
   const subtitleAutoMeasureRef = useRef<HTMLDivElement>(null);
@@ -1398,10 +1773,7 @@ function CanvasElementEditor({
     (isSelected ? CANVAS_Z_SUB_SELECTED : 0) +
     (!isSelected && isHovered ? CANVAS_Z_SUB_HOVER : 0);
   const stackInLayer = zRank * CANVAS_Z_STRIDE + sub;
-  /** El seleccionado sube a un plano por encima del mayor `z` del resto para que cromo/toolbar no queden tapados. */
-  const zIndex = isSelected
-    ? (canvasStackMaxZRank + 1) * CANVAS_Z_STRIDE + zRank
-    : stackInLayer;
+  const zIndex = stackInLayer;
   const box: React.CSSProperties = {
     left: `${rect.x}%`,
     top: `${rect.y}%`,
@@ -1413,6 +1785,15 @@ function CanvasElementEditor({
   const shellHoverProps = {
     onPointerEnter: onHoverEnter,
     onPointerLeave: onHoverLeave,
+  };
+  const onCanvasShellContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onOpenCanvasElementContextMenu(e.clientX, e.clientY, id);
+  };
+  const shellSurfaceProps = {
+    ...shellHoverProps,
+    onContextMenu: onCanvasShellContextMenu,
   };
 
   const showHoverOutline = isHovered && !isSelected;
@@ -1490,7 +1871,7 @@ function CanvasElementEditor({
     }
     const captureEl =
       e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
-    if (kind !== "isometricFlow") {
+    if (kind !== "isometricFlow" && !isLocked) {
       attachDragThreshold(
         id,
         rect,
@@ -1839,13 +2220,29 @@ function CanvasElementEditor({
               },
           onDuplicate: () => duplicateCanvasElement(id),
           onDelete: () => deleteCanvasElement(id),
-          onBringForward: () => bringCanvasElementForward(id),
-          onSendBackward: () => sendCanvasElementBackward(id),
+          onBringForwardOneStep: () => bringCanvasElementForward(id),
+          onSendBackwardOneStep: () => sendCanvasElementBackward(id),
+          onBringToFront: () => bringCanvasElementToFront(id),
+          onSendToBack: () => sendCanvasElementToBack(id),
+          onToggleLock: () => toggleCanvasElementLocked(id),
+          isLocked,
+          layerStack: {
+            index: canvasLayerStackIndex,
+            count: canvasLayerStackCount,
+          },
           canvas3dSource: showMediaPanelCanvas3dActions
             ? {
                 httpGlbUrl: panelSlide.canvas3dGlbUrl?.startsWith("http")
                   ? panelSlide.canvas3dGlbUrl
                   : "",
+                slideId: panelSlide.id,
+                mediaPanelElementId: id,
+                glbUrl: panelSlide.canvas3dGlbUrl,
+                viewState: panelSlide.canvas3dViewState,
+                modelTransform: panelSlide.canvas3dModelTransform,
+                animationClipNames:
+                  canvas3dAnimClipNamesByPanelId[id] ?? [],
+                animationClipValue: panelSlide.canvas3dAnimationClipName,
               }
             : undefined,
           markdownDescriptionToolbar:
@@ -1874,8 +2271,13 @@ function CanvasElementEditor({
 
   const canvaChromeEl = showCanvaChromeFrame ? (
     <SlideCanvasCanvaChrome
-      showResize
+      showResize={!isLocked}
+      isTransformLocked={isLocked}
       layoutDigest={`${rect.x},${rect.y},${rect.w},${rect.h}`}
+      chromePortalContainerRef={slideCanvasChromePortalRef}
+      chromeAnchorRect={rect}
+      chromeAnchorElementId={id}
+      slideShellRef={slideContainerRef}
       onResizeCorner={(corner, e) => startResizeCorner(id, corner, e, rect)}
       onResizeEdge={(edge, e) => startResizeEdge(id, edge, e, rect)}
       onRotatePointerDown={(e) => startRotate(id, e, rect, rotation)}
@@ -1926,9 +2328,10 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           {rotatedInner(
             "flex w-full min-w-0 flex-col overflow-visible",
@@ -2018,9 +2421,10 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           {rotatedInner(
             "flex w-full min-w-0 flex-col overflow-visible",
@@ -2127,9 +2531,10 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           {rotatedInner(
             "relative flex h-full min-h-0 w-full flex-col overflow-hidden",
@@ -2211,6 +2616,21 @@ function CanvasElementEditor({
     }
     case "mediaPanel": {
       const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
+      /**
+       * En el lienzo: 3D en vivo solo con el bloque seleccionado y sin vista previa abierta;
+       * si no, imagen congelada. Con `isPreviewMode`, el overlay ya pinta el 3D: aquí no montar WebGL.
+       */
+      const r3fUseLiveWebgl =
+        mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D ||
+        mediaPanelDesc.kind === PANEL_CONTENT_KIND.PRESENTER_3D
+          ? isSelected && !deckIsPreviewMode
+          : true;
+      /**
+       * Clave de medición estable por `mediaPanel` (sin `z`); el remount de WebGL 3D va por
+       * `r3fStackRevision` (`zRank`), no por esta clave, para no disparar ola de setSize en
+       * todos los visores al reordenar.
+       */
+      const canvasR3fHostMeasureKey = `canvas-r3f:${id}`;
       const dataRingPanel = mediaPanelDesc.kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
       const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
       const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
@@ -2240,6 +2660,7 @@ function CanvasElementEditor({
           return;
         }
         e.stopPropagation();
+        if (isLocked) return;
         attachDragThreshold(
           id,
           rect,
@@ -2254,6 +2675,7 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           data-slide-canvas-kind="mediaPanel"
           data-slide-element-id={id}
           className={cn(
@@ -2262,7 +2684,7 @@ function CanvasElementEditor({
               ? "bg-transparent"
               : deckMediaPanelShellClass(tone),
           )}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
           onPointerDown={
             usesInteractionDragStrip
               ? undefined
@@ -2331,6 +2753,14 @@ function CanvasElementEditor({
                     embeddedInCanvas
                     canvasPanelSlide={panelSlide}
                     canvasMediaElementId={id}
+                    canvasR3fHostMeasureKey={canvasR3fHostMeasureKey}
+                    r3fStackRevision={zRank}
+                    r3fUseLiveWebgl={r3fUseLiveWebgl}
+                    onCanvas3dAnimationClipNames={
+                      mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D
+                        ? onCanvas3dAnimationClipNames
+                        : undefined
+                    }
                   />
                 </div>
               </>
@@ -2340,6 +2770,14 @@ function CanvasElementEditor({
                 embeddedInCanvas
                 canvasPanelSlide={panelSlide}
                 canvasMediaElementId={id}
+                canvasR3fHostMeasureKey={canvasR3fHostMeasureKey}
+                r3fStackRevision={zRank}
+                r3fUseLiveWebgl={r3fUseLiveWebgl}
+                onCanvas3dAnimationClipNames={
+                  mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D
+                    ? onCanvas3dAnimationClipNames
+                    : undefined
+                }
               />
             ),
             dataRingPanel ? { preserve3d: true } : undefined,
@@ -2357,9 +2795,10 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           {rotatedInner(
             "h-full min-h-0 overflow-y-auto px-1 py-1",
@@ -2400,9 +2839,10 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           className={outerShellClass}
           onPointerDown={onShellPointerDown}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           {rotatedInner(
             cn(
@@ -2476,9 +2916,10 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           data-slide-canvas-kind="excalidraw"
           className={cn(outerShellClass, "bg-white dark:bg-surface-elevated")}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           <div
             key={`${slide.id}-${diagramRemountToken}`}
@@ -2494,12 +2935,13 @@ function CanvasElementEditor({
         <div
           style={box}
           data-slide-canvas-el
+          data-canvas-element-id={id}
           data-slide-canvas-kind="isometricFlow"
           className={cn(
             outerShellClass,
             "bg-transparent",
           )}
-          {...shellHoverProps}
+          {...shellSurfaceProps}
         >
           <div className="absolute inset-0 min-h-0">
             <SlideContentIsometricFlow

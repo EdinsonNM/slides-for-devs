@@ -8,6 +8,7 @@ import {
   GripVertical,
   Map,
   Network,
+  Box,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
@@ -282,8 +283,8 @@ export function SlideSidebar() {
                       <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
                         {slide.title || "Mapa mental"}
                       </span>
-                      <div className="flex-1 min-h-0 flex items-center justify-center rounded border border-dashed border-stone-200 bg-stone-900/90 dark:border-stone-600">
-                        <Network className="w-5 h-5 text-sky-400/90" strokeWidth={1.5} />
+                      <div className="flex-1 min-h-0 flex items-center justify-center rounded border border-dashed border-stone-200 bg-stone-100 dark:border-stone-600 dark:bg-background">
+                        <Network className="w-5 h-5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
                       </div>
                       <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
                         Mapa mental
@@ -294,11 +295,27 @@ export function SlideSidebar() {
                       <span className="text-[9px] font-medium text-stone-900 dark:text-foreground line-clamp-1 text-left leading-tight shrink-0">
                         {slide.title || "Mapa"}
                       </span>
-                      <div className="flex-1 min-h-0 flex items-center justify-center rounded border border-stone-200 bg-linear-to-br from-sky-100 to-sky-50 dark:border-stone-600 dark:from-sky-950/80 dark:to-slate-900">
-                        <Map className="w-5 h-5 text-sky-600 dark:text-sky-400" strokeWidth={1.5} />
+                      <div className="flex-1 min-h-0 flex items-center justify-center rounded border border-stone-200 bg-linear-to-br from-stone-100 to-stone-50 dark:border-stone-600 dark:from-surface dark:to-background">
+                        <Map className="w-5 h-5 text-emerald-700 dark:text-emerald-400" strokeWidth={1.5} />
                       </div>
                       <span className="text-[7px] text-stone-400 dark:text-stone-500 uppercase tracking-wider shrink-0">
                         Mapas
+                      </span>
+                    </div>
+                  ) : slide.type === SLIDE_TYPE.CANVAS_3D ? (
+                    <div className="flex min-h-0 flex-1 flex-col gap-1">
+                      <span className="shrink-0 text-left text-[9px] font-medium leading-tight text-stone-900 line-clamp-1 dark:text-foreground">
+                        {slide.title || "Canvas 3D"}
+                      </span>
+                      <div className="flex min-h-0 flex-1 items-center justify-center rounded border border-stone-200 bg-linear-to-br from-slate-900 to-violet-950 dark:border-stone-600">
+                        <Box
+                          className="size-5 text-violet-200"
+                          strokeWidth={1.5}
+                          aria-hidden
+                        />
+                      </div>
+                      <span className="shrink-0 text-[7px] uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                        Canvas 3D
                       </span>
                     </div>
                   ) : slide.type === SLIDE_TYPE.CONTENT ? (

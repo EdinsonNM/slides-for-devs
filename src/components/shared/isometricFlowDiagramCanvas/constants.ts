@@ -124,8 +124,5 @@ export const MARQUEE_ACTIVATE_PX = 5;
 
 export type IsoViewRect = { x: number; y: number; w: number; h: number };
 
-export const ISO_VIEW_ASPECT = ISOMETRIC_VIEWBOX.h / ISOMETRIC_VIEWBOX.w;
-/** Zoom máximo (vista más cercana). */
-export const ISO_VIEW_MIN_W = 72;
-/** No ampliar el encuadre más allá del lienzo completo. */
-export const ISO_VIEW_MAX_W = ISOMETRIC_VIEWBOX.w;
+/* Reexportados desde isometricFlowGeometry (un solo origen de verdad). */
+export { ISO_VIEW_ASPECT, ISO_VIEW_MAX_W, ISO_VIEW_MIN_W } from "../../../utils/isometricFlowGeometry";

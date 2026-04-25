@@ -1,3 +1,4 @@
+/** Paradas de color compartidas con `isoFlowCanvasBackdrop.ts` (mapa mental vía CSS). */
 import type { IsoDiagramChrome } from "./canvasModel";
 import { CELL, FLOW_DASH_SPAN, ORIGIN_X, ORIGIN_Y, type IsoViewRect } from "./constants";
 import { IsoGridBackground } from "./IsoGridBackground";
@@ -31,9 +32,10 @@ export function IsoFlowSvgDefsAndBackdrop({
             x2="1"
             y2="1"
           >
-            <stop offset="0%" stopColor="rgb(248 250 252)" />
-            <stop offset="55%" stopColor="rgb(241 245 249)" />
-            <stop offset="100%" stopColor="rgb(224 231 239)" />
+            {/* Alineado a `--color-surface` / `--color-background` (tema claro de la app). */}
+            <stop offset="0%" stopColor="rgb(246 246 246)" />
+            <stop offset="55%" stopColor="rgb(245 244 242)" />
+            <stop offset="100%" stopColor="rgb(245 245 240)" />
           </linearGradient>
           <linearGradient
             id={gradIdDark}
@@ -43,16 +45,17 @@ export function IsoFlowSvgDefsAndBackdrop({
             x2="1"
             y2="1"
           >
-            <stop offset="0%" stopColor="rgb(15 23 42)" />
-            <stop offset="55%" stopColor="rgb(30 41 59)" />
-            <stop offset="100%" stopColor="rgb(51 65 85)" />
+            {/* Misma familia que `DeckBackdrop` en oscuro: surface → background, sin matiz azulado slate. */}
+            <stop offset="0%" stopColor="rgb(28 28 28)" />
+            <stop offset="55%" stopColor="rgb(25 25 25)" />
+            <stop offset="100%" stopColor="rgb(23 23 23)" />
           </linearGradient>
           <filter id={shadowId} x="-40%" y="-40%" width="180%" height="180%">
             <feDropShadow
               dx="2"
               dy="5"
               stdDeviation="4"
-              floodColor="#020617"
+              floodColor="#171717"
               floodOpacity={diagramChrome === "dark" ? "0.45" : "0.12"}
             />
           </filter>

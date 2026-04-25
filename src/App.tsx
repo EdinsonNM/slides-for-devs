@@ -67,10 +67,9 @@ function ConfigureAiRoute({ onSaved }: { onSaved: () => void }) {
 
 interface HomeOrRedirectProps {
   onOpenConfig: () => void;
-  apiConfigured: boolean;
 }
 
-function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
+function HomeOrRedirect({ onOpenConfig }: HomeOrRedirectProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -96,10 +95,6 @@ function HomeOrRedirect({ onOpenConfig, apiConfigured }: HomeOrRedirectProps) {
 
   if (!user) {
     return <WelcomeSignInPanel />;
-  }
-
-  if (!apiConfigured) {
-    return <Navigate to="/configure-ai?mode=settings" replace />;
   }
 
   const onOpenSavedAndGo = async (id: string) => {
@@ -335,10 +330,7 @@ export default function App() {
         <Route
           path="/"
           element={
-            <HomeOrRedirect
-              onOpenConfig={openApiConfigFromSettings}
-              apiConfigured={apiConfigured}
-            />
+            <HomeOrRedirect onOpenConfig={openApiConfigFromSettings} />
           }
         />
         <Route

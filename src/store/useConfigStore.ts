@@ -9,7 +9,6 @@ export interface ConfigState {
   deckNarrativePresetId: string;
   narrativeNotes: string;
   presentationModelId: string;
-  autoCloudSyncOnSave: boolean;
   apiKeysVersion: number;
 
   setConfigState: (state: Partial<ConfigState>) => void;
@@ -21,13 +20,6 @@ export const useConfigStore = create<ConfigState>((set) => ({
   deckNarrativePresetId: DEFAULT_DECK_NARRATIVE_PRESET_ID,
   narrativeNotes: "",
   presentationModelId: DEFAULT_PRESENTATION_MODEL_ID,
-  autoCloudSyncOnSave: (() => {
-    try {
-      return localStorage.getItem("slaim-auto-cloud-sync") === "1";
-    } catch {
-      return false;
-    }
-  })(),
   apiKeysVersion: 0,
 
   setConfigState: (newState) => set((state) => ({ ...state, ...newState })),

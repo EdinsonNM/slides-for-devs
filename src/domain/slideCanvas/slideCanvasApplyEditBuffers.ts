@@ -16,6 +16,10 @@ import {
 import { ensureSlideCanvasScene } from "./ensureSlideCanvasScene";
 import { syncSlideRootFromCanvas } from "./syncSlideRootFromCanvas";
 import { sanitizeSlideRichHtml } from "../../utils/slideRichText";
+import {
+  PANEL_CONTENT_KIND,
+  normalizePanelContentKind,
+} from "../panelContent/panelContentKind";
 
 export type CanvasTextEditTargets = {
   titleElementId: string | null;
@@ -148,15 +152,29 @@ export function applyEditBuffersToSlide(
     const el = scene.elements.find((e) => e.id === targets.mediaPanelElementId);
     if (el?.kind === "mediaPanel") {
       const media = readMediaPayloadFromElement(slide, el);
-      const nextMedia = {
-        ...media,
-        code: buffers.code,
-        language: buffers.language,
-        fontSize: buffers.fontSize,
-        editorHeight: buffers.editorHeight,
-      };
-      scene = patchElementPayload(scene, targets.mediaPanelElementId, nextMedia);
-      slide = { ...slide, canvasScene: scene };
+      /**
+       * Solo el panel **código** debe recibir los buffers `code` / `language` / etc.
+       * Si `mediaPanelElementId` quedó desfasado (p. ej. tras reordenar capas en la misma
+       * diapositiva, `syncEditFieldsFromSlide` no corre), volcar aquí sobre Canvas 3D /
+       * Imagen / Presentador reemplaza el payload entero y puede borrar GLB o texturas.
+       */
+      if (
+        normalizePanelContentKind(media.contentType) === PANEL_CONTENT_KIND.CODE
+      ) {
+        const nextMedia = {
+          ...media,
+          code: buffers.code,
+          language: buffers.language,
+          fontSize: buffers.fontSize,
+          editorHeight: buffers.editorHeight,
+        };
+        scene = patchElementPayload(
+          scene,
+          targets.mediaPanelElementId,
+          nextMedia,
+        );
+        slide = { ...slide, canvasScene: scene };
+      }
     }
   }
 

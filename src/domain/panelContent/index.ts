@@ -13,5 +13,6 @@ export {
   Presenter3dMediaPanelDescriptor,
   Canvas3dMediaPanelDescriptor,
   DataMotionRingMediaPanelDescriptor,
+  CameraMediaPanelDescriptor,
   resolveMediaPanelDescriptor,
 } from "./mediaPanelDescriptors";

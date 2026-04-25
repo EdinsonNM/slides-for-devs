@@ -13,6 +13,7 @@ import {
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
+import { SlideDeckBackgroundImageLayer } from "../shared/SlideDeckBackgroundImageLayer";
 import {
   deckSectionLabelClass,
   deckSlideContentWrapperClass,
@@ -54,6 +55,16 @@ export interface PreviewSlideContentProps {
    * por transforms sin disparar `ResizeObserver` (p. ej. modo presentación “cámara continua”).
    */
   r3fHostMeasureKey?: string;
+  /**
+   * Solo ventana de presentación: búsqueda de lugar (Mapbox) vinculada al mapa.
+   * @default false
+   */
+  registerPresenterMapFlyTo?: boolean;
+  /**
+   * Canvas 3D sin rejilla ni texto de ayuda (presentador / pantalla completa).
+   * Si se omite, se activa cuando `layout === "fullscreen"`.
+   */
+  minimalCanvas3dChrome?: boolean;
 }
 
 /**
@@ -71,6 +82,8 @@ export function PreviewSlideContent({
   pptxExportFrame = false,
   hideSectionLabel = false,
   r3fHostMeasureKey,
+  registerPresenterMapFlyTo = false,
+  minimalCanvas3dChrome: minimalCanvas3dChromeProp,
 }: PreviewSlideContentProps) {
   const ctx = usePresentationOptional();
   const deckVisualTheme =
@@ -78,11 +91,14 @@ export function PreviewSlideContent({
   const toneClass = deckSlideContentWrapperClass(deckVisualTheme.contentTone);
   const sectionLabelClass = deckSectionLabelClass(deckVisualTheme.contentTone);
   const isFullscreen = layout === "fullscreen";
+  const minimalCanvas3dChrome =
+    minimalCanvas3dChromeProp ?? isFullscreen;
   const isIsometricSlide = slide.type === SLIDE_TYPE.ISOMETRIC;
   const hideDeckBackdropBehindCanvas =
     isIsometricSlide ||
     slide.type === SLIDE_TYPE.MIND_MAP ||
-    slide.type === SLIDE_TYPE.MAPS;
+    slide.type === SLIDE_TYPE.MAPS ||
+    slide.type === SLIDE_TYPE.CANVAS_3D;
   const isDataMotionRingSlide =
     slide.type === SLIDE_TYPE.CONTENT &&
     resolveMediaPanelDescriptor(slide).kind === PANEL_CONTENT_KIND.DATA_MOTION_RING;
@@ -120,6 +136,7 @@ export function PreviewSlideContent({
     return (
       <div key={slide.id} className={outerClass} style={fullscreenBackdropStyle}>
         {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
+        {useFullscreenDeckBackdrop && <SlideDeckBackgroundImageLayer slide={slide} />}
         {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
           <div className="shrink-0 self-start px-0.5">
             <span
@@ -140,18 +157,26 @@ export function PreviewSlideContent({
                 ? "h-full w-full min-h-0 flex-1"
                 : "aspect-video max-h-full flex-1",
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
-            (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
-              "bg-slate-50 dark:bg-slate-950",
+            (isIsometricSlide ||
+              slide.type === SLIDE_TYPE.MAPS ||
+              slide.type === SLIDE_TYPE.MIND_MAP ||
+              slide.type === SLIDE_TYPE.CANVAS_3D) &&
+              "bg-background",
           )}
         >
           {!hideDeckBackdropBehindCanvas && !isFullscreen && (
             <DeckBackdrop theme={deckVisualTheme} />
+          )}
+          {!hideDeckBackdropBehindCanvas && !isFullscreen && (
+            <SlideDeckBackgroundImageLayer slide={slide} />
           )}
           <SlideCanvasView
             slide={slide}
             className="relative z-[1] min-h-0 flex-1"
             deckContentTone={deckVisualTheme.contentTone}
             r3fHostMeasureKey={r3fHostMeasureKey}
+            registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+            minimalCanvas3dChrome={minimalCanvas3dChrome}
           />
         </div>
       </div>
@@ -172,6 +197,7 @@ export function PreviewSlideContent({
       )}
     >
       {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
+      {useFullscreenDeckBackdrop && <SlideDeckBackgroundImageLayer slide={slide} />}
       {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
         <div className="shrink-0 self-start px-0.5">
           <span
@@ -190,18 +216,26 @@ export function PreviewSlideContent({
             ? "h-full w-full min-h-0 flex-1"
             : "aspect-video max-h-full flex-1",
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
-          (isIsometricSlide || slide.type === SLIDE_TYPE.MAPS) &&
-            "bg-slate-50 dark:bg-slate-950",
+          (isIsometricSlide ||
+            slide.type === SLIDE_TYPE.MAPS ||
+            slide.type === SLIDE_TYPE.MIND_MAP ||
+            slide.type === SLIDE_TYPE.CANVAS_3D) &&
+            "bg-background",
         )}
       >
         {!hideDeckBackdropBehindCanvas && !isFullscreen && (
           <DeckBackdrop theme={deckVisualTheme} />
+        )}
+        {!hideDeckBackdropBehindCanvas && !isFullscreen && (
+          <SlideDeckBackgroundImageLayer slide={slide} />
         )}
         <SlideCanvasView
           slide={slide}
           className="relative z-[1] min-h-0 flex-1"
           deckContentTone={deckVisualTheme.contentTone}
           r3fHostMeasureKey={r3fHostMeasureKey}
+          registerPresenterMapFlyTo={registerPresenterMapFlyTo}
+          minimalCanvas3dChrome={minimalCanvas3dChrome}
         />
       </div>
     </motion.div>

@@ -1,6 +1,8 @@
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
 import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import type { WebcamPanelState } from "../webcam/webcamPanelModel";
 import type { SlideCanvasScene, SlideCodeEditorTheme } from "./SlideCanvas";
 import type { SlideMatrixData } from "./SlideMatrix";
 
@@ -15,6 +17,8 @@ export const SLIDE_TYPE = {
   MATRIX: "matrix",
   /** Mapa interactivo Mapbox (marcadores y rutas). */
   MAPS: "maps",
+  /** Escena 3D exclusiva (varios GLB / personajes con animación y posición). */
+  CANVAS_3D: "canvas-3d",
 } as const;
 
 export type SlideType = (typeof SLIDE_TYPE)[keyof typeof SLIDE_TYPE];
@@ -77,10 +81,21 @@ export interface Slide {
   canvas3dGlbUrl?: string;
   /** Vista de cámara guardada para el panel Canvas 3D (mismo formato que Presentador 3D). */
   canvas3dViewState?: Presenter3dViewState;
+  /** Transformación del modelo en Canvas 3D para ajustar centro y orientación. */
+  canvas3dModelTransform?: Canvas3dModelTransform;
+  /**
+   * Clip de animación GLB a reproducir en Canvas 3D.
+   * Ausente = primera animación del archivo; cadena vacía = ninguna.
+   */
+  canvas3dAnimationClipName?: string;
   /**
    * Configuración del panel «aro de datos 3D» (`PANEL_CONTENT_KIND.DATA_MOTION_RING`).
    */
   dataMotionRing?: DataMotionRingState;
+  /**
+   * Vista de cámara en vivo (`PANEL_CONTENT_KIND.CAMERA`): máscara y espejo.
+   */
+  webcam?: WebcamPanelState;
   contentLayout?: "split" | "full" | "panel-full";
   imageWidthPercent?: number;
   panelHeightPercent?: number;
@@ -101,6 +116,8 @@ export interface Slide {
   mindMapData?: string;
   /** JSON `SlideMapData` cuando `type === SLIDE_TYPE.MAPS`. */
   mapData?: string;
+  /** JSON `Canvas3dSceneData` cuando `type === SLIDE_TYPE.CANVAS_3D`. */
+  canvas3dSceneData?: string;
   /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
   matrixData?: SlideMatrixData;
   /** Posicionamiento libre de bloques en el lienzo (% del área del slide). */
@@ -110,4 +127,10 @@ export interface Slide {
    * En lienzo, el valor canónico vive en el `payload` de cada `mediaPanel`.
    */
   codeEditorTheme?: SlideCodeEditorTheme;
+  /**
+   * Fondo con imagen (URL o data URL) sobre el tema del deck.
+   * Solo aplica a tipos que usan `DeckBackdrop` (contenido, capítulo, diagrama, matriz); no
+   * sustituye al fondo de la escena 3D (`canvas3dSceneData.backgroundImageUrl`).
+   */
+  slideBackgroundImageUrl?: string;
 }

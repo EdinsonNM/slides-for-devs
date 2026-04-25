@@ -102,6 +102,12 @@ export function migrateLegacySlideToCanvas(slide: Slide): SlideCanvasScene {
         ],
       };
 
+    case SLIDE_TYPE.CANVAS_3D:
+      return {
+        version: SLIDE_CANVAS_SCENE_VERSION,
+        elements: [],
+      };
+
     case SLIDE_TYPE.CHAPTER:
       return {
         version: SLIDE_CANVAS_SCENE_VERSION,

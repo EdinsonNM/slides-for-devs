@@ -9,6 +9,7 @@ import { IframeEmbedPanel } from "./IframeEmbedPanel";
 import { Presenter3DPanel } from "./Presenter3DPanel";
 import { Canvas3DPanel } from "./Canvas3DPanel";
 import { DataMotionRingPanel } from "./DataMotionRingPanel";
+import { WebcamPanel } from "./WebcamPanel";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
@@ -23,6 +24,26 @@ export interface SlideRightPanelProps {
   canvasPanelSlide?: Slide;
   /** Id del elemento `mediaPanel` en el lienzo (varios paneles de código). */
   canvasMediaElementId?: string;
+  /**
+   * Lienzo: fuerza re-medición / `setSize` en visores R3F (Canvas 3D / Presentador 3D) cuando cambia
+   * el orden z u otro layout sin resize CSS (misma idea que `SlideCanvasView` en presentación).
+   */
+  canvasR3fHostMeasureKey?: string;
+  /**
+   * Orden de apilado (z) del `mediaPanel`: fuerza re-medición 3D al reordenar, sin destruir WebGL.
+   * @default 0
+   */
+  r3fStackRevision?: number;
+  /**
+   * Lienzo: `false` mientras el `mediaPanel` 3D / presentador no está seleccionado (vista
+   * congelada, sin WebGL en vivo). En el panel derecho del deck se omite (sigue en vivo).
+   * @default true
+   */
+  r3fUseLiveWebgl?: boolean;
+  onCanvas3dAnimationClipNames?: (
+    mediaPanelElementId: string,
+    names: string[],
+  ) => void;
 }
 
 export function SlideRightPanel({
@@ -30,6 +51,10 @@ export function SlideRightPanel({
   embeddedInCanvas = false,
   canvasPanelSlide,
   canvasMediaElementId,
+  canvasR3fHostMeasureKey,
+  r3fStackRevision = 0,
+  r3fUseLiveWebgl = true,
+  onCanvas3dAnimationClipNames,
 }: SlideRightPanelProps = {}) {
   const { currentSlide, imageWidthPercent, isResizing, setIsResizing } =
     usePresentation();
@@ -47,7 +72,8 @@ export function SlideRightPanel({
         embeddedInCanvas
           ? "bg-transparent"
           : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ||
-              panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING
+              panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ||
+              panelKind === PANEL_CONTENT_KIND.CAMERA
             ? "bg-transparent"
             : "bg-white dark:bg-surface",
         fullWidth
@@ -84,11 +110,19 @@ export function SlideRightPanel({
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
           canvasMediaElementId={canvasMediaElementId}
+          hostMeasureKey={canvasR3fHostMeasureKey}
+          stackRevision={r3fStackRevision}
+          r3fUseLiveWebgl={r3fUseLiveWebgl}
         />
       ) : panelKind === PANEL_CONTENT_KIND.CANVAS_3D ? (
         <Canvas3DPanel
           embeddedInCanvas={embeddedInCanvas}
           canvasPanelSlide={canvasPanelSlide}
+          canvasMediaElementId={canvasMediaElementId}
+          hostMeasureKey={canvasR3fHostMeasureKey}
+          stackRevision={r3fStackRevision}
+          r3fUseLiveWebgl={r3fUseLiveWebgl}
+          onCanvas3dAnimationClipNames={onCanvas3dAnimationClipNames}
         />
       ) : panelKind === PANEL_CONTENT_KIND.DATA_MOTION_RING ? (
         <DataMotionRingPanel
@@ -96,6 +130,8 @@ export function SlideRightPanel({
           canvasPanelSlide={canvasPanelSlide}
           currentSlide={currentSlide}
         />
+      ) : panelKind === PANEL_CONTENT_KIND.CAMERA ? (
+        <WebcamPanel canvasPanelSlide={canvasPanelSlide} />
       ) : panelKind === PANEL_CONTENT_KIND.RIVE ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
           Rive está desactivado temporalmente en el editor.

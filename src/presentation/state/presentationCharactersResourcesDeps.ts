@@ -8,7 +8,6 @@ export type PresentationCharactersResourcesDeps = {
   queryClient: QueryClient;
   localAccountScope: string;
   user: { uid: string } | null;
-  autoCloudSyncOnSave: boolean;
   savedCharacters: SavedCharacter[];
   setSlides: (slides: Slide[] | ((prev: Slide[]) => Slide[])) => void;
   slidesRef: MutableRefObject<Slide[]>;

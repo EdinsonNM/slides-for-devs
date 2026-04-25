@@ -11,6 +11,7 @@ import {
 } from "../../domain/entities";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
+  defaultCanvasTextEditTargets,
   patchSlideMediaPanelByElementId,
 } from "../../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import {
@@ -29,13 +30,23 @@ import {
   type DataMotionRingState,
 } from "../../domain/dataMotionRing/dataMotionRingModel";
 import {
+  createDefaultWebcamPanelState,
+  normalizeWebcamPanelState,
+  type WebcamPanelState,
+} from "../../domain/webcam/webcamPanelModel";
+import {
   PANEL_CONTENT_KIND,
   normalizePanelContentKind,
   resolveMediaPanelDescriptor,
-  Canvas3dMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import type { Slide } from "../../types";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import {
+  parseCanvas3dSceneData,
+  serializeCanvas3dSceneData,
+  type Canvas3dSceneData,
+} from "../../domain/entities/Canvas3dSceneData";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { PresentationSlideCanvasMutationsDeps } from "./presentationSlideCanvasMutationsDeps";
 
 export function usePresentationSlideCanvasMutations(
@@ -63,8 +74,16 @@ export function usePresentationSlideCanvasMutations(
   const patchCurrentSlideCanvasScene = useCallback(
     (updater: (scene: SlideCanvasScene) => SlideCanvasScene) => {
       const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const curBefore = d.slidesRef.current[idx];
+      const oldFirstMediaId =
+        curBefore?.type === SLIDE_TYPE.CONTENT
+          ? defaultCanvasTextEditTargets(
+              ensureSlideCanvasScene(curBefore),
+            ).mediaPanelElementId
+          : null;
+
       d.setSlides((prev) => {
-        const idx = d.currentIndexRef.current;
         const cur = prev[idx];
         if (!cur?.canvasScene) return prev;
         const nextScene = updater(cur.canvasScene);
@@ -75,6 +94,32 @@ export function usePresentationSlideCanvasMutations(
         });
         return out;
       });
+
+      /**
+       * Tras reordenar capas, el primer `mediaPanel` en z cambia pero `canvasTextTargetsRef`
+       * solo se rellenaba al cambiar de slide (`syncEditFieldsFromSlide`). Si el ref seguía
+       * apuntando al antiguo primer panel, el siguiente `commitSlideEdits` podía pisar ese
+       * bloque con buffers de código (bug corregido en `applyEditBuffersToSlide`) o desalinear
+       * mutaciones que usan el ref sin `explicitMediaPanelElementId`.
+       */
+      if (oldFirstMediaId != null) {
+        queueMicrotask(() => {
+          const curAfter = d.slidesRef.current[idx];
+          if (!curAfter || curAfter.type !== SLIDE_TYPE.CONTENT) return;
+          const newFirstMediaId = defaultCanvasTextEditTargets(
+            ensureSlideCanvasScene(curAfter),
+          ).mediaPanelElementId;
+          const refId = d.canvasTextTargetsRef.current.mediaPanelElementId;
+          if (
+            refId != null &&
+            refId === oldFirstMediaId &&
+            newFirstMediaId != null &&
+            oldFirstMediaId !== newFirstMediaId
+          ) {
+            d.setCanvasMediaPanelEditTarget(newFirstMediaId);
+          }
+        });
+      }
     },
     [],
   );
@@ -201,6 +246,60 @@ export function usePresentationSlideCanvasMutations(
     });
   }, []);
 
+  const setCurrentSlideBackgroundImageUrl = useCallback((url: string | undefined) => {
+    const d = depsRef.current;
+    const idx = d.currentIndexRef.current;
+    d.setSlides((prev) => {
+      const cur = prev[idx];
+      if (!cur) return prev;
+      const trimmed = url?.trim();
+      const next: Slide = { ...cur };
+      if (trimmed) {
+        next.slideBackgroundImageUrl = trimmed;
+      } else {
+        delete (next as { slideBackgroundImageUrl?: string }).slideBackgroundImageUrl;
+      }
+      const out = [...prev];
+      out[idx] = next;
+      return out;
+    });
+  }, []);
+
+  const setCurrentSlideCanvas3dSceneData = useCallback((data: string) => {
+    const d = depsRef.current;
+    const idx = d.currentIndexRef.current;
+    const slide = d.slidesRef.current[idx];
+    if (!slide || slide.type !== SLIDE_TYPE.CANVAS_3D) return;
+    d.setSlides((prev) => {
+      const cur = prev[idx];
+      if (!cur || cur.type !== SLIDE_TYPE.CANVAS_3D) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...cur, canvas3dSceneData: data };
+      return updated;
+    });
+  }, []);
+
+  /** Unifica lectura/escritura: evita cierres obsoletos al combinar cámara + instancias (p. ej. orbit tras añadir GLB). */
+  const patchCurrentSlideCanvas3dScene = useCallback(
+    (updater: (data: Canvas3dSceneData) => Canvas3dSceneData) => {
+      const d = depsRef.current;
+      d.setSlides((prev) => {
+        const idx = d.currentIndexRef.current;
+        const cur = prev[idx];
+        if (!cur || cur.type !== SLIDE_TYPE.CANVAS_3D) return prev;
+        const data = parseCanvas3dSceneData(cur.canvas3dSceneData);
+        const next = updater(data);
+        const out = [...prev];
+        out[idx] = {
+          ...cur,
+          canvas3dSceneData: serializeCanvas3dSceneData(next),
+        };
+        return out;
+      });
+    },
+    [],
+  );
+
   const setCurrentSlideContentLayout = useCallback(
     (contentLayout: "split" | "full" | "panel-full") => {
       const d = depsRef.current;
@@ -246,6 +345,9 @@ export function usePresentationSlideCanvasMutations(
             if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.DATA_MOTION_RING) {
               delete (o as { dataMotionRing?: unknown }).dataMotionRing;
             }
+            if (normalizePanelContentKind(contentType) !== PANEL_CONTENT_KIND.CAMERA) {
+              delete (o as { webcam?: unknown }).webcam;
+            }
             return o;
           },
         );
@@ -270,7 +372,46 @@ export function usePresentationSlideCanvasMutations(
             }),
           );
         }
+        if (contentType === PANEL_CONTENT_KIND.CAMERA) {
+          next = patchSlideMediaPanelByElementId(
+            next,
+            d.canvasTextTargetsRef.current.mediaPanelElementId,
+            (m) => ({
+              ...m,
+              webcam: m.webcam ?? createDefaultWebcamPanelState(),
+            }),
+          );
+        }
         updated[idx] = next;
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const setCurrentSlideWebcam = useCallback(
+    (webcam: WebcamPanelState) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (
+        !slide ||
+        (slide.type !== SLIDE_TYPE.CONTENT && slide.type !== SLIDE_TYPE.CHAPTER)
+      ) {
+        return;
+      }
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(
+          cur,
+          d.canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            webcam: normalizeWebcamPanelState(webcam),
+          }),
+        );
         return updated;
       });
     },
@@ -394,82 +535,139 @@ export function usePresentationSlideCanvasMutations(
     [],
   );
 
-  const setCurrentSlideCanvas3dGlbUrl = useCallback((canvas3dGlbUrl: string) => {
-    const d = depsRef.current;
-    const idx = d.currentIndexRef.current;
-    const slide = d.slidesRef.current[idx];
-    if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
-    if (
-      !(resolveMediaPanelDescriptor(slide) instanceof Canvas3dMediaPanelDescriptor)
-    ) {
-      return;
-    }
-    d.setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[idx];
-      if (!cur) return prev;
-      const trimmed = canvas3dGlbUrl.trim();
-      updated[idx] = patchSlideMediaPanelByElementId(
-        cur,
-        d.canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({
-          ...m,
-          canvas3dGlbUrl: trimmed || undefined,
-          canvas3dViewState: undefined,
-        }),
-      );
-      return updated;
-    });
-  }, []);
-
-  const setCurrentSlideCanvas3dViewState = useCallback(
-    (canvas3dViewState: Presenter3dViewState) => {
+  const setCurrentSlideCanvas3dGlbUrl = useCallback(
+    (canvas3dGlbUrl: string, explicitMediaPanelElementId?: string | null) => {
       const d = depsRef.current;
       const idx = d.currentIndexRef.current;
       const slide = d.slidesRef.current[idx];
       if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
-      if (
-        !(resolveMediaPanelDescriptor(slide) instanceof Canvas3dMediaPanelDescriptor)
-      ) {
-        return;
-      }
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
       d.setSlides((prev) => {
         const updated = [...prev];
         const cur = updated[idx];
         if (!cur) return prev;
-        updated[idx] = patchSlideMediaPanelByElementId(
-          cur,
-          d.canvasTextTargetsRef.current.mediaPanelElementId,
-          (m) => ({ ...m, canvas3dViewState }),
-        );
+        const trimmed = canvas3dGlbUrl.trim();
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+          ...m,
+          canvas3dGlbUrl: trimmed || undefined,
+          canvas3dViewState: undefined,
+          canvas3dModelTransform: undefined,
+          canvas3dAnimationClipName: undefined,
+        }));
         return updated;
       });
     },
     [],
   );
 
-  const clearCurrentSlideCanvas3dViewState = useCallback(() => {
-    const d = depsRef.current;
-    const idx = d.currentIndexRef.current;
-    const slide = d.slidesRef.current[idx];
-    if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
-    if (
-      !(resolveMediaPanelDescriptor(slide) instanceof Canvas3dMediaPanelDescriptor)
-    ) {
-      return;
-    }
-    d.setSlides((prev) => {
-      const updated = [...prev];
-      const cur = updated[idx];
-      if (!cur) return prev;
-      updated[idx] = patchSlideMediaPanelByElementId(
-        cur,
-        d.canvasTextTargetsRef.current.mediaPanelElementId,
-        (m) => ({ ...m, canvas3dViewState: undefined }),
-      );
-      return updated;
-    });
-  }, []);
+  const setCurrentSlideCanvas3dViewState = useCallback(
+    (
+      canvas3dViewState: Presenter3dViewState,
+      explicitMediaPanelElementId?: string | null,
+    ) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+          ...m,
+          canvas3dViewState,
+        }));
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const setCurrentSlideCanvas3dModelTransform = useCallback(
+    (
+      canvas3dModelTransform: Canvas3dModelTransform,
+      explicitMediaPanelElementId?: string | null,
+    ) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+          ...m,
+          canvas3dModelTransform,
+        }));
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const setCurrentSlideCanvas3dAnimationClipName = useCallback(
+    (
+      clipName: string | undefined,
+      explicitMediaPanelElementId?: string | null,
+    ) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => {
+          const next = { ...m };
+          if (clipName === undefined) {
+            delete (next as { canvas3dAnimationClipName?: string })
+              .canvas3dAnimationClipName;
+          } else {
+            next.canvas3dAnimationClipName = clipName;
+          }
+          return next;
+        });
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const clearCurrentSlideCanvas3dViewState = useCallback(
+    (explicitMediaPanelElementId?: string | null) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.CONTENT) return;
+      const targetId =
+        explicitMediaPanelElementId ??
+        d.canvasTextTargetsRef.current.mediaPanelElementId;
+      d.setSlides((prev) => {
+        const updated = [...prev];
+        const cur = updated[idx];
+        if (!cur) return prev;
+        updated[idx] = patchSlideMediaPanelByElementId(cur, targetId, (m) => ({
+          ...m,
+          canvas3dViewState: undefined,
+        }));
+        return updated;
+      });
+    },
+    [],
+  );
 
   return {
     patchCurrentSlideMatrix,
@@ -480,6 +678,9 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideCanvas3dSceneData,
+    patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,
     setCurrentSlideContentType,
     setCurrentSlidePresenter3dDeviceId,
@@ -487,7 +688,10 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlidePresenter3dViewState,
     setCurrentSlideCanvas3dGlbUrl,
     setCurrentSlideCanvas3dViewState,
+    setCurrentSlideCanvas3dModelTransform,
+    setCurrentSlideCanvas3dAnimationClipName,
     clearCurrentSlideCanvas3dViewState,
     setCurrentSlideDataMotionRing,
+    setCurrentSlideWebcam,
   };
 }

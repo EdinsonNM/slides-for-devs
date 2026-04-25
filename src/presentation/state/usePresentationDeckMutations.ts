@@ -15,12 +15,17 @@ import {
   serializeSlideMapData,
 } from "../../domain/entities/SlideMapData";
 import {
+  createDefaultCanvas3dSceneData,
+  serializeCanvas3dSceneData,
+} from "../../domain/entities/Canvas3dSceneData";
+import {
   PANEL_CONTENT_KIND,
   PANEL_CONTENT_TOGGLE_ORDER,
   normalizePanelContentKind,
 } from "../../domain/panelContent";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import { createDefaultDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
+import { createDefaultWebcamPanelState } from "../../domain/webcam/webcamPanelModel";
 import { patchSlideMediaPanelByElementId } from "../../domain/slideCanvas/slideCanvasApplyEditBuffers";
 import { normalizeSlidesCanvasScenes } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import type { Slide } from "../../types";
@@ -64,6 +69,9 @@ export function usePresentationDeckMutations(
           if (normalizePanelContentKind(newType) !== PANEL_CONTENT_KIND.DATA_MOTION_RING) {
             delete (o as { dataMotionRing?: unknown }).dataMotionRing;
           }
+          if (normalizePanelContentKind(newType) !== PANEL_CONTENT_KIND.CAMERA) {
+            delete (o as { webcam?: unknown }).webcam;
+          }
           return o;
         },
       );
@@ -85,6 +93,16 @@ export function usePresentationDeckMutations(
           (m) => ({
             ...m,
             dataMotionRing: m.dataMotionRing ?? createDefaultDataMotionRingState(),
+          }),
+        );
+      }
+      if (newType === PANEL_CONTENT_KIND.CAMERA) {
+        next = patchSlideMediaPanelByElementId(
+          next,
+          d.canvasTextTargetsRef.current.mediaPanelElementId,
+          (m) => ({
+            ...m,
+            webcam: m.webcam ?? createDefaultWebcamPanelState(),
           }),
         );
       }
@@ -130,6 +148,10 @@ export function usePresentationDeckMutations(
         delete (next as Slide).mapData;
       }
 
+      if (type !== SLIDE_TYPE.CANVAS_3D) {
+        delete (next as Slide).canvas3dSceneData;
+      }
+
       if (type === SLIDE_TYPE.MAPS) {
         delete (next as Slide).contentType;
         delete (next as Slide).contentLayout;
@@ -137,6 +159,19 @@ export function usePresentationDeckMutations(
         delete (next as Slide).mindMapData;
         if (!next.mapData) {
           next.mapData = serializeSlideMapData(createDefaultSlideMapData());
+        }
+      }
+
+      if (type === SLIDE_TYPE.CANVAS_3D) {
+        delete (next as Slide).contentType;
+        delete (next as Slide).contentLayout;
+        delete (next as Slide).matrixData;
+        delete (next as Slide).mindMapData;
+        delete (next as Slide).mapData;
+        if (!next.canvas3dSceneData) {
+          next.canvas3dSceneData = serializeCanvas3dSceneData(
+            createDefaultCanvas3dSceneData(),
+          );
         }
       }
 

@@ -1,7 +1,9 @@
 /** Escena 2D de una diapositiva: rectángulos en % del contenedor 16:9 (origen arriba-izquierda). */
 
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
+import type { Canvas3dModelTransform } from "../../utils/canvas3dModelTransform";
 import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel";
+import type { WebcamPanelState } from "../webcam/webcamPanelModel";
 import type { PanelContentKind } from "../panelContent/panelContentKind";
 import { isPanelContentKind } from "../panelContent/panelContentKind";
 
@@ -68,7 +70,12 @@ export type SlideCanvasMediaPayload = {
   presenter3dViewState?: Presenter3dViewState;
   canvas3dGlbUrl?: string;
   canvas3dViewState?: Presenter3dViewState;
+  canvas3dModelTransform?: Canvas3dModelTransform;
+  /** Ver `Slide.canvas3dAnimationClipName`. */
+  canvas3dAnimationClipName?: string;
   dataMotionRing?: DataMotionRingState;
+  /** Panel cámara en vivo: forma de recorte y espejo. */
+  webcam?: WebcamPanelState;
   /** Solo panel código en lienzo: tema claro/oscuro independiente por bloque. */
   codeEditorTheme?: SlideCodeEditorTheme;
 };
@@ -96,6 +103,8 @@ export interface SlideCanvasElement {
   rect: SlideCanvasRect;
   /** Grados; origen en el centro del bloque (sentido horario positivo). */
   rotation?: number;
+  /** Si es true, no se puede arrastrar ni redimensionar en el lienzo. */
+  locked?: boolean;
   /** Contenido por bloque (v2). Ausente en escenas legacy v1. */
   payload?: SlideCanvasElementPayload;
 }
@@ -169,6 +178,8 @@ export function isSlideCanvasScene(v: unknown): v is SlideCanvasScene {
       isCanvasRect((e as SlideCanvasElement).rect) &&
       ((e as SlideCanvasElement).rotation === undefined ||
         typeof (e as SlideCanvasElement).rotation === "number") &&
+      ((e as SlideCanvasElement).locked === undefined ||
+        typeof (e as SlideCanvasElement).locked === "boolean") &&
       isOptionalElementPayload((e as SlideCanvasElement).payload),
   );
 }

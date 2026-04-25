@@ -12,6 +12,7 @@ export function IsometricFlowDiagramCanvasView({
 }) {
   return (
     <div
+      ref={ctrl.canvasRootRef}
       className={cn("relative h-full min-h-0 w-full", ctrl.className)}
       onPointerDown={(e) => {
         /* Block slide-canvas block drag / alignment overlay from this subtree. */
@@ -19,7 +20,11 @@ export function IsometricFlowDiagramCanvasView({
       }}
     >
       <IsometricFlowCanvasToolbar {...ctrl} />
-      <IsometricFlowCanvasViewportHud viewRect={ctrl.viewRect} onResetView={ctrl.resetIsoView} />
+      <IsometricFlowCanvasViewportHud
+        readOnly={ctrl.readOnly}
+        viewRect={ctrl.viewRect}
+        onResetView={ctrl.resetIsoView}
+      />
       <IsometricFlowCanvasIconPickerOverlay {...ctrl} />
       <IsometricFlowCanvasSvg ctrl={ctrl} />
     </div>

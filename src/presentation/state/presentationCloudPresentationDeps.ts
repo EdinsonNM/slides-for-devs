@@ -30,7 +30,6 @@ export type PresentationCloudResolveRemoteEditorDeps = {
 export type PresentationCloudPresentationDeps = {
   user: { uid: string } | null;
   localAccountScope: string;
-  autoCloudSyncOnSave: boolean;
   savedList: SavedPresentationMeta[];
   refreshSavedList: () => Promise<void>;
   /** `handleOpenSaved` del orquestador (se asigna al ref cada render). */

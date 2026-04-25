@@ -10,6 +10,7 @@ import {
   PencilRuler,
   Smartphone,
   Video,
+  Webcam,
 } from "lucide-react";
 import type { Slide } from "../../types";
 import {
@@ -174,6 +175,14 @@ function SidebarMiniMediaBlock({ panelSlide }: { panelSlide: Slide }) {
           Icon={BarChart3}
           surfaceClassName="from-indigo-50 to-indigo-100/90 dark:from-indigo-950/45 dark:to-indigo-900/35"
           iconClassName="text-indigo-800 dark:text-indigo-200"
+        />
+      );
+    case PANEL_CONTENT_KIND.CAMERA:
+      return (
+        <SidebarCanvasBlockIconThumb
+          Icon={Webcam}
+          surfaceClassName="from-fuchsia-50 to-fuchsia-100/90 dark:from-fuchsia-950/40 dark:to-fuchsia-900/32"
+          iconClassName="text-fuchsia-800 dark:text-fuchsia-200"
         />
       );
     default: {

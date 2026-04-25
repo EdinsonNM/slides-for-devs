@@ -15,7 +15,12 @@ import { cn } from "../../utils/cn";
 
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined)?.trim();
 
-export function MapSlideInspectorSection() {
+export interface MapSlideInspectorSectionProps {
+  /** En panel dedicado: sin borde superior ni título (lo pone el contenedor). */
+  variant?: "inSlideStyle" | "inspectorPanel";
+}
+
+export function MapSlideInspectorSection({ variant = "inSlideStyle" }: MapSlideInspectorSectionProps) {
   const { currentSlide, setCurrentSlideMapData } = usePresentation();
   const [directionsBusy, setDirectionsBusy] = useState(false);
   const [directionsError, setDirectionsError] = useState<string | null>(null);
@@ -128,12 +133,18 @@ export function MapSlideInspectorSection() {
   return (
     <div
       key={currentSlide.id}
-      className="border-t border-stone-100 px-3 py-3 dark:border-border"
+      className={
+        variant === "inSlideStyle"
+          ? "border-t border-stone-100 px-3 py-3 dark:border-border"
+          : "px-3 py-1 dark:border-border"
+      }
     >
-      <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <MapPin size={14} className="shrink-0" />
-        Mapa Mapbox
-      </div>
+      {variant === "inSlideStyle" ? (
+        <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <MapPin size={14} className="shrink-0" />
+          Mapa Mapbox
+        </div>
+      ) : null}
 
       {!MAPBOX_TOKEN ? (
         <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
