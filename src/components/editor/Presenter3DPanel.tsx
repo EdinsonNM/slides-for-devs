@@ -63,6 +63,7 @@ export function Presenter3DPanel({
   const isLgUp = useMinWidthLg();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const deckSlide = canvasPanelSlide ?? currentSlide;
 
   const patchTargetElementId = canvasMediaElementId ?? undefined;
 
@@ -84,12 +85,8 @@ export function Presenter3DPanel({
     return () => document.removeEventListener("click", close);
   }, [menuOpen]);
 
-  if (!currentSlide) return null;
-
-  const deckSlide = canvasPanelSlide ?? currentSlide;
-
   const blockEl = useMemo(() => {
-    if (!canvasMediaElementId || !currentSlide.canvasScene?.elements) {
+    if (!canvasMediaElementId || !currentSlide?.canvasScene?.elements) {
       return undefined;
     }
     return currentSlide.canvasScene.elements.find(
@@ -98,7 +95,7 @@ export function Presenter3DPanel({
   }, [canvasMediaElementId, currentSlide]);
 
   const fromBlock =
-    blockEl?.kind === "mediaPanel"
+    blockEl?.kind === "mediaPanel" && currentSlide
       ? presenter3dDisplayPropsFromCanvasElement(currentSlide, blockEl)
       : null;
 
@@ -274,6 +271,8 @@ export function Presenter3DPanel({
     textureVideoUrl,
     deckSlide.id,
   ]);
+
+  if (!currentSlide || !deckSlide) return null;
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">

@@ -2632,14 +2632,10 @@ function CanvasElementEditor({
     case "mediaPanel": {
       const mediaPanelDesc = resolveMediaPanelDescriptor(panelSlide);
       /**
-       * En el lienzo: 3D en vivo solo con el bloque seleccionado y sin vista previa abierta;
-       * si no, imagen congelada. Con `isPreviewMode`, el overlay ya pinta el 3D: aquí no montar WebGL.
+       * Mantener el árbol R3F siempre montado en el lienzo evita cambios de contexto
+       * al seleccionar/deseleccionar el `mediaPanel` 3D.
        */
-      const r3fUseLiveWebgl =
-        mediaPanelDesc.kind === PANEL_CONTENT_KIND.CANVAS_3D ||
-        mediaPanelDesc.kind === PANEL_CONTENT_KIND.PRESENTER_3D
-          ? isSelected && !deckIsPreviewMode
-          : true;
+      const r3fUseLiveWebgl = true;
       /**
        * Clave de medición estable por `mediaPanel` (sin `z`); el remount de WebGL 3D va por
        * `r3fStackRevision` (`zRank`), no por esta clave, para no disparar ola de setSize en
@@ -2650,14 +2646,18 @@ function CanvasElementEditor({
       const codePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.CODE;
       const uses3dOrbitChrome = mediaPanelDesc.usesOrbitInteractionChrome();
       const rivePanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.RIVE;
+      const videoPanelOnCanvas = mediaPanelDesc.kind === PANEL_CONTENT_KIND.VIDEO;
       const iframePanelOnCanvas =
         mediaPanelDesc.kind === PANEL_CONTENT_KIND.IFRAME_EMBED;
       /**
        * Franja superior para mover el bloque: Rive/WebGL/orbit capturan puntero;
-       * un iframe genérico también, así que misma UX.
+       * reproductor en iframe (vídeo / URL incrustada) también, misma UX.
        */
       const usesInteractionDragStrip =
-        uses3dOrbitChrome || rivePanelOnCanvas || iframePanelOnCanvas;
+        uses3dOrbitChrome ||
+        rivePanelOnCanvas ||
+        videoPanelOnCanvas ||
+        iframePanelOnCanvas;
       const onMediaPanelDragPointerDown = (
         e: React.PointerEvent<HTMLElement>,
         captureEl: HTMLElement | null,
@@ -2695,7 +2695,10 @@ function CanvasElementEditor({
           data-slide-element-id={id}
           className={cn(
             outerShellClass,
-            codePanelOnCanvas || rivePanelOnCanvas || iframePanelOnCanvas
+            codePanelOnCanvas ||
+            rivePanelOnCanvas ||
+            videoPanelOnCanvas ||
+            iframePanelOnCanvas
               ? "bg-transparent"
               : deckMediaPanelShellClass(tone),
           )}
@@ -2726,9 +2729,11 @@ function CanvasElementEditor({
                   title={
                     rivePanelOnCanvas
                       ? "Arrastra esta franja para mover el bloque; en el área inferior interactúa con la animación Rive"
-                      : iframePanelOnCanvas
-                        ? "Arrastra esta franja para mover el bloque; debajo está el iframe (scroll y clics van al sitio incrustado)"
-                        : "Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
+                      : videoPanelOnCanvas
+                        ? "Arrastra esta franja para mover el bloque; debajo está el reproductor embebido (clics y desplazamiento van al vídeo)"
+                        : iframePanelOnCanvas
+                          ? "Arrastra esta franja para mover el bloque; debajo está el iframe (scroll y clics van al sitio incrustado)"
+                          : "Arrastra esta franja para mover el bloque; en el área inferior controlas el modelo 3D"
                   }
                   className={deckMediaPanelDragStripClass(tone)}
                   onPointerDown={(e) => {
@@ -2747,9 +2752,11 @@ function CanvasElementEditor({
                   <span className="truncate">
                     {rivePanelOnCanvas
                       ? "Arrastra aquí para mover · abajo, animación Rive"
-                      : iframePanelOnCanvas
-                        ? "Arrastra aquí para mover · abajo, página incrustada"
-                        : "Arrastra aquí para mover · abajo, orbitar el modelo 3D"}
+                      : videoPanelOnCanvas
+                        ? "Arrastra aquí para mover · abajo, reproductor de vídeo"
+                        : iframePanelOnCanvas
+                          ? "Arrastra aquí para mover · abajo, página incrustada"
+                          : "Arrastra aquí para mover · abajo, orbitar el modelo 3D"}
                   </span>
                 </div>
                 <div

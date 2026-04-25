@@ -4,7 +4,9 @@
 export function getEmbedUrl(url: string): string {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
     const v = url.split("v=")[1]?.split("&")[0] || url.split("/").pop();
-    return `https://www.youtube.com/embed/${v}`;
+    const id = (v ?? "").split("?")[0];
+    if (!id) return url;
+    return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1`;
   }
   return url;
 }

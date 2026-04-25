@@ -1,5 +1,4 @@
 import React, {
-  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -428,7 +427,6 @@ export function Canvas3dSceneViewport({
   const controlKey = `${slideId}|scene|${digest}`;
   const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
-  const r3fFragmentKey = `${slideId}\u0001scene\u0001${digest}`;
 
   let sceneBody: ReactNode;
   if (instances.length === 0) {
@@ -465,8 +463,7 @@ export function Canvas3dSceneViewport({
         className,
       )}
     >
-      <Fragment key={`r3f-canvas3d-scene-${r3fFragmentKey}`}>
-        <Canvas
+      <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
           dpr={skipEnvironmentMaps ? 1 : undefined}
           onPointerMissed={
@@ -538,7 +535,6 @@ export function Canvas3dSceneViewport({
             {sceneBody}
           </Suspense>
         </Canvas>
-      </Fragment>
       {!hasModels && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-stone-500 dark:text-stone-400">
           Añade objetos desde la pestaña Escena 3D.

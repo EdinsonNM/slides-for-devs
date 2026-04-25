@@ -1,5 +1,4 @@
 import React, {
-  Fragment,
   Suspense,
   useEffect,
   useLayoutEffect,
@@ -395,8 +394,7 @@ export function Device3DViewport({
         className,
       )}
     >
-      <Fragment key={`r3f-device-${orbitScopeKey}`}>
-        <Canvas
+      <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
           dpr={skipEnvironmentMaps ? 1 : undefined}
           camera={{
@@ -460,7 +458,6 @@ export function Device3DViewport({
             {sceneBody}
           </Suspense>
         </Canvas>
-      </Fragment>
       {!disableControls && showInteractionHint && (
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-stone-400 dark:text-stone-500">
           Clic izquierdo + arrastrar: girar · clic derecho + arrastrar: desplazar ·

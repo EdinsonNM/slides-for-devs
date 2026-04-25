@@ -6,7 +6,6 @@ import {
 } from "../shared/SlideRivePlayer";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../../utils/cn";
-import { getEmbedUrl } from "../../utils/video";
 import { sanitizeIframeEmbedSrc } from "../../utils/iframeEmbedUrl";
 import type { Slide } from "../../types";
 import {
@@ -49,6 +48,7 @@ import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
 import { DeferHeavyWebglMount } from "../shared/DeferHeavyWebglMount";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
 import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
+import { SlideVideoResource } from "../shared/SlideVideoResource";
 import { SlideWebcamView } from "../shared/SlideWebcamView";
 import { normalizeWebcamPanelState } from "../../domain/webcam/webcamPanelModel";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
@@ -118,13 +118,12 @@ function mediaBlock(
       );
     case PANEL_CONTENT_KIND.VIDEO:
       return (
-        <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
+        <div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
           {deckSlide.videoUrl ? (
-            <iframe
-              src={getEmbedUrl(deckSlide.videoUrl)}
+            <SlideVideoResource
+              videoUrl={deckSlide.videoUrl}
               className="h-full w-full"
-              allowFullScreen
-              title="Video"
+              iframeTitle="Vídeo"
             />
           ) : (
             <span className={cn("italic", deckMutedTextClass(tone))}>

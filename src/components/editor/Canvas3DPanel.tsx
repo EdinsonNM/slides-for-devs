@@ -45,6 +45,8 @@ export function Canvas3DPanel({
     setCurrentSlideCanvas3dViewState,
     isPreviewMode,
   } = usePresentation();
+  const slide = canvasPanelSlide ?? currentSlide;
+  const glbUrl = slide?.canvas3dGlbUrl;
 
   const handleViewCommit = useCallback(
     (s: Presenter3dViewState) => {
@@ -64,11 +66,6 @@ export function Canvas3DPanel({
     [canvasMediaElementId, onCanvas3dAnimationClipNames],
   );
 
-  if (!currentSlide) return null;
-
-  const slide = canvasPanelSlide ?? currentSlide;
-  const glbUrl = slide.canvas3dGlbUrl;
-
   useEffect(() => {
     setAnimationClipNames([]);
   }, [glbUrl]);
@@ -87,6 +84,8 @@ export function Canvas3DPanel({
     },
     [],
   );
+
+  if (!currentSlide || !slide) return null;
 
   if (!r3fUseLiveWebgl) {
     return (
