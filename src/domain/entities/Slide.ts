@@ -5,6 +5,7 @@ import type { DataMotionRingState } from "../dataMotionRing/dataMotionRingModel"
 import type { WebcamPanelState } from "../webcam/webcamPanelModel";
 import type { SlideCanvasScene, SlideCodeEditorTheme } from "./SlideCanvas";
 import type { SlideMatrixData } from "./SlideMatrix";
+import type { SlideDocumentEmbed } from "./SlideDocumentEmbed";
 
 /** Valores canónicos de `Slide.type` (evita comparar strings sueltos en la UI). */
 export const SLIDE_TYPE = {
@@ -17,6 +18,10 @@ export const SLIDE_TYPE = {
   MATRIX: "matrix",
   /** Mapa interactivo Mapbox (marcadores y rutas). */
   MAPS: "maps",
+  /**
+   * Documento incrustado (PDF, Word, Excel, Markdown) a pantalla completa en el slide.
+   */
+  DOCUMENT: "document",
   /** Escena 3D exclusiva (varios GLB / personajes con animación y posición). */
   CANVAS_3D: "canvas-3d",
 } as const;
@@ -116,6 +121,8 @@ export interface Slide {
   mindMapData?: string;
   /** JSON `SlideMapData` cuando `type === SLIDE_TYPE.MAPS`. */
   mapData?: string;
+  /** Documento embebido (data URL) cuando `type === SLIDE_TYPE.DOCUMENT`. */
+  documentEmbed?: SlideDocumentEmbed;
   /** JSON `Canvas3dSceneData` cuando `type === SLIDE_TYPE.CANVAS_3D`. */
   canvas3dSceneData?: string;
   /** Solo cuando `type === SLIDE_TYPE.MATRIX`: encabezados y filas de la tabla. */
@@ -133,4 +140,9 @@ export interface Slide {
    * sustituye al fondo de la escena 3D (`canvas3dSceneData.backgroundImageUrl`).
    */
   slideBackgroundImageUrl?: string;
+  /**
+   * Color sólido opcional encima del tema del deck y debajo de `slideBackgroundImageUrl`.
+   * Valor CSS (p. ej. `#0f172a`); solo aplica a los mismos tipos que la imagen de fondo del slide.
+   */
+  slideBackgroundColor?: string;
 }

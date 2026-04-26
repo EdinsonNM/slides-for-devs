@@ -62,6 +62,7 @@ import { presentationQueryKeys } from "../queryKeys";
 import {
   generateCodeForSlide as generateCodeForSlideApi,
   generatePresenterNotes as generatePresenterNotesApi,
+  generatePresentationReadme as generatePresentationReadmeApi,
   generateSpeechForSlide as generateSpeechForSlideApi,
   generateSpeechForAll as generateSpeechForAllApi,
   refinePresenterNotes as refinePresenterNotesApi,
@@ -118,6 +119,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
   const [codeGenPrompt, setCodeGenPrompt] = useState("");
   const [codeGenLanguage, setCodeGenLanguage] = useState("javascript");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [isGeneratingReadme, setIsGeneratingReadme] = useState(false);
 
   const resetHomePromptAttachments = useCallback(() => {
     setHomePromptAttachments([]);
@@ -171,6 +173,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
           deckVisualTheme: d.deckVisualTheme,
           deckNarrativePresetId: pending.deckNarrativePresetId,
           narrativeNotes: pending.narrativeNotes?.trim() || undefined,
+          presentationReadme: d.presentationReadme.trim() || undefined,
         };
         let id: string;
         if (pending.reuseSavedId) {
@@ -293,6 +296,40 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     if (queued) setHomePromptAttachments([]);
     return queued;
   }, [homePromptAttachments, queueFullDeckGeneration]);
+
+  const handleGenerateReadmeWithAi = useCallback(async () => {
+    const d = depsRef.current;
+    if (d.slides.length === 0) {
+      alert("No hay diapositivas para analizar y generar un README.");
+      return;
+    }
+    if (!hasAnyApiConfiguredSync()) {
+      notifyApiConfigurationRequired();
+      return;
+    }
+    setIsGeneratingReadme(true);
+    try {
+      const markdown = await generatePresentationReadmeApi(
+        d.slides,
+        d.topic,
+        d.presentationReadme,
+        d.modelForGeminiOps,
+      );
+      if (!markdown.trim()) {
+        throw new Error("La IA no devolvió contenido para el README.");
+      }
+      d.setPresentationReadme(markdown);
+    } catch (error) {
+      console.error("Error generating presentation README:", error);
+      const errorMessage =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "No se pudo generar el README con IA.";
+      alert(`Error al generar README:\n${errorMessage}`);
+    } finally {
+      setIsGeneratingReadme(false);
+    }
+  }, []);
 
   const openGenerateFullDeckModal = useCallback(() => {
     const d = depsRef.current;
@@ -845,7 +882,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
           d.setSlides((prev) => {
             const index = d.currentIndexRef.current;
             const raw = prev[index];
-            if (!raw || raw.type !== SLIDE_TYPE.CONTENT) return prev;
+            if (!raw) return prev;
             const cur = ensureSlideCanvasScene(raw);
             const scene = cur.canvasScene;
             if (!scene) return prev;
@@ -1302,8 +1339,10 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
     codeGenLanguage,
     setCodeGenLanguage,
     isGeneratingCode,
+    isGeneratingReadme,
     queueFullDeckGeneration,
     handleGenerate,
+    handleGenerateReadmeWithAi,
     openGenerateFullDeckModal,
     handleConfirmGenerateFullDeck,
     addHomePromptAttachment,

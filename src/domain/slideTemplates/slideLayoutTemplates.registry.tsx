@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import {
   Boxes,
+  FileText,
   Image as ImageIcon,
   Map as MapIcon,
   PencilRuler,
@@ -179,6 +180,20 @@ function PreviewMaps() {
   );
 }
 
+function PreviewDocument() {
+  return (
+    <div className="w-full aspect-video rounded-lg border border-stone-200 bg-white dark:border-border dark:bg-surface-elevated overflow-hidden flex flex-col p-1 gap-0.5">
+      <div className="h-1 w-2/5 bg-stone-300 dark:bg-stone-600 rounded shrink-0" />
+      <div className="flex-1 min-h-0 rounded border border-dashed border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-stone-900/50 flex items-center justify-center">
+        <FileText
+          className="w-7 h-7 text-amber-700/90 dark:text-amber-400/90"
+          strokeWidth={1.5}
+        />
+      </div>
+    </div>
+  );
+}
+
 function PreviewCanvas3d() {
   return (
     <div className="w-full aspect-video rounded-lg border border-stone-200 bg-linear-to-br from-violet-50 to-sky-50 dark:border-border dark:from-violet-950/50 dark:to-sky-950/40 overflow-hidden flex items-center justify-center p-2">
@@ -251,6 +266,11 @@ export const SLIDE_LAYOUT_TEMPLATE_REGISTRY: readonly SlideLayoutTemplateDefinit
     id: SLIDE_LAYOUT_TEMPLATE_ID.MAPS,
     label: "Mapas",
     Preview: PreviewMaps,
+  },
+  {
+    id: SLIDE_LAYOUT_TEMPLATE_ID.DOCUMENT,
+    label: "Documento",
+    Preview: PreviewDocument,
   },
   {
     id: SLIDE_LAYOUT_TEMPLATE_ID.CANVAS_3D,

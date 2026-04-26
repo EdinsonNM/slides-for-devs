@@ -24,14 +24,14 @@ export function PresentationStorageBadge({
     return (
       <div
         className="absolute top-5 left-5 z-30 flex max-w-[min(100%-2rem,15rem)] flex-col gap-0.5 rounded-lg bg-violet-700/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-violet-400/50"
-        title="Importada desde una presentación que te compartieron. Se usa como caché para abrir rápido y trabajar sin conexión."
+        title="Presentación compartida en la nube."
       >
         <span className="flex items-center gap-1">
           <Users size={12} className="shrink-0" aria-hidden />
           Compartida
         </span>
         <span className="normal-case font-medium text-[9px] text-violet-100/95">
-          Disponible offline
+          Solo nube compartida
         </span>
       </div>
     );

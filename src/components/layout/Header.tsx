@@ -10,6 +10,7 @@ import {
   Loader2,
   Mic,
   StickyNote,
+  BookText,
   UserPlus,
   FileDown,
   Image as ImageIcon,
@@ -47,6 +48,7 @@ export function Header(props: HeaderProps) {
     handleSave,
     isSaving,
     saveMessage,
+    isCurrentPresentationReadOnly,
     currentSavedId,
     setIsPreviewMode,
     flushDiagramPending,
@@ -54,6 +56,9 @@ export function Header(props: HeaderProps) {
     setShowSpeechModal,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
+    setIsPresentationSettingsPanelOpen,
     showCharactersPanel,
     setShowCharactersPanel,
     showSlideStylePanel,
@@ -161,6 +166,8 @@ export function Header(props: HeaderProps) {
       setShowCharactersPanel(false);
     } else {
       setShowSlideStylePanel(false);
+      setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
       setShowCharactersPanel(true);
     }
   };
@@ -170,6 +177,8 @@ export function Header(props: HeaderProps) {
       setShowSlideStylePanel(false);
     } else {
       setShowCharactersPanel(false);
+      setIsReadmePanelOpen(false);
+      setIsPresentationSettingsPanelOpen(false);
       setShowSlideStylePanel(true);
     }
   };
@@ -190,6 +199,10 @@ export function Header(props: HeaderProps) {
 
   const saveTitle = () => {
     const trimmed = editTitleValue.trim();
+    if (isCurrentPresentationReadOnly) {
+      setIsEditingTitle(false);
+      return;
+    }
     setTopic(trimmed || "");
     setIsEditingTitle(false);
   };
@@ -205,8 +218,28 @@ export function Header(props: HeaderProps) {
             ? "Ocultar notas del presentador"
             : "Mostrar notas del presentador"
         }
-        onClick={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
+        onClick={() => {
+          setIsNotesPanelOpen(!isNotesPanelOpen);
+          setIsReadmePanelOpen(false);
+          setIsPresentationSettingsPanelOpen(false);
+        }}
         className={cn(isNotesPanelOpen && panelActiveClass)}
+      />
+      <IconButton
+        variant="default"
+        icon={<BookText size={18} />}
+        aria-label={isReadmePanelOpen ? "Ocultar README" : "Mostrar README"}
+        title={
+          isReadmePanelOpen
+            ? "Ocultar README de la presentación"
+            : "Mostrar README de la presentación"
+        }
+        onClick={() => {
+          setIsReadmePanelOpen(!isReadmePanelOpen);
+          setIsPresentationSettingsPanelOpen(false);
+          setIsNotesPanelOpen(false);
+        }}
+        className={cn(isReadmePanelOpen && panelActiveClass)}
       />
       <IconButton
         variant="default"
@@ -345,9 +378,15 @@ export function Header(props: HeaderProps) {
         ) : (
           <button
             type="button"
-            onClick={() => setIsEditingTitle(true)}
+            onClick={() => {
+              if (!isCurrentPresentationReadOnly) setIsEditingTitle(true);
+            }}
             className="font-serif italic text-lg text-stone-900 dark:text-foreground truncate text-left hover:bg-stone-50 dark:hover:bg-surface rounded px-1 py-0.5 -mx-1 min-w-0 max-w-[40vw]"
-            title="Clic para cambiar el título"
+            title={
+              isCurrentPresentationReadOnly
+                ? "Solo lectura: no puedes editar el título"
+                : "Clic para cambiar el título"
+            }
           >
             {topic || "Nueva presentación"}
           </button>
@@ -444,6 +483,22 @@ export function Header(props: HeaderProps) {
                 >
                   <FolderOpen size={16} className="shrink-0 opacity-70" />
                   Mis presentaciones
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left text-sm flex items-center gap-2 text-stone-700 dark:text-foreground hover:bg-stone-100 dark:hover:bg-surface",
+                    isReadmePanelOpen && "bg-stone-100 dark:bg-surface",
+                  )}
+                  onClick={() => {
+                    setIsReadmePanelOpen(!isReadmePanelOpen);
+                    setIsPresentationSettingsPanelOpen(false);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <BookText size={16} className="shrink-0 opacity-70" />
+                  README de la presentación
                 </button>
                 <button
                   type="button"

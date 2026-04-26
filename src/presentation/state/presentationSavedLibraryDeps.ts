@@ -41,6 +41,9 @@ export type PresentationSavedLibraryDeps = {
   ) => void;
   setDeckNarrativePresetId: (id: string | ((prev: string) => string)) => void;
   setNarrativeNotes: (notes: string | ((prev: string) => string)) => void;
+  setPresentationReadme: (
+    markdown: string | ((prev: string) => string),
+  ) => void;
   coverPrefetchSavedAtRef: MutableRefObject<Record<string, string>>;
   setCoverImageCache: Dispatch<SetStateAction<Record<string, string>>>;
   setHomeFirstSlideReplicaBySavedId: Dispatch<

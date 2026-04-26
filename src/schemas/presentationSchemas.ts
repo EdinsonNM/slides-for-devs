@@ -57,6 +57,7 @@ export const PresentationSchema = z.object({
   deckVisualTheme: DeckVisualThemeSchema.optional(),
   deckNarrativePresetId: z.string().optional(),
   narrativeNotes: z.string().optional(),
+  presentationReadme: z.string().optional(),
 });
 
 export const SavedPresentationMetaSchema = z.object({

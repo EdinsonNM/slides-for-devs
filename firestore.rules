@@ -10,6 +10,31 @@ service cloud.firestore {
       return get(userPresentation(ownerUid, cloudId)).data.get('shareInviteEmails', []);
     }
 
+    // Lectura de un doc bajo `users/.../presentations/{id}`: mismo criterio para
+    // `match` específico y para el comodín (requerido para collection group queries;
+    // ver "Collection group queries and security rules" en la documentación de Firestore).
+    function canReadOtherUserPresentationFields() {
+      return resource.data.publicationVisibility == "public" ||
+        (resource.data.sharedWith is list &&
+          request.auth.uid in resource.data.sharedWith) ||
+        (
+          request.auth.token.email != null &&
+          resource.data.shareInviteEmails is list &&
+          request.auth.token.email.lower() in resource.data.shareInviteEmails
+        );
+    }
+
+    function canEditOtherUserPresentationFields() {
+      return (
+        resource.data.sharedEditWith is list &&
+        request.auth.uid in resource.data.sharedEditWith
+      ) || (
+        request.auth.token.email != null &&
+        resource.data.shareEditInviteEmails is list &&
+        request.auth.token.email.lower() in resource.data.shareEditInviteEmails
+      );
+    }
+
     // Gestión de compartidos: un doc por invitado (UID o correo normalizado en el doc).
     match /users/{ownerUid}/presentationShareGrants/{grantId} {
       allow read: if request.auth != null && (
@@ -37,6 +62,10 @@ service cloud.firestore {
         && request.auth.uid == ownerUid
         && request.resource.data.ownerUid == ownerUid
         && request.resource.data.cloudId is string
+        && (
+          request.resource.data.access == "read" ||
+          request.resource.data.access == "edit"
+        )
         && exists(userPresentation(ownerUid, request.resource.data.cloudId))
         && (
           (
@@ -99,39 +128,26 @@ service cloud.firestore {
         && resource.data.ownerUid == request.auth.uid;
     }
 
-    // Compat: listado antiguo por array sharedWith en el doc de presentación (sin grants).
-    match /{path=**}/presentations/{presId} {
-      allow list: if request.auth != null
-        && resource.data.sharedWith is list
-        && request.auth.uid in resource.data.sharedWith;
-      allow get: if request.auth != null && (
-        path == 'users/' + request.auth.uid ||
-        (resource.data.sharedWith is list &&
-          request.auth.uid in resource.data.sharedWith) ||
-        (
-          request.auth.token.email != null &&
-          resource.data.shareInviteEmails is list &&
-          request.auth.token.email.lower() in resource.data.shareInviteEmails
-        )
-      );
+    // OBLIGATORIO para `collectionGroup("presentations")`: hace falta un `read` (list/get)
+    // bajo `match /{...=**}/presentations/...` con reglas alineadas al `where` (ver doc
+    // «Collection group queries and security rules»). El `match` específico
+    // `users/{userId}/presentations/...` cubre al dueño; aquí, público/compartido/invitado.
+    match /{prePath=**}/presentations/{presId} {
+      allow read: if request.auth != null && canReadOtherUserPresentationFields();
     }
     match /users/{userId}/presentations/{presId} {
       allow read: if request.auth != null && (
-        request.auth.uid == userId ||
-        (resource.data.sharedWith is list &&
-          request.auth.uid in resource.data.sharedWith) ||
-        (
-          request.auth.token.email != null &&
-          resource.data.shareInviteEmails is list &&
-          request.auth.token.email.lower() in resource.data.shareInviteEmails
-        )
+        request.auth.uid == userId || canReadOtherUserPresentationFields()
       );
       allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == userId || canEditOtherUserPresentationFields()
+      );
 
       match /slides/{slideId} {
         allow read: if request.auth != null && (
           request.auth.uid == userId ||
+          get(userPresentation(userId, presId)).data.publicationVisibility == "public" ||
           (
             get(userPresentation(userId, presId)).data.sharedWith is list &&
             request.auth.uid in get(userPresentation(userId, presId)).data.sharedWith
@@ -142,7 +158,18 @@ service cloud.firestore {
             request.auth.token.email.lower() in get(userPresentation(userId, presId)).data.shareInviteEmails
           )
         );
-        allow write: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && (
+          request.auth.uid == userId ||
+          (
+            get(userPresentation(userId, presId)).data.sharedEditWith is list &&
+            request.auth.uid in get(userPresentation(userId, presId)).data.sharedEditWith
+          ) ||
+          (
+            request.auth.token.email != null &&
+            get(userPresentation(userId, presId)).data.shareEditInviteEmails is list &&
+            request.auth.token.email.lower() in get(userPresentation(userId, presId)).data.shareEditInviteEmails
+          )
+        );
       }
     }
     match /users/{userId}/characters/{charId} {

@@ -28,7 +28,12 @@ export interface HomeWithCarouselProps {
   homePresentationCards: HomePresentationCard[];
   onOpenSaved: (id: string) => void;
   onDeleteSaved: (id: string) => void;
-  onGenerateCover: (id: string) => void;
+  onGenerateCover: (
+    id: string,
+    options?: { userPrompt?: string; referenceImageDataUrl?: string },
+  ) => void;
+  onUploadCover: (id: string, imageUrl: string, promptLabel?: string) => void;
+  onRemoveCover: (id: string) => void;
   generatingCoverId: string | null;
   coverImageCache: Record<string, string>;
   homeFirstSlideReplicaBySavedId?: Record<string, Slide | undefined>;
@@ -69,6 +74,8 @@ export function HomeWithCarousel({
   onOpenSaved,
   onDeleteSaved,
   onGenerateCover,
+  onUploadCover,
+  onRemoveCover,
   generatingCoverId,
   coverImageCache,
   homeFirstSlideReplicaBySavedId,
@@ -91,7 +98,7 @@ export function HomeWithCarousel({
   onNarrativeNotesChange,
 }: HomeWithCarouselProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-linear-to-br from-stone-50 via-white to-stone-100/70 font-sans dark:from-stone-900 dark:via-stone-900 dark:to-stone-800">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-linear-to-br from-stone-50 via-white to-stone-100/70 font-sans dark:from-stone-900 dark:via-stone-900 dark:to-stone-800">
       <header className="z-20 flex shrink-0 items-center justify-between gap-3 bg-stone-50/90 px-4 py-3 backdrop-blur-md dark:bg-stone-900/90 sm:gap-4 sm:px-6 sm:py-4">
         <div className="flex min-w-0 shrink-0 items-center gap-3 pt-0.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/80 dark:bg-stone-800/80">
@@ -173,6 +180,8 @@ export function HomeWithCarousel({
                 onOpenSaved={onOpenSaved}
                 onDeleteSaved={onDeleteSaved}
                 onGenerateCover={onGenerateCover}
+                onUploadCover={onUploadCover}
+                onRemoveCover={onRemoveCover}
                 cloudSyncAvailable={cloudSyncAvailable}
                 onSyncToCloud={onSyncToCloud}
                 onSharePresentation={onSharePresentation}

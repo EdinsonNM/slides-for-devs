@@ -39,6 +39,8 @@ export interface Presentation {
   deckNarrativePresetId?: string;
   /** Notas libres de tono/objetivo; se concatenan al preset en los prompts. */
   narrativeNotes?: string;
+  /** README global de la presentación en Markdown. */
+  presentationReadme?: string;
 }
 
 export interface SavedPresentation extends Presentation {

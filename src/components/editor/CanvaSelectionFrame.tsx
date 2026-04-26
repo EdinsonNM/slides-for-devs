@@ -32,6 +32,32 @@ const handleDot =
   "pointer-events-none absolute z-10 h-2 w-2 rounded-full border border-stone-500 bg-white shadow-sm dark:border-stone-400 dark:bg-stone-100";
 
 /**
+ * Mismo trazo y asas que un elemento de título o bloque del lienzo (`SlideCanvasCanvaChrome`):
+ * borde esmeralda, esquinas y bordes. Asas y borde con `pointer-events: none` para no
+ * robar clics; el contenedor aplica su propia interacción (p. ej. `resize` nativo).
+ */
+const canvaBlockCornerHandleClass =
+  "pointer-events-none absolute z-50 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-600 bg-white shadow-md dark:border-emerald-400 dark:bg-stone-100";
+const canvaBlockEdgeBaseClass =
+  "pointer-events-none absolute z-50 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-600 bg-white shadow-md dark:border-emerald-400 dark:bg-stone-100";
+
+export function SlideCanvasBlockStyleSelectionFrame() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
+      <div className="absolute inset-0 rounded-sm border-2 border-emerald-600 dark:border-emerald-500" />
+      <span className={cn(canvaBlockCornerHandleClass, "left-0 top-0")} />
+      <span className={cn(canvaBlockCornerHandleClass, "left-full top-0")} />
+      <span className={cn(canvaBlockCornerHandleClass, "left-0 top-full")} />
+      <span className={cn(canvaBlockCornerHandleClass, "left-full top-full")} />
+      <span className={cn(canvaBlockEdgeBaseClass, "left-1/2 top-0 h-2 w-6")} />
+      <span className={cn(canvaBlockEdgeBaseClass, "left-1/2 top-full h-2 w-6")} />
+      <span className={cn(canvaBlockEdgeBaseClass, "left-0 top-1/2 h-6 w-2")} />
+      <span className={cn(canvaBlockEdgeBaseClass, "left-full top-1/2 h-6 w-2")} />
+    </div>
+  );
+}
+
+/**
  * Marco de selección estilo PowerPoint: borde discontinuo y anclas circulares.
  */
 export function CanvaSelectionFrame({

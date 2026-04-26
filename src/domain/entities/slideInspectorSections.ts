@@ -5,7 +5,8 @@ export function isInspectorSlidePropertiesSectionVisible(type: SlideType): boole
   return (
     type !== SLIDE_TYPE.ISOMETRIC &&
     type !== SLIDE_TYPE.MIND_MAP &&
-    type !== SLIDE_TYPE.MAPS
+    type !== SLIDE_TYPE.MAPS &&
+    type !== SLIDE_TYPE.DOCUMENT
   );
 }
 
@@ -23,7 +24,8 @@ export function isInspectorCameraSectionVisible(type: SlideType): boolean {
 }
 
 /**
- * Tipos donde `slideBackgroundImageUrl` se pinta detrás del lienzo 2D (junto a `DeckBackdrop`).
+ * Tipos donde `slideBackgroundImageUrl` / `slideBackgroundColor` se pintan detrás del lienzo 2D
+ * (junto a `DeckBackdrop`).
  */
 export function slideTypeUsesSlideDeckBackgroundImage(type: SlideType): boolean {
   return (

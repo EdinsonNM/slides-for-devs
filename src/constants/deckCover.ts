@@ -8,6 +8,7 @@ export const DECK_COVER_IMAGE_PROMPT_TAG = "[DECK_COVER_SLAIM]";
 
 /** Valor persistido en `slide.imagePrompt` para portadas Slaim (no es el prompt largo enviado al modelo). */
 export const DECK_COVER_IMAGE_PROMPT = `${DECK_COVER_IMAGE_PROMPT_TAG} Portada Slaim (lista de inicio).`;
+export const DECK_COVER_CUSTOM_IMAGE_PROMPT = `${DECK_COVER_IMAGE_PROMPT_TAG} Portada personalizada (lista de inicio).`;
 
 /**
  * Raster de portada en Firebase Storage (`users/.../presentations/{cloudId}/deck_cover.ext`).
@@ -33,8 +34,9 @@ export const DECK_COVER_STYLE_PROMPT =
 export function firstSlideDeckCoverImageUrl(first?: Slide): string | undefined {
   const url = first?.imageUrl?.trim();
   if (!url) return undefined;
-  if (first.imagePrompt === DECK_COVER_IMAGE_PROMPT) return url;
-  if (first.imagePrompt === LEGACY_DECK_COVER_IMAGE_PROMPT) return url;
+  const prompt = first.imagePrompt?.trim();
+  if (prompt === LEGACY_DECK_COVER_IMAGE_PROMPT) return url;
+  if (prompt?.startsWith(DECK_COVER_IMAGE_PROMPT_TAG)) return url;
   return undefined;
 }
 
@@ -42,7 +44,10 @@ export function firstSlideDeckCoverImageUrl(first?: Slide): string | undefined {
 export function isPersistedSlaimDeckCoverSlide(slide: Slide | undefined): boolean {
   if (!slide) return false;
   const p = slide.imagePrompt?.trim();
-  return p === DECK_COVER_IMAGE_PROMPT || p === LEGACY_DECK_COVER_IMAGE_PROMPT;
+  return (
+    p === LEGACY_DECK_COVER_IMAGE_PROMPT ||
+    !!p?.startsWith(DECK_COVER_IMAGE_PROMPT_TAG)
+  );
 }
 
 export function mascotCoverReferenceFetchUrl(): string {

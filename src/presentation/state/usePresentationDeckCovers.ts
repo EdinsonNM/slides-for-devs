@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLatestRef } from "./useLatestRef";
 import {
   DECK_COVER_IMAGE_PROMPT,
+  DECK_COVER_CUSTOM_IMAGE_PROMPT,
   DECK_COVER_STYLE_PROMPT,
   buildDeckCoverImageUserPrompt,
   firstSlideDeckCoverImageUrl,
@@ -96,70 +97,121 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
     };
   }, [deps.savedList, deps.localAccountScope]);
 
-  const handleGenerateCoverForPresentation = useCallback(async (id: string) => {
-    setGeneratingCoverId(id);
-    try {
+  const persistUpdatedFirstSlide = useCallback(
+    async (
+      id: string,
+      options: {
+        imageUrl?: string;
+        imagePrompt?: string;
+      },
+    ) => {
       const d = depsRef.current;
-      try {
-        const list = await listPresentations(d.localAccountScope);
-        const meta = list.find((p) => p.id === id);
-        if (meta?.localBodyCleared) {
-          alert(
-            "Recupera la presentación desde la nube antes de generar la portada.",
-          );
-          return;
-        }
-      } catch {
-        /* ignore */
-      }
       const saved = await loadPresentation(id, d.localAccountScope);
       if (!saved.slides.length) {
         alert("Esta presentación no tiene diapositivas.");
-        return;
+        return null;
       }
       const firstSlide = saved.slides[0];
-      const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
-      if (!getGeminiApiKey()?.trim()) {
-        alert(
-          "La portada Slaim se genera con Gemini. Configura tu API key de Gemini en Ajustes de la app.",
-        );
-        return;
+      const nextFirstSlide = { ...firstSlide };
+      if (options.imageUrl?.trim()) {
+        nextFirstSlide.imageUrl = options.imageUrl.trim();
+        nextFirstSlide.imagePrompt = options.imagePrompt?.trim() || DECK_COVER_CUSTOM_IMAGE_PROMPT;
+      } else {
+        delete (nextFirstSlide as { imageUrl?: string }).imageUrl;
+        delete (nextFirstSlide as { imagePrompt?: string }).imagePrompt;
       }
-      const mascotReferenceImageDataUrl =
-        await loadSlaimMascotCoverReferenceDataUrl();
-      const imageUrl = await generateImageUseCase.run({
-        providerId: "gemini",
-        slideContext,
-        userPrompt: buildDeckCoverImageUserPrompt(),
-        stylePrompt: DECK_COVER_STYLE_PROMPT,
-        includeBackground: true,
-        modelId: d.geminiImageModelId,
-        characterPrompt: SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
-        characterReferenceImageDataUrl: mascotReferenceImageDataUrl,
-        aspectRatio: "16:9",
-      });
-      if (imageUrl) {
-        const updatedSlides = [...saved.slides];
-        updatedSlides[0] = {
-          ...firstSlide,
-          imageUrl,
-          imagePrompt: DECK_COVER_IMAGE_PROMPT,
-        };
-        await updatePresentation(
-          id,
-          {
-            topic: saved.topic,
-            slides: updatedSlides,
-            characterId: saved.characterId,
-            deckVisualTheme: normalizeDeckVisualTheme(saved.deckVisualTheme),
-            deckNarrativePresetId: saved.deckNarrativePresetId,
-            narrativeNotes: saved.narrativeNotes,
-          },
-          d.localAccountScope,
-        );
-        if (d.user) {
-          void d.runAutoSyncAfterSaveRef.current(id);
+      const updatedSlides = [...saved.slides];
+      updatedSlides[0] = nextFirstSlide;
+      await updatePresentation(
+        id,
+        {
+          topic: saved.topic,
+          slides: updatedSlides,
+          characterId: saved.characterId,
+          deckVisualTheme: normalizeDeckVisualTheme(saved.deckVisualTheme),
+          deckNarrativePresetId: saved.deckNarrativePresetId,
+          narrativeNotes: saved.narrativeNotes,
+          presentationReadme: saved.presentationReadme,
+        },
+        d.localAccountScope,
+      );
+      if (d.user) {
+        void d.runAutoSyncAfterSaveRef.current(id);
+      }
+      return { saved, nextFirstSlide };
+    },
+    [],
+  );
+
+  const handleGenerateCoverForPresentation = useCallback(
+    async (
+      id: string,
+      options?: {
+        userPrompt?: string;
+        referenceImageDataUrl?: string;
+      },
+    ) => {
+      setGeneratingCoverId(id);
+      try {
+        const d = depsRef.current;
+        try {
+          const list = await listPresentations(d.localAccountScope);
+          const meta = list.find((p) => p.id === id);
+          if (meta?.localBodyCleared) {
+            alert(
+              "Recupera la presentación desde la nube antes de generar la portada.",
+            );
+            return;
+          }
+        } catch {
+          /* ignore */
         }
+        const saved = await loadPresentation(id, d.localAccountScope);
+        if (!saved.slides.length) {
+          alert("Esta presentación no tiene diapositivas.");
+          return;
+        }
+        const firstSlide = saved.slides[0];
+        const slideContext = `Título: ${firstSlide.title}. Contenido: ${firstSlide.content}. Presentación sobre: ${saved.topic}`;
+        if (!getGeminiApiKey()?.trim()) {
+          alert(
+            "La generación de portada usa Gemini. Configura tu API key de Gemini en Ajustes de la app.",
+          );
+          return;
+        }
+        const trimmedPrompt = options?.userPrompt?.trim();
+        const userPrompt =
+          trimmedPrompt && trimmedPrompt.length > 0
+            ? trimmedPrompt
+            : buildDeckCoverImageUserPrompt();
+        const mascotReferenceImageDataUrl =
+          await loadSlaimMascotCoverReferenceDataUrl();
+        const imageUrl = await generateImageUseCase.run({
+          providerId: "gemini",
+          slideContext,
+          userPrompt,
+          stylePrompt: DECK_COVER_STYLE_PROMPT,
+          includeBackground: true,
+          modelId: d.geminiImageModelId,
+          characterPrompt: trimmedPrompt
+            ? undefined
+            : SLAIM_MASCOT_COVER_CHARACTER_PROMPT,
+          characterReferenceImageDataUrl:
+            options?.referenceImageDataUrl ?? mascotReferenceImageDataUrl,
+          aspectRatio: "16:9",
+        });
+        if (!imageUrl) {
+          alert(
+            "No se pudo generar la portada con Gemini. Comprueba tu API key y el modelo de imagen en Ajustes.",
+          );
+          return;
+        }
+        await persistUpdatedFirstSlide(id, {
+          imageUrl,
+          imagePrompt: trimmedPrompt
+            ? `${DECK_COVER_CUSTOM_IMAGE_PROMPT} Prompt: ${trimmedPrompt}`
+            : DECK_COVER_IMAGE_PROMPT,
+        });
         setCoverImageCache((prev) => ({ ...prev, [id]: imageUrl }));
         setHomeFirstSlideReplicaBySavedId((prev) => {
           const next = { ...prev };
@@ -172,20 +224,80 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           return next;
         });
         trackEvent(ANALYTICS_EVENTS.COVER_GENERATED);
-      } else {
+      } catch (e) {
+        console.error(e);
         alert(
-          "No se pudo generar la portada con Gemini. Comprueba tu API key y el modelo de imagen en Ajustes.",
+          "Error al generar la portada. Comprueba la consola y tu configuración de API.",
         );
+      } finally {
+        setGeneratingCoverId(null);
       }
-    } catch (e) {
-      console.error(e);
-      alert(
-        "Error al generar la portada. Comprueba la consola y tu configuración de API.",
-      );
-    } finally {
-      setGeneratingCoverId(null);
-    }
-  }, []);
+    },
+    [persistUpdatedFirstSlide],
+  );
+
+  const handleUploadCoverForPresentation = useCallback(
+    async (id: string, imageUrl: string, promptLabel?: string) => {
+      const normalizedUrl = imageUrl.trim();
+      if (!normalizedUrl) return;
+      setGeneratingCoverId(id);
+      try {
+        const persisted = await persistUpdatedFirstSlide(id, {
+          imageUrl: normalizedUrl,
+          imagePrompt: promptLabel
+            ? `${DECK_COVER_CUSTOM_IMAGE_PROMPT} ${promptLabel.trim()}`
+            : DECK_COVER_CUSTOM_IMAGE_PROMPT,
+        });
+        if (!persisted) return;
+        setCoverImageCache((prev) => ({ ...prev, [id]: normalizedUrl }));
+        setHomeFirstSlideReplicaBySavedId((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      } catch (e) {
+        console.error(e);
+        alert("No se pudo guardar la portada personalizada.");
+      } finally {
+        setGeneratingCoverId(null);
+      }
+    },
+    [persistUpdatedFirstSlide],
+  );
+
+  const handleRemoveCoverForPresentation = useCallback(
+    async (id: string) => {
+      setGeneratingCoverId(id);
+      try {
+        const persisted = await persistUpdatedFirstSlide(id, {});
+        if (!persisted) return;
+        setCoverImageCache((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setHomeFirstSlideReplicaBySavedId((prev) => ({
+          ...prev,
+          [id]: persisted.nextFirstSlide,
+        }));
+        setHomeFirstSlideReplicaDeckThemeBySavedId((prev) => ({
+          ...prev,
+          [id]: normalizeDeckVisualTheme(persisted.saved.deckVisualTheme),
+        }));
+      } catch (e) {
+        console.error(e);
+        alert("No se pudo eliminar la portada.");
+      } finally {
+        setGeneratingCoverId(null);
+      }
+    },
+    [persistUpdatedFirstSlide],
+  );
 
   return {
     generatingCoverId,
@@ -197,5 +309,7 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
     setHomeFirstSlideReplicaDeckThemeBySavedId,
     coverPrefetchSavedAtRef,
     handleGenerateCoverForPresentation,
+    handleUploadCoverForPresentation,
+    handleRemoveCoverForPresentation,
   };
 }

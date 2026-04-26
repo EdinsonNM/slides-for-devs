@@ -1,11 +1,14 @@
 import { motion } from "motion/react";
 import { FilePlus } from "lucide-react";
+import { cn } from "../../utils/cn";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { PromptInput } from "./PromptInput";
 import type { PresentationModel } from "./PromptInput";
 import type { PromptAttachment } from "../../utils/promptAttachments";
 
 export interface HomeEmptyStateProps {
+  /** Si true, ocupa el alto del contenedor (home con barra lateral) en lugar de `min-h-dvh`. */
+  embeddedLayout?: boolean;
   onOpenConfig?: () => void;
   onCheckUpdates?: () => void;
   topic: string;
@@ -30,6 +33,7 @@ export interface HomeEmptyStateProps {
  * Contenido centrado; el prompt queda en un footer fijo.
  */
 export function HomeEmptyState({
+  embeddedLayout = false,
   onOpenConfig,
   onCheckUpdates,
   topic,
@@ -49,7 +53,14 @@ export function HomeEmptyState({
   onNarrativeNotesChange,
 }: HomeEmptyStateProps) {
   return (
-    <div className="relative flex min-h-dvh flex-col bg-linear-to-br from-emerald-200/80 via-green-100 to-teal-200/80 font-sans dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
+    <div
+      className={cn(
+        "relative flex flex-col bg-linear-to-br from-emerald-200/80 via-green-100 to-teal-200/80 font-sans dark:from-stone-900 dark:via-stone-800 dark:to-stone-900",
+        embeddedLayout
+          ? "h-full min-h-0 min-w-0 flex-1"
+          : "min-h-dvh",
+      )}
+    >
       <div className="absolute right-4 top-4 z-20">
         <AvatarMenu onOpenConfig={onOpenConfig} variant="home" />
       </div>

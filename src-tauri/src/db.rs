@@ -143,6 +143,8 @@ pub struct Presentation {
     pub deck_narrative_preset_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "narrativeNotes")]
     pub narrative_notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "presentationReadme")]
+    pub presentation_readme: Option<String>,
 }
 
 /// Saved presentation with id and saved_at (for load response).
@@ -161,6 +163,8 @@ pub struct SavedPresentation {
     pub deck_narrative_preset_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "narrativeNotes")]
     pub narrative_notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "presentationReadme")]
+    pub presentation_readme: Option<String>,
 }
 
 /// Saved character for consistent image generation across slides.
@@ -532,6 +536,17 @@ pub fn init_db(db_path: &Path) -> Result<(), rusqlite::Error> {
             [],
         )?;
     }
+    let has_presentation_readme: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('presentations') WHERE name='presentation_readme'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_presentation_readme == 0 {
+        conn.execute(
+            "ALTER TABLE presentations ADD COLUMN presentation_readme TEXT",
+            [],
+        )?;
+    }
     Ok(())
 }
 
@@ -603,7 +618,7 @@ pub fn save_presentation(
         .and_then(|v| serde_json::to_string(v).ok());
 
     conn.execute(
-        "INSERT INTO presentations (id, topic, saved_at, character_id, account_scope, deck_visual_theme, deck_narrative_preset_id, narrative_notes) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO presentations (id, topic, saved_at, character_id, account_scope, deck_visual_theme, deck_narrative_preset_id, narrative_notes, presentation_readme) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             id,
             presentation.topic,
@@ -612,7 +627,8 @@ pub fn save_presentation(
             account_scope,
             deck_json,
             presentation.deck_narrative_preset_id,
-            presentation.narrative_notes
+            presentation.narrative_notes,
+            presentation.presentation_readme
         ],
     )?;
 
@@ -708,7 +724,7 @@ pub fn import_presentation(
         .as_ref()
         .and_then(|v| serde_json::to_string(v).ok());
     conn.execute(
-        "INSERT OR REPLACE INTO presentations (id, topic, saved_at, character_id, account_scope, deck_visual_theme, deck_narrative_preset_id, narrative_notes) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT OR REPLACE INTO presentations (id, topic, saved_at, character_id, account_scope, deck_visual_theme, deck_narrative_preset_id, narrative_notes, presentation_readme) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             saved.id,
             saved.topic,
@@ -717,7 +733,8 @@ pub fn import_presentation(
             account_scope,
             deck_json,
             saved.deck_narrative_preset_id,
-            saved.narrative_notes
+            saved.narrative_notes,
+            saved.presentation_readme
         ],
     )?;
 
@@ -818,7 +835,7 @@ pub fn update_presentation(
         .and_then(|v| serde_json::to_string(v).ok());
 
     conn.execute(
-        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3, deck_visual_theme = ?4, deck_narrative_preset_id = ?5, narrative_notes = ?6, local_body_cleared = 0 WHERE id = ?7 AND account_scope = ?8",
+        "UPDATE presentations SET topic = ?1, saved_at = ?2, character_id = ?3, deck_visual_theme = ?4, deck_narrative_preset_id = ?5, narrative_notes = ?6, presentation_readme = ?7, local_body_cleared = 0 WHERE id = ?8 AND account_scope = ?9",
         params![
             presentation.topic,
             saved_at,
@@ -826,6 +843,7 @@ pub fn update_presentation(
             deck_json,
             presentation.deck_narrative_preset_id,
             presentation.narrative_notes,
+            presentation.presentation_readme,
             id,
             account_scope
         ],
@@ -923,17 +941,18 @@ pub fn load_presentation(
     id: &str,
     account_scope: &str,
 ) -> Result<SavedPresentation, rusqlite::Error> {
-    let (topic, saved_at, character_id, deck_theme_raw, deck_narrative_preset_id, narrative_notes): (
+    let (topic, saved_at, character_id, deck_theme_raw, deck_narrative_preset_id, narrative_notes, presentation_readme): (
         String,
         String,
+        Option<String>,
         Option<String>,
         Option<String>,
         Option<String>,
         Option<String>,
     ) = conn.query_row(
-        "SELECT topic, saved_at, character_id, deck_visual_theme, deck_narrative_preset_id, narrative_notes FROM presentations WHERE id = ?1 AND account_scope = ?2",
+        "SELECT topic, saved_at, character_id, deck_visual_theme, deck_narrative_preset_id, narrative_notes, presentation_readme FROM presentations WHERE id = ?1 AND account_scope = ?2",
         params![id, account_scope],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?)),
     )?;
     let deck_visual_theme = deck_theme_raw
         .as_ref()
@@ -1083,6 +1102,7 @@ pub fn load_presentation(
         deck_visual_theme,
         deck_narrative_preset_id,
         narrative_notes,
+        presentation_readme,
     })
 }
 

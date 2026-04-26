@@ -11,11 +11,13 @@ export type PresentationSavePresentationDeps = {
   deckVisualTheme: DeckVisualTheme;
   deckNarrativePresetId: string;
   narrativeNotes: string;
+  presentationReadme: string;
   setSaveMessage: (msg: string | null) => void;
   localAccountScope: string;
   lastOpenedSessionKey: string;
   user: User | null;
   maybeAutoSyncAfterLocalSave: (localId: string) => Promise<void>;
+  isCurrentPresentationReadOnly: boolean;
   /** Solo web: push a Firestore sin fila SQLite. */
   webCloudSessionRef: MutableRefObject<WebCloudEditSession | null>;
 };

@@ -4,6 +4,8 @@ import {
   getPresentationShareAccess,
   normalizeShareEmail,
   setPresentationShareAccess,
+  type PresentationShareEntry,
+  type PresentationSharePermission,
 } from "../../services/presentationCloud";
 import { formatCloudSyncUserMessage } from "../../utils/cloudSyncErrors";
 import { useAuth } from "../../context/AuthContext";
@@ -18,7 +20,7 @@ export interface SharePresentationModalProps {
 
 /**
  * Gestiona invitaciones en `users/{owner}/presentationShareGrants` y sincroniza arrays en el doc
- * de la presentación (Storage/reglas). Los colaboradores pueden leer y descargar.
+ * de la presentación (Storage/reglas). Cada invitado puede tener acceso de lectura o edición.
  */
 export function SharePresentationModal({
   open,
@@ -28,11 +30,12 @@ export function SharePresentationModal({
   topic,
 }: SharePresentationModalProps) {
   const { user } = useAuth();
-  const [uids, setUids] = useState<string[]>([]);
-  const [emails, setEmails] = useState<string[]>([]);
+  const [entries, setEntries] = useState<PresentationShareEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [input, setInput] = useState("");
+  const [defaultAccess, setDefaultAccess] =
+    useState<PresentationSharePermission>("read");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,14 +45,12 @@ export function SharePresentationModal({
     setLoading(true);
     getPresentationShareAccess(ownerUid, cloudId)
       .then((access) => {
-        setUids(access.sharedWithUids);
-        setEmails(access.shareInviteEmails);
+        setEntries(access.entries);
       })
       .catch((e) => {
         console.error(e);
         setError(formatCloudSyncUserMessage(e));
-        setUids([]);
-        setEmails([]);
+        setEntries([]);
       })
       .finally(() => setLoading(false));
   }, [open, ownerUid, cloudId]);
@@ -66,11 +67,14 @@ export function SharePresentationModal({
         setError("No puedes invitar tu propio correo.");
         return;
       }
-      if (emails.includes(asEmail)) {
+      if (entries.some((e) => e.kind === "email" && e.value === asEmail)) {
         setInput("");
         return;
       }
-      setEmails((prev) => [...prev, asEmail]);
+      setEntries((prev) => [
+        ...prev,
+        { kind: "email", value: asEmail, access: defaultAccess },
+      ]);
       setInput("");
       setError(null);
       return;
@@ -85,11 +89,14 @@ export function SharePresentationModal({
       setError("No hace falta añadirte a ti mismo.");
       return;
     }
-    if (uids.includes(raw)) {
+    if (entries.some((e) => e.kind === "uid" && e.value === raw)) {
       setInput("");
       return;
     }
-    setUids((prev) => [...prev, raw]);
+    setEntries((prev) => [
+      ...prev,
+      { kind: "uid", value: raw, access: defaultAccess },
+    ]);
     setInput("");
     setError(null);
   };
@@ -99,8 +106,13 @@ export function SharePresentationModal({
     setError(null);
     try {
       await setPresentationShareAccess(ownerUid, cloudId, {
-        sharedWithUids: uids,
-        shareInviteEmails: emails,
+        entries,
+        sharedWithUids: entries
+          .filter((e) => e.kind === "uid")
+          .map((e) => e.value),
+        shareInviteEmails: entries
+          .filter((e) => e.kind === "email")
+          .map((e) => e.value),
       });
       onClose();
     } catch (e) {
@@ -149,8 +161,8 @@ export function SharePresentationModal({
             </span>
             {" · "}
             Añade el correo con el que tu compañero inicia sesión en Slaim
-            (p. ej. el mismo de Google), o su UID si lo prefieres. Podrán ver y descargar la copia en la nube; la
-            descarga es una copia local.
+            (p. ej. el mismo de Google), o su UID si lo prefieres. El acceso puede ser
+            solo lectura o edición sobre la misma presentación compartida.
           </p>
           {loading ? (
             <div className="flex justify-center py-8">
@@ -180,32 +192,73 @@ export function SharePresentationModal({
                 >
                   Añadir
                 </button>
+                <select
+                  value={defaultAccess}
+                  onChange={(e) =>
+                    setDefaultAccess(e.target.value as PresentationSharePermission)
+                  }
+                  className="shrink-0 rounded-lg border border-stone-200 dark:border-border bg-white dark:bg-surface px-2 py-2 text-xs"
+                  title="Permiso por defecto al añadir"
+                >
+                  <option value="read">Lectura</option>
+                  <option value="edit">Edición</option>
+                </select>
               </div>
-              {emails.length === 0 && uids.length === 0 ? (
+              {entries.length === 0 ? (
                 <p className="text-xs text-stone-500 dark:text-stone-400">
                   Nadie más tiene acceso. El invitado debe usar el mismo correo en el inicio de sesión de la app.
                 </p>
               ) : (
                 <div className="space-y-3 max-h-48 overflow-y-auto">
-                  {emails.length > 0 && (
+                  {entries.some((e) => e.kind === "email") && (
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">
                         Por correo
                       </p>
                       <ul className="space-y-1">
-                        {emails.map((em) => (
+                        {entries
+                          .filter((e) => e.kind === "email")
+                          .map((em) => (
                           <li
-                            key={em}
+                            key={`${em.kind}:${em.value}`}
                             className="flex items-center gap-2 justify-between rounded-lg border border-stone-100 dark:border-border px-3 py-2 text-sm"
                           >
                             <span className="truncate text-xs text-stone-700 dark:text-stone-300">
-                              {em}
+                              {em.value}
                             </span>
+                            <select
+                              value={em.access}
+                              onChange={(ev) =>
+                                setEntries((prev) =>
+                                  prev.map((it) =>
+                                    it.kind === "email" && it.value === em.value
+                                      ? {
+                                          ...it,
+                                          access:
+                                            ev.target.value === "edit"
+                                              ? "edit"
+                                              : "read",
+                                        }
+                                      : it
+                                  )
+                                )
+                              }
+                              className="rounded-md border border-stone-200 dark:border-border bg-white dark:bg-surface px-1.5 py-1 text-[11px]"
+                            >
+                              <option value="read">Lectura</option>
+                              <option value="edit">Edición</option>
+                            </select>
                             <button
                               type="button"
-                              onClick={() => setEmails((prev) => prev.filter((x) => x !== em))}
+                              onClick={() =>
+                                setEntries((prev) =>
+                                  prev.filter(
+                                    (x) => !(x.kind === "email" && x.value === em.value)
+                                  )
+                                )
+                              }
                               className="p-1.5 rounded-md text-stone-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                              aria-label={`Quitar ${em}`}
+                              aria-label={`Quitar ${em.value}`}
                             >
                               <Trash2 size={16} />
                             </button>
@@ -214,25 +267,55 @@ export function SharePresentationModal({
                       </ul>
                     </div>
                   )}
-                  {uids.length > 0 && (
+                  {entries.some((e) => e.kind === "uid") && (
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">
                         Por UID
                       </p>
                       <ul className="space-y-1">
-                        {uids.map((u) => (
+                        {entries
+                          .filter((e) => e.kind === "uid")
+                          .map((u) => (
                           <li
-                            key={u}
+                            key={`${u.kind}:${u.value}`}
                             className="flex items-center gap-2 justify-between rounded-lg border border-stone-100 dark:border-border px-3 py-2 text-sm"
                           >
                             <code className="truncate text-xs text-stone-700 dark:text-stone-300">
-                              {u}
+                              {u.value}
                             </code>
+                            <select
+                              value={u.access}
+                              onChange={(ev) =>
+                                setEntries((prev) =>
+                                  prev.map((it) =>
+                                    it.kind === "uid" && it.value === u.value
+                                      ? {
+                                          ...it,
+                                          access:
+                                            ev.target.value === "edit"
+                                              ? "edit"
+                                              : "read",
+                                        }
+                                      : it
+                                  )
+                                )
+                              }
+                              className="rounded-md border border-stone-200 dark:border-border bg-white dark:bg-surface px-1.5 py-1 text-[11px]"
+                            >
+                              <option value="read">Lectura</option>
+                              <option value="edit">Edición</option>
+                            </select>
                             <button
                               type="button"
-                              onClick={() => setUids((prev) => prev.filter((x) => x !== u))}
+                              onClick={() =>
+                                setEntries((prev) =>
+                                  prev.filter(
+                                    (x) => !(x.kind === "uid" && x.value === u.value)
+                                  )
+                                )
+                              }
                               className="p-1.5 rounded-md text-stone-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                              aria-label={`Quitar ${u}`}
+                              aria-label={`Quitar ${u.value}`}
                             >
                               <Trash2 size={16} />
                             </button>

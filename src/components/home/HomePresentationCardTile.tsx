@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ImagePlus,
@@ -53,7 +53,7 @@ function cardEntranceTransition(index: number, reducedMotion: boolean | null) {
 }
 
 /** Capa de fondo (portada o gradiente) a pantalla completa, sin animación al hover. */
-function HeroCardMediaLayer({
+export function HeroCardMediaLayer({
   coverUrl,
   gradientClass,
 }: {
@@ -99,7 +99,12 @@ export interface HomePresentationCardTileProps {
   syncingToCloudId: string | null;
   onOpenSaved: (id: string) => void;
   onDeleteSaved: (id: string) => void;
-  onGenerateCover: (id: string) => void;
+  onGenerateCover: (
+    id: string,
+    options?: { userPrompt?: string; referenceImageDataUrl?: string },
+  ) => void;
+  onUploadCover: (id: string, imageUrl: string, promptLabel?: string) => void;
+  onRemoveCover: (id: string) => void;
   cloudSyncAvailable: boolean;
   onSyncToCloud?: (id: string) => void;
   onSharePresentation?: (id: string) => void;
@@ -124,6 +129,8 @@ export function HomePresentationCardTile({
   onOpenSaved,
   onDeleteSaved,
   onGenerateCover,
+  onUploadCover,
+  onRemoveCover,
   cloudSyncAvailable,
   onSyncToCloud,
   onSharePresentation,
@@ -137,6 +144,13 @@ export function HomePresentationCardTile({
 }: HomePresentationCardTileProps) {
   const reduceMotion = useReducedMotion();
   const [confirmDeleteCloudOpen, setConfirmDeleteCloudOpen] = useState(false);
+  const [coverActionsOpen, setCoverActionsOpen] = useState(false);
+  const [coverPrompt, setCoverPrompt] = useState("");
+  const [coverReferenceImageDataUrl, setCoverReferenceImageDataUrl] = useState<
+    string | null
+  >(null);
+  const uploadCoverInputRef = useRef<HTMLInputElement>(null);
+  const referenceCoverInputRef = useRef<HTMLInputElement>(null);
 
   const carouselFrameClass =
     listLayout === "carousel"
@@ -384,8 +398,8 @@ export function HomePresentationCardTile({
             </h3>
             <p className="text-sm text-white/92 mt-1">
               {openInBrowser
-                ? "Toca para ver en el editor (solo lectura al guardar)"
-                : "Toca para copiar en este equipo"}
+                ? "Toca para abrir en visor"
+                : "Toca para abrir en visor"}
             </p>
             <p className="text-xs text-white/82 mt-0.5">
               {when.toLocaleDateString()}
@@ -425,6 +439,22 @@ export function HomePresentationCardTile({
   const actionDeleteClass = hasHeroVisual
     ? "p-2 rounded-lg bg-black/35 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-red-600/90 hover:ring-red-300/40 transition-colors"
     : "p-2 rounded-lg bg-white/20 hover:bg-red-500/80 text-white transition-colors";
+
+  const readFileAsDataUrl = (file: File, onReady: (dataUrl: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) return;
+      onReady(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const closeCoverActions = () => {
+    setCoverActionsOpen(false);
+    setCoverPrompt("");
+    setCoverReferenceImageDataUrl(null);
+  };
 
   return (
     <motion.div
@@ -549,7 +579,7 @@ export function HomePresentationCardTile({
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
-            onGenerateCover(p.id);
+            setCoverActionsOpen((prev) => !prev);
           }}
           onPointerDown={(e) => e.stopPropagation()}
           disabled={isGeneratingCover || !!p.localBodyCleared}
@@ -562,6 +592,113 @@ export function HomePresentationCardTile({
         >
           <ImagePlus size={18} />
         </button>
+        {coverActionsOpen && !p.localBodyCleared && (
+          <div
+            className="absolute right-12 top-0 z-40 w-[17rem] rounded-xl border border-stone-200/80 bg-white/95 p-3 text-stone-800 shadow-xl backdrop-blur dark:border-stone-700/80 dark:bg-stone-900/95 dark:text-stone-100"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+              Portada
+            </p>
+            <textarea
+              value={coverPrompt}
+              onChange={(e) => setCoverPrompt(e.target.value)}
+              placeholder="Describe la portada a tu gusto (opcional)"
+              className="mt-2 min-h-20 w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-emerald-400 dark:border-stone-700 dark:bg-stone-950"
+            />
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                onClick={() => {
+                  onGenerateCover(p.id, {
+                    userPrompt: coverPrompt.trim() || undefined,
+                    referenceImageDataUrl: coverReferenceImageDataUrl ?? undefined,
+                  });
+                  closeCoverActions();
+                }}
+              >
+                Generar IA
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs hover:bg-stone-100 dark:border-stone-600 dark:hover:bg-stone-800"
+                onClick={() => referenceCoverInputRef.current?.click()}
+                title="Cargar imagen de referencia para IA"
+              >
+                Referencia
+              </button>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg border border-stone-300 px-2 py-1.5 text-xs hover:bg-stone-100 dark:border-stone-600 dark:hover:bg-stone-800"
+                onClick={() => uploadCoverInputRef.current?.click()}
+              >
+                Subir imagen propia
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-red-300 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+                onClick={() => {
+                  onRemoveCover(p.id);
+                  closeCoverActions();
+                }}
+              >
+                Quitar
+              </button>
+            </div>
+            {coverReferenceImageDataUrl && (
+              <p className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400">
+                Referencia cargada para la generación.
+              </p>
+            )}
+            <button
+              type="button"
+              className="mt-2 w-full rounded-lg px-2 py-1 text-xs text-stone-500 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+              onClick={closeCoverActions}
+            >
+              Cerrar
+            </button>
+            <input
+              ref={referenceCoverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                readFileAsDataUrl(file, (dataUrl) => {
+                  setCoverReferenceImageDataUrl(dataUrl);
+                });
+                e.currentTarget.value = "";
+              }}
+            />
+            <input
+              ref={uploadCoverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                readFileAsDataUrl(file, (dataUrl) => {
+                  onUploadCover(
+                    p.id,
+                    dataUrl,
+                    coverPrompt.trim()
+                      ? `Prompt sugerido por usuario: ${coverPrompt.trim()}`
+                      : undefined,
+                  );
+                  closeCoverActions();
+                });
+                e.currentTarget.value = "";
+              }}
+            />
+          </div>
+        )}
         <button
           type="button"
           onClick={(e) => {

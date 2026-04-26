@@ -25,6 +25,7 @@ export function SavedListModal() {
     handleSyncPresentationToCloud,
     openSharePresentationModal,
   } = usePresentation();
+  const ownSavedList = savedList.filter((p) => !p.sharedCloudSource);
 
   if (!showSavedListModal) return null;
 
@@ -55,14 +56,14 @@ export function SavedListModal() {
           </button>
         </div>
         <div className="p-4 overflow-y-auto flex-1 min-h-0">
-          {savedList.length === 0 ? (
+          {ownSavedList.length === 0 ? (
             <p className="text-stone-500 dark:text-stone-400 text-center py-8">
               No hay presentaciones guardadas.
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               <AnimatePresence initial={false} mode="popLayout">
-                {savedList.map((p) => (
+                {ownSavedList.map((p) => (
                   <motion.div
                     key={p.id}
                     layout

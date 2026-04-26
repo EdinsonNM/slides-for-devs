@@ -57,6 +57,11 @@ export function usePresentationStoreBridge() {
   );
   const narrativeNotes = configState.narrativeNotes;
   const setNarrativeNotes = useCallback(createConfigSetter("narrativeNotes"), []);
+  const presentationReadme = configState.presentationReadme;
+  const setPresentationReadme = useCallback(
+    createConfigSetter("presentationReadme"),
+    [],
+  );
   const presentationModelId = configState.presentationModelId;
   const setPresentationModelId = useCallback(
     createConfigSetter("presentationModelId"),
@@ -104,6 +109,13 @@ export function usePresentationStoreBridge() {
   const setIsSidebarOpen = useCallback(createUISetter("isSidebarOpen"), []);
   const isNotesPanelOpen = uiState.isNotesPanelOpen;
   const setIsNotesPanelOpen = useCallback(createUISetter("isNotesPanelOpen"), []);
+  const isReadmePanelOpen = uiState.isReadmePanelOpen;
+  const setIsReadmePanelOpen = useCallback(createUISetter("isReadmePanelOpen"), []);
+  const isPresentationSettingsPanelOpen = uiState.isPresentationSettingsPanelOpen;
+  const setIsPresentationSettingsPanelOpen = useCallback(
+    createUISetter("isPresentationSettingsPanelOpen"),
+    [],
+  );
   const showCodeGenModal = uiState.showCodeGenModal;
   const setShowCodeGenModal = useCallback(createUISetter("showCodeGenModal"), []);
   const showCharacterCreatorModal = uiState.showCharacterCreatorModal;
@@ -151,6 +163,8 @@ export function usePresentationStoreBridge() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     presentationModelId,
     setPresentationModelId,
     apiKeysVersion,
@@ -181,6 +195,10 @@ export function usePresentationStoreBridge() {
     setIsSidebarOpen,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+    setIsPresentationSettingsPanelOpen,
     showCodeGenModal,
     setShowCodeGenModal,
     showCharacterCreatorModal,

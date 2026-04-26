@@ -13,6 +13,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
   type DocumentReference,
@@ -75,9 +76,20 @@ export interface PushCloudOptions {
   localExpectedRevision: number | null;
   /** Sobrescribe la nube sin comprobar revisión (última escritura a propósito). */
   force?: boolean;
+  /** Owner real del documento cloud (para colaboración). */
+  ownerUid?: string;
 }
 /** Diagramas mayores se suben a Storage (límite práctico doc Firestore ~1MB). */
 const EXCALIDRAW_STORAGE_THRESHOLD = 80 * 1024;
+
+/**
+ * Firestore limita campos string (~1 MiB). URLs data:base64 de GLB superan el límite con facilidad.
+ */
+const CANVAS3D_GLB_STORAGE_THRESHOLD_BYTES = 900 * 1024;
+
+function utf8ByteLength(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
 
 /** Correos en minúsculas para `shareInviteEmails` y consultas `array-contains`. */
 export function normalizeShareEmail(raw: string): string | null {
@@ -128,6 +140,15 @@ export interface PresentationShareGrantRow {
   grantId: string;
   recipientUid: string | null;
   recipientEmailNorm: string | null;
+  access: PresentationSharePermission;
+}
+
+export type PresentationSharePermission = "read" | "edit";
+
+export interface PresentationShareEntry {
+  kind: "uid" | "email";
+  value: string;
+  access: PresentationSharePermission;
 }
 
 /**
@@ -139,12 +160,13 @@ async function replacePresentationShareGrants(
   ownerUid: string,
   cloudId: string,
   meta: { topic: string; savedAt: string; updatedAt: string | null },
-  recipientUids: string[],
-  recipientEmailNorms: string[],
+  recipientEntries: PresentationShareEntry[],
   presentationPatch?: {
     ref: DocumentReference;
     sharedWith: string[];
     shareInviteEmails: string[];
+    sharedEditWith?: string[];
+    shareEditInviteEmails?: string[];
   }
 ): Promise<void> {
   const grantsCol = presentationShareGrantsCollection(db, ownerUid);
@@ -155,32 +177,40 @@ async function replacePresentationShareGrants(
     batch.delete(d.ref);
     ops += 1;
   }
-  const uids = [...new Set(recipientUids.map((u) => u.trim()).filter(Boolean))];
-  const emails = [
-    ...new Set(
-      recipientEmailNorms
-        .map((e) => normalizeShareEmail(e))
-        .filter((e): e is string => e != null)
-    ),
-  ];
-  for (const uid of uids) {
+  const byUid = new Map<string, PresentationSharePermission>();
+  const byEmail = new Map<string, PresentationSharePermission>();
+  for (const entry of recipientEntries) {
+    const access: PresentationSharePermission = entry.access === "edit" ? "edit" : "read";
+    if (entry.kind === "uid") {
+      const uid = entry.value.trim();
+      if (!uid) continue;
+      byUid.set(uid, access);
+      continue;
+    }
+    const emailNorm = normalizeShareEmail(entry.value);
+    if (!emailNorm) continue;
+    byEmail.set(emailNorm, access);
+  }
+  for (const [uid, access] of byUid.entries()) {
     batch.set(doc(grantsCol, shareGrantDocIdForUid(uid)), {
       ownerUid,
       cloudId,
       recipientUid: uid,
       recipientEmailNorm: null,
+      access,
       topic: meta.topic,
       savedAt: meta.savedAt,
       updatedAt: meta.updatedAt,
     });
     ops += 1;
   }
-  for (const emailNorm of emails) {
+  for (const [emailNorm, access] of byEmail.entries()) {
     batch.set(doc(grantsCol, shareGrantDocIdForEmailNorm(emailNorm)), {
       ownerUid,
       cloudId,
       recipientUid: null,
       recipientEmailNorm: emailNorm,
+      access,
       topic: meta.topic,
       savedAt: meta.savedAt,
       updatedAt: meta.updatedAt,
@@ -191,6 +221,8 @@ async function replacePresentationShareGrants(
     batch.update(presentationPatch.ref, {
       sharedWith: presentationPatch.sharedWith,
       shareInviteEmails: presentationPatch.shareInviteEmails,
+      sharedEditWith: presentationPatch.sharedEditWith ?? [],
+      shareEditInviteEmails: presentationPatch.shareEditInviteEmails ?? [],
     });
     ops += 1;
   }
@@ -217,6 +249,7 @@ export async function listPresentationShareGrantsForCloudPresentation(
       grantId: d.id,
       recipientUid: typeof g.recipientUid === "string" ? g.recipientUid : null,
       recipientEmailNorm: typeof g.recipientEmailNorm === "string" ? g.recipientEmailNorm : null,
+      access: g.access === "edit" ? "edit" : "read",
     };
   });
 }
@@ -266,9 +299,155 @@ async function syncPresentationShareEmailIndex(
 }
 
 export interface PresentationShareAccess {
+  entries: PresentationShareEntry[];
   sharedWithUids: string[];
   /** Correos normalizados (minúsculas); acceso si coinciden con `request.auth.token.email`. */
   shareInviteEmails: string[];
+}
+
+export type PresentationPublicationVisibility = "public" | "private" | "unlisted";
+export type PresentationPublicationLevel = "basic" | "intermediate" | "advanced";
+
+export interface PresentationPublicationMetadata {
+  visibility: PresentationPublicationVisibility;
+  description: string;
+  tags: string[];
+  level: PresentationPublicationLevel;
+  categories: string[];
+  publishedAt: string | null;
+}
+
+function normalizePublicationTags(values: string[]): string[] {
+  return [
+    ...new Set(
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .slice(0, 12)
+    ),
+  ];
+}
+
+function normalizePublicationCategories(values: string[]): string[] {
+  return [
+    ...new Set(
+      values
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .slice(0, 8)
+    ),
+  ];
+}
+
+/**
+ * Metadatos de publicación en el doc principal (`publication*`).
+ * `pushPresentationToCloud` sustituye el documento entero; hay que reinyectar estos campos
+ * igual que `sharedWith` / `shareInviteEmails`, si no desaparecen al guardar/sincronizar.
+ */
+function preservedPublicationFieldsFromDoc(d: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const rawVis = d.publicationVisibility;
+  if (rawVis === "public" || rawVis === "unlisted" || rawVis === "private") {
+    out.publicationVisibility = rawVis;
+  }
+  if (typeof d.publicationDescription === "string") {
+    out.publicationDescription = d.publicationDescription;
+  }
+  if (Array.isArray(d.publicationTags)) {
+    out.publicationTags = normalizePublicationTags(
+      d.publicationTags.filter((x): x is string => typeof x === "string"),
+    );
+  }
+  const rl = d.publicationLevel;
+  if (rl === "basic" || rl === "intermediate" || rl === "advanced") {
+    out.publicationLevel = rl;
+  }
+  if (Array.isArray(d.publicationCategories)) {
+    out.publicationCategories = normalizePublicationCategories(
+      d.publicationCategories.filter((x): x is string => typeof x === "string"),
+    );
+  }
+  if (d.publicationPublishedAt != null) {
+    out.publicationPublishedAt = d.publicationPublishedAt;
+  }
+  return out;
+}
+
+export async function getPresentationPublicationMetadata(
+  ownerUid: string,
+  cloudId: string
+): Promise<PresentationPublicationMetadata> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser) {
+    throw new Error("Inicia sesion para ver la publicacion.");
+  }
+  const snap = await getDoc(presentationDoc(db, ownerUid, cloudId));
+  if (!snap.exists()) {
+    throw new Error("La presentacion no esta en la nube. Sincronizala primero.");
+  }
+  const data = snap.data() as Record<string, unknown>;
+  const rawTags = Array.isArray(data.publicationTags)
+    ? data.publicationTags.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawCategories = Array.isArray(data.publicationCategories)
+    ? data.publicationCategories.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawVisibility = data.publicationVisibility;
+  const visibility: PresentationPublicationVisibility =
+    rawVisibility === "public" || rawVisibility === "unlisted" || rawVisibility === "private"
+      ? rawVisibility
+      : "private";
+  const rawLevel = data.publicationLevel;
+  const level: PresentationPublicationLevel =
+    rawLevel === "basic" || rawLevel === "intermediate" || rawLevel === "advanced"
+      ? rawLevel
+      : "intermediate";
+  return {
+    visibility,
+    description:
+      typeof data.publicationDescription === "string" ? data.publicationDescription : "",
+    tags: normalizePublicationTags(rawTags),
+    level,
+    categories: normalizePublicationCategories(rawCategories),
+    publishedAt: timestampToIso(data.publicationPublishedAt),
+  };
+}
+
+export async function setPresentationPublicationMetadata(
+  ownerUid: string,
+  cloudId: string,
+  metadata: Omit<PresentationPublicationMetadata, "publishedAt">
+): Promise<void> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
+    throw new Error("Solo el propietario puede cambiar la publicacion.");
+  }
+  const dref = presentationDoc(db, ownerUid, cloudId);
+  const snap = await getDoc(dref);
+  if (!snap.exists()) {
+    throw new Error("La presentacion no esta en la nube. Sincronizala primero.");
+  }
+  const visibility: PresentationPublicationVisibility =
+    metadata.visibility === "public" || metadata.visibility === "unlisted"
+      ? metadata.visibility
+      : "private";
+  const level: PresentationPublicationLevel =
+    metadata.level === "basic" || metadata.level === "advanced"
+      ? metadata.level
+      : "intermediate";
+  await updateDoc(dref, {
+    publicationVisibility: visibility,
+    publicationDescription: metadata.description.trim().slice(0, 500),
+    publicationTags: normalizePublicationTags(metadata.tags),
+    publicationLevel: level,
+    publicationCategories: normalizePublicationCategories(metadata.categories),
+    publicationPublishedAt:
+      visibility === "public" || visibility === "unlisted" ? serverTimestamp() : null,
+  });
 }
 
 export interface CloudPresentationListItem {
@@ -289,6 +468,157 @@ export interface CloudPresentationListItem {
   homeFirstSlideReplica?: Slide;
   /** Tema del doc principal (para pintar la réplica como en el editor). */
   homePreviewDeckVisualTheme?: DeckVisualTheme;
+}
+
+/**
+ * Fila para la pantalla “público” (explorar): publicaciones con
+ * `publicationVisibility == "public"`.
+ */
+export interface PublicPresentationExploreItem {
+  cloudId: string;
+  ownerUid: string;
+  topic: string;
+  description: string;
+  publicationTags: string[];
+  publicationLevel: PresentationPublicationLevel;
+  publicationCategories: string[];
+  publicationPublishedAt: string | null;
+  savedAt: string;
+  updatedAt: string | null;
+  homePreviewImageUrl?: string;
+  homeFirstSlideReplica?: Slide;
+  homePreviewDeckVisualTheme?: DeckVisualTheme;
+}
+
+function explorePublicationFromMainData(
+  data: Record<string, unknown>,
+): Pick<
+  PublicPresentationExploreItem,
+  | "description"
+  | "publicationTags"
+  | "publicationLevel"
+  | "publicationCategories"
+  | "publicationPublishedAt"
+> {
+  const rawTags = Array.isArray(data.publicationTags)
+    ? data.publicationTags.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawCategories = Array.isArray(data.publicationCategories)
+    ? data.publicationCategories.filter((x): x is string => typeof x === "string")
+    : [];
+  const rawLevel = data.publicationLevel;
+  return {
+    description:
+      typeof data.publicationDescription === "string" ? data.publicationDescription : "",
+    publicationTags: [
+      ...new Set(
+        rawTags
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .slice(0, 12),
+      ),
+    ],
+    publicationLevel:
+      rawLevel === "basic" || rawLevel === "intermediate" || rawLevel === "advanced"
+        ? rawLevel
+        : "intermediate",
+    publicationCategories: [
+      ...new Set(
+        rawCategories
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .slice(0, 8),
+      ),
+    ],
+    publicationPublishedAt: timestampToIso(data.publicationPublishedAt),
+  };
+}
+
+/**
+ * Listado global (usuarios con sesión) de presentaciones marcadas como **públicas** en
+ * Firestore. Rellena portada/réplica como en el home.
+ */
+export async function listPublicPresentationsForExplore(): Promise<
+  PublicPresentationExploreItem[]
+> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  if (!inst.auth.currentUser) {
+    throw new Error("Inicia sesion para ver las publicaciones publicas.");
+  }
+  if (!inst.storage) {
+    throw new Error("Firebase Storage no esta disponible.");
+  }
+  const { firestore: db, storage: st } = inst;
+
+  const qy = query(
+    collectionGroup(db, "presentations"),
+    where("publicationVisibility", "==", "public"),
+  );
+  const snap = await getDocs(qy);
+  const rows: {
+    ownerUid: string;
+    cloudId: string;
+    data: Record<string, unknown>;
+  }[] = [];
+  for (const d of snap.docs) {
+    const ownerUid = d.ref.parent.parent?.id;
+    if (!ownerUid) continue;
+    rows.push({
+      ownerUid,
+      cloudId: d.id,
+      data: d.data() as Record<string, unknown>,
+    });
+  }
+
+  let listItems: CloudPresentationListItem[] = rows.map((r) => {
+    const data = r.data;
+    return {
+      cloudId: r.cloudId,
+      ownerUid: r.ownerUid,
+      source: "mine" as const,
+      topic: String(data.topic ?? ""),
+      savedAt: String(data.savedAt ?? ""),
+      updatedAt: timestampToIso(data.updatedAt),
+    };
+  });
+
+  const mainByOwnerCloud = new Map(
+    rows.map((r) => [`${r.ownerUid}::${r.cloudId}`, r.data]),
+  );
+
+  listItems = await enrichCloudPresentationItemsWithDeckCoverPreview(
+    db,
+    st,
+    listItems,
+    mainByOwnerCloud,
+  );
+
+  const out: PublicPresentationExploreItem[] = listItems.map((it, i) => {
+    const { data } = rows[i]!;
+    const ex = explorePublicationFromMainData(data);
+    return {
+      cloudId: it.cloudId,
+      ownerUid: it.ownerUid,
+      topic: it.topic,
+      savedAt: it.savedAt,
+      updatedAt: it.updatedAt,
+      description: ex.description,
+      publicationTags: ex.publicationTags,
+      publicationLevel: ex.publicationLevel,
+      publicationCategories: ex.publicationCategories,
+      publicationPublishedAt: ex.publicationPublishedAt,
+      homePreviewImageUrl: it.homePreviewImageUrl,
+      homeFirstSlideReplica: it.homeFirstSlideReplica,
+      homePreviewDeckVisualTheme: it.homePreviewDeckVisualTheme,
+    };
+  });
+  out.sort((a, b) => {
+    const ta = a.publicationPublishedAt || a.updatedAt || a.savedAt;
+    const tb = b.publicationPublishedAt || b.updatedAt || b.savedAt;
+    return tb.localeCompare(ta);
+  });
+  return out;
 }
 
 function userPresentationsRef(db: import("firebase/firestore").Firestore, uid: string) {
@@ -345,6 +675,7 @@ async function loadFirstSlideResolvedForHomeReplica(
   const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (mainData.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (mainData.excalidrawPaths as Record<string, string>) ?? {};
+  const canvas3dGlbPaths = (mainData.canvas3dGlbPaths as Record<string, string>) ?? {};
   const deckCoverLeaf = safeStorageLeafName(String(mainData.deckCoverImageFile ?? ""));
   const inlineSlides = mainData.slides;
   const isV1 =
@@ -397,10 +728,26 @@ async function loadFirstSlideResolvedForHomeReplica(
     }
   })();
 
+  const canvas3dGlbUrl = await (async (): Promise<string | undefined> => {
+    const glbName = canvas3dGlbPaths["0"]?.trim();
+    if (!glbName) return base.canvas3dGlbUrl;
+    const path = `${prefix}/${glbName}`;
+    try {
+      return await withTimeout(
+        getDownloadURL(ref(st, path)),
+        STORAGE_PULL_TIMEOUT_MS,
+        "Home preview: GLB canvas 3D slide 0.",
+      );
+    } catch {
+      return base.canvas3dGlbUrl;
+    }
+  })();
+
   return {
     ...base,
     ...(imageUrl !== undefined ? { imageUrl } : {}),
     ...(excalidrawData !== undefined ? { excalidrawData } : {}),
+    ...(canvas3dGlbUrl !== undefined ? { canvas3dGlbUrl } : {}),
   };
 }
 
@@ -508,11 +855,13 @@ async function deleteKnownPresentationFiles(
   prefix: string,
   slideImagePaths: Record<string, string>,
   excalidrawPaths: Record<string, string>,
+  canvas3dGlbPaths: Record<string, string>,
   deckCoverImageFile?: string | null,
 ): Promise<void> {
   const names = new Set<string>([
     ...Object.values(slideImagePaths),
     ...Object.values(excalidrawPaths),
+    ...Object.values(canvas3dGlbPaths),
   ]);
   const deckLeaf = safeStorageLeafName(deckCoverImageFile ?? undefined);
   if (deckLeaf) names.add(deckLeaf);
@@ -536,6 +885,11 @@ function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: stri
   if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = "jpg";
   else if (contentType.includes("webp")) ext = "webp";
   else if (contentType.includes("gif")) ext = "gif";
+  else if (
+    contentType.includes("gltf-binary") ||
+    contentType.includes("model/gltf")
+  )
+    ext = "glb";
   return { bytes, contentType, ext };
 }
 
@@ -605,6 +959,8 @@ function slideToPlain(s: Slide): Record<string, unknown> {
     mindMapData: s.mindMapData ?? null,
     mapData: s.mapData ?? null,
     canvas3dSceneData: s.canvas3dSceneData ?? null,
+    slideBackgroundImageUrl: s.slideBackgroundImageUrl ?? null,
+    slideBackgroundColor: s.slideBackgroundColor ?? null,
   };
 }
 
@@ -664,6 +1020,10 @@ function plainToSlide(p: Record<string, unknown>): Slide {
         ? normalizeSlideMatrixData(p.matrixData)
         : undefined,
     canvasScene: parseCanvasSceneFromPlain(p.canvasScene),
+    slideBackgroundImageUrl:
+      p.slideBackgroundImageUrl != null ? String(p.slideBackgroundImageUrl) : undefined,
+    slideBackgroundColor:
+      p.slideBackgroundColor != null ? String(p.slideBackgroundColor) : undefined,
   };
 }
 
@@ -709,7 +1069,7 @@ async function listSharedPresentationsFromEmailIndex(
  *  4. Limpieza best-effort (slides sobrantes, Storage viejo, grants).
  */
 export async function pushPresentationToCloud(
-  uid: string,
+  actorUid: string,
   saved: SavedPresentation,
   existingCloudId?: string | null,
   options?: PushCloudOptions
@@ -719,21 +1079,28 @@ export async function pushPresentationToCloud(
     throw new Error("Firebase no inicializado");
   }
   const { firestore: db, storage: st, auth: fbAuth } = inst;
-  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== uid) {
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== actorUid) {
     throw new Error(
       "La sesión de Firebase no coincide con tu usuario. Vuelve a iniciar sesión e inténtalo de nuevo."
     );
   }
+  const ownerUid = options?.ownerUid?.trim() || actorUid;
   const force = options?.force ?? false;
   const localExpectedRevision = options?.localExpectedRevision;
   const cloudId = existingCloudId?.trim() || crypto.randomUUID();
-  const prefix = storagePrefix(uid, cloudId);
-  const docRef = presentationDoc(db, uid, cloudId);
+  const prefix = storagePrefix(ownerUid, cloudId);
+  const docRef = presentationDoc(db, ownerUid, cloudId);
 
   /* ── 1. Pre-check revisión ── */
   const preSnap = await getDoc(docRef);
+  const preData = preSnap.exists()
+    ? (preSnap.data() as Record<string, unknown>)
+    : null;
+  const prevDeckCoverImageFile = preData
+    ? safeStorageLeafName(String(preData.deckCoverImageFile ?? ""))
+    : "";
   if (preSnap.exists() && !force) {
-    const preRemoteRev = Number((preSnap.data() as Record<string, unknown>).revision ?? 0);
+    const preRemoteRev = Number((preData as Record<string, unknown>).revision ?? 0);
     const expected = localExpectedRevision ?? 0;
     if (preRemoteRev !== expected) {
       const pd = preSnap.data() as Record<string, unknown>;
@@ -745,8 +1112,10 @@ export async function pushPresentationToCloud(
   /* ── 2. Subida de medios + escritura individual de cada slide ── */
   const slideImagePaths: Record<string, string> = {};
   const excalidrawPaths: Record<string, string> = {};
+  const canvas3dGlbPaths: Record<string, string> = {};
   let deckCoverImageFile: string | null = null;
-  const slidesCol = slidesSubcollection(db, uid, cloudId);
+  let firstSlideKeepsDeckCover = false;
+  const slidesCol = slidesSubcollection(db, ownerUid, cloudId);
   let slidesWritten = 0;
 
   for (let i = 0; i < saved.slides.length; i++) {
@@ -756,6 +1125,9 @@ export async function pushPresentationToCloud(
 
     const useDeckCoverStorage =
       i === 0 && isPersistedSlaimDeckCoverSlide(slide);
+    if (i === 0 && useDeckCoverStorage && slide.imageUrl?.trim()) {
+      firstSlideKeepsDeckCover = true;
+    }
 
     if (slide.imageUrl?.startsWith("data:")) {
       let payload = await dataUrlToCloudImagePayload(slide.imageUrl);
@@ -806,17 +1178,61 @@ export async function pushPresentationToCloud(
       excalidrawData = undefined;
     }
 
+    let canvas3dGlbForDoc: string | null | undefined = slide.canvas3dGlbUrl?.trim() || undefined;
+    if (canvas3dGlbForDoc && utf8ByteLength(canvas3dGlbForDoc) > CANVAS3D_GLB_STORAGE_THRESHOLD_BYTES) {
+      let bytes: Uint8Array | null = null;
+      let contentType = "model/gltf-binary";
+      if (canvas3dGlbForDoc.startsWith("data:")) {
+        const parsed = dataUrlToBytes(canvas3dGlbForDoc);
+        if (parsed) {
+          bytes = parsed.bytes;
+          if (parsed.contentType) contentType = parsed.contentType;
+        }
+      } else if (
+        canvas3dGlbForDoc.startsWith("http://") ||
+        canvas3dGlbForDoc.startsWith("https://")
+      ) {
+        const fetched = await fetchUrlAsBytes(canvas3dGlbForDoc);
+        if (fetched) {
+          bytes = fetched.bytes;
+          if (fetched.contentType) contentType = fetched.contentType;
+        }
+      }
+      if (bytes && bytes.length > 0) {
+        const name = `canvas3d_glb_${i}.glb`;
+        await uploadBytes(ref(st, `${prefix}/${name}`), bytes, { contentType });
+        canvas3dGlbPaths[String(i)] = name;
+        canvas3dGlbForDoc = undefined;
+      } else {
+        console.warn(
+          `[cloud] GLB del slide ${i} supera el límite de Firestore y no se pudo subir a Storage; se omite en la nube.`,
+        );
+        canvas3dGlbForDoc = undefined;
+      }
+    }
+
     const slideData: Record<string, unknown> = {
       order: i,
       ...plain,
       imageUrl: imageUrl ?? null,
       excalidrawData: excalidrawData ?? null,
+      canvas3dGlbUrl: canvas3dGlbForDoc ?? null,
       isometricFlowData: slide.isometricFlowData ?? null,
     };
 
     const safeSlideData = stripUndefinedDeep(slideData) as Record<string, unknown>;
     await setDocWithRetry(doc(slidesCol, String(i)), safeSlideData);
     slidesWritten += 1;
+  }
+
+  // Si la portada ya estaba en Storage (URL firmada existente) y no se subió una nueva
+  // en este push, preservar el archivo actual para no “perder” la portada al guardar.
+  if (
+    firstSlideKeepsDeckCover &&
+    !deckCoverImageFile &&
+    prevDeckCoverImageFile
+  ) {
+    deckCoverImageFile = prevDeckCoverImageFile;
   }
 
   /* ── 3. Todos los slides escritos → actualizar doc principal vía transacción ── */
@@ -829,8 +1245,10 @@ export async function pushPresentationToCloud(
     deckVisualTheme: saved.deckVisualTheme ?? null,
     deckNarrativePresetId: saved.deckNarrativePresetId ?? null,
     narrativeNotes: saved.narrativeNotes ?? null,
+    presentationReadme: saved.presentationReadme ?? null,
     slideImagePaths,
     excalidrawPaths,
+    canvas3dGlbPaths,
     /** Portada Slaim dedicada en Storage (no `slide_0.*`). */
     deckCoverImageFile: deckCoverImageFile ?? null,
     slideCount: slidesWritten,
@@ -842,6 +1260,8 @@ export async function pushPresentationToCloud(
     newRevision,
     preservedShareInviteEmails: inviteEmailsAfterPush,
     preservedSharedWith: sharedWithAfterPush,
+    preservedSharedEditWith: sharedEditWithAfterPush,
+    preservedShareEditInviteEmails: shareEditInviteEmailsAfterPush,
   } = await runTransaction(db, async (transaction) => {
     const snap = await transaction.get(docRef);
     const remoteRev = snap.exists()
@@ -850,6 +1270,9 @@ export async function pushPresentationToCloud(
 
     let preservedSharedWith: string[] = [];
     let preservedShareInviteEmails: string[] = [];
+    let preservedSharedEditWith: string[] = [];
+    let preservedShareEditInviteEmails: string[] = [];
+    let preservedPublicationFields: Record<string, unknown> = {};
     if (snap.exists()) {
       const d = snap.data() as Record<string, unknown>;
       const sw = d.sharedWith;
@@ -857,6 +1280,15 @@ export async function pushPresentationToCloud(
         preservedSharedWith = sw.filter((x): x is string => typeof x === "string");
       }
       preservedShareInviteEmails = shareInviteEmailsFromDocData(d);
+      const se = d.sharedEditWith;
+      if (Array.isArray(se)) {
+        preservedSharedEditWith = se.filter((x): x is string => typeof x === "string");
+      }
+      const sei = d.shareEditInviteEmails;
+      if (Array.isArray(sei)) {
+        preservedShareEditInviteEmails = sei.filter((x): x is string => typeof x === "string");
+      }
+      preservedPublicationFields = preservedPublicationFieldsFromDoc(d);
     }
 
     if (!force && snap.exists()) {
@@ -871,12 +1303,21 @@ export async function pushPresentationToCloud(
     const nextRev = snap.exists() ? remoteRev + 1 : 1;
     transaction.set(docRef, {
       ...safeMainPayload,
+      ...preservedPublicationFields,
       sharedWith: preservedSharedWith,
       shareInviteEmails: preservedShareInviteEmails,
+      sharedEditWith: preservedSharedEditWith,
+      shareEditInviteEmails: preservedShareEditInviteEmails,
       revision: nextRev,
       updatedAt: serverTimestamp(),
     });
-    return { newRevision: nextRev, preservedShareInviteEmails, preservedSharedWith };
+    return {
+      newRevision: nextRev,
+      preservedShareInviteEmails,
+      preservedSharedWith,
+      preservedSharedEditWith,
+      preservedShareEditInviteEmails,
+    };
   });
 
   /* ── 4. Limpieza best-effort ── */
@@ -889,11 +1330,13 @@ export async function pushPresentationToCloud(
   }
 
   if (preSnap.exists()) {
-    const pd = preSnap.data() as Record<string, unknown>;
+    const pd = preData as Record<string, unknown>;
     const oldImgPaths = (pd.slideImagePaths as Record<string, string>) ?? {};
     const oldExcPaths = (pd.excalidrawPaths as Record<string, string>) ?? {};
+    const oldC3dGlbPaths = (pd.canvas3dGlbPaths as Record<string, string>) ?? {};
     const staleImgs = Object.entries(oldImgPaths).filter(([k]) => !(k in slideImagePaths));
     const staleExc = Object.entries(oldExcPaths).filter(([k]) => !(k in excalidrawPaths));
+    const staleC3dGlb = Object.entries(oldC3dGlbPaths).filter(([k]) => !(k in canvas3dGlbPaths));
     const prevDeckLeaf = safeStorageLeafName(String(pd.deckCoverImageFile ?? ""));
     const nextDeckLeaf = deckCoverImageFile ? deckCoverImageFile.trim() : "";
     const deckStale =
@@ -903,6 +1346,7 @@ export async function pushPresentationToCloud(
     await Promise.all([
       ...staleImgs.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
       ...staleExc.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
+      ...staleC3dGlb.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
       ...deckStale,
     ]);
   }
@@ -915,8 +1359,29 @@ export async function pushPresentationToCloud(
       savedAt: String(pda.savedAt ?? saved.savedAt),
       updatedAt: timestampToIso(pda.updatedAt) ?? syncedAt,
     };
-    await replacePresentationShareGrants(db, uid, cloudId, meta, sharedWithAfterPush, inviteEmailsAfterPush);
-    await syncPresentationShareEmailIndex(db, uid, cloudId, meta, inviteEmailsAfterPush, inviteEmailsAfterPush);
+    const preservedEntries: PresentationShareEntry[] = [
+      ...sharedWithAfterPush.map((uidVal) => ({
+        kind: "uid" as const,
+        value: uidVal,
+        access: sharedEditWithAfterPush.includes(uidVal) ? ("edit" as const) : ("read" as const),
+      })),
+      ...inviteEmailsAfterPush.map((emailVal) => ({
+        kind: "email" as const,
+        value: emailVal,
+        access: shareEditInviteEmailsAfterPush.includes(emailVal)
+          ? ("edit" as const)
+          : ("read" as const),
+      })),
+    ];
+    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, preservedEntries);
+    await syncPresentationShareEmailIndex(
+      db,
+      ownerUid,
+      cloudId,
+      meta,
+      inviteEmailsAfterPush,
+      inviteEmailsAfterPush
+    );
   } catch (indexErr) {
     console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
   }
@@ -951,7 +1416,7 @@ export async function deleteOwnerPresentationFromCloud(
   const updatedAt = timestampToIso(data.updatedAt);
   const meta = { topic, savedAt, updatedAt };
 
-  await replacePresentationShareGrants(db, uid, cloudId, meta, [], []);
+  await replacePresentationShareGrants(db, uid, cloudId, meta, []);
   const prevInviteEmails = shareInviteEmailsFromDocData(data);
   await syncPresentationShareEmailIndex(db, uid, cloudId, meta, prevInviteEmails, []);
 
@@ -961,6 +1426,7 @@ export async function deleteOwnerPresentationFromCloud(
     prefix,
     (data.slideImagePaths as Record<string, string>) ?? {},
     (data.excalidrawPaths as Record<string, string>) ?? {},
+    (data.canvas3dGlbPaths as Record<string, string>) ?? {},
     data.deckCoverImageFile as string | null | undefined,
   );
 
@@ -1191,25 +1657,39 @@ export async function getPresentationShareAccess(
   const dref = presentationDoc(db, ownerUid, cloudId);
   const snap = await getDoc(dref);
   if (!snap.exists()) {
-    return { sharedWithUids: [], shareInviteEmails: [] };
+    return { entries: [], sharedWithUids: [], shareInviteEmails: [] };
   }
   const grantsCol = presentationShareGrantsCollection(db, ownerUid);
   const grantsSnap = await getDocs(query(grantsCol, where("cloudId", "==", cloudId)));
   if (!grantsSnap.empty) {
-    const sharedWithUids: string[] = [];
-    const shareInviteEmails: string[] = [];
+    const entries: PresentationShareEntry[] = [];
     for (const g of grantsSnap.docs) {
       const row = g.data() as Record<string, unknown>;
+      const grantAccess: PresentationSharePermission =
+        row.access === "edit" ? "edit" : "read";
       if (typeof row.recipientUid === "string" && row.recipientUid.trim()) {
-        sharedWithUids.push(row.recipientUid.trim());
+        entries.push({
+          kind: "uid",
+          value: row.recipientUid.trim(),
+          access: grantAccess,
+        });
       }
       if (typeof row.recipientEmailNorm === "string" && row.recipientEmailNorm.trim()) {
-        shareInviteEmails.push(row.recipientEmailNorm.trim());
+        entries.push({
+          kind: "email",
+          value: row.recipientEmailNorm.trim(),
+          access: grantAccess,
+        });
       }
     }
+    const sharedWithUids = [...new Set(entries.filter((e) => e.kind === "uid").map((e) => e.value))];
+    const shareInviteEmails = [
+      ...new Set(entries.filter((e) => e.kind === "email").map((e) => e.value)),
+    ];
     return {
-      sharedWithUids: [...new Set(sharedWithUids)],
-      shareInviteEmails: [...new Set(shareInviteEmails)],
+      entries,
+      sharedWithUids,
+      shareInviteEmails,
     };
   }
   const data = snap.data() as Record<string, unknown>;
@@ -1218,7 +1698,22 @@ export async function getPresentationShareAccess(
     ? sw.filter((x): x is string => typeof x === "string")
     : [];
   const shareInviteEmails = shareInviteEmailsFromDocData(data);
-  return { sharedWithUids, shareInviteEmails };
+  return {
+    entries: [
+      ...sharedWithUids.map((uidVal) => ({
+        kind: "uid" as const,
+        value: uidVal,
+        access: "read" as const,
+      })),
+      ...shareInviteEmails.map((emailVal) => ({
+        kind: "email" as const,
+        value: emailVal,
+        access: "read" as const,
+      })),
+    ],
+    sharedWithUids,
+    shareInviteEmails,
+  };
 }
 
 /** Solo el propietario puede actualizar; reglas Firestore deben coincidir. */
@@ -1233,11 +1728,50 @@ export async function setPresentationShareAccess(
   if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
     throw new Error("Solo el propietario puede cambiar con quién se comparte.");
   }
-  const uids = [...new Set(access.sharedWithUids.map((u) => u.trim()).filter(Boolean))];
+  const normalizedEntries: PresentationShareEntry[] =
+    access.entries.length > 0
+      ? access.entries
+      : [
+          ...access.sharedWithUids.map((u) => ({
+            kind: "uid" as const,
+            value: u,
+            access: "read" as const,
+          })),
+          ...access.shareInviteEmails.map((e) => ({
+            kind: "email" as const,
+            value: e,
+            access: "read" as const,
+          })),
+        ];
+  const uids = [
+    ...new Set(
+      normalizedEntries
+        .filter((e) => e.kind === "uid")
+        .map((e) => e.value.trim())
+        .filter(Boolean)
+    ),
+  ];
   const emails = [
     ...new Set(
-      access.shareInviteEmails
-        .map((e) => normalizeShareEmail(e))
+      normalizedEntries
+        .filter((e) => e.kind === "email")
+        .map((e) => normalizeShareEmail(e.value))
+        .filter((e): e is string => e != null)
+    ),
+  ];
+  const editUids = [
+    ...new Set(
+      normalizedEntries
+        .filter((e) => e.kind === "uid" && e.access === "edit")
+        .map((e) => e.value.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const editEmails = [
+    ...new Set(
+      normalizedEntries
+        .filter((e) => e.kind === "email" && e.access === "edit")
+        .map((e) => normalizeShareEmail(e.value))
         .filter((e): e is string => e != null)
     ),
   ];
@@ -1256,10 +1790,12 @@ export async function setPresentationShareAccess(
     updatedAt: timestampToIso(sd.updatedAt),
   };
   try {
-    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, uids, emails, {
+    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, normalizedEntries, {
       ref: dref,
       sharedWith: uids,
       shareInviteEmails: emails,
+      sharedEditWith: editUids,
+      shareEditInviteEmails: editEmails,
     });
     const afterSnap = await getDoc(dref);
     const ad = (afterSnap.data() ?? {}) as Record<string, unknown>;
@@ -1278,6 +1814,116 @@ export async function setPresentationShareAccess(
   } catch (indexErr) {
     console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
   }
+}
+
+export interface PresentationAccessSummary {
+  isOwner: boolean;
+  canRead: boolean;
+  canEdit: boolean;
+  publicationVisibility: PresentationPublicationVisibility;
+}
+
+export async function getCurrentUserPresentationAccess(
+  ownerUid: string,
+  cloudId: string
+): Promise<PresentationAccessSummary> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  const actor = fbAuth.currentUser;
+  if (!actor) throw new Error("Inicia sesión para ver los permisos.");
+  const snap = await getDoc(presentationDoc(db, ownerUid, cloudId));
+  if (!snap.exists()) {
+    return { isOwner: false, canRead: false, canEdit: false, publicationVisibility: "private" };
+  }
+  const data = snap.data() as Record<string, unknown>;
+  const publicationVisibility: PresentationPublicationVisibility =
+    data.publicationVisibility === "public" ||
+    data.publicationVisibility === "unlisted" ||
+    data.publicationVisibility === "private"
+      ? data.publicationVisibility
+      : "private";
+  const isOwner = actor.uid === ownerUid;
+  if (isOwner) {
+    return { isOwner: true, canRead: true, canEdit: true, publicationVisibility };
+  }
+  const emailNorm = actor.email ? normalizeShareEmail(actor.email) : null;
+  const sharedWith = Array.isArray(data.sharedWith)
+    ? data.sharedWith.filter((x): x is string => typeof x === "string")
+    : [];
+  const invitedEmails = shareInviteEmailsFromDocData(data);
+  const sharedEditWith = Array.isArray(data.sharedEditWith)
+    ? data.sharedEditWith.filter((x): x is string => typeof x === "string")
+    : [];
+  const shareEditInviteEmails = Array.isArray(data.shareEditInviteEmails)
+    ? data.shareEditInviteEmails.filter((x): x is string => typeof x === "string")
+    : [];
+  const canReadByList =
+    sharedWith.includes(actor.uid) || (!!emailNorm && invitedEmails.includes(emailNorm));
+  let canEdit =
+    sharedEditWith.includes(actor.uid) ||
+    (!!emailNorm && shareEditInviteEmails.includes(emailNorm));
+  try {
+    const grantsSnap = await getDocs(
+      query(presentationShareGrantsCollection(db, ownerUid), where("cloudId", "==", cloudId))
+    );
+    for (const g of grantsSnap.docs) {
+      const row = g.data() as Record<string, unknown>;
+      const byUid = typeof row.recipientUid === "string" && row.recipientUid === actor.uid;
+      const byEmail =
+        !!emailNorm &&
+        typeof row.recipientEmailNorm === "string" &&
+        row.recipientEmailNorm === emailNorm;
+      if (!byUid && !byEmail) continue;
+      if (row.access === "edit") {
+        canEdit = true;
+        break;
+      }
+    }
+  } catch {
+    /**
+     * Si falla la consulta de grants (índice/reglas/transitorio), conservamos
+     * el permiso derivado del documento principal para no degradar a solo lectura
+     * a usuarios que sí tienen `sharedEditWith` / `shareEditInviteEmails`.
+     */
+  }
+  if (publicationVisibility === "public") {
+    canEdit = false;
+  }
+  const canRead = publicationVisibility === "public" || canReadByList || canEdit;
+  return { isOwner: false, canRead, canEdit, publicationVisibility };
+}
+
+export async function transferPresentationOwnership(
+  ownerUid: string,
+  cloudId: string,
+  newOwnerUid: string
+): Promise<void> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
+    throw new Error("Solo el owner actual puede transferir la presentación.");
+  }
+  const nextOwner = newOwnerUid.trim();
+  if (!nextOwner) throw new Error("Indica el UID del nuevo owner.");
+  if (nextOwner === ownerUid) return;
+
+  const sourceRef = presentationDoc(db, ownerUid, cloudId);
+  const sourceSnap = await getDoc(sourceRef);
+  if (!sourceSnap.exists()) {
+    throw new Error("La presentación no está en la nube.");
+  }
+  const sourceData = sourceSnap.data() as Record<string, unknown>;
+  const targetRef = presentationDoc(db, nextOwner, cloudId);
+  await setDoc(targetRef, sourceData);
+
+  const slidesSnap = await getDocs(slidesSubcollection(db, ownerUid, cloudId));
+  for (const d of slidesSnap.docs) {
+    await setDoc(doc(slidesSubcollection(db, nextOwner, cloudId), d.id), d.data());
+  }
+
+  await deleteOwnerPresentationFromCloud(ownerUid, cloudId);
 }
 
 /**
@@ -1346,6 +1992,7 @@ export async function pullPresentationFromCloud(
   const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (data.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (data.excalidrawPaths as Record<string, string>) ?? {};
+  const canvas3dGlbPaths = (data.canvas3dGlbPaths as Record<string, string>) ?? {};
   const deckCoverLeaf = safeStorageLeafName(String(data.deckCoverImageFile ?? ""));
 
   const inlineSlides = data.slides;
@@ -1380,7 +2027,7 @@ export async function pullPresentationFromCloud(
       const row = rawSlides[i]!;
       const base = plainToSlide(row);
 
-      const [imageUrl, excalidrawData] = await Promise.all([
+      const [imageUrl, excalidrawData, canvas3dGlbUrl] = await Promise.all([
         (async (): Promise<string | undefined> => {
           const fromSlidePaths = slideImagePaths[String(i)]?.trim();
           const imgName =
@@ -1417,12 +2064,31 @@ export async function pullPresentationFromCloud(
             return base.excalidrawData;
           }
         })(),
+        (async (): Promise<string | undefined> => {
+          const glbName = canvas3dGlbPaths[String(i)]?.trim();
+          if (!glbName) return base.canvas3dGlbUrl;
+          const path = `${prefix}/${glbName}`;
+          try {
+            return await withTimeout(
+              getDownloadURL(ref(st, path)),
+              STORAGE_PULL_TIMEOUT_MS,
+              `Obtener la URL del modelo 3D tardó demasiado (${glbName}). Revisa la red o vuelve a intentarlo.`
+            );
+          } catch (e) {
+            console.warn(
+              `[cloud] No se pudo resolver URL de GLB del slide ${i} (${glbName}):`,
+              e
+            );
+            return base.canvas3dGlbUrl;
+          }
+        })(),
       ]);
 
       return {
         ...base,
         ...(imageUrl !== undefined ? { imageUrl } : {}),
         ...(excalidrawData !== undefined ? { excalidrawData } : {}),
+        ...(canvas3dGlbUrl !== undefined ? { canvas3dGlbUrl } : {}),
       };
     })
   );
@@ -1443,6 +2109,11 @@ export async function pullPresentationFromCloud(
     notesRaw != null && String(notesRaw).trim() !== ""
       ? String(notesRaw).trim()
       : undefined;
+  const readmeRaw = data.presentationReadme;
+  const presentationReadme =
+    readmeRaw != null && String(readmeRaw).trim() !== ""
+      ? String(readmeRaw).trim()
+      : undefined;
 
   return {
     presentation: {
@@ -1455,6 +2126,7 @@ export async function pullPresentationFromCloud(
       ...(deckVisualTheme ? { deckVisualTheme } : {}),
       ...(deckNarrativePresetId ? { deckNarrativePresetId } : {}),
       ...(narrativeNotes ? { narrativeNotes } : {}),
+      ...(presentationReadme ? { presentationReadme } : {}),
       slides,
     },
     cloudRevision: Number.isFinite(cloudRevision) ? cloudRevision : 0,

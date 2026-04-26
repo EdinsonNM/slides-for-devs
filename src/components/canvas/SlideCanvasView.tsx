@@ -6,7 +6,6 @@ import {
 } from "../shared/SlideRivePlayer";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../../utils/cn";
-import { getEmbedUrl } from "../../utils/video";
 import { sanitizeIframeEmbedSrc } from "../../utils/iframeEmbedUrl";
 import type { Slide } from "../../types";
 import {
@@ -42,12 +41,14 @@ import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import { parseIsometricFlowDiagram } from "../../domain/entities/IsometricFlowDiagram";
 import { parseSlideMapData } from "../../domain/entities/SlideMapData";
 import { SlideMapboxCanvas } from "../shared/SlideMapboxCanvas";
+import { SlideDocumentSurface } from "../shared/SlideDocumentSurface";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { Canvas3dSceneViewport } from "../shared/Canvas3dSceneViewport";
 import { DeferHeavyWebglMount } from "../shared/DeferHeavyWebglMount";
 import { DataMotionRingExperience } from "../shared/DataMotionRingExperience";
 import { normalizeDataMotionRingState } from "../../domain/dataMotionRing/dataMotionRingModel";
+import { SlideVideoResource } from "../shared/SlideVideoResource";
 import { SlideWebcamView } from "../shared/SlideWebcamView";
 import { normalizeWebcamPanelState } from "../../domain/webcam/webcamPanelModel";
 import { SlideMatrixTable } from "../shared/SlideMatrixTable";
@@ -117,13 +118,12 @@ function mediaBlock(
       );
     case PANEL_CONTENT_KIND.VIDEO:
       return (
-        <div className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
+        <div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-stone-900">
           {deckSlide.videoUrl ? (
-            <iframe
-              src={getEmbedUrl(deckSlide.videoUrl)}
+            <SlideVideoResource
+              videoUrl={deckSlide.videoUrl}
               className="h-full w-full"
-              allowFullScreen
-              title="Video"
+              iframeTitle="Vídeo"
             />
           ) : (
             <span className={cn("italic", deckMutedTextClass(tone))}>
@@ -307,6 +307,7 @@ function CanvasElementReadOnly({
   mapAppearance = "light",
   registerPresenterMapFlyTo = false,
   minimalCanvas3dChrome = false,
+  readmeGithubScheme,
 }: {
   element: SlideCanvasElement;
   slide: Slide;
@@ -316,6 +317,10 @@ function CanvasElementReadOnly({
   mapAppearance?: MapboxCanvasAppearance;
   registerPresenterMapFlyTo?: boolean;
   minimalCanvas3dChrome?: boolean;
+  /**
+   * README .md: paleta según app/slide (oscuro = `dark`). Alinea texto con `bg-background`.
+   */
+  readmeGithubScheme: "light" | "dark";
 }) {
   const tone = deckContentTone;
   const panelSlide =
@@ -545,6 +550,21 @@ function CanvasElementReadOnly({
           )}
         </div>
       );
+    case "documentEmbed":
+      if (slide.type !== SLIDE_TYPE.DOCUMENT) return null;
+      return (
+        <div style={box} className={shell}>
+          {rotated(
+            "absolute inset-0 min-h-0",
+            <SlideDocumentSurface
+              embed={slide.documentEmbed}
+              deckContentTone={tone}
+              importedGithubScheme={readmeGithubScheme}
+              className="h-full w-full"
+            />,
+          )}
+        </div>
+      );
     case "mapboxMap":
       if (slide.type !== SLIDE_TYPE.MAPS) return null;
       if (!MAPBOX_ENV_TOKEN) {
@@ -597,6 +617,12 @@ export function SlideCanvasView({
   const mapAppearance: MapboxCanvasAppearance = theme?.isDark
     ? "dark"
     : "light";
+  const readmeGithubScheme: "light" | "dark" =
+    (theme?.isDark ??
+      (typeof document !== "undefined" &&
+        document.documentElement.classList.contains("dark")))
+      ? "dark"
+      : "light";
   const ensured = ensureSlideCanvasScene(slide);
   const scene = ensured.canvasScene!;
   const sorted = [...scene.elements].sort((a, b) => a.z - b.z);
@@ -647,6 +673,7 @@ export function SlideCanvasView({
           mapAppearance={mapAppearance}
           registerPresenterMapFlyTo={registerPresenterMapFlyTo}
           minimalCanvas3dChrome={minimalCanvas3dChrome}
+          readmeGithubScheme={readmeGithubScheme}
         />
       ))}
     </div>

@@ -24,6 +24,7 @@ export type PresentationCloudResolveRemoteEditorDeps = {
   setDeckVisualThemeState: (theme: DeckVisualTheme) => void;
   setDeckNarrativePresetId: (id: string) => void;
   setNarrativeNotes: (notes: string) => void;
+  setPresentationReadme: (markdown: string) => void;
   formatMarkdown: (markdown: string) => string;
 };
 

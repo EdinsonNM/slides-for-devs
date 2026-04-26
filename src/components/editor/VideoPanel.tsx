@@ -1,9 +1,9 @@
 import { Video } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
-import { getEmbedUrl } from "../../utils/video";
 import { useMinWidthLg } from "../../hooks/useMatchMedia";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
+import { SlideVideoResource } from "../shared/SlideVideoResource";
 
 export interface VideoPanelProps {
   canvasPanelSlide?: Slide;
@@ -27,21 +27,12 @@ export function VideoPanel({ canvasPanelSlide }: VideoPanelProps = {}) {
       <div
         className={cn(
           outerFill,
-          "h-full",
+          "h-full min-w-0",
           isLgUp ? "p-0" : "p-3",
         )}
       >
-        <div
-          className={cn(
-            "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-stone-900",
-          )}
-        >
-          <iframe
-            src={getEmbedUrl(slide.videoUrl!)}
-            className="absolute inset-0 h-full w-full border-0"
-            allowFullScreen
-            title="Vídeo incrustado"
-          />
+        <div className="relative h-0 min-h-0 w-full min-w-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-stone-900">
+          <SlideVideoResource videoUrl={slide.videoUrl!} className="h-full" />
         </div>
       </div>
     );

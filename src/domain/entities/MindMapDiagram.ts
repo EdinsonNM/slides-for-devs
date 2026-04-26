@@ -9,6 +9,21 @@ export interface MindMapNode {
   /** Posición Y en el lienzo (centro del nodo = 0) */
   y: number;
   label: string;
+  /**
+   * Texto largo opcional; se muestra en un panel flotante al seleccionar el nodo
+   * (en edición siempre; en presentación/preview si hay contenido). Los labels
+   * del nodo pueden permanecer cortos (truncate) sin perder el detalle aquí.
+   */
+  description?: string;
+  /**
+   * Obsoleto: el panel se fija a la derecha e inferior del nodo. Se acepta en
+   * parse por compatibilidad con datos viejos.
+   */
+  descriptionOffsetX?: number;
+  descriptionOffsetY?: number;
+  /** Ancho y alto del bloque de descripción (unidades de mundo SVG / mismo eje que el viewBox). */
+  descriptionWidth?: number;
+  descriptionHeight?: number;
   /** Color del nodo para su círculo y líneas derivadas (hex o HSL) */
   color: string;
   /** Etiqueta central, rama principal o subparada */
@@ -70,7 +85,27 @@ export function parseMindMapDiagram(raw: string | undefined | null): MindMapDiag
       const color = typeof n.color === "string" ? n.color : "#3b82f6";
       const kind = n.kind === "root" || n.kind === "branch" || n.kind === "leaf" ? n.kind : "leaf";
       const collapsed = n.collapsed === true;
-      nodes.push({ id: n.id, x: n.x, y: n.y, label, color, kind, collapsed });
+      const description = typeof n.description === "string" ? n.description : undefined;
+      const descriptionOffsetX =
+        isFiniteNumber(n.descriptionOffsetX) ? n.descriptionOffsetX : undefined;
+      const descriptionOffsetY =
+        isFiniteNumber(n.descriptionOffsetY) ? n.descriptionOffsetY : undefined;
+      const descriptionWidth = isFiniteNumber(n.descriptionWidth) ? n.descriptionWidth : undefined;
+      const descriptionHeight = isFiniteNumber(n.descriptionHeight) ? n.descriptionHeight : undefined;
+      nodes.push({
+        id: n.id,
+        x: n.x,
+        y: n.y,
+        label,
+        color,
+        kind,
+        collapsed,
+        description,
+        descriptionOffsetX,
+        descriptionOffsetY,
+        descriptionWidth,
+        descriptionHeight,
+      });
     }
     
     const links: MindMapLink[] = [];

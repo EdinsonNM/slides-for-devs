@@ -9,6 +9,7 @@ import {
   type SlideCodeEditorTheme,
   type SlideMatrixData,
 } from "../../domain/entities";
+import type { SlideDocumentEmbed } from "../../domain/entities/SlideDocumentEmbed";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
 import {
   defaultCanvasTextEditTargets,
@@ -246,6 +247,29 @@ export function usePresentationSlideCanvasMutations(
     });
   }, []);
 
+  const setCurrentSlideDocumentEmbed = useCallback(
+    (embed: SlideDocumentEmbed | null) => {
+      const d = depsRef.current;
+      const idx = d.currentIndexRef.current;
+      const slide = d.slidesRef.current[idx];
+      if (!slide || slide.type !== SLIDE_TYPE.DOCUMENT) return;
+      d.setSlides((prev) => {
+        const cur = prev[idx];
+        if (!cur || cur.type !== SLIDE_TYPE.DOCUMENT) return prev;
+        const updated = [...prev];
+        const next: (typeof updated)[number] = { ...cur };
+        if (embed == null) {
+          delete (next as { documentEmbed?: SlideDocumentEmbed }).documentEmbed;
+        } else {
+          next.documentEmbed = embed;
+        }
+        updated[idx] = next;
+        return updated;
+      });
+    },
+    [],
+  );
+
   const setCurrentSlideBackgroundImageUrl = useCallback((url: string | undefined) => {
     const d = depsRef.current;
     const idx = d.currentIndexRef.current;
@@ -258,6 +282,25 @@ export function usePresentationSlideCanvasMutations(
         next.slideBackgroundImageUrl = trimmed;
       } else {
         delete (next as { slideBackgroundImageUrl?: string }).slideBackgroundImageUrl;
+      }
+      const out = [...prev];
+      out[idx] = next;
+      return out;
+    });
+  }, []);
+
+  const setCurrentSlideBackgroundColor = useCallback((color: string | undefined) => {
+    const d = depsRef.current;
+    const idx = d.currentIndexRef.current;
+    d.setSlides((prev) => {
+      const cur = prev[idx];
+      if (!cur) return prev;
+      const trimmed = color?.trim();
+      const next: Slide = { ...cur };
+      if (trimmed) {
+        next.slideBackgroundColor = trimmed;
+      } else {
+        delete (next as { slideBackgroundColor?: string }).slideBackgroundColor;
       }
       const out = [...prev];
       out[idx] = next;
@@ -678,7 +721,9 @@ export function usePresentationSlideCanvasMutations(
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideDocumentEmbed,
     setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideBackgroundColor,
     setCurrentSlideCanvas3dSceneData,
     patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,

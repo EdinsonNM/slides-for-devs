@@ -29,6 +29,10 @@ export type PresentationEditorTabsDeps = {
   ) => void;
   narrativeNotes: string;
   setNarrativeNotes: (notes: string | ((prev: string) => string)) => void;
+  presentationReadme: string;
+  setPresentationReadme: (
+    markdown: string | ((prev: string) => string),
+  ) => void;
 
   slidesUndoRef: MutableRefObject<Slide[][]>;
   slidesRedoRef: MutableRefObject<Slide[][]>;

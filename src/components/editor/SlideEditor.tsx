@@ -2,9 +2,32 @@ import { motion, AnimatePresence } from "motion/react";
 import { usePresentation } from "../../context/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideCanvasSlide } from "../canvas/SlideCanvasSlide";
+import { PresentationReadmeEditor } from "./PresentationReadmeEditor";
+import { PresentationSettingsEditor } from "./PresentationSettingsEditor";
 
 export function SlideEditor() {
-  const { currentSlide, currentIndex } = usePresentation();
+  const {
+    currentSlide,
+    currentIndex,
+    isReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+  } = usePresentation();
+
+  if (isPresentationSettingsPanelOpen) {
+    return (
+      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <PresentationSettingsEditor />
+      </section>
+    );
+  }
+
+  if (isReadmePanelOpen) {
+    return (
+      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <PresentationReadmeEditor />
+      </section>
+    );
+  }
 
   if (!currentSlide) return null;
 

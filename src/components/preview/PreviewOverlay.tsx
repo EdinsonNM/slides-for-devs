@@ -14,6 +14,7 @@ import type { Slide } from "../../types";
 import { PRESENTER_MODES } from "../../constants/presenterModes";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
 import { cn } from "../../utils/cn";
+import { firstPersonLayoutForDigitKey } from "../../utils/firstPersonDigitHotkey";
 import {
   elementSupportsRequestFullscreen,
   exitDocumentFullscreen,
@@ -21,6 +22,7 @@ import {
   requestElementFullscreen,
 } from "../../utils/fullscreenApi";
 import { ClaudeDotFadeLayer } from "../shared/ClaudeDotFadeLayer";
+import { FirstPersonStage } from "./FirstPersonStage";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewSlideContent } from "./PreviewSlideContent";
 
@@ -282,6 +284,10 @@ export function PreviewOverlay() {
     effectiveGeminiModel,
     presenterMode,
     setPresenterMode,
+    firstPersonLayout,
+    setFirstPersonLayout,
+    firstPersonKeyOrder,
+    setFirstPersonKeyOrder,
   } = usePresentation();
   const nextSlideRef = useRef(nextSlide);
   const prevSlideRef = useRef(prevSlide);
@@ -292,6 +298,11 @@ export function PreviewOverlay() {
     effectiveGeminiModel,
     deckVisualTheme,
   });
+  const setFirstPersonLayoutRef = useRef(setFirstPersonLayout);
+  const firstPersonKeyOrderRef = useRef(firstPersonKeyOrder);
+  setFirstPersonLayoutRef.current = setFirstPersonLayout;
+  firstPersonKeyOrderRef.current = firstPersonKeyOrder;
+
   const presenterWindowRef = useRef<Window | null>(null);
   const overlayRootRef = useRef<HTMLDivElement | null>(null);
   const [browserFullscreenActive, setBrowserFullscreenActive] = useState(false);
@@ -320,6 +331,42 @@ export function PreviewOverlay() {
       document.removeEventListener("webkitfullscreenchange", onChange);
     };
   }, [isPreviewMode, syncBrowserFullscreen]);
+
+  useEffect(() => {
+    if (!isPreviewMode || presenterMode !== PRESENTER_MODES.FIRST_PERSON) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (
+        t instanceof HTMLElement &&
+        t.isContentEditable
+      ) {
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+      const next = firstPersonLayoutForDigitKey(
+        e.code,
+        firstPersonKeyOrderRef.current,
+      );
+      if (next) {
+        e.preventDefault();
+        e.stopPropagation();
+        setFirstPersonLayoutRef.current(next);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [isPreviewMode, presenterMode, firstPersonKeyOrder]);
 
   const handleToggleNativeFullscreen = useCallback(() => {
     const el = overlayRootRef.current;
@@ -524,6 +571,10 @@ export function PreviewOverlay() {
           onClose={handleClosePreview}
           presenterMode={presenterMode}
           onPresenterModeChange={setPresenterMode}
+          firstPersonLayout={firstPersonLayout}
+          onFirstPersonLayoutChange={setFirstPersonLayout}
+          firstPersonKeyOrder={firstPersonKeyOrder}
+          onFirstPersonKeyOrderChange={setFirstPersonKeyOrder}
           nativeFullscreen={{
             supported: nativeFullscreenSupported,
             active: browserFullscreenActive,
@@ -532,7 +583,20 @@ export function PreviewOverlay() {
         />
 
         <div className="relative z-50 isolate flex min-h-0 min-w-0 w-full flex-1 flex-col items-stretch justify-stretch overflow-hidden bg-transparent p-0 pointer-events-auto">
-          {presenterMode === PRESENTER_MODES.CAMERA ? (
+          {presenterMode === PRESENTER_MODES.FIRST_PERSON ? (
+            <FirstPersonStage
+              slide={currentSlide}
+              slideIndex={currentIndex}
+              slideDirection={slideDirection}
+              imageWidthPercent={imageWidthPercent}
+              panelHeightPercent={panelHeightPercent}
+              layout={firstPersonLayout}
+              lightAppearance={previewShellLight}
+              shellLight={previewOverlayShellBgLight}
+              shellDark={previewOverlayShellBgDark}
+              registerPresenterMapFlyTo={showMapSearchBar}
+            />
+          ) : presenterMode === PRESENTER_MODES.CAMERA ? (
             <ContinuousCameraStage
               slides={slides}
               currentIndex={currentIndex}

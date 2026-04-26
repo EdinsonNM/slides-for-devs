@@ -32,6 +32,9 @@ export function applySlideLayoutTemplate(
     case SLIDE_LAYOUT_TEMPLATE_ID.MAPS:
       api.setCurrentSlideType(SLIDE_TYPE.MAPS);
       return;
+    case SLIDE_LAYOUT_TEMPLATE_ID.DOCUMENT:
+      api.setCurrentSlideType(SLIDE_TYPE.DOCUMENT);
+      return;
     case SLIDE_LAYOUT_TEMPLATE_ID.CANVAS_3D:
       api.setCurrentSlideType(SLIDE_TYPE.CANVAS_3D);
       return;

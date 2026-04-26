@@ -13,6 +13,7 @@ import {
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import { DeckBackdrop } from "../shared/DeckBackdrop";
+import { SlideDeckBackgroundColorLayer } from "../shared/SlideDeckBackgroundColorLayer";
 import { SlideDeckBackgroundImageLayer } from "../shared/SlideDeckBackgroundImageLayer";
 import {
   deckSectionLabelClass,
@@ -98,6 +99,7 @@ export function PreviewSlideContent({
     isIsometricSlide ||
     slide.type === SLIDE_TYPE.MIND_MAP ||
     slide.type === SLIDE_TYPE.MAPS ||
+    slide.type === SLIDE_TYPE.DOCUMENT ||
     slide.type === SLIDE_TYPE.CANVAS_3D;
   const isDataMotionRingSlide =
     slide.type === SLIDE_TYPE.CONTENT &&
@@ -136,6 +138,7 @@ export function PreviewSlideContent({
     return (
       <div key={slide.id} className={outerClass} style={fullscreenBackdropStyle}>
         {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
+        {useFullscreenDeckBackdrop && <SlideDeckBackgroundColorLayer slide={slide} />}
         {useFullscreenDeckBackdrop && <SlideDeckBackgroundImageLayer slide={slide} />}
         {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
           <div className="shrink-0 self-start px-0.5">
@@ -159,6 +162,7 @@ export function PreviewSlideContent({
             slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
             (isIsometricSlide ||
               slide.type === SLIDE_TYPE.MAPS ||
+              slide.type === SLIDE_TYPE.DOCUMENT ||
               slide.type === SLIDE_TYPE.MIND_MAP ||
               slide.type === SLIDE_TYPE.CANVAS_3D) &&
               "bg-background",
@@ -166,6 +170,9 @@ export function PreviewSlideContent({
         >
           {!hideDeckBackdropBehindCanvas && !isFullscreen && (
             <DeckBackdrop theme={deckVisualTheme} />
+          )}
+          {!hideDeckBackdropBehindCanvas && !isFullscreen && (
+            <SlideDeckBackgroundColorLayer slide={slide} />
           )}
           {!hideDeckBackdropBehindCanvas && !isFullscreen && (
             <SlideDeckBackgroundImageLayer slide={slide} />
@@ -197,6 +204,7 @@ export function PreviewSlideContent({
       )}
     >
       {useFullscreenDeckBackdrop && <DeckBackdrop theme={deckVisualTheme} />}
+      {useFullscreenDeckBackdrop && <SlideDeckBackgroundColorLayer slide={slide} />}
       {useFullscreenDeckBackdrop && <SlideDeckBackgroundImageLayer slide={slide} />}
       {!isFullscreen && !pptxExportFrame && !hideSectionLabel && (
         <div className="shrink-0 self-start px-0.5">
@@ -218,6 +226,7 @@ export function PreviewSlideContent({
           slide.type === SLIDE_TYPE.CHAPTER ? "items-stretch justify-stretch" : "",
           (isIsometricSlide ||
             slide.type === SLIDE_TYPE.MAPS ||
+            slide.type === SLIDE_TYPE.DOCUMENT ||
             slide.type === SLIDE_TYPE.MIND_MAP ||
             slide.type === SLIDE_TYPE.CANVAS_3D) &&
             "bg-background",
@@ -225,6 +234,9 @@ export function PreviewSlideContent({
       >
         {!hideDeckBackdropBehindCanvas && !isFullscreen && (
           <DeckBackdrop theme={deckVisualTheme} />
+        )}
+        {!hideDeckBackdropBehindCanvas && !isFullscreen && (
+          <SlideDeckBackgroundColorLayer slide={slide} />
         )}
         {!hideDeckBackdropBehindCanvas && !isFullscreen && (
           <SlideDeckBackgroundImageLayer slide={slide} />

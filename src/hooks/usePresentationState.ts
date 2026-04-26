@@ -66,6 +66,10 @@ import { cleanupDuplicatePresentations } from "../services/storage";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
+  getCurrentUserPresentationAccess,
+  resolvePresentationCloudRef,
+} from "../services/presentationCloud";
+import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
@@ -80,6 +84,14 @@ import { usePresentationOrchestratorRefSync } from "../presentation/state/usePre
 import type { ApplySavedPresentationEditorContext } from "../presentation/state/applySavedPresentationToEditorState";
 import type { WebCloudEditSession } from "../presentation/state/webCloudSession";
 import { DEFAULT_DEVICE_3D_ID } from "../constants/device3d";
+import {
+  FIRST_PERSON_LAYOUT_STORAGE_KEY,
+  FIRST_PERSON_LAYOUTS,
+  isFirstPersonLayout,
+  readFirstPersonKeyOrder,
+  type FirstPersonLayout,
+  writeFirstPersonKeyOrder,
+} from "../constants/firstPersonLayout";
 import {
   PRESENTER_MODE_STORAGE_KEY,
   PRESENTER_MODES,
@@ -130,6 +142,8 @@ export function usePresentationState() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     presentationModelId,
     setPresentationModelId,
     apiKeysVersion,
@@ -160,6 +174,10 @@ export function usePresentationState() {
     setIsSidebarOpen,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+    setIsPresentationSettingsPanelOpen,
     showCodeGenModal,
     setShowCodeGenModal,
     showCharacterCreatorModal,
@@ -292,7 +310,23 @@ export function usePresentationState() {
     const stored = window.localStorage.getItem(PRESENTER_MODE_STORAGE_KEY);
     return isPresenterMode(stored) ? stored : PRESENTER_MODES.POWERPOINT;
   });
+  const [firstPersonLayout, setFirstPersonLayout] = useState<FirstPersonLayout>(
+    () => {
+      if (typeof window === "undefined") {
+        return FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY;
+      }
+      const stored = window.localStorage.getItem(
+        FIRST_PERSON_LAYOUT_STORAGE_KEY,
+      );
+      return isFirstPersonLayout(stored) ? stored : FIRST_PERSON_LAYOUTS.CAMERA_PRIMARY;
+    },
+  );
+  const [firstPersonKeyOrder, setFirstPersonKeyOrder] = useState<
+    FirstPersonLayout[]
+  >(() => readFirstPersonKeyOrder());
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
+  const [isCurrentPresentationReadOnly, setIsCurrentPresentationReadOnly] =
+    useState(false);
 
   const {
     hasGemini,
@@ -437,6 +471,8 @@ export function usePresentationState() {
     setHomeFirstSlideReplicaDeckThemeBySavedId,
     coverPrefetchSavedAtRef,
     handleGenerateCoverForPresentation,
+    handleUploadCoverForPresentation,
+    handleRemoveCoverForPresentation,
   } = usePresentationDeckCovers({
     savedList,
     localAccountScope,
@@ -489,6 +525,8 @@ export function usePresentationState() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     slidesUndoRef,
     slidesRedoRef,
     editTitleRef,
@@ -529,6 +567,7 @@ export function usePresentationState() {
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     coverPrefetchSavedAtRef,
     setCoverImageCache,
     setHomeFirstSlideReplicaBySavedId,
@@ -625,6 +664,18 @@ export function usePresentationState() {
     window.localStorage.setItem(PRESENTER_MODE_STORAGE_KEY, presenterMode);
   }, [presenterMode]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      FIRST_PERSON_LAYOUT_STORAGE_KEY,
+      firstPersonLayout,
+    );
+  }, [firstPersonLayout]);
+
+  useEffect(() => {
+    writeFirstPersonKeyOrder(firstPersonKeyOrder);
+  }, [firstPersonKeyOrder]);
+
   const {
     patchCurrentSlideMatrix,
     patchCurrentSlideCanvasScene,
@@ -634,7 +685,9 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideDocumentEmbed,
     setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideBackgroundColor,
     setCurrentSlideCanvas3dSceneData,
     patchCurrentSlideCanvas3dScene,
     setCurrentSlideContentLayout,
@@ -668,11 +721,13 @@ export function usePresentationState() {
     deckVisualTheme,
     deckNarrativePresetId,
     narrativeNotes,
+    presentationReadme,
     setSaveMessage,
     localAccountScope,
     lastOpenedSessionKey,
     user,
     maybeAutoSyncAfterLocalSave,
+    isCurrentPresentationReadOnly,
     webCloudSessionRef,
   });
 
@@ -708,7 +763,9 @@ export function usePresentationState() {
     codeGenLanguage,
     setCodeGenLanguage,
     isGeneratingCode,
+    isGeneratingReadme,
     handleGenerate,
+    handleGenerateReadmeWithAi,
     openGenerateFullDeckModal,
     handleConfirmGenerateFullDeck,
     addHomePromptAttachment,
@@ -757,8 +814,10 @@ export function usePresentationState() {
     deckVisualTheme,
     deckNarrativePresetId,
     narrativeNotes,
+    presentationReadme,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     presentationModelId,
     presentationModelOption,
     effectiveGeminiModel,
@@ -802,6 +861,36 @@ export function usePresentationState() {
     setCanvasMediaPanelEditTarget,
   });
 
+  useEffect(() => {
+    if (!currentSavedId || !user) {
+      setIsCurrentPresentationReadOnly(false);
+      return;
+    }
+    const meta = savedList.find((p) => p.id === currentSavedId);
+    if (!meta) {
+      setIsCurrentPresentationReadOnly(false);
+      return;
+    }
+    const cloudRef = resolvePresentationCloudRef(meta, user.uid);
+    if (!cloudRef) {
+      setIsCurrentPresentationReadOnly(false);
+      return;
+    }
+    let cancelled = false;
+    getCurrentUserPresentationAccess(cloudRef.ownerUid, cloudRef.cloudId)
+      .then((access) => {
+        if (cancelled) return;
+        setIsCurrentPresentationReadOnly(!access.canEdit);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsCurrentPresentationReadOnly(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSavedId, savedList, user]);
+
   /** Al iniciar/cerrar sesión, vaciar el editor: el listado local es distinto por ámbito. */
   useEffect(() => {
     if (prevLocalAccountScopeRef.current === null) {
@@ -819,6 +908,8 @@ export function usePresentationState() {
     setSelectedCharacterId(null);
     setCurrentIndex(0);
     clearEditorTabsForGoHome();
+    setIsReadmePanelOpen(false);
+    setIsPresentationSettingsPanelOpen(false);
   }, [localAccountScope, clearEditorTabsForGoHome, resetHomePromptAttachments]);
 
   const {
@@ -900,6 +991,7 @@ export function usePresentationState() {
     setDeckVisualThemeState,
     setDeckNarrativePresetId,
     setNarrativeNotes,
+    setPresentationReadme,
     formatMarkdown,
   });
 
@@ -943,6 +1035,9 @@ export function usePresentationState() {
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
     setNarrativeNotes("");
+    setPresentationReadme("");
+    setIsReadmePanelOpen(false);
+    setIsPresentationSettingsPanelOpen(false);
     await savePresentationNow({
       topic: "",
       slides: deck,
@@ -950,6 +1045,7 @@ export function usePresentationState() {
       deckVisualTheme: DEFAULT_DECK_VISUAL_THEME,
       deckNarrativePresetId: DEFAULT_DECK_NARRATIVE_PRESET_ID,
       narrativeNotes: undefined,
+      presentationReadme: undefined,
     });
     await refreshSavedList();
   }, [savePresentationNow, refreshSavedList, clearPendingGeneration]);
@@ -991,6 +1087,9 @@ export function usePresentationState() {
     setDeckVisualThemeState(DEFAULT_DECK_VISUAL_THEME);
     setDeckNarrativePresetId(DEFAULT_DECK_NARRATIVE_PRESET_ID);
     setNarrativeNotes("");
+    setPresentationReadme("");
+    setIsReadmePanelOpen(false);
+    setIsPresentationSettingsPanelOpen(false);
     clearEditorTabsForGoHome();
     try {
       sessionStorage.removeItem(lastOpenedSessionKey);
@@ -1008,6 +1107,8 @@ export function usePresentationState() {
     setDeckNarrativePresetId,
     narrativeNotes,
     setNarrativeNotes,
+    presentationReadme,
+    setPresentationReadme,
     setPresentationTitleDraft,
     presentationModelId,
     setPresentationModelId,
@@ -1028,6 +1129,7 @@ export function usePresentationState() {
     isGeneratingImage,
     isGeneratingPromptAlternatives,
     isProcessing,
+    isGeneratingReadme,
     showImageModal,
     setShowImageModal,
     showImageUploadModal,
@@ -1090,6 +1192,10 @@ export function usePresentationState() {
     setIsPreviewMode,
     presenterMode,
     setPresenterMode,
+    firstPersonLayout,
+    setFirstPersonLayout,
+    firstPersonKeyOrder,
+    setFirstPersonKeyOrder,
     diagramFlushRef,
     isometricFlowFlushRef,
     diagramRemountToken,
@@ -1127,6 +1233,7 @@ export function usePresentationState() {
     homePresentationCards,
     isSaving,
     saveMessage,
+    isCurrentPresentationReadOnly,
     homeTab,
     setHomeTab,
     formatMarkdown,
@@ -1145,7 +1252,9 @@ export function usePresentationState() {
     setCurrentSlideIsometricFlowData,
     setCurrentSlideMindMapData,
     setCurrentSlideMapData,
+    setCurrentSlideDocumentEmbed,
     setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideBackgroundColor,
     setCurrentSlideCanvas3dSceneData,
     patchCurrentSlideCanvas3dScene,
     patchCurrentSlideMatrix,
@@ -1165,6 +1274,7 @@ export function usePresentationState() {
     setCurrentSlideDataMotionRing,
     setCurrentSlideWebcam,
     handleGenerate,
+    handleGenerateReadmeWithAi,
     homePromptAttachments,
     addHomePromptAttachment,
     removeHomePromptAttachment,
@@ -1199,6 +1309,8 @@ export function usePresentationState() {
     confirmDeletePresentationEverywhere,
     generatingCoverId,
     handleGenerateCoverForPresentation,
+    handleUploadCoverForPresentation,
+    handleRemoveCoverForPresentation,
     coverImageCache,
     homeFirstSlideReplicaBySavedId,
     homeFirstSlideReplicaDeckThemeBySavedId,
@@ -1260,6 +1372,10 @@ export function usePresentationState() {
     setIsSidebarOpen,
     isNotesPanelOpen,
     setIsNotesPanelOpen,
+    isReadmePanelOpen,
+    setIsReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
+    setIsPresentationSettingsPanelOpen,
     pendingGeneration,
     isSyncingCharactersCloud,
     handlePushAllCharactersToCloud,

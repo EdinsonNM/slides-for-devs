@@ -50,6 +50,8 @@ export type MindMapCanvasController = {
   setSelectedNodeId: (id: string | null) => void;
   toggleNodeCollapse: (id: string) => void;
   updateNodeLabel: (id: string, label: string) => void;
+  updateNodeDescription: (id: string, description: string) => void;
+  updateNodeDescriptionSize: (id: string, width: number, height: number) => void;
   setZoom: (action: React.SetStateAction<number>) => void;
   /** Elimina el nodo seleccionado y toda su subárbol (no aplica a la raíz). */
   removeSelectedNode: () => void;
@@ -76,6 +78,8 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
   
   const isDraggingBgRef = useRef(false);
   const bgStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  /** Último desplazamiento del puntero en un arrastre de fondo (mismo eje que `onMove` del plano). */
+  const bgLastPtrDeltaRef = useRef({ dx: 0, dy: 0 });
   const hasDraggedNodeRef = useRef(false);
 
   const resetView = useCallback(() => {
@@ -104,24 +108,30 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     if (e.button !== 0) return;
     isDraggingBgRef.current = true;
     bgStartRef.current = { x: e.clientX, y: e.clientY, panX, panY };
-    
+    bgLastPtrDeltaRef.current = { dx: 0, dy: 0 };
+
     const onMove = (ev: PointerEvent) => {
       if (!isDraggingBgRef.current) return;
       const dx = ev.clientX - bgStartRef.current.x;
       const dy = ev.clientY - bgStartRef.current.y;
+      bgLastPtrDeltaRef.current = { dx, dy };
       setPanX(bgStartRef.current.panX + dx);
       setPanY(bgStartRef.current.panY + dy);
     };
-    
+
     const onUp = () => {
       isDraggingBgRef.current = false;
+      const { dx, dy } = bgLastPtrDeltaRef.current;
+      if (Math.abs(dx) + Math.abs(dy) < 6) {
+        setSelectedNodeId(null);
+      }
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-    
+
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-  }, [panX, panY, onEditorSurfacePointerDown, readOnly]);
+  }, [panX, panY, onEditorSurfacePointerDown, setSelectedNodeId]);
 
   const handlePointerDownNode = useCallback((id: string, e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -240,6 +250,25 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     onChange({ ...data, nodes: nextNodes });
   }, [data, onChange, readOnly]);
 
+  const updateNodeDescription = useCallback((id: string, description: string) => {
+    if (!onChange || readOnly) return;
+    const nextNodes = data.nodes.map(n => (n.id === id ? { ...n, description } : n));
+    onChange({ ...data, nodes: nextNodes });
+  }, [data, onChange, readOnly]);
+
+  const updateNodeDescriptionSize = useCallback(
+    (id: string, width: number, height: number) => {
+      if (!onChange || readOnly) return;
+      const w = Math.round(Math.max(1, width));
+      const h = Math.round(Math.max(1, height));
+      const nextNodes = data.nodes.map(n =>
+        n.id === id ? { ...n, descriptionWidth: w, descriptionHeight: h } : n,
+      );
+      onChange({ ...data, nodes: nextNodes });
+    },
+    [data, onChange, readOnly],
+  );
+
   const displayData = useMemo(() => {
     if (Object.keys(collapsedOverrides).length === 0) return data;
     return {
@@ -268,6 +297,8 @@ export function useMindMapCanvasController(props: MindMapCanvasProps): MindMapCa
     setSelectedNodeId,
     toggleNodeCollapse,
     updateNodeLabel,
+    updateNodeDescription,
+    updateNodeDescriptionSize,
     setZoom,
     removeSelectedNode,
   };

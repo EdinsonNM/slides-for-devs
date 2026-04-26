@@ -93,6 +93,7 @@ const INSERT_BLOCK_UI: Record<
   isometricFlow: undefined,
   mindMap: undefined,
   mapboxMap: undefined,
+  documentEmbed: undefined,
 };
 
 const PANEL_INSERT_MENU_ITEMS: {
@@ -155,9 +156,12 @@ export function EditorFloatingToolbar({
     setShowGenerateSlideContentModal,
     setGenerateSlideContentPrompt,
     addCanvasElementToCurrentSlide,
+    isReadmePanelOpen,
+    isPresentationSettingsPanelOpen,
   } = usePresentation();
 
   if (slides.length === 0) return null;
+  if (isReadmePanelOpen || isPresentationSettingsPanelOpen) return null;
 
   const matrixData = normalizeSlideMatrixData(
     currentSlide?.matrixData ?? createEmptySlideMatrixData(),

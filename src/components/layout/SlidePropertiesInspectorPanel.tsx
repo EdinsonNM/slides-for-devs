@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEventHandler } from "react";
-import { Image as ImageIcon, Sparkles } from "lucide-react";
+import { Image as ImageIcon, Palette, Sparkles } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import {
@@ -8,21 +8,38 @@ import {
 } from "../../domain/entities/slideInspectorSections";
 import { cn } from "../../utils/cn";
 
+function hexForColorWidget(raw: string | undefined): string {
+  const t = raw?.trim() ?? "";
+  if (/^#[0-9a-f]{6}$/i.test(t)) return t.toLowerCase();
+  const m3 = /^#([0-9a-f]{3})$/i.exec(t);
+  if (m3) {
+    const [a, b, c] = m3[1]!.split("");
+    return `#${a}${a}${b}${b}${c}${c}`.toLowerCase();
+  }
+  return "#64748b";
+}
+
 export function SlidePropertiesInspectorPanel() {
   const {
     currentSlide,
     setCurrentSlideBackgroundImageUrl,
+    setCurrentSlideBackgroundColor,
     setShowImageModal,
   } = usePresentation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [urlDraft, setUrlDraft] = useState("");
+  const [colorHexDraft, setColorHexDraft] = useState("");
 
   const bgUrl = currentSlide?.slideBackgroundImageUrl?.trim() ?? "";
-  const type = currentSlide?.type;
+  const bgColor = currentSlide?.slideBackgroundColor?.trim() ?? "";
 
   useEffect(() => {
     setUrlDraft(bgUrl);
   }, [currentSlide?.id, bgUrl]);
+
+  useEffect(() => {
+    setColorHexDraft(bgColor);
+  }, [currentSlide?.id, bgColor]);
 
   const onPickFile: ChangeEventHandler<HTMLInputElement> = (ev) => {
     const f = ev.target.files?.[0];
@@ -66,7 +83,7 @@ export function SlidePropertiesInspectorPanel() {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white px-3 py-3 text-sm text-stone-600 dark:bg-surface-elevated dark:text-stone-300">
         <p className="text-xs leading-relaxed">
-          Este tipo de diapositiva no admite un fondo con imagen sobre el tema del deck.
+          Este tipo de diapositiva no admite color ni imagen de fondo sobre el tema del deck.
         </p>
       </div>
     );
@@ -82,10 +99,62 @@ export function SlidePropertiesInspectorPanel() {
           </span>
         </div>
         <p className="mt-1 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-          Imagen de fondo sobre el tema del deck (sólido, degradado o animado).
+          Color e imagen de fondo sobre el tema del deck (sólido, degradado o animado).
         </p>
       </div>
       <div className="space-y-3 px-3 py-3">
+        <div
+          className={cn(
+            "rounded-lg border border-stone-200/90 bg-stone-50/50 p-2.5 dark:border-border dark:bg-white/5",
+          )}
+        >
+          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-stone-600 dark:text-stone-400">
+            <Palette className="size-3" aria-hidden />
+            Color de fondo
+          </p>
+          <p className="mb-2 text-[10px] leading-snug text-stone-500 dark:text-stone-400">
+            Se pinta encima del tema y debajo de la imagen (si hay).
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="color"
+              aria-label="Elegir color de fondo del slide"
+              className="h-8 w-10 cursor-pointer rounded border border-stone-200 bg-white p-0.5 dark:border-border"
+              value={hexForColorWidget(bgColor || colorHexDraft)}
+              onChange={(e) => setCurrentSlideBackgroundColor(e.target.value)}
+            />
+            <label className="min-w-0 flex-1 text-[10px] text-stone-500 dark:text-stone-400">
+              Hex
+              <input
+                type="text"
+                value={colorHexDraft}
+                onChange={(e) => setColorHexDraft(e.target.value)}
+                placeholder="#0f172a"
+                spellCheck={false}
+                className="mt-0.5 w-full min-w-0 rounded border border-stone-200 bg-white px-1.5 py-1 font-mono text-[10px] dark:border-border dark:bg-surface"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const t = colorHexDraft.trim();
+                if (t) setCurrentSlideBackgroundColor(t);
+              }}
+              className="shrink-0 self-end rounded-md border border-stone-200 px-2 py-1 text-[10px] font-medium hover:bg-stone-100 dark:border-border dark:hover:bg-white/10"
+            >
+              Aplicar
+            </button>
+          </div>
+          {bgColor ? (
+            <button
+              type="button"
+              onClick={() => setCurrentSlideBackgroundColor(undefined)}
+              className="mt-2 text-[10px] text-red-600 hover:underline dark:text-red-400"
+            >
+              Quitar color
+            </button>
+          ) : null}
+        </div>
         <div
           className={cn(
             "rounded-lg border border-stone-200/90 bg-stone-50/50 p-2.5 dark:border-border dark:bg-white/5",

@@ -1,7 +1,8 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { MindMapCanvasController } from "./useMindMapCanvasController";
 import type { MindMapNode, MindMapLink } from "../../../domain/entities/MindMapDiagram";
+import { SlideCanvasBlockStyleSelectionFrame } from "../../editor/CanvaSelectionFrame";
 import { cn } from "../../../utils/cn";
 
 const WORLD = 2000;
@@ -101,6 +102,105 @@ function mindMapViewBox(
   };
 }
 
+const DESCRIPTION_PANEL_W = 300;
+const DESCRIPTION_PANEL_H = 380;
+/** Márgen respecto al rectángulo visible (viewBox = área del slide en pantalla). */
+const SLIDE_DESC_INSET = 16;
+
+/** Esquina superior izquierda del panel: fija al borde inferior derecho del slide visible. */
+function descriptionPanelSlideBottomRight(
+  minX: number,
+  minY: number,
+  vbW: number,
+  vbH: number,
+  panelW: number,
+  panelH: number,
+  inset: number,
+): { x: number; y: number } {
+  return {
+    x: minX + vbW - panelW - inset,
+    y: minY + vbH - panelH - inset,
+  };
+}
+
+const DESC_SIZE_MIN_W = 120;
+const DESC_SIZE_MIN_H = 64;
+
+type MindMapDescriptionResizableBoxProps = {
+  width: number;
+  height: number;
+  minW: number;
+  minH: number;
+  maxW: number;
+  maxH: number;
+  onSizeChange: (w: number, h: number) => void;
+  children: ReactNode;
+};
+
+/** Contenedor con `resize` nativo y `ResizeObserver` para persistir dimensiones. */
+function MindMapDescriptionResizableBox({
+  width,
+  height,
+  minW,
+  minH,
+  maxW,
+  maxH,
+  onSizeChange,
+  children,
+}: MindMapDescriptionResizableBoxProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const lastReported = useRef({ w: width, h: height });
+
+  useLayoutEffect(() => {
+    lastReported.current = { w: width, h: height };
+  }, [width, height]);
+
+  useLayoutEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (!boxRef.current) return;
+      let rw = boxRef.current.offsetWidth;
+      let rh = boxRef.current.offsetHeight;
+      rw = Math.min(maxW, Math.max(minW, Math.round(rw)));
+      rh = Math.min(maxH, Math.max(minH, Math.round(rh)));
+      if (
+        Math.abs(rw - lastReported.current.w) < 0.5 &&
+        Math.abs(rh - lastReported.current.h) < 0.5
+      ) {
+        return;
+      }
+      lastReported.current = { w: rw, h: rh };
+      onSizeChange(rw, rh);
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+    };
+  }, [minW, minH, maxW, maxH, onSizeChange]);
+
+  return (
+    <div
+      ref={boxRef}
+      data-mind-map-ui
+      className="box-border flex min-h-0 w-full min-w-0 flex-col overflow-auto resize"
+      style={{
+        width,
+        height,
+        minWidth: minW,
+        minHeight: minH,
+        maxWidth: maxW,
+        maxHeight: maxH,
+        pointerEvents: "auto",
+        boxSizing: "border-box",
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
   const {
     data,
@@ -110,7 +210,10 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
     selectedNodeId,
     toggleNodeCollapse,
     updateNodeLabel,
+    updateNodeDescription,
+    updateNodeDescriptionSize,
     readOnly,
+    zoom,
   } = ctrl;
 
   const reduced = useReducedMotion() ?? false;
@@ -131,7 +234,7 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
     return () => ro.disconnect();
   }, []);
 
-  const { minX, minY, vbW, vbH } = mindMapViewBox(vp.w, vp.h, ctrl.panX, ctrl.panY, ctrl.zoom);
+  const { minX, minY, vbW, vbH } = mindMapViewBox(vp.w, vp.h, ctrl.panX, ctrl.panY, zoom);
   const viewBoxStr = `${minX} ${minY} ${vbW} ${vbH}`;
 
   const { visibleNodes, visibleLinks, nodeStaggerMap } = useMemo(() => {
@@ -190,6 +293,25 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
       handlePointerDownNode(id, e);
     },
     [handlePointerDownNode],
+  );
+
+  const descriptionTarget = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return data.nodes.find((n) => n.id === selectedNodeId) ?? null;
+  }, [data.nodes, selectedNodeId]);
+
+  const isSelectedNodeVisible = useMemo(
+    () =>
+      selectedNodeId != null && visibleNodes.some((n) => n.id === selectedNodeId),
+    [visibleNodes, selectedNodeId],
+  );
+
+  const showDescriptionPanel = Boolean(
+    selectedNodeId != null &&
+    descriptionTarget &&
+    isSelectedNodeVisible &&
+    (!readOnly ||
+      (descriptionTarget.description && descriptionTarget.description.trim().length > 0)),
   );
 
   /* Alineado con `IsoGridBackground` (rejilla isométrica). */
@@ -441,6 +563,88 @@ export function MindMapCanvasSvg({ ctrl }: { ctrl: MindMapCanvasController }) {
           );
         })}
         </AnimatePresence>
+
+        {showDescriptionPanel && descriptionTarget
+          ? (() => {
+              const n = descriptionTarget;
+              const maxW = Math.max(DESC_SIZE_MIN_W, vbW - 2 * SLIDE_DESC_INSET);
+              const maxH = Math.max(DESC_SIZE_MIN_H, vbH - 2 * SLIDE_DESC_INSET);
+              const rawW = n.descriptionWidth ?? DESCRIPTION_PANEL_W;
+              const rawH = n.descriptionHeight ?? DESCRIPTION_PANEL_H;
+              const panelW = Math.min(rawW, maxW);
+              const panelH = Math.min(rawH, maxH);
+              const { x: pX, y: pY } = descriptionPanelSlideBottomRight(
+                minX,
+                minY,
+                vbW,
+                vbH,
+                panelW,
+                panelH,
+                SLIDE_DESC_INSET,
+              );
+              const descTextBase =
+                "h-full w-full min-h-0 min-w-0 border-0 bg-transparent p-0 text-left text-[12px] font-normal leading-relaxed " +
+                "text-slate-800 outline-none ring-0 shadow-none focus:outline-none focus:ring-0 dark:text-slate-100";
+              return (
+                <foreignObject
+                  key={`mm-desc-${n.id}`}
+                  x={pX}
+                  y={pY}
+                  width={panelW}
+                  height={panelH}
+                  className="overflow-visible"
+                >
+                  {readOnly ? (
+                    <p
+                      data-mind-map-ui
+                      className={cn(
+                        descTextBase,
+                        "m-0 h-full w-full box-border cursor-default overflow-y-auto whitespace-pre-wrap wrap-break-word select-text",
+                      )}
+                      style={{ pointerEvents: "auto" }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      {n.description?.trim() ? n.description : "\u00a0"}
+                    </p>
+                  ) : (
+                    <div
+                      className="relative h-full w-full min-h-0 min-w-0 overflow-visible"
+                      data-mind-map-ui
+                      data-slide-selection-frame
+                    >
+                      <SlideCanvasBlockStyleSelectionFrame />
+                      <div className="relative z-1 flex h-full min-h-0 w-full min-w-0 flex-col">
+                        <MindMapDescriptionResizableBox
+                          width={panelW}
+                          height={panelH}
+                          minW={DESC_SIZE_MIN_W}
+                          minH={DESC_SIZE_MIN_H}
+                          maxW={maxW}
+                          maxH={maxH}
+                          onSizeChange={(w, h) => updateNodeDescriptionSize(n.id, w, h)}
+                        >
+                          <textarea
+                            data-mind-map-ui
+                            className={cn(
+                              descTextBase,
+                              "min-h-0 min-w-0 flex-1 resize-none cursor-text overflow-y-auto select-text box-border placeholder:text-slate-500/50 dark:placeholder:text-slate-500/45",
+                            )}
+                            style={{ pointerEvents: "auto" }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            placeholder="Añade más detalle…"
+                            value={n.description ?? ""}
+                            onChange={(e) => updateNodeDescription(n.id, e.target.value)}
+                            rows={2}
+                            spellCheck
+                          />
+                        </MindMapDescriptionResizableBox>
+                      </div>
+                    </div>
+                  )}
+                </foreignObject>
+              );
+            })()
+          : null}
       </svg>
     </div>
   );

@@ -15,6 +15,7 @@ const FULL_BLEED_KINDS_FOR_OTHER_SLIDE_TYPES = new Set([
   "mapboxMap",
   "isometricFlow",
   "mindMap",
+  "documentEmbed",
 ]);
 
 /**
@@ -41,7 +42,8 @@ function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
   if (
     slide.type !== SLIDE_TYPE.ISOMETRIC &&
     slide.type !== SLIDE_TYPE.MIND_MAP &&
-    slide.type !== SLIDE_TYPE.MAPS
+    slide.type !== SLIDE_TYPE.MAPS &&
+    slide.type !== SLIDE_TYPE.DOCUMENT
   )
     return slide;
   const cs = slide.canvasScene;
@@ -52,7 +54,9 @@ function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
       ? "isometricFlow"
       : slide.type === SLIDE_TYPE.MIND_MAP
         ? "mindMap"
-        : "mapboxMap";
+        : slide.type === SLIDE_TYPE.DOCUMENT
+          ? "documentEmbed"
+          : "mapboxMap";
   const iso = cs.elements.find((e) => e.kind === expectedKind);
 
   if (!iso) {
@@ -83,7 +87,10 @@ function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
 export function ensureSlideCanvasScene(slide: Slide): Slide {
   let s = slide;
   const cs = s.canvasScene;
-  if (!isSlideCanvasScene(cs) || cs.elements.length === 0) {
+  const needsMigrate =
+    !isSlideCanvasScene(cs) ||
+    (cs.elements.length === 0 && slide.type !== SLIDE_TYPE.CANVAS_3D);
+  if (needsMigrate) {
     s = { ...s, canvasScene: migrateLegacySlideToCanvas(s) };
   } else {
     s = patchLegacyIsometricCanvasScene(s);

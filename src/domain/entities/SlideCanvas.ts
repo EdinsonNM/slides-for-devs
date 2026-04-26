@@ -35,7 +35,8 @@ export type SlideCanvasElementKind =
   | "excalidraw"
   | "mindMap"
   | "isometricFlow"
-  | "mapboxMap";
+  | "mapboxMap"
+  | "documentEmbed";
 
 export type SlideCanvasTextRole = "title" | "subtitle" | "body";
 

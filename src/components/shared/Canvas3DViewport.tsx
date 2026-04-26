@@ -1,5 +1,4 @@
 import React, {
-  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -365,8 +364,6 @@ export function Canvas3DViewport({
   const hostObserveKey = `${controlKey}|${hostMeasureKey ?? "static"}|z:${stackRevision}`;
   const [hostRef, hostSize] = useHostElementSize(hostObserveKey);
 
-  const r3fFragmentKey = `${slideId}\u0001${trimmed}\u0001${r3fInstanceId ?? "main"}`;
-
   let sceneBody: ReactNode;
   if (!trimmed) {
     sceneBody = null;
@@ -404,8 +401,7 @@ export function Canvas3DViewport({
         className,
       )}
     >
-      <Fragment key={`r3f-canvas3d-${r3fFragmentKey}`}>
-        <Canvas
+      <Canvas
           className="absolute inset-0 h-full w-full touch-none select-none"
           dpr={skipEnvironmentMaps ? 1 : undefined}
           camera={{
@@ -474,7 +470,6 @@ export function Canvas3DViewport({
             {sceneBody}
           </Suspense>
         </Canvas>
-      </Fragment>
       {!trimmed && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-stone-500 dark:text-stone-400">
           Indica una URL de modelo .glb o sube un archivo desde el inspector o este panel.

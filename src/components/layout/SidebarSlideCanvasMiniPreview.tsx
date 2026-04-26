@@ -4,6 +4,7 @@ import {
   BarChart3,
   Box,
   Code2,
+  FileText,
   Film,
   Frame,
   Image as ImageIcon,
@@ -380,6 +381,21 @@ function miniPreviewForElement(slide: Slide, el: SlideCanvasElement): ReactNode 
             rotation,
             "h-full w-full min-h-0 min-w-0",
             <IsoStyleThreeDBadge compact borderless />,
+          )}
+        </div>
+      );
+    case "documentEmbed":
+      if (slide.type !== SLIDE_TYPE.DOCUMENT) return null;
+      return (
+        <div key={el.id} style={boxStyle} className={shell}>
+          {rotated(
+            rotation,
+            "flex h-full w-full min-h-0 min-w-0 items-center justify-center bg-amber-50/80 dark:bg-amber-950/25",
+            <FileText
+              className="h-4 w-4 text-amber-800/90 dark:text-amber-300/90"
+              strokeWidth={1.5}
+              aria-hidden
+            />,
           )}
         </div>
       );

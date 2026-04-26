@@ -10,6 +10,7 @@ export type SavePresentationNowPayload = {
   deckVisualTheme?: DeckVisualTheme;
   deckNarrativePresetId?: string;
   narrativeNotes?: string;
+  presentationReadme?: string;
 };
 
 export type PresentationDeckMutationsDeps = {

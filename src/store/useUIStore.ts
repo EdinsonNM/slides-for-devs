@@ -17,6 +17,9 @@ export interface UIState {
   
   isSidebarOpen: boolean;
   isNotesPanelOpen: boolean;
+  isReadmePanelOpen: boolean;
+  /** Panel central: configuración de publicación (Firestore). */
+  isPresentationSettingsPanelOpen: boolean;
   showCharactersPanel: boolean;
   showSlideStylePanel: boolean;
 
@@ -40,6 +43,8 @@ export const useUIStore = create<UIState>((set) => ({
 
   isSidebarOpen: true,
   isNotesPanelOpen: false,
+  isReadmePanelOpen: false,
+  isPresentationSettingsPanelOpen: false,
   showCharactersPanel: false,
   showSlideStylePanel: false,
 
