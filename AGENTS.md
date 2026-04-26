@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `940048566eea2b453d84b652bf46d60984d18743`  
+**Última revisión alineada con commit:** `28e5c95649272bf2b07beed8ddccee67ce060dd9`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -46,7 +46,7 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/application/use-cases/`: casos de uso (p. ej. generación de diagrama o matriz desde IA)
 - `src/composition/container.ts`: composición de adaptadores y casos de uso
 - `src/presentation/contexts/PresentationContext.tsx`: estado global principal de presentaciones (shim en `src/context/PresentationContext.tsx`)
-- `src/presentation/hooks/global/`: hooks UI globales (`usePresentationState`, `useMatchMedia`, …); shims en `src/hooks/`
+- `src/presentation/hooks/global/`: hooks UI globales (`usePresentationState`, `useMatchMedia`, …)
 - `src/services/`: integración con almacenamiento, IA, updater y config
 - `src/constants/`: catálogos y opciones del editor
 - `src/utils/`: helpers puros
@@ -112,7 +112,7 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 ### Estado y flujo de presentación
 
 - Revisa `src/presentation/contexts/PresentationContext.tsx`
-- Revisa hooks en `src/hooks/`; el borrador del título de la presentación y la barra superior viven en parte en `src/hooks/usePresentationState.ts` y `src/components/layout/Header.tsx`
+- Revisa `src/presentation/hooks/global/usePresentationState.ts`; el borrador del título y la barra superior comparten lógica con `src/components/layout/Header.tsx`
 
 ### IA / generación de contenido
 
