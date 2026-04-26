@@ -374,6 +374,8 @@ export function SlideCanvasSlide() {
 
   useEffect(() => {
     if (!currentSlide) return;
+    /* Escena 3D: `migrateLegacySlideToCanvas` deja `elements` vacío a propósito; no es “sin migrar”. */
+    if (currentSlide.type === SLIDE_TYPE.CANVAS_3D) return;
     if (currentSlide.canvasScene?.elements?.length) return;
     setSlides((prev) => {
       const idx = currentIndex;

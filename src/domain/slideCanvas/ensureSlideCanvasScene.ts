@@ -87,7 +87,10 @@ function patchLegacyIsometricCanvasScene(slide: Slide): Slide {
 export function ensureSlideCanvasScene(slide: Slide): Slide {
   let s = slide;
   const cs = s.canvasScene;
-  if (!isSlideCanvasScene(cs) || cs.elements.length === 0) {
+  const needsMigrate =
+    !isSlideCanvasScene(cs) ||
+    (cs.elements.length === 0 && slide.type !== SLIDE_TYPE.CANVAS_3D);
+  if (needsMigrate) {
     s = { ...s, canvasScene: migrateLegacySlideToCanvas(s) };
   } else {
     s = patchLegacyIsometricCanvasScene(s);

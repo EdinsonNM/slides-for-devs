@@ -80,6 +80,15 @@ export interface PushCloudOptions {
 /** Diagramas mayores se suben a Storage (límite práctico doc Firestore ~1MB). */
 const EXCALIDRAW_STORAGE_THRESHOLD = 80 * 1024;
 
+/**
+ * Firestore limita campos string (~1 MiB). URLs data:base64 de GLB superan el límite con facilidad.
+ */
+const CANVAS3D_GLB_STORAGE_THRESHOLD_BYTES = 900 * 1024;
+
+function utf8ByteLength(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
+
 /** Correos en minúsculas para `shareInviteEmails` y consultas `array-contains`. */
 export function normalizeShareEmail(raw: string): string | null {
   const s = raw.trim().toLowerCase();
@@ -642,6 +651,7 @@ async function loadFirstSlideResolvedForHomeReplica(
   const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (mainData.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (mainData.excalidrawPaths as Record<string, string>) ?? {};
+  const canvas3dGlbPaths = (mainData.canvas3dGlbPaths as Record<string, string>) ?? {};
   const deckCoverLeaf = safeStorageLeafName(String(mainData.deckCoverImageFile ?? ""));
   const inlineSlides = mainData.slides;
   const isV1 =
@@ -694,10 +704,26 @@ async function loadFirstSlideResolvedForHomeReplica(
     }
   })();
 
+  const canvas3dGlbUrl = await (async (): Promise<string | undefined> => {
+    const glbName = canvas3dGlbPaths["0"]?.trim();
+    if (!glbName) return base.canvas3dGlbUrl;
+    const path = `${prefix}/${glbName}`;
+    try {
+      return await withTimeout(
+        getDownloadURL(ref(st, path)),
+        STORAGE_PULL_TIMEOUT_MS,
+        "Home preview: GLB canvas 3D slide 0.",
+      );
+    } catch {
+      return base.canvas3dGlbUrl;
+    }
+  })();
+
   return {
     ...base,
     ...(imageUrl !== undefined ? { imageUrl } : {}),
     ...(excalidrawData !== undefined ? { excalidrawData } : {}),
+    ...(canvas3dGlbUrl !== undefined ? { canvas3dGlbUrl } : {}),
   };
 }
 
@@ -805,11 +831,13 @@ async function deleteKnownPresentationFiles(
   prefix: string,
   slideImagePaths: Record<string, string>,
   excalidrawPaths: Record<string, string>,
+  canvas3dGlbPaths: Record<string, string>,
   deckCoverImageFile?: string | null,
 ): Promise<void> {
   const names = new Set<string>([
     ...Object.values(slideImagePaths),
     ...Object.values(excalidrawPaths),
+    ...Object.values(canvas3dGlbPaths),
   ]);
   const deckLeaf = safeStorageLeafName(deckCoverImageFile ?? undefined);
   if (deckLeaf) names.add(deckLeaf);
@@ -833,6 +861,11 @@ function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: stri
   if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = "jpg";
   else if (contentType.includes("webp")) ext = "webp";
   else if (contentType.includes("gif")) ext = "gif";
+  else if (
+    contentType.includes("gltf-binary") ||
+    contentType.includes("model/gltf")
+  )
+    ext = "glb";
   return { bytes, contentType, ext };
 }
 
@@ -1048,6 +1081,7 @@ export async function pushPresentationToCloud(
   /* ── 2. Subida de medios + escritura individual de cada slide ── */
   const slideImagePaths: Record<string, string> = {};
   const excalidrawPaths: Record<string, string> = {};
+  const canvas3dGlbPaths: Record<string, string> = {};
   let deckCoverImageFile: string | null = null;
   const slidesCol = slidesSubcollection(db, uid, cloudId);
   let slidesWritten = 0;
@@ -1109,11 +1143,45 @@ export async function pushPresentationToCloud(
       excalidrawData = undefined;
     }
 
+    let canvas3dGlbForDoc: string | null | undefined = slide.canvas3dGlbUrl?.trim() || undefined;
+    if (canvas3dGlbForDoc && utf8ByteLength(canvas3dGlbForDoc) > CANVAS3D_GLB_STORAGE_THRESHOLD_BYTES) {
+      let bytes: Uint8Array | null = null;
+      let contentType = "model/gltf-binary";
+      if (canvas3dGlbForDoc.startsWith("data:")) {
+        const parsed = dataUrlToBytes(canvas3dGlbForDoc);
+        if (parsed) {
+          bytes = parsed.bytes;
+          if (parsed.contentType) contentType = parsed.contentType;
+        }
+      } else if (
+        canvas3dGlbForDoc.startsWith("http://") ||
+        canvas3dGlbForDoc.startsWith("https://")
+      ) {
+        const fetched = await fetchUrlAsBytes(canvas3dGlbForDoc);
+        if (fetched) {
+          bytes = fetched.bytes;
+          if (fetched.contentType) contentType = fetched.contentType;
+        }
+      }
+      if (bytes && bytes.length > 0) {
+        const name = `canvas3d_glb_${i}.glb`;
+        await uploadBytes(ref(st, `${prefix}/${name}`), bytes, { contentType });
+        canvas3dGlbPaths[String(i)] = name;
+        canvas3dGlbForDoc = undefined;
+      } else {
+        console.warn(
+          `[cloud] GLB del slide ${i} supera el límite de Firestore y no se pudo subir a Storage; se omite en la nube.`,
+        );
+        canvas3dGlbForDoc = undefined;
+      }
+    }
+
     const slideData: Record<string, unknown> = {
       order: i,
       ...plain,
       imageUrl: imageUrl ?? null,
       excalidrawData: excalidrawData ?? null,
+      canvas3dGlbUrl: canvas3dGlbForDoc ?? null,
       isometricFlowData: slide.isometricFlowData ?? null,
     };
 
@@ -1135,6 +1203,7 @@ export async function pushPresentationToCloud(
     presentationReadme: saved.presentationReadme ?? null,
     slideImagePaths,
     excalidrawPaths,
+    canvas3dGlbPaths,
     /** Portada Slaim dedicada en Storage (no `slide_0.*`). */
     deckCoverImageFile: deckCoverImageFile ?? null,
     slideCount: slidesWritten,
@@ -1199,8 +1268,10 @@ export async function pushPresentationToCloud(
     const pd = preSnap.data() as Record<string, unknown>;
     const oldImgPaths = (pd.slideImagePaths as Record<string, string>) ?? {};
     const oldExcPaths = (pd.excalidrawPaths as Record<string, string>) ?? {};
+    const oldC3dGlbPaths = (pd.canvas3dGlbPaths as Record<string, string>) ?? {};
     const staleImgs = Object.entries(oldImgPaths).filter(([k]) => !(k in slideImagePaths));
     const staleExc = Object.entries(oldExcPaths).filter(([k]) => !(k in excalidrawPaths));
+    const staleC3dGlb = Object.entries(oldC3dGlbPaths).filter(([k]) => !(k in canvas3dGlbPaths));
     const prevDeckLeaf = safeStorageLeafName(String(pd.deckCoverImageFile ?? ""));
     const nextDeckLeaf = deckCoverImageFile ? deckCoverImageFile.trim() : "";
     const deckStale =
@@ -1210,6 +1281,7 @@ export async function pushPresentationToCloud(
     await Promise.all([
       ...staleImgs.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
       ...staleExc.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
+      ...staleC3dGlb.map(([, name]) => deleteObject(ref(st, `${prefix}/${name}`)).catch(() => undefined)),
       ...deckStale,
     ]);
   }
@@ -1268,6 +1340,7 @@ export async function deleteOwnerPresentationFromCloud(
     prefix,
     (data.slideImagePaths as Record<string, string>) ?? {},
     (data.excalidrawPaths as Record<string, string>) ?? {},
+    (data.canvas3dGlbPaths as Record<string, string>) ?? {},
     data.deckCoverImageFile as string | null | undefined,
   );
 
@@ -1653,6 +1726,7 @@ export async function pullPresentationFromCloud(
   const prefix = storagePrefix(ownerUid, cloudId);
   const slideImagePaths = (data.slideImagePaths as Record<string, string>) ?? {};
   const excalidrawPaths = (data.excalidrawPaths as Record<string, string>) ?? {};
+  const canvas3dGlbPaths = (data.canvas3dGlbPaths as Record<string, string>) ?? {};
   const deckCoverLeaf = safeStorageLeafName(String(data.deckCoverImageFile ?? ""));
 
   const inlineSlides = data.slides;
@@ -1687,7 +1761,7 @@ export async function pullPresentationFromCloud(
       const row = rawSlides[i]!;
       const base = plainToSlide(row);
 
-      const [imageUrl, excalidrawData] = await Promise.all([
+      const [imageUrl, excalidrawData, canvas3dGlbUrl] = await Promise.all([
         (async (): Promise<string | undefined> => {
           const fromSlidePaths = slideImagePaths[String(i)]?.trim();
           const imgName =
@@ -1724,12 +1798,31 @@ export async function pullPresentationFromCloud(
             return base.excalidrawData;
           }
         })(),
+        (async (): Promise<string | undefined> => {
+          const glbName = canvas3dGlbPaths[String(i)]?.trim();
+          if (!glbName) return base.canvas3dGlbUrl;
+          const path = `${prefix}/${glbName}`;
+          try {
+            return await withTimeout(
+              getDownloadURL(ref(st, path)),
+              STORAGE_PULL_TIMEOUT_MS,
+              `Obtener la URL del modelo 3D tardó demasiado (${glbName}). Revisa la red o vuelve a intentarlo.`
+            );
+          } catch (e) {
+            console.warn(
+              `[cloud] No se pudo resolver URL de GLB del slide ${i} (${glbName}):`,
+              e
+            );
+            return base.canvas3dGlbUrl;
+          }
+        })(),
       ]);
 
       return {
         ...base,
         ...(imageUrl !== undefined ? { imageUrl } : {}),
         ...(excalidrawData !== undefined ? { excalidrawData } : {}),
+        ...(canvas3dGlbUrl !== undefined ? { canvas3dGlbUrl } : {}),
       };
     })
   );
