@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HomePresentationCard } from "../../types";
 import type { CloudPresentationListItem } from "../../services/presentationCloud";
 import { getFirebaseConfig } from "../../services/firebase";
@@ -50,22 +50,42 @@ export function usePresentationHomeCards({
     }
   }, [user, firebaseReady]);
 
+  useEffect(() => {
+    void refreshCloudMineSnapshot();
+  }, [refreshCloudMineSnapshot]);
+
+  useEffect(() => {
+    if (!user || firebaseReady !== true || typeof window === "undefined") return;
+    const onFocus = () => {
+      void refreshCloudMineSnapshot();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshCloudMineSnapshot();
+      }
+    };
+    const id = window.setInterval(() => {
+      void refreshCloudMineSnapshot();
+    }, 15000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [user, firebaseReady, refreshCloudMineSnapshot]);
+
   const homePresentationCards = useMemo((): HomePresentationCard[] => {
     const hasAnyLocalForCloud = (cloudId: string) =>
       savedList.some((p) => p.cloudId === cloudId);
 
-    const sharedSourceKey = (ownerUid: string, cloudId: string) =>
-      `${ownerUid}::${cloudId}`;
-
-    const hasLocalForSharedCloud = (ownerUid: string, cloudId: string) =>
-      savedList.some(
-        (p) => p.sharedCloudSource === sharedSourceKey(ownerUid, cloudId),
-      );
-
-    const locals: HomePresentationCard[] = savedList.map((meta) => ({
-      kind: "local",
-      meta,
-    }));
+    const locals: HomePresentationCard[] = savedList
+      .filter((meta) => !meta.sharedCloudSource)
+      .map((meta) => ({
+        kind: "local",
+        meta,
+      }));
 
     const cloudOnlyMine: HomePresentationCard[] = cloudMineSnapshot
       .filter(
@@ -93,11 +113,7 @@ export function usePresentationHomeCards({
       }));
 
     const cloudOnlyShared: HomePresentationCard[] = cloudSharedSnapshot
-      .filter(
-        (item) =>
-          item.source === "shared" &&
-          !hasLocalForSharedCloud(item.ownerUid, item.cloudId),
-      )
+      .filter((item) => item.source === "shared")
       .map((item) => ({
         kind: "cloud_only_shared" as const,
         cloudId: item.cloudId,

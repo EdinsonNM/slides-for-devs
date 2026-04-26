@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowLeft,
@@ -170,8 +171,9 @@ function pseudoSocialCountFromUid(uid: string): number {
 }
 
 export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMockProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { handleDownloadFromCloud, setIsPreviewMode } = usePresentation();
+  const { setIsPreviewMode } = usePresentation();
   const reduceMotion = useReducedMotion();
   const greetingTitle = useMemo(() => {
     const d = user?.displayName?.trim();
@@ -327,13 +329,13 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
       const key = publicItemKey(item);
       setOpeningCardKey(key);
       try {
-        await handleDownloadFromCloud(item.cloudId, item.ownerUid);
-        setIsPreviewMode(true);
+        setIsPreviewMode(false);
+        navigate(`/public/${item.ownerUid}/${item.cloudId}`);
       } finally {
         setOpeningCardKey(null);
       }
     },
-    [handleDownloadFromCloud, setIsPreviewMode],
+    [navigate, setIsPreviewMode],
   );
 
   const openDetails = useCallback(async (item: PublicPresentationExploreItem) => {

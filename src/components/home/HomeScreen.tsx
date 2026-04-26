@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePresentation } from "../../context/PresentationContext";
+import { useAuth } from "../../context/AuthContext";
 import { isTauriRuntime } from "../../utils/isTauriRuntime";
 import { HomeEmptyState } from "./HomeEmptyState";
 import type { HomeMainTab } from "./homeMainTab";
@@ -26,6 +28,8 @@ export interface HomeScreenProps {
  * antes).
  */
 export function HomeScreen(props: HomeScreenProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     onOpenConfig,
     onCheckUpdates,
@@ -76,6 +80,13 @@ export function HomeScreen(props: HomeScreenProps) {
   const createBlank = onCreateBlankProp;
   const hasItems = homePresentationCards.length > 0;
   const cloudOnlyCardActionMode = isTauriRuntime() ? "download" : "open";
+  const openCloudCard = (cloudId: string, ownerUid?: string) => {
+    if (ownerUid && user && ownerUid !== user.uid) {
+      navigate(`/public/${ownerUid}/${cloudId}`);
+      return;
+    }
+    void handleDownloadFromCloud(cloudId, ownerUid);
+  };
 
   return (
     <HomeShell
@@ -135,7 +146,7 @@ export function HomeScreen(props: HomeScreenProps) {
                 syncingToCloudId={syncingToCloudId}
                 homeCloudSharedListWarning={homeCloudSharedListWarning}
                 onSharePresentation={openSharePresentationModal}
-                onDownloadFromCloud={handleDownloadFromCloud}
+                onDownloadFromCloud={openCloudCard}
                 onDeleteCloudOnlyMine={handleDeleteCloudOnlyMine}
                 downloadingCloudKey={downloadingCloudKey}
                 cloudOnlyCardActionMode={cloudOnlyCardActionMode}

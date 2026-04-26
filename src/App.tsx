@@ -41,6 +41,7 @@ import { GeneratingPresentationModal } from "./components/modals/GeneratingPrese
 import { GenerateFullDeckModal } from "./components/modals/GenerateFullDeckModal";
 import { GenerateSlideContentModal } from "./components/modals/GenerateSlideContentModal";
 import { ApiConfigurationScreen } from "./components/setup/ApiConfigurationScreen";
+import { PublicPresentationViewer } from "./components/public/PublicPresentationViewer";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -344,6 +345,10 @@ export default function App() {
           element={
             <EditorRoute onOpenConfig={openApiConfigFromSettings} />
           }
+        />
+        <Route
+          path="/public/:ownerUid/:cloudId"
+          element={<PublicPresentationViewer />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

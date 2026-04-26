@@ -398,8 +398,8 @@ export function HomePresentationCardTile({
             </h3>
             <p className="text-sm text-white/92 mt-1">
               {openInBrowser
-                ? "Toca para ver en el editor (solo lectura al guardar)"
-                : "Toca para copiar en este equipo"}
+                ? "Toca para abrir en visor"
+                : "Toca para abrir en visor"}
             </p>
             <p className="text-xs text-white/82 mt-0.5">
               {when.toLocaleDateString()}
