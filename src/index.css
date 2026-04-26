@@ -722,3 +722,25 @@
 .vditor-readme-host .vditor-toolbar {
   border-radius: 0.5rem 0.5rem 0 0;
 }
+
+.dark .vditor-readme-host .vditor,
+.dark .vditor-readme-host .vditor-toolbar,
+.dark .vditor-readme-host .vditor-content,
+.dark .vditor-readme-host .vditor-ir,
+.dark .vditor-readme-host .vditor-reset {
+  color: rgb(231 229 228);
+}
+
+.dark .vditor-readme-host .vditor-toolbar {
+  background: rgb(28 25 23 / 0.9);
+  border-color: rgb(68 64 60 / 0.7);
+}
+
+.dark .vditor-readme-host .vditor-content,
+.dark .vditor-readme-host .vditor-ir {
+  background: rgb(10 10 10 / 0.35);
+}
+
+.dark .vditor-readme-host .vditor-ir pre.vditor-reset:focus {
+  background: transparent;
+}

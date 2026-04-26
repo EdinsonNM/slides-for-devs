@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Briefcase,
+  CalendarDays,
+  Eye,
   GraduationCap,
   LayoutGrid,
   Loader2,
@@ -11,11 +14,13 @@ import {
   Search,
   Star,
 } from "lucide-react";
+import { usePresentation } from "../../context/PresentationContext";
 import { useAuth } from "../../context/AuthContext";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { cn } from "../../utils/cn";
 import {
   listPublicPresentationsForExplore,
+  pullPresentationFromCloud,
   type PublicPresentationExploreItem,
 } from "../../services/presentationCloud";
 import { DEFAULT_DECK_VISUAL_THEME } from "../../domain/entities";
@@ -23,6 +28,7 @@ import { getFirebaseConfig, initFirebase } from "../../services/firebase";
 import { formatCloudSharedListError } from "../../utils/cloudSyncErrors";
 import { HeroCardMediaLayer } from "./HomePresentationCardTile";
 import { HomeDeckSlideReplicaFill } from "./HomeDeckSlideReplicaFill";
+import { SlideMarkdown } from "../shared/SlideMarkdown";
 
 export interface PublicPresentationsMockProps {
   onOpenConfig?: () => void;
@@ -63,10 +69,12 @@ function PublicExploreItemPreviewMedia({
   className,
   fit = "cover",
   lockReplicaInteraction = false,
+  zoomClassName,
 }: {
   item: PublicPresentationExploreItem;
   className?: string;
   fit?: "cover" | "fill";
+  zoomClassName?: string;
   /**
    * En el hero, si solo hay réplica del slide 0, bloquea clics, foco y scroll dentro del lienzo
    * (el iframe/canvas de la preview no debe capturar eventos).
@@ -83,7 +91,11 @@ function PublicExploreItemPreviewMedia({
         <img
           src={coverUrl}
           alt=""
-          className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-fill")}
+          className={cn(
+            "h-full w-full transition-transform duration-500 ease-out",
+            fit === "cover" ? "object-cover" : "object-fill",
+            zoomClassName,
+          )}
           draggable={false}
         />
       ) : hasReplica ? (
@@ -140,8 +152,18 @@ function shortUid(uid: string, len = 8): string {
   return `${uid.slice(0, len)}…`;
 }
 
+function formatPublicDate(value: string | null | undefined): string {
+  if (!value) return "Sin fecha";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "medium",
+  }).format(date);
+}
+
 export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMockProps) {
   const { user } = useAuth();
+  const { handleDownloadFromCloud, setIsPreviewMode } = usePresentation();
   const reduceMotion = useReducedMotion();
   const greetingTitle = useMemo(() => {
     const d = user?.displayName?.trim();
@@ -156,6 +178,11 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
   const [selectedKey, setSelectedKey] = useState("");
   const [pauseAutoplayOnHero, setPauseAutoplayOnHero] = useState(false);
   const [pauseAutoplayOnTendencias, setPauseAutoplayOnTendencias] = useState(false);
+  const [openingCardKey, setOpeningCardKey] = useState<string | null>(null);
+  const [detailOpenKey, setDetailOpenKey] = useState<string | null>(null);
+  const [detailReadme, setDetailReadme] = useState<string>("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const filteredRef = useRef<PublicPresentationExploreItem[]>([]);
 
   const load = useCallback(async () => {
@@ -234,6 +261,20 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
     categoryId === "todas" ? "Autores" : `Autores en ${category?.label ?? ""}`;
 
   const topTendencia = useMemo(() => filtered.slice(0, 5), [filtered]);
+  const detailItem = useMemo(
+    () => allItems.find((it) => publicItemKey(it) === detailOpenKey) ?? null,
+    [allItems, detailOpenKey],
+  );
+  const detailDate = detailItem
+    ? formatPublicDate(
+        detailItem.publicationPublishedAt || detailItem.updatedAt || detailItem.savedAt,
+      )
+    : "";
+  const detailCategory = detailItem
+    ? detailItem.publicationCategories.length > 0
+      ? detailItem.publicationCategories.join(" · ")
+      : (categoryDefForPrimaryBucket(detailItem)?.label ?? "—")
+    : "—";
 
   const destacados = useMemo(() => {
     const m = new Map<string, { ownerUid: string; count: number }>();
@@ -250,6 +291,37 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
   const onPickCategory = (id: CategoryId) => {
     setCategoryId(id);
   };
+
+  const openInReadMode = useCallback(
+    async (item: PublicPresentationExploreItem) => {
+      const key = publicItemKey(item);
+      setOpeningCardKey(key);
+      try {
+        await handleDownloadFromCloud(item.cloudId, item.ownerUid);
+        setIsPreviewMode(true);
+      } finally {
+        setOpeningCardKey(null);
+      }
+    },
+    [handleDownloadFromCloud, setIsPreviewMode],
+  );
+
+  const openDetails = useCallback(async (item: PublicPresentationExploreItem) => {
+    const key = publicItemKey(item);
+    setDetailOpenKey(key);
+    setDetailReadme("");
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const pulled = await pullPresentationFromCloud(item.ownerUid, item.cloudId);
+      setDetailReadme(pulled.presentation.presentationReadme?.trim() ?? "");
+    } catch (error) {
+      console.error(error);
+      setDetailError("No se pudo cargar el README de esta publicación.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-stone-100 text-stone-900 dark:bg-[#090b10] dark:text-stone-100">
@@ -288,7 +360,97 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
           </div>
         )}
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 sm:py-5">
-          {loading ? (
+          {detailItem ? (
+            <section className="flex flex-col gap-4 sm:gap-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDetailOpenKey(null)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-300/80 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:border-white/15 dark:bg-white/5 dark:text-stone-200 dark:hover:bg-white/10"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver a publicaciones
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void openInReadMode(detailItem)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
+                >
+                  <Eye className="h-4 w-4" />
+                  Ir a la presentación
+                </button>
+              </div>
+
+              <article className="overflow-hidden rounded-3xl border border-stone-300/70 bg-white dark:border-white/10 dark:bg-[#0f1118]">
+                <div className="relative aspect-video w-full overflow-hidden bg-stone-900">
+                  <PublicExploreItemPreviewMedia
+                    item={detailItem}
+                    className="absolute inset-0 h-full w-full"
+                    fit="cover"
+                    lockReplicaInteraction
+                  />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/82 via-black/32 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-stone-300">
+                      Presentación pública
+                    </p>
+                    <h2 className="mt-2 line-clamp-2 text-2xl font-semibold leading-tight text-white sm:text-4xl">
+                      {detailItem.topic}
+                    </h2>
+                    <p className="mt-2 line-clamp-3 text-sm text-stone-200 sm:text-base">
+                      {detailItem.description?.trim()
+                        ? detailItem.description
+                        : "Sin descripción publicada."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 border-t border-stone-200/80 bg-stone-50/80 p-4 text-sm text-stone-700 dark:border-white/10 dark:bg-white/3 dark:text-stone-200 sm:grid-cols-2 lg:grid-cols-4">
+                  <p>
+                    <span className="text-stone-500 dark:text-stone-400">Autor:</span>{" "}
+                    {shortUid(detailItem.ownerUid, 12)}
+                  </p>
+                  <p>
+                    <span className="text-stone-500 dark:text-stone-400">Fecha:</span> {detailDate}
+                  </p>
+                  <p>
+                    <span className="text-stone-500 dark:text-stone-400">Nivel:</span>{" "}
+                    {detailItem.publicationLevel}
+                  </p>
+                  <p>
+                    <span className="text-stone-500 dark:text-stone-400">Categoría:</span>{" "}
+                    {detailCategory}
+                  </p>
+                </div>
+              </article>
+
+              <section className="rounded-2xl border border-stone-300/70 bg-white p-4 dark:border-white/10 dark:bg-[#0f1118] sm:p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">
+                  README de la presentación
+                </p>
+                {detailLoading ? (
+                  <div className="mt-4 flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando README…
+                  </div>
+                ) : detailError ? (
+                  <p className="mt-4 text-sm text-red-600 dark:text-red-300">{detailError}</p>
+                ) : detailReadme ? (
+                  <SlideMarkdown
+                    preprocess="importedFile"
+                    className="mt-4 text-sm"
+                    importedGithubScheme="dark"
+                  >
+                    {detailReadme}
+                  </SlideMarkdown>
+                ) : (
+                  <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
+                    Esta publicación no tiene README.
+                  </p>
+                )}
+              </section>
+            </section>
+          ) : loading ? (
             <div className="flex min-h-[320px] items-center justify-center">
               <Loader2 className="h-10 w-10 animate-spin text-stone-400" aria-label="Cargando" />
             </div>
@@ -349,6 +511,7 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
                             className="h-full min-h-0 w-full"
                             fit="cover"
                             lockReplicaInteraction={hasExploreHeroReplica}
+                            zoomClassName="scale-100 group-hover:scale-[1.06]"
                           />
                         </motion.div>
                       </AnimatePresence>
@@ -551,17 +714,33 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {filtered.map((card) => {
                     const k = publicItemKey(card);
+                    const cardDate = formatPublicDate(
+                      card.publicationPublishedAt || card.updatedAt || card.savedAt,
+                    );
+                    const cardDescription = card.description?.trim()
+                      ? card.description
+                      : "Sin descripción publicada.";
+                    const cardCategory =
+                      card.publicationCategories.length > 0
+                        ? card.publicationCategories.join(" · ")
+                        : categoryId === "todas"
+                          ? (categoryDefForPrimaryBucket(card)?.label ?? "—")
+                          : (category?.label ?? "—");
+                    const isOpening = openingCardKey === k;
                     return (
-                      <button
+                      <article
                         key={k}
-                        type="button"
-                        onClick={() => setSelectedKey(k)}
-                        className="w-full text-left"
+                        className="group relative isolate z-0 h-full overflow-visible transition-[z-index] duration-75 hover:z-50 focus-within:z-50"
+                        onMouseEnter={() => setPauseAutoplayOnHero(true)}
+                        onMouseLeave={() => setPauseAutoplayOnHero(false)}
                       >
-                        <article
+                        <button
+                          type="button"
+                          onClick={() => void openInReadMode(card)}
+                          disabled={isOpening}
                           className={cn(
-                            "h-full overflow-hidden rounded-2xl border border-stone-300/70 transition hover:ring-2 hover:ring-stone-300/50 dark:border-white/10 dark:bg-[#0f1118] dark:hover:ring-white/15",
-                            k === selectedKey && "ring-2 ring-emerald-500/50",
+                            "w-full h-full overflow-hidden rounded-2xl border border-stone-300/70 bg-white text-left transition duration-200 dark:border-white/10 dark:bg-[#0f1118]",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60",
                           )}
                         >
                           <div className="relative aspect-video w-full overflow-hidden">
@@ -569,32 +748,85 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
                               item={card}
                               className="absolute inset-0 h-full w-full"
                               fit="cover"
+                              zoomClassName="scale-100 group-hover:scale-[1.08] group-focus-within:scale-[1.08]"
                             />
-                            <div className="absolute inset-0 z-1 bg-linear-to-t from-black/65 via-black/25 to-transparent" />
+                            <div className="absolute inset-0 z-1 bg-linear-to-t from-black/68 via-black/28 to-transparent" />
                             <p className="absolute bottom-2 left-2.5 right-2.5 z-2 line-clamp-1 text-sm font-semibold text-white">
                               {card.topic}
                             </p>
                           </div>
                           <div className="space-y-0.5 p-3">
                             <p className="line-clamp-1 text-xs font-medium text-stone-800 dark:text-stone-100">
-                              {card.description?.trim()
-                                ? card.description.slice(0, 80) +
-                                    (card.description.length > 80 ? "…" : "")
-                                : "Sin descripción"}
+                              {cardDescription.slice(0, 80) +
+                                (cardDescription.length > 80 ? "…" : "")}
                             </p>
                             <p className="line-clamp-1 text-[11px] text-stone-600 dark:text-stone-500">
                               {shortUid(card.ownerUid)} · {card.publicationLevel}
                             </p>
-                            <p className="text-[11px] text-stone-500">
-                              {card.publicationCategories.length > 0
-                                ? card.publicationCategories.join(" · ")
-                                : categoryId === "todas"
-                                  ? (categoryDefForPrimaryBucket(card)?.label ?? "—")
-                                  : (category?.label ?? "—")}
-                            </p>
+                            <p className="line-clamp-1 text-[11px] text-stone-500">{cardCategory}</p>
                           </div>
-                        </article>
-                      </button>
+                        </button>
+
+                        <div
+                          className={cn(
+                            "pointer-events-none absolute -inset-x-3 -top-8 z-90 overflow-hidden rounded-2xl border border-white/15 bg-[#0b0d13] shadow-2xl shadow-black/60",
+                            "opacity-0 translate-y-3 scale-[0.92] transition duration-220 ease-out",
+                            "group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100",
+                            "group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:scale-100",
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => void openInReadMode(card)}
+                            disabled={isOpening}
+                            className="w-full text-left"
+                          >
+                            <div className="relative aspect-video w-full">
+                              <PublicExploreItemPreviewMedia
+                                item={card}
+                                className="absolute inset-0 h-full w-full"
+                                fit="cover"
+                                zoomClassName="scale-[1.02] hover:scale-[1.1]"
+                              />
+                              <div className="absolute inset-0 z-1 bg-linear-to-t from-black/85 via-black/30 to-black/5" />
+                              <p className="absolute bottom-3 left-3 right-3 z-2 line-clamp-2 text-base font-semibold text-white">
+                                {card.topic}
+                              </p>
+                              {isOpening && (
+                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45">
+                                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                </div>
+                              )}
+                            </div>
+                          </button>
+
+                          <div className="space-y-2 p-3.5 text-white">
+                            <div className="inline-flex items-center gap-1.5 text-[11px] text-stone-300">
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              <span>{cardDate}</span>
+                            </div>
+                            <p className="line-clamp-3 text-xs text-stone-200">{cardDescription}</p>
+                            <p className="line-clamp-1 text-[11px] text-emerald-300/95">{cardCategory}</p>
+                            <div className="flex items-center justify-between gap-2 pt-1">
+                              <span className="text-[11px] text-stone-300">
+                                {shortUid(card.ownerUid)} · {card.publicationLevel}
+                              </span>
+                              <button
+                                type="button"
+                                className="pointer-events-auto inline-flex items-center gap-1 rounded-lg border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-white/20"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  event.preventDefault();
+                                  void openDetails(card);
+                                }}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Ver más
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
                     );
                   })}
                 </div>
@@ -603,6 +835,7 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
           )}
         </div>
       </main>
+
     </div>
   );
 }

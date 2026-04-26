@@ -1068,8 +1068,14 @@ export async function pushPresentationToCloud(
 
   /* ── 1. Pre-check revisión ── */
   const preSnap = await getDoc(docRef);
+  const preData = preSnap.exists()
+    ? (preSnap.data() as Record<string, unknown>)
+    : null;
+  const prevDeckCoverImageFile = preData
+    ? safeStorageLeafName(String(preData.deckCoverImageFile ?? ""))
+    : "";
   if (preSnap.exists() && !force) {
-    const preRemoteRev = Number((preSnap.data() as Record<string, unknown>).revision ?? 0);
+    const preRemoteRev = Number((preData as Record<string, unknown>).revision ?? 0);
     const expected = localExpectedRevision ?? 0;
     if (preRemoteRev !== expected) {
       const pd = preSnap.data() as Record<string, unknown>;
@@ -1083,6 +1089,7 @@ export async function pushPresentationToCloud(
   const excalidrawPaths: Record<string, string> = {};
   const canvas3dGlbPaths: Record<string, string> = {};
   let deckCoverImageFile: string | null = null;
+  let firstSlideKeepsDeckCover = false;
   const slidesCol = slidesSubcollection(db, uid, cloudId);
   let slidesWritten = 0;
 
@@ -1093,6 +1100,9 @@ export async function pushPresentationToCloud(
 
     const useDeckCoverStorage =
       i === 0 && isPersistedSlaimDeckCoverSlide(slide);
+    if (i === 0 && useDeckCoverStorage && slide.imageUrl?.trim()) {
+      firstSlideKeepsDeckCover = true;
+    }
 
     if (slide.imageUrl?.startsWith("data:")) {
       let payload = await dataUrlToCloudImagePayload(slide.imageUrl);
@@ -1190,6 +1200,16 @@ export async function pushPresentationToCloud(
     slidesWritten += 1;
   }
 
+  // Si la portada ya estaba en Storage (URL firmada existente) y no se subió una nueva
+  // en este push, preservar el archivo actual para no “perder” la portada al guardar.
+  if (
+    firstSlideKeepsDeckCover &&
+    !deckCoverImageFile &&
+    prevDeckCoverImageFile
+  ) {
+    deckCoverImageFile = prevDeckCoverImageFile;
+  }
+
   /* ── 3. Todos los slides escritos → actualizar doc principal vía transacción ── */
   const syncedAt = new Date().toISOString();
   const mainPayload = {
@@ -1265,7 +1285,7 @@ export async function pushPresentationToCloud(
   }
 
   if (preSnap.exists()) {
-    const pd = preSnap.data() as Record<string, unknown>;
+    const pd = preData as Record<string, unknown>;
     const oldImgPaths = (pd.slideImagePaths as Record<string, string>) ?? {};
     const oldExcPaths = (pd.excalidrawPaths as Record<string, string>) ?? {};
     const oldC3dGlbPaths = (pd.canvas3dGlbPaths as Record<string, string>) ?? {};

@@ -131,6 +131,7 @@ export function usePresentationDeckCovers(deps: PresentationDeckCoversDeps) {
           deckVisualTheme: normalizeDeckVisualTheme(saved.deckVisualTheme),
           deckNarrativePresetId: saved.deckNarrativePresetId,
           narrativeNotes: saved.narrativeNotes,
+          presentationReadme: saved.presentationReadme,
         },
         d.localAccountScope,
       );

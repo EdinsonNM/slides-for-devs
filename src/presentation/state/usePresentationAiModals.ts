@@ -173,6 +173,7 @@ export function usePresentationAiModals(deps: PresentationAiModalsDeps) {
           deckVisualTheme: d.deckVisualTheme,
           deckNarrativePresetId: pending.deckNarrativePresetId,
           narrativeNotes: pending.narrativeNotes?.trim() || undefined,
+          presentationReadme: d.presentationReadme.trim() || undefined,
         };
         let id: string;
         if (pending.reuseSavedId) {
