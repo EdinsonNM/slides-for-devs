@@ -24,6 +24,17 @@ service cloud.firestore {
         );
     }
 
+    function canEditOtherUserPresentationFields() {
+      return (
+        resource.data.sharedEditWith is list &&
+        request.auth.uid in resource.data.sharedEditWith
+      ) || (
+        request.auth.token.email != null &&
+        resource.data.shareEditInviteEmails is list &&
+        request.auth.token.email.lower() in resource.data.shareEditInviteEmails
+      );
+    }
+
     // Gestión de compartidos: un doc por invitado (UID o correo normalizado en el doc).
     match /users/{ownerUid}/presentationShareGrants/{grantId} {
       allow read: if request.auth != null && (
@@ -51,6 +62,10 @@ service cloud.firestore {
         && request.auth.uid == ownerUid
         && request.resource.data.ownerUid == ownerUid
         && request.resource.data.cloudId is string
+        && (
+          request.resource.data.access == "read" ||
+          request.resource.data.access == "edit"
+        )
         && exists(userPresentation(ownerUid, request.resource.data.cloudId))
         && (
           (
@@ -125,7 +140,9 @@ service cloud.firestore {
         request.auth.uid == userId || canReadOtherUserPresentationFields()
       );
       allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == userId || canEditOtherUserPresentationFields()
+      );
 
       match /slides/{slideId} {
         allow read: if request.auth != null && (
@@ -141,7 +158,10 @@ service cloud.firestore {
             request.auth.token.email.lower() in get(userPresentation(userId, presId)).data.shareInviteEmails
           )
         );
-        allow write: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && (
+          request.auth.uid == userId ||
+          canEditOtherUserPresentationFields()
+        );
       }
     }
     match /users/{userId}/characters/{charId} {

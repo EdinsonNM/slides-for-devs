@@ -77,11 +77,13 @@ export function usePresentationCloudPresentation(
         const meta = list.find((p) => p.id === localId);
         if (!meta || meta.slideCount === 0 || meta.localBodyCleared) return;
         const saved = await loadPresentation(localId, d.localAccountScope);
-        const existingCloudId = meta?.cloudId ?? null;
+        const cloudRef = resolvePresentationCloudRef(meta, d.user.uid);
+        const existingCloudId = cloudRef?.cloudId ?? null;
         const { cloudId, syncedAt, newRevision } =
           await pushPresentationToCloud(d.user.uid, saved, existingCloudId, {
             localExpectedRevision:
               existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
+            ownerUid: cloudRef?.ownerUid ?? d.user.uid,
           });
         await setPresentationCloudState(
           localId,
@@ -105,13 +107,17 @@ export function usePresentationCloudPresentation(
           try {
             const list2 = await listPresentations(d.localAccountScope);
             const meta2 = list2.find((p) => p.id === localId);
-            const cid = meta2?.cloudId;
+            const cloudRef2 = meta2
+              ? resolvePresentationCloudRef(meta2, d.user.uid)
+              : null;
+            const cid = cloudRef2?.cloudId;
             if (!cid) return;
             const saved = await loadPresentation(localId, d.localAccountScope);
             const { cloudId, syncedAt, newRevision } =
               await pushPresentationToCloud(d.user.uid, saved, cid, {
                 localExpectedRevision: 0,
                 force: true,
+                ownerUid: cloudRef2?.ownerUid ?? d.user.uid,
               });
             await setPresentationCloudState(
               localId,
@@ -181,11 +187,13 @@ export function usePresentationCloudPresentation(
             const list = await listPresentations(d.localAccountScope);
             const meta = list.find((p) => p.id === localId);
             const saved = await loadPresentation(localId, d.localAccountScope);
-            const existingCloudId = meta?.cloudId ?? null;
+            const cloudRef = meta ? resolvePresentationCloudRef(meta, d.user.uid) : null;
+            const existingCloudId = cloudRef?.cloudId ?? null;
             const { cloudId, syncedAt, newRevision } =
               await pushPresentationToCloud(d.user.uid, saved, existingCloudId, {
                 localExpectedRevision:
                   existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
+                ownerUid: cloudRef?.ownerUid ?? d.user.uid,
               });
             await setPresentationCloudState(
               localId,
@@ -562,9 +570,12 @@ export function usePresentationCloudPresentation(
     setCloudSyncConflict(null);
     conflictResolvingRef.current = true;
     try {
+      const list = await listPresentations(d.localAccountScope).catch(() => []);
+      const meta = list.find((p) => p.id === localId);
+      const cloudRef = meta ? resolvePresentationCloudRef(meta, d.user.uid) : null;
       const { presentation, cloudRevision } = await pullPresentationFromCloud(
-        d.user.uid,
-        cloudId,
+        cloudRef?.ownerUid ?? d.user.uid,
+        cloudRef?.cloudId ?? cloudId,
       );
       await updatePresentation(
         localId,
@@ -641,11 +652,11 @@ export function usePresentationCloudPresentation(
     conflictResolvingRef.current = true;
     try {
       const saved = await loadPresentation(localId, d.localAccountScope);
-      const cid =
-        cloudId ||
-        (await listPresentations(d.localAccountScope)).find(
-          (p) => p.id === localId,
-        )?.cloudId;
+      const meta = (await listPresentations(d.localAccountScope)).find(
+        (p) => p.id === localId,
+      );
+      const cloudRef = meta ? resolvePresentationCloudRef(meta, d.user.uid) : null;
+      const cid = cloudRef?.cloudId || cloudId;
       if (!cid) {
         alert("Falta vínculo con la nube.");
         return;
@@ -657,6 +668,7 @@ export function usePresentationCloudPresentation(
       } = await pushPresentationToCloud(d.user.uid, saved, cid, {
         localExpectedRevision: 0,
         force: true,
+        ownerUid: cloudRef?.ownerUid ?? d.user.uid,
       });
       await setPresentationCloudState(
         localId,

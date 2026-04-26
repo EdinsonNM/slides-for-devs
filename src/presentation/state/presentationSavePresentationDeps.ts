@@ -17,6 +17,7 @@ export type PresentationSavePresentationDeps = {
   lastOpenedSessionKey: string;
   user: User | null;
   maybeAutoSyncAfterLocalSave: (localId: string) => Promise<void>;
+  isCurrentPresentationReadOnly: boolean;
   /** Solo web: push a Firestore sin fila SQLite. */
   webCloudSessionRef: MutableRefObject<WebCloudEditSession | null>;
 };

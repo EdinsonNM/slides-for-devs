@@ -76,6 +76,8 @@ export interface PushCloudOptions {
   localExpectedRevision: number | null;
   /** Sobrescribe la nube sin comprobar revisión (última escritura a propósito). */
   force?: boolean;
+  /** Owner real del documento cloud (para colaboración). */
+  ownerUid?: string;
 }
 /** Diagramas mayores se suben a Storage (límite práctico doc Firestore ~1MB). */
 const EXCALIDRAW_STORAGE_THRESHOLD = 80 * 1024;
@@ -138,6 +140,15 @@ export interface PresentationShareGrantRow {
   grantId: string;
   recipientUid: string | null;
   recipientEmailNorm: string | null;
+  access: PresentationSharePermission;
+}
+
+export type PresentationSharePermission = "read" | "edit";
+
+export interface PresentationShareEntry {
+  kind: "uid" | "email";
+  value: string;
+  access: PresentationSharePermission;
 }
 
 /**
@@ -149,12 +160,13 @@ async function replacePresentationShareGrants(
   ownerUid: string,
   cloudId: string,
   meta: { topic: string; savedAt: string; updatedAt: string | null },
-  recipientUids: string[],
-  recipientEmailNorms: string[],
+  recipientEntries: PresentationShareEntry[],
   presentationPatch?: {
     ref: DocumentReference;
     sharedWith: string[];
     shareInviteEmails: string[];
+    sharedEditWith?: string[];
+    shareEditInviteEmails?: string[];
   }
 ): Promise<void> {
   const grantsCol = presentationShareGrantsCollection(db, ownerUid);
@@ -165,32 +177,40 @@ async function replacePresentationShareGrants(
     batch.delete(d.ref);
     ops += 1;
   }
-  const uids = [...new Set(recipientUids.map((u) => u.trim()).filter(Boolean))];
-  const emails = [
-    ...new Set(
-      recipientEmailNorms
-        .map((e) => normalizeShareEmail(e))
-        .filter((e): e is string => e != null)
-    ),
-  ];
-  for (const uid of uids) {
+  const byUid = new Map<string, PresentationSharePermission>();
+  const byEmail = new Map<string, PresentationSharePermission>();
+  for (const entry of recipientEntries) {
+    const access: PresentationSharePermission = entry.access === "edit" ? "edit" : "read";
+    if (entry.kind === "uid") {
+      const uid = entry.value.trim();
+      if (!uid) continue;
+      byUid.set(uid, access);
+      continue;
+    }
+    const emailNorm = normalizeShareEmail(entry.value);
+    if (!emailNorm) continue;
+    byEmail.set(emailNorm, access);
+  }
+  for (const [uid, access] of byUid.entries()) {
     batch.set(doc(grantsCol, shareGrantDocIdForUid(uid)), {
       ownerUid,
       cloudId,
       recipientUid: uid,
       recipientEmailNorm: null,
+      access,
       topic: meta.topic,
       savedAt: meta.savedAt,
       updatedAt: meta.updatedAt,
     });
     ops += 1;
   }
-  for (const emailNorm of emails) {
+  for (const [emailNorm, access] of byEmail.entries()) {
     batch.set(doc(grantsCol, shareGrantDocIdForEmailNorm(emailNorm)), {
       ownerUid,
       cloudId,
       recipientUid: null,
       recipientEmailNorm: emailNorm,
+      access,
       topic: meta.topic,
       savedAt: meta.savedAt,
       updatedAt: meta.updatedAt,
@@ -201,6 +221,8 @@ async function replacePresentationShareGrants(
     batch.update(presentationPatch.ref, {
       sharedWith: presentationPatch.sharedWith,
       shareInviteEmails: presentationPatch.shareInviteEmails,
+      sharedEditWith: presentationPatch.sharedEditWith ?? [],
+      shareEditInviteEmails: presentationPatch.shareEditInviteEmails ?? [],
     });
     ops += 1;
   }
@@ -227,6 +249,7 @@ export async function listPresentationShareGrantsForCloudPresentation(
       grantId: d.id,
       recipientUid: typeof g.recipientUid === "string" ? g.recipientUid : null,
       recipientEmailNorm: typeof g.recipientEmailNorm === "string" ? g.recipientEmailNorm : null,
+      access: g.access === "edit" ? "edit" : "read",
     };
   });
 }
@@ -276,6 +299,7 @@ async function syncPresentationShareEmailIndex(
 }
 
 export interface PresentationShareAccess {
+  entries: PresentationShareEntry[];
   sharedWithUids: string[];
   /** Correos normalizados (minúsculas); acceso si coinciden con `request.auth.token.email`. */
   shareInviteEmails: string[];
@@ -1045,7 +1069,7 @@ async function listSharedPresentationsFromEmailIndex(
  *  4. Limpieza best-effort (slides sobrantes, Storage viejo, grants).
  */
 export async function pushPresentationToCloud(
-  uid: string,
+  actorUid: string,
   saved: SavedPresentation,
   existingCloudId?: string | null,
   options?: PushCloudOptions
@@ -1055,16 +1079,17 @@ export async function pushPresentationToCloud(
     throw new Error("Firebase no inicializado");
   }
   const { firestore: db, storage: st, auth: fbAuth } = inst;
-  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== uid) {
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== actorUid) {
     throw new Error(
       "La sesión de Firebase no coincide con tu usuario. Vuelve a iniciar sesión e inténtalo de nuevo."
     );
   }
+  const ownerUid = options?.ownerUid?.trim() || actorUid;
   const force = options?.force ?? false;
   const localExpectedRevision = options?.localExpectedRevision;
   const cloudId = existingCloudId?.trim() || crypto.randomUUID();
-  const prefix = storagePrefix(uid, cloudId);
-  const docRef = presentationDoc(db, uid, cloudId);
+  const prefix = storagePrefix(ownerUid, cloudId);
+  const docRef = presentationDoc(db, ownerUid, cloudId);
 
   /* ── 1. Pre-check revisión ── */
   const preSnap = await getDoc(docRef);
@@ -1090,7 +1115,7 @@ export async function pushPresentationToCloud(
   const canvas3dGlbPaths: Record<string, string> = {};
   let deckCoverImageFile: string | null = null;
   let firstSlideKeepsDeckCover = false;
-  const slidesCol = slidesSubcollection(db, uid, cloudId);
+  const slidesCol = slidesSubcollection(db, ownerUid, cloudId);
   let slidesWritten = 0;
 
   for (let i = 0; i < saved.slides.length; i++) {
@@ -1235,6 +1260,8 @@ export async function pushPresentationToCloud(
     newRevision,
     preservedShareInviteEmails: inviteEmailsAfterPush,
     preservedSharedWith: sharedWithAfterPush,
+    preservedSharedEditWith: sharedEditWithAfterPush,
+    preservedShareEditInviteEmails: shareEditInviteEmailsAfterPush,
   } = await runTransaction(db, async (transaction) => {
     const snap = await transaction.get(docRef);
     const remoteRev = snap.exists()
@@ -1243,6 +1270,8 @@ export async function pushPresentationToCloud(
 
     let preservedSharedWith: string[] = [];
     let preservedShareInviteEmails: string[] = [];
+    let preservedSharedEditWith: string[] = [];
+    let preservedShareEditInviteEmails: string[] = [];
     let preservedPublicationFields: Record<string, unknown> = {};
     if (snap.exists()) {
       const d = snap.data() as Record<string, unknown>;
@@ -1251,6 +1280,14 @@ export async function pushPresentationToCloud(
         preservedSharedWith = sw.filter((x): x is string => typeof x === "string");
       }
       preservedShareInviteEmails = shareInviteEmailsFromDocData(d);
+      const se = d.sharedEditWith;
+      if (Array.isArray(se)) {
+        preservedSharedEditWith = se.filter((x): x is string => typeof x === "string");
+      }
+      const sei = d.shareEditInviteEmails;
+      if (Array.isArray(sei)) {
+        preservedShareEditInviteEmails = sei.filter((x): x is string => typeof x === "string");
+      }
       preservedPublicationFields = preservedPublicationFieldsFromDoc(d);
     }
 
@@ -1269,10 +1306,18 @@ export async function pushPresentationToCloud(
       ...preservedPublicationFields,
       sharedWith: preservedSharedWith,
       shareInviteEmails: preservedShareInviteEmails,
+      sharedEditWith: preservedSharedEditWith,
+      shareEditInviteEmails: preservedShareEditInviteEmails,
       revision: nextRev,
       updatedAt: serverTimestamp(),
     });
-    return { newRevision: nextRev, preservedShareInviteEmails, preservedSharedWith };
+    return {
+      newRevision: nextRev,
+      preservedShareInviteEmails,
+      preservedSharedWith,
+      preservedSharedEditWith,
+      preservedShareEditInviteEmails,
+    };
   });
 
   /* ── 4. Limpieza best-effort ── */
@@ -1314,8 +1359,29 @@ export async function pushPresentationToCloud(
       savedAt: String(pda.savedAt ?? saved.savedAt),
       updatedAt: timestampToIso(pda.updatedAt) ?? syncedAt,
     };
-    await replacePresentationShareGrants(db, uid, cloudId, meta, sharedWithAfterPush, inviteEmailsAfterPush);
-    await syncPresentationShareEmailIndex(db, uid, cloudId, meta, inviteEmailsAfterPush, inviteEmailsAfterPush);
+    const preservedEntries: PresentationShareEntry[] = [
+      ...sharedWithAfterPush.map((uidVal) => ({
+        kind: "uid" as const,
+        value: uidVal,
+        access: sharedEditWithAfterPush.includes(uidVal) ? ("edit" as const) : ("read" as const),
+      })),
+      ...inviteEmailsAfterPush.map((emailVal) => ({
+        kind: "email" as const,
+        value: emailVal,
+        access: shareEditInviteEmailsAfterPush.includes(emailVal)
+          ? ("edit" as const)
+          : ("read" as const),
+      })),
+    ];
+    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, preservedEntries);
+    await syncPresentationShareEmailIndex(
+      db,
+      ownerUid,
+      cloudId,
+      meta,
+      inviteEmailsAfterPush,
+      inviteEmailsAfterPush
+    );
   } catch (indexErr) {
     console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
   }
@@ -1350,7 +1416,7 @@ export async function deleteOwnerPresentationFromCloud(
   const updatedAt = timestampToIso(data.updatedAt);
   const meta = { topic, savedAt, updatedAt };
 
-  await replacePresentationShareGrants(db, uid, cloudId, meta, [], []);
+  await replacePresentationShareGrants(db, uid, cloudId, meta, []);
   const prevInviteEmails = shareInviteEmailsFromDocData(data);
   await syncPresentationShareEmailIndex(db, uid, cloudId, meta, prevInviteEmails, []);
 
@@ -1591,25 +1657,39 @@ export async function getPresentationShareAccess(
   const dref = presentationDoc(db, ownerUid, cloudId);
   const snap = await getDoc(dref);
   if (!snap.exists()) {
-    return { sharedWithUids: [], shareInviteEmails: [] };
+    return { entries: [], sharedWithUids: [], shareInviteEmails: [] };
   }
   const grantsCol = presentationShareGrantsCollection(db, ownerUid);
   const grantsSnap = await getDocs(query(grantsCol, where("cloudId", "==", cloudId)));
   if (!grantsSnap.empty) {
-    const sharedWithUids: string[] = [];
-    const shareInviteEmails: string[] = [];
+    const entries: PresentationShareEntry[] = [];
     for (const g of grantsSnap.docs) {
       const row = g.data() as Record<string, unknown>;
+      const grantAccess: PresentationSharePermission =
+        row.access === "edit" ? "edit" : "read";
       if (typeof row.recipientUid === "string" && row.recipientUid.trim()) {
-        sharedWithUids.push(row.recipientUid.trim());
+        entries.push({
+          kind: "uid",
+          value: row.recipientUid.trim(),
+          access: grantAccess,
+        });
       }
       if (typeof row.recipientEmailNorm === "string" && row.recipientEmailNorm.trim()) {
-        shareInviteEmails.push(row.recipientEmailNorm.trim());
+        entries.push({
+          kind: "email",
+          value: row.recipientEmailNorm.trim(),
+          access: grantAccess,
+        });
       }
     }
+    const sharedWithUids = [...new Set(entries.filter((e) => e.kind === "uid").map((e) => e.value))];
+    const shareInviteEmails = [
+      ...new Set(entries.filter((e) => e.kind === "email").map((e) => e.value)),
+    ];
     return {
-      sharedWithUids: [...new Set(sharedWithUids)],
-      shareInviteEmails: [...new Set(shareInviteEmails)],
+      entries,
+      sharedWithUids,
+      shareInviteEmails,
     };
   }
   const data = snap.data() as Record<string, unknown>;
@@ -1618,7 +1698,22 @@ export async function getPresentationShareAccess(
     ? sw.filter((x): x is string => typeof x === "string")
     : [];
   const shareInviteEmails = shareInviteEmailsFromDocData(data);
-  return { sharedWithUids, shareInviteEmails };
+  return {
+    entries: [
+      ...sharedWithUids.map((uidVal) => ({
+        kind: "uid" as const,
+        value: uidVal,
+        access: "read" as const,
+      })),
+      ...shareInviteEmails.map((emailVal) => ({
+        kind: "email" as const,
+        value: emailVal,
+        access: "read" as const,
+      })),
+    ],
+    sharedWithUids,
+    shareInviteEmails,
+  };
 }
 
 /** Solo el propietario puede actualizar; reglas Firestore deben coincidir. */
@@ -1633,11 +1728,50 @@ export async function setPresentationShareAccess(
   if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
     throw new Error("Solo el propietario puede cambiar con quién se comparte.");
   }
-  const uids = [...new Set(access.sharedWithUids.map((u) => u.trim()).filter(Boolean))];
+  const normalizedEntries: PresentationShareEntry[] =
+    access.entries.length > 0
+      ? access.entries
+      : [
+          ...access.sharedWithUids.map((u) => ({
+            kind: "uid" as const,
+            value: u,
+            access: "read" as const,
+          })),
+          ...access.shareInviteEmails.map((e) => ({
+            kind: "email" as const,
+            value: e,
+            access: "read" as const,
+          })),
+        ];
+  const uids = [
+    ...new Set(
+      normalizedEntries
+        .filter((e) => e.kind === "uid")
+        .map((e) => e.value.trim())
+        .filter(Boolean)
+    ),
+  ];
   const emails = [
     ...new Set(
-      access.shareInviteEmails
-        .map((e) => normalizeShareEmail(e))
+      normalizedEntries
+        .filter((e) => e.kind === "email")
+        .map((e) => normalizeShareEmail(e.value))
+        .filter((e): e is string => e != null)
+    ),
+  ];
+  const editUids = [
+    ...new Set(
+      normalizedEntries
+        .filter((e) => e.kind === "uid" && e.access === "edit")
+        .map((e) => e.value.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const editEmails = [
+    ...new Set(
+      normalizedEntries
+        .filter((e) => e.kind === "email" && e.access === "edit")
+        .map((e) => normalizeShareEmail(e.value))
         .filter((e): e is string => e != null)
     ),
   ];
@@ -1656,10 +1790,12 @@ export async function setPresentationShareAccess(
     updatedAt: timestampToIso(sd.updatedAt),
   };
   try {
-    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, uids, emails, {
+    await replacePresentationShareGrants(db, ownerUid, cloudId, meta, normalizedEntries, {
       ref: dref,
       sharedWith: uids,
       shareInviteEmails: emails,
+      sharedEditWith: editUids,
+      shareEditInviteEmails: editEmails,
     });
     const afterSnap = await getDoc(dref);
     const ad = (afterSnap.data() ?? {}) as Record<string, unknown>;
@@ -1678,6 +1814,112 @@ export async function setPresentationShareAccess(
   } catch (indexErr) {
     console.warn("[cloud] Grants o índice de compartidos no actualizados:", indexErr);
   }
+}
+
+export interface PresentationAccessSummary {
+  isOwner: boolean;
+  canRead: boolean;
+  canEdit: boolean;
+  publicationVisibility: PresentationPublicationVisibility;
+}
+
+export async function getCurrentUserPresentationAccess(
+  ownerUid: string,
+  cloudId: string
+): Promise<PresentationAccessSummary> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  const actor = fbAuth.currentUser;
+  if (!actor) throw new Error("Inicia sesión para ver los permisos.");
+  const snap = await getDoc(presentationDoc(db, ownerUid, cloudId));
+  if (!snap.exists()) {
+    return { isOwner: false, canRead: false, canEdit: false, publicationVisibility: "private" };
+  }
+  const data = snap.data() as Record<string, unknown>;
+  const publicationVisibility: PresentationPublicationVisibility =
+    data.publicationVisibility === "public" ||
+    data.publicationVisibility === "unlisted" ||
+    data.publicationVisibility === "private"
+      ? data.publicationVisibility
+      : "private";
+  const isOwner = actor.uid === ownerUid;
+  if (isOwner) {
+    return { isOwner: true, canRead: true, canEdit: true, publicationVisibility };
+  }
+  const emailNorm = actor.email ? normalizeShareEmail(actor.email) : null;
+  const sharedWith = Array.isArray(data.sharedWith)
+    ? data.sharedWith.filter((x): x is string => typeof x === "string")
+    : [];
+  const invitedEmails = shareInviteEmailsFromDocData(data);
+  const sharedEditWith = Array.isArray(data.sharedEditWith)
+    ? data.sharedEditWith.filter((x): x is string => typeof x === "string")
+    : [];
+  const shareEditInviteEmails = Array.isArray(data.shareEditInviteEmails)
+    ? data.shareEditInviteEmails.filter((x): x is string => typeof x === "string")
+    : [];
+  const canReadByList =
+    sharedWith.includes(actor.uid) || (!!emailNorm && invitedEmails.includes(emailNorm));
+  let canEdit =
+    sharedEditWith.includes(actor.uid) ||
+    (!!emailNorm && shareEditInviteEmails.includes(emailNorm));
+  try {
+    const grantsSnap = await getDocs(
+      query(presentationShareGrantsCollection(db, ownerUid), where("cloudId", "==", cloudId))
+    );
+    for (const g of grantsSnap.docs) {
+      const row = g.data() as Record<string, unknown>;
+      const byUid = typeof row.recipientUid === "string" && row.recipientUid === actor.uid;
+      const byEmail =
+        !!emailNorm &&
+        typeof row.recipientEmailNorm === "string" &&
+        row.recipientEmailNorm === emailNorm;
+      if (!byUid && !byEmail) continue;
+      if (row.access === "edit") {
+        canEdit = true;
+        break;
+      }
+    }
+  } catch {
+    canEdit = false;
+  }
+  if (publicationVisibility === "public") {
+    canEdit = false;
+  }
+  const canRead = publicationVisibility === "public" || canReadByList || canEdit;
+  return { isOwner: false, canRead, canEdit, publicationVisibility };
+}
+
+export async function transferPresentationOwnership(
+  ownerUid: string,
+  cloudId: string,
+  newOwnerUid: string
+): Promise<void> {
+  const inst = await initFirebase();
+  if (!inst?.firestore) throw new Error("Firebase no inicializado");
+  const { firestore: db, auth: fbAuth } = inst;
+  if (!fbAuth.currentUser || fbAuth.currentUser.uid !== ownerUid) {
+    throw new Error("Solo el owner actual puede transferir la presentación.");
+  }
+  const nextOwner = newOwnerUid.trim();
+  if (!nextOwner) throw new Error("Indica el UID del nuevo owner.");
+  if (nextOwner === ownerUid) return;
+
+  const sourceRef = presentationDoc(db, ownerUid, cloudId);
+  const sourceSnap = await getDoc(sourceRef);
+  if (!sourceSnap.exists()) {
+    throw new Error("La presentación no está en la nube.");
+  }
+  const sourceData = sourceSnap.data() as Record<string, unknown>;
+  const targetRef = presentationDoc(db, nextOwner, cloudId);
+  await setDoc(targetRef, sourceData);
+
+  const slidesSnap = await getDocs(slidesSubcollection(db, ownerUid, cloudId));
+  for (const d of slidesSnap.docs) {
+    await setDoc(doc(slidesSubcollection(db, nextOwner, cloudId), d.id), d.data());
+  }
+
+  await deleteOwnerPresentationFromCloud(ownerUid, cloudId);
 }
 
 /**

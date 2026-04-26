@@ -5,6 +5,7 @@ import { usePresentation } from "../../context/PresentationContext";
 import {
   getPresentationPublicationMetadata,
   setPresentationPublicationMetadata,
+  transferPresentationOwnership,
   type PresentationPublicationLevel,
   type PresentationPublicationVisibility,
 } from "../../services/presentationCloud";
@@ -27,6 +28,7 @@ export function PresentationSettingsEditor() {
     currentSavedId,
     savedList,
     setIsPresentationSettingsPanelOpen,
+    openSharePresentationModal,
     cloudSyncAvailable,
     handleSyncPresentationToCloud,
   } = usePresentation();
@@ -47,6 +49,8 @@ export function PresentationSettingsEditor() {
   const [tagsText, setTagsText] = useState("");
   const [level, setLevel] = useState<PresentationPublicationLevel>("intermediate");
   const [categories, setCategories] = useState<string[]>([]);
+  const [transferOwnerUid, setTransferOwnerUid] = useState("");
+  const [transferring, setTransferring] = useState(false);
 
   useEffect(() => {
     setSavedOk(false);
@@ -111,6 +115,28 @@ export function PresentationSettingsEditor() {
   };
 
   const noCloud = !cloudId;
+  const canOpenShareModal = !!currentSavedId && !noCloud;
+
+  const handleTransferOwnership = async () => {
+    if (!ownerUid || !cloudId || !transferOwnerUid.trim()) return;
+    const confirmTransfer = window.confirm(
+      "Vas a transferir esta presentación a otro owner. Ya no podrás gestionarla como propietario. ¿Continuar?"
+    );
+    if (!confirmTransfer) return;
+    setTransferring(true);
+    setError(null);
+    try {
+      await transferPresentationOwnership(ownerUid, cloudId, transferOwnerUid.trim());
+      setSavedOk(true);
+      setTransferOwnerUid("");
+      setIsPresentationSettingsPanelOpen(false);
+    } catch (e) {
+      console.error(e);
+      setError(formatCloudSyncUserMessage(e));
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-stone-100 dark:bg-stone-950">
@@ -185,6 +211,27 @@ export function PresentationSettingsEditor() {
             </div>
           ) : (
             <div className="flex flex-col gap-5">
+              <div className="rounded-lg border border-stone-200 bg-white p-3 dark:border-border dark:bg-surface">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                  Compartir con usuarios
+                </p>
+                <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+                  Configura accesos por usuario en modo lectura o edición.
+                </p>
+                {canOpenShareModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!currentSavedId) return;
+                      openSharePresentationModal(currentSavedId);
+                    }}
+                    className="mt-3 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-100 dark:border-border dark:bg-surface-elevated dark:text-stone-100 dark:hover:bg-white/10"
+                  >
+                    Gestionar compartidos
+                  </button>
+                )}
+              </div>
+
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
                   Visibilidad
@@ -273,6 +320,32 @@ export function PresentationSettingsEditor() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  Transferir presentación (owner)
+                </p>
+                <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-100/90">
+                  Ingresa el UID del usuario que será el nuevo owner.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="text"
+                    value={transferOwnerUid}
+                    onChange={(e) => setTransferOwnerUid(e.target.value)}
+                    className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm dark:border-amber-800 dark:bg-surface"
+                    placeholder="UID del nuevo owner"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleTransferOwnership()}
+                    disabled={transferring || !transferOwnerUid.trim()}
+                    className="shrink-0 rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-600 dark:hover:bg-amber-500"
+                  >
+                    {transferring ? "Transfiriendo…" : "Transferir"}
+                  </button>
                 </div>
               </div>
             </div>

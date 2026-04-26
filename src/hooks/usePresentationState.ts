@@ -66,6 +66,10 @@ import { cleanupDuplicatePresentations } from "../services/storage";
 import { useAuth } from "../context/AuthContext";
 import { IMAGE_STYLES } from "../constants/imageStyles";
 import {
+  getCurrentUserPresentationAccess,
+  resolvePresentationCloudRef,
+} from "../services/presentationCloud";
+import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../constants/geminiImageModels";
@@ -321,6 +325,8 @@ export function usePresentationState() {
     FirstPersonLayout[]
   >(() => readFirstPersonKeyOrder());
   const [editContentBodyFontScale, setEditContentBodyFontScale] = useState(1);
+  const [isCurrentPresentationReadOnly, setIsCurrentPresentationReadOnly] =
+    useState(false);
 
   const {
     hasGemini,
@@ -721,6 +727,7 @@ export function usePresentationState() {
     lastOpenedSessionKey,
     user,
     maybeAutoSyncAfterLocalSave,
+    isCurrentPresentationReadOnly,
     webCloudSessionRef,
   });
 
@@ -853,6 +860,36 @@ export function usePresentationState() {
     savedCharacters,
     setCanvasMediaPanelEditTarget,
   });
+
+  useEffect(() => {
+    if (!currentSavedId || !user) {
+      setIsCurrentPresentationReadOnly(false);
+      return;
+    }
+    const meta = savedList.find((p) => p.id === currentSavedId);
+    if (!meta) {
+      setIsCurrentPresentationReadOnly(false);
+      return;
+    }
+    const cloudRef = resolvePresentationCloudRef(meta, user.uid);
+    if (!cloudRef) {
+      setIsCurrentPresentationReadOnly(false);
+      return;
+    }
+    let cancelled = false;
+    getCurrentUserPresentationAccess(cloudRef.ownerUid, cloudRef.cloudId)
+      .then((access) => {
+        if (cancelled) return;
+        setIsCurrentPresentationReadOnly(!access.canEdit);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsCurrentPresentationReadOnly(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSavedId, savedList, user]);
 
   /** Al iniciar/cerrar sesión, vaciar el editor: el listado local es distinto por ámbito. */
   useEffect(() => {
@@ -1196,6 +1233,7 @@ export function usePresentationState() {
     homePresentationCards,
     isSaving,
     saveMessage,
+    isCurrentPresentationReadOnly,
     homeTab,
     setHomeTab,
     formatMarkdown,

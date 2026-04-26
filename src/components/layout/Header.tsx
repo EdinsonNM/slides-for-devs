@@ -48,6 +48,7 @@ export function Header(props: HeaderProps) {
     handleSave,
     isSaving,
     saveMessage,
+    isCurrentPresentationReadOnly,
     currentSavedId,
     setIsPreviewMode,
     flushDiagramPending,
@@ -198,6 +199,10 @@ export function Header(props: HeaderProps) {
 
   const saveTitle = () => {
     const trimmed = editTitleValue.trim();
+    if (isCurrentPresentationReadOnly) {
+      setIsEditingTitle(false);
+      return;
+    }
     setTopic(trimmed || "");
     setIsEditingTitle(false);
   };
@@ -373,9 +378,15 @@ export function Header(props: HeaderProps) {
         ) : (
           <button
             type="button"
-            onClick={() => setIsEditingTitle(true)}
+            onClick={() => {
+              if (!isCurrentPresentationReadOnly) setIsEditingTitle(true);
+            }}
             className="font-serif italic text-lg text-stone-900 dark:text-foreground truncate text-left hover:bg-stone-50 dark:hover:bg-surface rounded px-1 py-0.5 -mx-1 min-w-0 max-w-[40vw]"
-            title="Clic para cambiar el título"
+            title={
+              isCurrentPresentationReadOnly
+                ? "Solo lectura: no puedes editar el título"
+                : "Clic para cambiar el título"
+            }
           >
             {topic || "Nueva presentación"}
           </button>
@@ -416,7 +427,7 @@ export function Header(props: HeaderProps) {
                 aria-label={currentSavedId ? "Guardar cambios" : "Guardar"}
                 title={currentSavedId ? "Guardar cambios" : "Guardar"}
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || isCurrentPresentationReadOnly}
               />
             )}
             {slides.length > 0 && (
