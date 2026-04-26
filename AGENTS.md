@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `8c43a60f209d87bd3366d0096d5e4d7c9f9040bc`  
+**Última revisión alineada con commit:** `ddde224c7bd31d6e3a7fc6ecbe9896af2c061f87`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -30,6 +30,10 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 ## Estructura importante
 
 - `src/`: aplicación frontend
+- `src/App.tsx`: composición de rutas (`Routes`), carga perezosa de páginas, gates de auth y API, y enlace a modales globales; sin lógica de feature ni estado local
+- `src/presentation/pages/`: entradas por ruta (home, editor, configure-ai, presenter, public)
+- `src/presentation/app/`: `GlobalPresentationModals`, contexto de configuración API y `guards/` (`AuthGate`, `ApiConfigGate`, `RequireAuth`)
+- `src/presentation/hooks/app/`: `useAppUpdaterCheck`, `useApiConfigurationGate` (composición de app)
 - `src/components/`: componentes organizados por feature
 - `src/components/layout/EditorShell.tsx`: contenedor principal del modo edición (layout responsive)
 - `src/components/layout/SlideSidebar.tsx`: lista de slides con vista previa de medios y tipos de contenido
@@ -53,7 +57,7 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 
 - Antes de editar, identifica si el cambio pertenece a `frontend`, `Tauri/Rust` o ambos.
 - Mantén los componentes en la carpeta de su feature. Si algo es reutilizable entre editor, preview y presenter, colócalo en `src/components/shared/`.
-- Evita meter lógica de negocio pesada directamente en componentes grandes como `src/App.tsx`; extrae a `hooks`, `services` o utilidades cuando el cambio crezca.
+- Evita meter lógica de negocio en `src/App.tsx`; el punto de extensión son `src/presentation/pages/`, `src/presentation/app/` y los hooks bajo `src/presentation/hooks/`.
 - Reutiliza el contexto existente (`usePresentation`) antes de introducir nuevo estado global.
 - Conserva el estilo actual: componentes funcionales, TypeScript estricto, imports relativos locales, y clases utilitarias para estilos.
 - Si tocas persistencia o configuración sensible, revisa también el contrato entre `src/services/*` y `src-tauri/src/*`.
