@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `2b01ce865f94477a56259c39fe3c956ac51a572c`  
+**Última revisión alineada con commit:** `8c43a60f209d87bd3366d0096d5e4d7c9f9040bc`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -97,6 +97,12 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 
 - Busca primero en `src/components/home`, `editor`, `canvas`, `preview`, `presenter`, `layout`, `modals`
 - Mantén consistencia visual y de props
+
+### Refactor React (arquitectura)
+
+- En chats de refactor arquitectónico (componentes, estado, hooks, límites de módulos), adjunta o lee [`.agents/skills/react-refactor/SKILL.md`](.agents/skills/react-refactor/SKILL.md); no sustituye guías de React 19 ni de rendimiento.
+- Para optimización de rendimiento en React/Next, usa la skill `vercel-react-best-practices` si está disponible en tu entorno Cursor.
+- Índice público y leaderboard: [skills.sh](https://skills.sh/); búsqueda por CLI: `npx skills find react refactor` (prioriza fuentes oficiales e instalaciones altas frente a paquetes poco usados).
 
 ### Estado y flujo de presentación
 

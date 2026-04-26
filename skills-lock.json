@@ -16,6 +16,11 @@
       "sourceType": "github",
       "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
     },
+    "react-best-practices": {
+      "source": "mastra-ai/mastra",
+      "sourceType": "github",
+      "computedHash": "78115cffdf4f10d6984325376bd1ba3be93313370bf7ebe0c334b43f1f07e599"
+    },
     "react-refactor": {
       "source": "pproenca/dot-skills",
       "sourceType": "github",
