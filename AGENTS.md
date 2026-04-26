@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `f2fddb43fee9a0b23c26ea8cb9cb5ed9c8025322`  
+**Última revisión alineada con commit:** `d3473092e9eb30b50037b5509de476195742b0b5`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
