@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `28e5c95649272bf2b07beed8ddccee67ce060dd9`  
+**Última revisión alineada con commit:** `08bf7ab80cad7a1e131bd6c56f194c0d6edd4cf3`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -32,7 +32,7 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/`: aplicación frontend
 - `src/App.tsx`: composición de rutas (`Routes`), carga perezosa de páginas, gates de auth y API, y enlace a modales globales; sin lógica de feature ni estado local
 - `src/presentation/pages/`: entradas por ruta (home, editor, configure-ai, presenter, public)
-- `src/presentation/contexts/`: `AuthContext`, `ThemeContext`, `PresentationContext` (shims en `src/context/`)
+- `src/presentation/contexts/`: `AuthContext`, `ThemeContext`, `PresentationContext`
 - `src/presentation/app/`: `GlobalPresentationModals`, contexto de configuración API y `guards/` (`AuthGate`, `ApiConfigGate`, `RequireAuth`)
 - `src/presentation/hooks/app/`: `useAppUpdaterCheck`, `useApiConfigurationGate` (composición de app)
 - `src/components/`: componentes organizados por feature
@@ -45,7 +45,7 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/domain/`: entidades de dominio (`Slide`, `SlideCanvas`, `SlideMatrix`, `DeckVisualTheme`, `IsometricFlowDiagram`, …), `src/domain/slideCanvas/` (migración, escena, z-order), `src/domain/ports/` (contratos hacia IA y operaciones)
 - `src/application/use-cases/`: casos de uso (p. ej. generación de diagrama o matriz desde IA)
 - `src/composition/container.ts`: composición de adaptadores y casos de uso
-- `src/presentation/contexts/PresentationContext.tsx`: estado global principal de presentaciones (shim en `src/context/PresentationContext.tsx`)
+- `src/presentation/contexts/PresentationContext.tsx`: estado global principal de presentaciones
 - `src/presentation/hooks/global/`: hooks UI globales (`usePresentationState`, `useMatchMedia`, …)
 - `src/services/`: integración con almacenamiento, IA, updater y config
 - `src/constants/`: catálogos y opciones del editor

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { EditorSlideUrlSync } from "../../../components/layout/EditorSlideUrlSync";
-import { usePresentation } from "../../../presentation/contexts/PresentationContext";
+import { usePresentation } from "../../contexts/PresentationContext";
 import { LoadingScreen } from "../../../components/shared/LoadingScreen";
 import { EditorShell } from "../../../components/layout/EditorShell";
 import { SavedListModal } from "../../../components/modals/SavedListModal";

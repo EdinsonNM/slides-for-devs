@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { LoadingScreen } from "../../../components/shared/LoadingScreen";
 import { WelcomeSignInPanel } from "../../../components/home/WelcomeSignInPanel";
-import { useAuth } from "../../../presentation/contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 type AuthGateProps = {
   children: ReactNode;

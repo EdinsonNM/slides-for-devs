@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../../../presentation/contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 type RequireAuthProps = {
   children: React.ReactNode;
