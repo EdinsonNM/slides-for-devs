@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePresentation } from "../../context/PresentationContext";
 import { isTauriRuntime } from "../../utils/isTauriRuntime";
@@ -9,6 +8,8 @@ import { HomeWithCarousel } from "./HomeWithCarousel";
 import { PublicPresentationsMock } from "./PublicPresentationsMock";
 
 export interface HomeScreenProps {
+  activeTab: HomeMainTab;
+  onTabChange: (tab: HomeMainTab) => void;
   onOpenConfig?: () => void;
   /** Solo en Tauri: al pulsar se busca actualización y se muestra diálogo con el resultado. */
   onCheckUpdates?: () => void;
@@ -27,6 +28,8 @@ export interface HomeScreenProps {
  */
 export function HomeScreen(props: HomeScreenProps) {
   const {
+    activeTab,
+    onTabChange,
     onOpenConfig,
     onCheckUpdates,
     onOpenSaved: onOpenSavedProp,
@@ -67,8 +70,6 @@ export function HomeScreen(props: HomeScreenProps) {
     narrativeNotes,
     setNarrativeNotes,
   } = usePresentation();
-
-  const [mainTab, setMainTab] = useState<HomeMainTab>("inicio");
   const reduceMotion = useReducedMotion();
 
   const openSaved = onOpenSavedProp ?? handleOpenSaved;
@@ -82,11 +83,11 @@ export function HomeScreen(props: HomeScreenProps) {
 
   return (
     <HomeShell
-      activeTab={mainTab}
-      onTabChange={setMainTab}
+      activeTab={activeTab}
+      onTabChange={onTabChange}
       onOpenConfig={onOpenConfig}
     >
-      {mainTab === "inicio" ? (
+      {activeTab === "inicio" ? (
         <PublicPresentationsMock onOpenConfig={onOpenConfig} />
       ) : (
         <AnimatePresence mode="wait" initial={false}>

@@ -68,9 +68,10 @@ function ConfigureAiRoute({ onSaved }: { onSaved: () => void }) {
 
 interface HomeOrRedirectProps {
   onOpenConfig: () => void;
+  tab: "inicio" | "proyectos";
 }
 
-function HomeOrRedirect({ onOpenConfig }: HomeOrRedirectProps) {
+function HomeOrRedirect({ onOpenConfig, tab }: HomeOrRedirectProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -116,6 +117,10 @@ function HomeOrRedirect({ onOpenConfig }: HomeOrRedirectProps) {
 
   return (
     <HomeScreen
+      activeTab={tab}
+      onTabChange={(nextTab) => {
+        navigate(nextTab === "inicio" ? "/home" : "/mis-proyectos");
+      }}
       onOpenConfig={onOpenConfig}
       onCheckUpdates={() => checkForAppUpdates(false)}
       onOpenSaved={onOpenSavedAndGo}
@@ -330,8 +335,24 @@ export default function App() {
         />
         <Route
           path="/"
+          element={<Navigate to="/home" replace />}
+        />
+        <Route
+          path="/home"
           element={
-            <HomeOrRedirect onOpenConfig={openApiConfigFromSettings} />
+            <HomeOrRedirect
+              tab="inicio"
+              onOpenConfig={openApiConfigFromSettings}
+            />
+          }
+        />
+        <Route
+          path="/mis-proyectos"
+          element={
+            <HomeOrRedirect
+              tab="proyectos"
+              onOpenConfig={openApiConfigFromSettings}
+            />
           }
         />
         <Route
