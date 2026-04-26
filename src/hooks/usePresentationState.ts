@@ -465,6 +465,8 @@ export function usePresentationState() {
     setHomeFirstSlideReplicaDeckThemeBySavedId,
     coverPrefetchSavedAtRef,
     handleGenerateCoverForPresentation,
+    handleUploadCoverForPresentation,
+    handleRemoveCoverForPresentation,
   } = usePresentationDeckCovers({
     savedList,
     localAccountScope,
@@ -1269,6 +1271,8 @@ export function usePresentationState() {
     confirmDeletePresentationEverywhere,
     generatingCoverId,
     handleGenerateCoverForPresentation,
+    handleUploadCoverForPresentation,
+    handleRemoveCoverForPresentation,
     coverImageCache,
     homeFirstSlideReplicaBySavedId,
     homeFirstSlideReplicaDeckThemeBySavedId,

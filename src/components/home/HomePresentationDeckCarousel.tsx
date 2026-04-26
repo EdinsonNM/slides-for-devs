@@ -69,7 +69,12 @@ export interface HomePresentationDeckCarouselProps {
   syncingToCloudId: string | null;
   onOpenSaved: (id: string) => void;
   onDeleteSaved: (id: string) => void;
-  onGenerateCover: (id: string) => void;
+  onGenerateCover: (
+    id: string,
+    options?: { userPrompt?: string; referenceImageDataUrl?: string },
+  ) => void;
+  onUploadCover: (id: string, imageUrl: string, promptLabel?: string) => void;
+  onRemoveCover: (id: string) => void;
   cloudSyncAvailable: boolean;
   onSyncToCloud?: (id: string) => void;
   onSharePresentation?: (id: string) => void;
@@ -93,6 +98,8 @@ export function HomePresentationDeckCarousel({
   onOpenSaved,
   onDeleteSaved,
   onGenerateCover,
+  onUploadCover,
+  onRemoveCover,
   cloudSyncAvailable,
   onSyncToCloud,
   onSharePresentation,
@@ -352,6 +359,8 @@ export function HomePresentationDeckCarousel({
                     onOpenSaved={onOpenSaved}
                     onDeleteSaved={onDeleteSaved}
                     onGenerateCover={onGenerateCover}
+                    onUploadCover={onUploadCover}
+                    onRemoveCover={onRemoveCover}
                     cloudSyncAvailable={cloudSyncAvailable}
                     onSyncToCloud={onSyncToCloud}
                     onSharePresentation={onSharePresentation}

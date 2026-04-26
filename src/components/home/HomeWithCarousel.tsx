@@ -28,7 +28,12 @@ export interface HomeWithCarouselProps {
   homePresentationCards: HomePresentationCard[];
   onOpenSaved: (id: string) => void;
   onDeleteSaved: (id: string) => void;
-  onGenerateCover: (id: string) => void;
+  onGenerateCover: (
+    id: string,
+    options?: { userPrompt?: string; referenceImageDataUrl?: string },
+  ) => void;
+  onUploadCover: (id: string, imageUrl: string, promptLabel?: string) => void;
+  onRemoveCover: (id: string) => void;
   generatingCoverId: string | null;
   coverImageCache: Record<string, string>;
   homeFirstSlideReplicaBySavedId?: Record<string, Slide | undefined>;
@@ -69,6 +74,8 @@ export function HomeWithCarousel({
   onOpenSaved,
   onDeleteSaved,
   onGenerateCover,
+  onUploadCover,
+  onRemoveCover,
   generatingCoverId,
   coverImageCache,
   homeFirstSlideReplicaBySavedId,
@@ -173,6 +180,8 @@ export function HomeWithCarousel({
                 onOpenSaved={onOpenSaved}
                 onDeleteSaved={onDeleteSaved}
                 onGenerateCover={onGenerateCover}
+                onUploadCover={onUploadCover}
+                onRemoveCover={onRemoveCover}
                 cloudSyncAvailable={cloudSyncAvailable}
                 onSyncToCloud={onSyncToCloud}
                 onSharePresentation={onSharePresentation}

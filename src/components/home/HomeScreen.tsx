@@ -42,6 +42,8 @@ export function HomeScreen(props: HomeScreenProps) {
     requestDeletePresentation,
     generatingCoverId,
     handleGenerateCoverForPresentation,
+    handleUploadCoverForPresentation,
+    handleRemoveCoverForPresentation,
     coverImageCache,
     homeFirstSlideReplicaBySavedId,
     homeFirstSlideReplicaDeckThemeBySavedId,
@@ -120,6 +122,8 @@ export function HomeScreen(props: HomeScreenProps) {
                 onOpenSaved={openSaved}
                 onDeleteSaved={requestDeletePresentation}
                 onGenerateCover={handleGenerateCoverForPresentation}
+                onUploadCover={handleUploadCoverForPresentation}
+                onRemoveCover={handleRemoveCoverForPresentation}
                 generatingCoverId={generatingCoverId}
                 coverImageCache={coverImageCache}
                 homeFirstSlideReplicaBySavedId={homeFirstSlideReplicaBySavedId}
