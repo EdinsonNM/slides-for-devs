@@ -15,7 +15,11 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
     "paths": {
+      "@/presentation/*": [
+        "./src/presentation/*"
+      ],
       "@/*": [
         "./*"
       ]

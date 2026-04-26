@@ -11,7 +11,7 @@ import { applyGeneratedImageToMediaPanelPayload } from "./presentationMediaHelpe
 import { optimizeImageDataUrl } from "../../utils/imageOptimize";
 import { generateImage as generateImageUseCase } from "../../composition/container";
 import { DEFAULT_OPENAI_IMAGE_MODEL_ID } from "../../constants/openaiImageModels";
-import { presentationQueryKeys } from "../queryKeys";
+import { presentationQueryKeys } from "@/presentation/queryKeys";
 import {
   listCharacters,
   saveCharacter as saveCharacterStorage,

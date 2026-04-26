@@ -6,7 +6,7 @@ import {
   listGeneratedResources,
 } from "../services/storage";
 import { listCloudPresentations } from "../services/presentationCloud";
-import { presentationQueryKeys } from "../presentation/queryKeys";
+import { presentationQueryKeys } from "@/presentation/queryKeys";
 
 export function useSavedPresentations(accountScope: string) {
   return useQuery({

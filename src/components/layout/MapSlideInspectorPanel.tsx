@@ -1,5 +1,5 @@
 import { MapPin } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import { MapSlideInspectorSection } from "./MapSlideInspectorSection";
 

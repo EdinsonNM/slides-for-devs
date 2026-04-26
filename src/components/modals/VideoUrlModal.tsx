@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Video, X, Save } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 
 export function VideoUrlModal() {
   const {

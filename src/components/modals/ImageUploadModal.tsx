@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Upload } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { isUsableSlideImageFile } from "../../utils/slideImageFile";
 

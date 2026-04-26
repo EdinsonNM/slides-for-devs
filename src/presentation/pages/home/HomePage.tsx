@@ -1,8 +1,8 @@
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { checkForAppUpdates } from "../../../services/updater";
 import { HomeScreen } from "../../../components/home/HomeScreen";
-import { usePresentation } from "../../contexts/PresentationContext";
-import { useAppApiConfig } from "../../app/ApiConfigContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useAppApiConfig } from "@/presentation/app/ApiConfigContext";
 
 export default function HomePage() {
   const navigate = useNavigate();

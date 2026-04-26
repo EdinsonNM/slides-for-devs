@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import {
   usePresentationState,
   type PresentationState,
-} from "../hooks/global/usePresentationState";
+} from "@/presentation/hooks/global/usePresentationState";
 
 const PresentationContext = createContext<PresentationState | null>(null);
 

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Frame, X, Save } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 
 export function IframeEmbedUrlModal() {
   const {

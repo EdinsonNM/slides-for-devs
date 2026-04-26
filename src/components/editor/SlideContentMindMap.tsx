@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { MindMapDiagramCanvas } from "../shared/MindMapDiagramCanvas";
 import type { MindMapDiagram } from "../../domain/entities/MindMapDiagram";
 import { parseMindMapDiagram, serializeMindMapDiagram } from "../../domain/entities/MindMapDiagram";

@@ -24,8 +24,8 @@ import {
   Unlock,
   Video,
 } from "lucide-react";
-import { useCodeEditorTheme } from "../../presentation/hooks/global/useCodeEditorTheme";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { useCodeEditorTheme } from "@/presentation/hooks/global/useCodeEditorTheme";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
 import {
@@ -43,7 +43,7 @@ import {
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
 import { ensureSlideCanvasScene } from "../../domain/slideCanvas/ensureSlideCanvasScene";
-import { useSlideContainerImageDnD } from "../../presentation/hooks/global/useSlideContainerImageDnD";
+import { useSlideContainerImageDnD } from "@/presentation/hooks/global/useSlideContainerImageDnD";
 import { migrateLegacySlideToCanvas } from "../../domain/slideCanvas/migrateLegacySlideToCanvas";
 import { normalizeCanvasElementsZOrder } from "../../domain/slideCanvas/normalizeCanvasElementsZOrder";
 import {
@@ -68,7 +68,7 @@ import {
   SlideChapterTitleReadOnly,
   SlideContentTitleReadOnly,
   SlideSubtitleMarkdownBody,
-} from "../../presentation/slide-elements";
+} from "@/presentation/slide-elements";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import {
   SlideCanvasRichDescription,

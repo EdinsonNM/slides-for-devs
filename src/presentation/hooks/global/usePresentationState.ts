@@ -22,25 +22,25 @@ import { formatMarkdown } from "../../../utils/markdown";
 import {
   DEFAULT_IMAGE_WIDTH_PERCENT,
   DEFAULT_PANEL_HEIGHT_PERCENT,
-} from "../../state/presentationConstants";
+} from "@/presentation/state/presentationConstants";
 import {
   LAST_OPENED_PRESENTATION_KEY,
   type HomeTab,
-} from "../../state/presentationTypes";
-import { usePresentationSlideEditing } from "../../state/usePresentationSlideEditing";
-import { usePresentationEditorTabs } from "../../state/usePresentationEditorTabs";
-import { usePresentationDeckMutations } from "../../state/usePresentationDeckMutations";
-import { usePresentationEditorKeyboard } from "../../state/usePresentationEditorKeyboard";
-import { usePresentationSlideCanvasMutations } from "../../state/usePresentationSlideCanvasMutations";
-import { usePresentationSlideResizeGestures } from "../../state/usePresentationSlideResizeGestures";
-import { usePresentationHomeCards } from "../../state/usePresentationHomeCards";
-import { usePresentationSavePresentation } from "../../state/usePresentationSavePresentation";
-import { usePresentationManualSave } from "../../state/usePresentationManualSave";
-import { usePresentationCloudPresentation } from "../../state/usePresentationCloudPresentation";
-import type { PresentationCloudResolveRemoteEditorDeps } from "../../state/presentationCloudPresentationDeps";
-import { usePresentationSavedLibrary } from "../../state/usePresentationSavedLibrary";
-import { usePresentationDeckCovers } from "../../state/usePresentationDeckCovers";
-import { presentationQueryKeys } from "../../queryKeys";
+} from "@/presentation/state/presentationTypes";
+import { usePresentationSlideEditing } from "@/presentation/state/usePresentationSlideEditing";
+import { usePresentationEditorTabs } from "@/presentation/state/usePresentationEditorTabs";
+import { usePresentationDeckMutations } from "@/presentation/state/usePresentationDeckMutations";
+import { usePresentationEditorKeyboard } from "@/presentation/state/usePresentationEditorKeyboard";
+import { usePresentationSlideCanvasMutations } from "@/presentation/state/usePresentationSlideCanvasMutations";
+import { usePresentationSlideResizeGestures } from "@/presentation/state/usePresentationSlideResizeGestures";
+import { usePresentationHomeCards } from "@/presentation/state/usePresentationHomeCards";
+import { usePresentationSavePresentation } from "@/presentation/state/usePresentationSavePresentation";
+import { usePresentationManualSave } from "@/presentation/state/usePresentationManualSave";
+import { usePresentationCloudPresentation } from "@/presentation/state/usePresentationCloudPresentation";
+import type { PresentationCloudResolveRemoteEditorDeps } from "@/presentation/state/presentationCloudPresentationDeps";
+import { usePresentationSavedLibrary } from "@/presentation/state/usePresentationSavedLibrary";
+import { usePresentationDeckCovers } from "@/presentation/state/usePresentationDeckCovers";
+import { presentationQueryKeys } from "@/presentation/queryKeys";
 import {
   useSavedPresentations,
   useSavedCharacters,
@@ -63,7 +63,7 @@ import { isSlideCanvasTextPayload } from "../../../domain/entities/SlideCanvas";
 import { plainTextFromRichHtml } from "../../../utils/slideRichText";
 import { localAccountScopeForUser } from "../../../services/storage";
 import { cleanupDuplicatePresentations } from "../../../services/storage";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "@/presentation/contexts/AuthContext";
 import { IMAGE_STYLES } from "../../../constants/imageStyles";
 import {
   getCurrentUserPresentationAccess,
@@ -73,16 +73,16 @@ import {
   GEMINI_IMAGE_MODELS,
   DEFAULT_GEMINI_IMAGE_MODEL_ID,
 } from "../../../constants/geminiImageModels";
-import { usePresentationAiModals } from "../../state/usePresentationAiModals";
-import { usePresentationCharactersResources } from "../../state/usePresentationCharactersResources";
-import { usePresentationStoreBridge } from "../../state/usePresentationStoreBridge";
-import { usePresentationModelCatalog } from "../../state/usePresentationModelCatalog";
-import { usePresentationBootstrapPersistence } from "../../state/usePresentationBootstrapPersistence";
-import { usePresentationEditorLifecycleEffects } from "../../state/usePresentationEditorLifecycleEffects";
-import { useDeckNarrativeSlideOptions } from "../../state/useDeckNarrativeSlideOptions";
-import { usePresentationOrchestratorRefSync } from "../../state/usePresentationOrchestratorRefSync";
-import type { ApplySavedPresentationEditorContext } from "../../state/applySavedPresentationToEditorState";
-import type { WebCloudEditSession } from "../../state/webCloudSession";
+import { usePresentationAiModals } from "@/presentation/state/usePresentationAiModals";
+import { usePresentationCharactersResources } from "@/presentation/state/usePresentationCharactersResources";
+import { usePresentationStoreBridge } from "@/presentation/state/usePresentationStoreBridge";
+import { usePresentationModelCatalog } from "@/presentation/state/usePresentationModelCatalog";
+import { usePresentationBootstrapPersistence } from "@/presentation/state/usePresentationBootstrapPersistence";
+import { usePresentationEditorLifecycleEffects } from "@/presentation/state/usePresentationEditorLifecycleEffects";
+import { useDeckNarrativeSlideOptions } from "@/presentation/state/useDeckNarrativeSlideOptions";
+import { usePresentationOrchestratorRefSync } from "@/presentation/state/usePresentationOrchestratorRefSync";
+import type { ApplySavedPresentationEditorContext } from "@/presentation/state/applySavedPresentationToEditorState";
+import type { WebCloudEditSession } from "@/presentation/state/webCloudSession";
 import { DEFAULT_DEVICE_3D_ID } from "../../../constants/device3d";
 import {
   FIRST_PERSON_LAYOUT_STORAGE_KEY,
@@ -103,7 +103,7 @@ export {
   type HomeTab,
   type EditorWorkspaceSnapshot,
   type EditorTab,
-} from "../../state/presentationTypes";
+} from "@/presentation/state/presentationTypes";
 
 export function usePresentationState() {
   const {

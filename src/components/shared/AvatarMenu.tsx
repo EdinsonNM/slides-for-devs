@@ -12,8 +12,8 @@ import {
   Sun,
   User,
 } from "lucide-react";
-import { useAuth } from "../../presentation/contexts/AuthContext";
-import { useTheme } from "../../presentation/contexts/ThemeContext";
+import { useAuth } from "@/presentation/contexts/AuthContext";
+import { useTheme } from "@/presentation/contexts/ThemeContext";
 import { cn } from "../../utils/cn";
 import { GoogleIcon } from "./GoogleIcon";
 import { checkForAppUpdates } from "../../services/updater";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, UserPlus, User, Trash2, Info, RefreshCw, Loader2 } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { CharacterDetailModal } from "../modals/CharacterDetailModal";
 import { cn } from "../../utils/cn";
 

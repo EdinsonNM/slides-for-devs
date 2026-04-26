@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Box, Link2, RotateCcw, Settings2, Upload } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
   CANVAS_3D_GLB_FILE_ACCEPT,

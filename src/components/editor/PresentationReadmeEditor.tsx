@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { BookText, Save, WandSparkles, X } from "lucide-react";
 import Vditor from "vditor";
 import "vditor/dist/index.css";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 
 const README_TEMPLATE = `# README de la presentación

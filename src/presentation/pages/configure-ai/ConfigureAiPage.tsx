@@ -1,7 +1,7 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 import { ApiConfigurationScreen } from "../../../components/setup/ApiConfigurationScreen";
-import { RequireAuth } from "../../app/guards/RequireAuth";
-import { useAppApiConfig } from "../../app/ApiConfigContext";
+import { RequireAuth } from "@/presentation/app/guards/RequireAuth";
+import { useAppApiConfig } from "@/presentation/app/ApiConfigContext";
 
 function ConfigureAiScreen() {
   const { onApiConfigureSaved } = useAppApiConfig();

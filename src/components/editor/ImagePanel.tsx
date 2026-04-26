@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Image as ImageIcon, Sparkles, Upload, ChevronDown } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
-import { useMinWidthLg } from "../../presentation/hooks/global/useMatchMedia";
+import { useMinWidthLg } from "@/presentation/hooks/global/useMatchMedia";
 import type { Slide } from "../../types";
 
 export interface ImagePanelProps {

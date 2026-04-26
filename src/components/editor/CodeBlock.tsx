@@ -12,10 +12,10 @@ import {
   vscDarkPlus,
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { LANGUAGES } from "../../constants/languages";
 import { cn } from "../../utils/cn";
-import { useCodeEditorTheme } from "../../presentation/hooks/global/useCodeEditorTheme";
+import { useCodeEditorTheme } from "@/presentation/hooks/global/useCodeEditorTheme";
 import type { Slide } from "../../types";
 
 export interface CodeBlockProps {

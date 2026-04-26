@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Globe2, Loader2, Save, Settings2, X } from "lucide-react";
-import { useAuth } from "../../presentation/contexts/AuthContext";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { useAuth } from "@/presentation/contexts/AuthContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import {
   getPresentationPublicationMetadata,
   setPresentationPublicationMetadata,

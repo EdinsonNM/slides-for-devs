@@ -1,4 +1,4 @@
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
   PANEL_CONTENT_KIND,

@@ -9,7 +9,7 @@ import {
 import { deleteOwnerPresentationFromCloud } from "../../services/presentationCloud";
 import { formatCloudSyncUserMessage } from "../../utils/cloudSyncErrors";
 import { DEFAULT_DECK_VISUAL_THEME } from "../../domain/entities";
-import { presentationQueryKeys } from "../queryKeys";
+import { presentationQueryKeys } from "@/presentation/queryKeys";
 import {
   applySavedPresentationToEditorState,
   type ApplySavedPresentationEditorContext,

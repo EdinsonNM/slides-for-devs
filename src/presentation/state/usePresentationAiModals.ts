@@ -58,7 +58,7 @@ import {
   updatePresentation,
   addGeneratedResource,
 } from "../../services/storage";
-import { presentationQueryKeys } from "../queryKeys";
+import { presentationQueryKeys } from "@/presentation/queryKeys";
 import {
   generateCodeForSlide as generateCodeForSlideApi,
   generatePresenterNotes as generatePresenterNotesApi,

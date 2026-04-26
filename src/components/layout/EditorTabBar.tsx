@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Plus } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 
 export function EditorTabBar({ className }: { className?: string }) {

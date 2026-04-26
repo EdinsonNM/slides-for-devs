@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { usePresentationUiStore } from "../state/presentationUiStore.ts";
+import { usePresentationUiStore } from "@/presentation/state/presentationUiStore.ts";
 
 export function useSlideElementUi() {
   return usePresentationUiStore(

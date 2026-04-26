@@ -7,8 +7,8 @@ import {
   useState,
   useCallback,
 } from "react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
-import { useThemeOptional } from "../../presentation/contexts/ThemeContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useThemeOptional } from "@/presentation/contexts/ThemeContext";
 import { SLIDE_TYPE, type DeckContentTone } from "../../domain/entities";
 import type { Slide } from "../../types";
 import { PRESENTER_MODES } from "../../constants/presenterModes";

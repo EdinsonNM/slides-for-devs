@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `3dd94dfbdde0f16f8ce22a625009e1f8cd7b379c`  
+**Última revisión alineada con commit:** `f2fddb43fee9a0b23c26ea8cb9cb5ed9c8025322`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -32,6 +32,7 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/`: aplicación frontend
 - `src/App.tsx`: composición de rutas (`Routes`), carga perezosa de páginas, gates de auth y API, y enlace a modales globales; sin lógica de feature ni estado local
 - `src/presentation/pages/`: entradas por ruta (home, editor, configure-ai, presenter, public)
+- **Imports a `src/presentation/`:** usa el alias TypeScript / Vite `@/presentation/...` (p. ej. `@/presentation/contexts/PresentationContext`) en lugar de rutas relativas largas; configurado en `tsconfig.json` y `vite.config.ts`
 - `src/presentation/contexts/`: `AuthContext`, `ThemeContext`, `PresentationContext`
 - `src/presentation/app/`: `GlobalPresentationModals`, contexto de configuración API y `guards/` (`AuthGate`, `ApiConfigGate`, `RequireAuth`)
 - `src/presentation/hooks/app/`: `useAppUpdaterCheck`, `useApiConfigurationGate` (composición de app)

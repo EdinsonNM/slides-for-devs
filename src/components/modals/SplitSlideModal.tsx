@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Split, X, Loader2, Wand2 } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 
 export function SplitSlideModal() {
   const {

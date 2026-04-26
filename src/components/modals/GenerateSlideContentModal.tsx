@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Loader2 } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 
 export function GenerateSlideContentModal() {

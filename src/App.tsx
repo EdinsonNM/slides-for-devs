@@ -1,19 +1,19 @@
 import React, { lazy, Suspense } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import { LoadingScreen } from "./components/shared/LoadingScreen";
-import { useAppUpdaterCheck } from "./presentation/hooks/app/useAppUpdaterCheck";
-import { AuthGate } from "./presentation/app/guards/AuthGate";
-import { ApiConfigGate } from "./presentation/app/guards/ApiConfigGate";
-import { GlobalPresentationModals } from "./presentation/app/GlobalPresentationModals";
+import { useAppUpdaterCheck } from "@/presentation/hooks/app/useAppUpdaterCheck";
+import { AuthGate } from "@/presentation/app/guards/AuthGate";
+import { ApiConfigGate } from "@/presentation/app/guards/ApiConfigGate";
+import { GlobalPresentationModals } from "@/presentation/app/GlobalPresentationModals";
 
-const HomePage = lazy(() => import("./presentation/pages/home/HomePage"));
-const EditorPage = lazy(() => import("./presentation/pages/editor/EditorPage"));
+const HomePage = lazy(() => import("@/presentation/pages/home/HomePage"));
+const EditorPage = lazy(() => import("@/presentation/pages/editor/EditorPage"));
 const ConfigureAiPage = lazy(() =>
-  import("./presentation/pages/configure-ai/ConfigureAiPage"),
+  import("@/presentation/pages/configure-ai/ConfigureAiPage"),
 );
-const PresenterPage = lazy(() => import("./presentation/pages/presenter/PresenterPage"));
+const PresenterPage = lazy(() => import("@/presentation/pages/presenter/PresenterPage"));
 const PublicPresentationPage = lazy(() =>
-  import("./presentation/pages/public/PublicPresentationPage"),
+  import("@/presentation/pages/public/PublicPresentationPage"),
 );
 
 export default function App() {

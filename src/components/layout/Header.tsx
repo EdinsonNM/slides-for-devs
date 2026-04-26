@@ -18,7 +18,7 @@ import {
   MoreHorizontal,
   Clapperboard,
 } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { IconButton } from "../shared/IconButton";
 import { AvatarMenu } from "../shared/AvatarMenu";

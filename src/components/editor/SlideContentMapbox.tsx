@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
-import { useThemeOptional } from "../../presentation/contexts/ThemeContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useThemeOptional } from "@/presentation/contexts/ThemeContext";
 import {
   parseSlideMapData,
   serializeSlideMapData,

@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 
 export function NavigationControls() {
   const { currentIndex, slides, prevSlide, nextSlide } = usePresentation();

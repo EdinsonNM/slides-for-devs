@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { FileUp, Trash2 } from "lucide-react";
-import { usePresentation } from "../../presentation/contexts/PresentationContext";
-import { useThemeOptional } from "../../presentation/contexts/ThemeContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useThemeOptional } from "@/presentation/contexts/ThemeContext";
 import {
   inferSlideDocumentKind,
   readFileAsDataUrl,
