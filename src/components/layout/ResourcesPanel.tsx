@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Image as ImageIcon, Loader2, Trash2 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import type { GeneratedResourceEntry } from "../../types";
 

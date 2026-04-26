@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../presentation/contexts/AuthContext";
 import { GoogleIcon } from "../shared/GoogleIcon";
 
 /**

@@ -6,7 +6,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { Device3DViewport } from "../shared/Device3DViewport";
 import {
@@ -16,7 +16,7 @@ import {
 } from "../../constants/device3d";
 import { isDirectVideoTextureUrl } from "../../utils/directVideoUrl";
 import type { Presenter3dViewState } from "../../utils/presenter3dView";
-import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import { useMinWidthLg } from "../../presentation/hooks/global/useMatchMedia";
 import type { Slide } from "../../types";
 import { presenter3dDisplayPropsFromCanvasElement } from "../../domain/slideCanvas/slideCanvasPayload";
 

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Mic, X, Loader2 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 
 export function SpeechModal() {
   const {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Box } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import {
   parseCanvas3dSceneData,

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Trash2, User, RefreshCw, Loader2 } from "lucide-react";
 import type { SavedCharacter } from "../../types";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 
 interface CharacterDetailModalProps {
   character: SavedCharacter | null;

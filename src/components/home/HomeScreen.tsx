@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { isTauriRuntime } from "../../utils/isTauriRuntime";
 import { HomeEmptyState } from "./HomeEmptyState";
 import type { HomeMainTab } from "./homeMainTab";

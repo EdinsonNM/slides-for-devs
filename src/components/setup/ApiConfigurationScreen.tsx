@@ -33,7 +33,7 @@ import {
   setOpenRouterApiKey,
   setMeshyApiKey,
 } from "../../services/apiConfig";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { ModelSelect } from "../shared/ModelSelect";
 import { cn } from "../../utils/cn";
 import { openExternalLink } from "../../utils/openExternalLink";

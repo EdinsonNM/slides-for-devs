@@ -11,7 +11,7 @@ import {
   Map,
   Webcam,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideStylePanel } from "./SlideStylePanel";
 import { CharactersPanel } from "./CharactersPanel";

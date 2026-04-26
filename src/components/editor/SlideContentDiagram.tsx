@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useEffect } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
-import { usePresentation } from "../../context/PresentationContext";
-import { useTheme } from "../../context/ThemeContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
+import { useTheme } from "../../presentation/contexts/ThemeContext";
 
 const PERSIST_DEBOUNCE_MS = 400;
 

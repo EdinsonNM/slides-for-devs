@@ -12,7 +12,7 @@ import {
   ImageIcon,
   Wand2,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { refineCharacterPrompt, describeCharacterFromImage } from "../../services/gemini";
 import { cn } from "../../utils/cn";
 import { CharacterPromptWizard } from "./CharacterPromptWizard";

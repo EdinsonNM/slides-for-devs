@@ -5,7 +5,7 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { LANGUAGES } from "../../constants/languages";
 import { cn } from "../../utils/cn";
-import { useCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
+import { useCodeEditorTheme } from "../../presentation/hooks/global/useCodeEditorTheme";
 
 export interface CodeDisplayProps {
   code: string;

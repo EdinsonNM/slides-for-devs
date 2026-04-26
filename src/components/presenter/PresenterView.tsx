@@ -6,7 +6,7 @@ import {
   DEFAULT_DECK_VISUAL_THEME,
   normalizeDeckVisualTheme,
 } from "../../domain/entities";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { presenterChat } from "../../services/gemini";
 import { PreviewSlideContent } from "../preview/PreviewSlideContent";
 import { PresenterHeader } from "./PresenterHeader";

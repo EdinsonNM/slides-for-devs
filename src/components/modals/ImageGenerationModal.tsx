@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Send, Loader2, Wand2, Users, User } from "lucide-react";
 import type { SavedCharacter } from "../../types";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { IMAGE_STYLES } from "../../constants/imageStyles";
 import { CharacterManagerModal } from "./CharacterManagerModal";
 import { cn } from "../../utils/cn";

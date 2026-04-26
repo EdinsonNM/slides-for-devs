@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
-import { useThemeOptional } from "../../context/ThemeContext";
+import { useThemeOptional } from "../../presentation/contexts/ThemeContext";
 
 function excalidrawThemeFromDocument(): "light" | "dark" {
   if (typeof document === "undefined") return "light";

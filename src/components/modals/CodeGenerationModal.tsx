@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Code2, X, Send, Loader2 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { LANGUAGES } from "../../constants/languages";
 
 export function CodeGenerationModal() {

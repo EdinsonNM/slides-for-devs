@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEventHandler } from "react";
 import { Image as ImageIcon, Palette, Sparkles } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import {
   isInspectorSlidePropertiesSectionVisible,

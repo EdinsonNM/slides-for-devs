@@ -34,7 +34,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { LANGUAGES } from "../../constants/languages";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
   CANVAS_3D_GLB_FILE_ACCEPT,

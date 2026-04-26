@@ -18,7 +18,7 @@ import {
   Upload,
   User,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import {
   CANVAS_3D_PRIMITIVE_KINDS,
   type Canvas3dPrimitiveKind,

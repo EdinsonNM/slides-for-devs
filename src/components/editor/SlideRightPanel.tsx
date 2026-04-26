@@ -1,6 +1,6 @@
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
-import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import { useMinWidthLg } from "../../presentation/hooks/global/useMatchMedia";
 import type { Slide } from "../../types";
 import { CodeBlock } from "./CodeBlock";
 import { ImagePanel } from "./ImagePanel";

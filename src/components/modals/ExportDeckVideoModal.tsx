@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player } from "@remotion/player";
 import { Clapperboard, Loader2, X } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { deckThemeToExportBackgroundCss } from "../../domain/entities";
 import { DeckVideoComposition } from "../../remotion/DeckVideoComposition";
 import {

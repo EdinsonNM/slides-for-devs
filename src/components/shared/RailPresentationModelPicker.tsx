@@ -5,7 +5,7 @@ import {
   PRESENTATION_MODELS,
   type PresentationModelOption,
 } from "../../constants/presentationModels";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { PresentationProviderGlyph } from "./PresentationProviderGlyph";
 

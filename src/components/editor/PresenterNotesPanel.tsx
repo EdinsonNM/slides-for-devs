@@ -7,7 +7,7 @@ import {
   PenLine,
   ChevronRight,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 
 const PANEL_WIDTH = 280;

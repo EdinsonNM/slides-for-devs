@@ -24,7 +24,7 @@ import {
   appendCanvasElementToScene,
   type AppendCanvasElementOptions,
 } from "../../domain/slideCanvas/insertCanvasElement";
-import { readPersistedCodeEditorTheme } from "../../hooks/useCodeEditorTheme";
+import { readPersistedCodeEditorTheme } from "../hooks/global/useCodeEditorTheme";
 import { DEFAULT_DEVICE_3D_ID } from "../../constants/device3d";
 import {
   createDefaultDataMotionRingState,

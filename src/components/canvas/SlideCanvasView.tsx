@@ -56,7 +56,7 @@ import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,
 } from "../../domain/panelContent";
-import { useThemeOptional } from "../../context/ThemeContext";
+import { useThemeOptional } from "../../presentation/contexts/ThemeContext";
 import type { MapboxCanvasAppearance } from "../shared/SlideMapboxCanvas";
 
 const { Alignment, Fit, Layout } = RiveReact;

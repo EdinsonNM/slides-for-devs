@@ -16,10 +16,6 @@ const PublicPresentationPage = lazy(() =>
   import("./presentation/pages/public/PublicPresentationPage"),
 );
 
-/**
- * Composición de la app: rutas y gates (auth, API). Sin estado local: efecto global
- * de actualizaciones en `useAppUpdaterCheck` y lógica en `PresentationProvider`.
- */
 export default function App() {
   useAppUpdaterCheck();
   return (

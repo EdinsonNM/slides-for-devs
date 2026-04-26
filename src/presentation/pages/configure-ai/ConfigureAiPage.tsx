@@ -3,9 +3,6 @@ import { ApiConfigurationScreen } from "../../../components/setup/ApiConfigurati
 import { RequireAuth } from "../../app/guards/RequireAuth";
 import { useAppApiConfig } from "../../app/ApiConfigContext";
 
-/**
- * Ruta /configure-ai: exige `?mode=settings` y requiere auth.
- */
 function ConfigureAiScreen() {
   const { onApiConfigureSaved } = useAppApiConfig();
   const [searchParams] = useSearchParams();

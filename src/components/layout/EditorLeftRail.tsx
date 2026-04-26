@@ -16,7 +16,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { PRESENTATION_MODELS } from "../../constants/presentationModels";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "../../presentation/contexts/PresentationContext";
 import { exportPresentationToPowerPoint } from "../../services/exportToPowerPoint";
 import { exportCurrentSlideAsImage } from "../../services/exportSlideAsImage";
 import { RailPresentationModelPicker } from "../shared/RailPresentationModelPicker";
