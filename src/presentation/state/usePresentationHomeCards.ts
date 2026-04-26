@@ -54,28 +54,6 @@ export function usePresentationHomeCards({
     void refreshCloudMineSnapshot();
   }, [refreshCloudMineSnapshot]);
 
-  useEffect(() => {
-    if (!user || firebaseReady !== true || typeof window === "undefined") return;
-    const onFocus = () => {
-      void refreshCloudMineSnapshot();
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void refreshCloudMineSnapshot();
-      }
-    };
-    const id = window.setInterval(() => {
-      void refreshCloudMineSnapshot();
-    }, 15000);
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [user, firebaseReady, refreshCloudMineSnapshot]);
-
   const homePresentationCards = useMemo((): HomePresentationCard[] => {
     const hasAnyLocalForCloud = (cloudId: string) =>
       savedList.some((p) => p.cloudId === cloudId);

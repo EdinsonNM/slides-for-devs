@@ -1881,7 +1881,11 @@ export async function getCurrentUserPresentationAccess(
       }
     }
   } catch {
-    canEdit = false;
+    /**
+     * Si falla la consulta de grants (índice/reglas/transitorio), conservamos
+     * el permiso derivado del documento principal para no degradar a solo lectura
+     * a usuarios que sí tienen `sharedEditWith` / `shareEditInviteEmails`.
+     */
   }
   if (publicationVisibility === "public") {
     canEdit = false;

@@ -427,7 +427,7 @@ export function Header(props: HeaderProps) {
                 aria-label={currentSavedId ? "Guardar cambios" : "Guardar"}
                 title={currentSavedId ? "Guardar cambios" : "Guardar"}
                 onClick={handleSave}
-                disabled={isSaving || isCurrentPresentationReadOnly}
+                disabled={isSaving}
               />
             )}
             {slides.length > 0 && (

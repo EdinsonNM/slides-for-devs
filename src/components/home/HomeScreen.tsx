@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { usePresentation } from "../../context/PresentationContext";
-import { useAuth } from "../../context/AuthContext";
 import { isTauriRuntime } from "../../utils/isTauriRuntime";
 import { HomeEmptyState } from "./HomeEmptyState";
 import type { HomeMainTab } from "./homeMainTab";
@@ -28,8 +26,6 @@ export interface HomeScreenProps {
  * antes).
  */
 export function HomeScreen(props: HomeScreenProps) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const {
     onOpenConfig,
     onCheckUpdates,
@@ -81,10 +77,6 @@ export function HomeScreen(props: HomeScreenProps) {
   const hasItems = homePresentationCards.length > 0;
   const cloudOnlyCardActionMode = isTauriRuntime() ? "download" : "open";
   const openCloudCard = (cloudId: string, ownerUid?: string) => {
-    if (ownerUid && user && ownerUid !== user.uid) {
-      navigate(`/public/${ownerUid}/${cloudId}`);
-      return;
-    }
     void handleDownloadFromCloud(cloudId, ownerUid);
   };
 

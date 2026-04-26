@@ -64,6 +64,34 @@ export function usePresentationCloudPresentation(
     [],
   );
 
+  const applyCloudStateAfterPush = useCallback(
+    async (
+      localId: string,
+      ownerUid: string,
+      cloudId: string,
+      syncedAt: string,
+      newRevision: number,
+    ) => {
+      const d = depsRef.current;
+      const isMine = !!d.user && ownerUid === d.user.uid;
+      await setPresentationCloudState(
+        localId,
+        isMine ? cloudId : null,
+        syncedAt,
+        newRevision,
+        d.localAccountScope,
+      );
+      if (!isMine) {
+        await setPresentationSharedCloudSource(
+          localId,
+          `${ownerUid}::${cloudId}`,
+          d.localAccountScope,
+        );
+      }
+    },
+    [],
+  );
+
   const maybeAutoSyncAfterLocalSave = useCallback(async (localId: string) => {
     const d = depsRef.current;
     if (!d.user) return;
@@ -85,12 +113,12 @@ export function usePresentationCloudPresentation(
               existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
             ownerUid: cloudRef?.ownerUid ?? d.user.uid,
           });
-        await setPresentationCloudState(
+        await applyCloudStateAfterPush(
           localId,
+          cloudRef?.ownerUid ?? d.user.uid,
           cloudId,
           syncedAt,
           newRevision,
-          d.localAccountScope,
         );
         await setPresentationSyncState(
           localId,
@@ -119,12 +147,12 @@ export function usePresentationCloudPresentation(
                 force: true,
                 ownerUid: cloudRef2?.ownerUid ?? d.user.uid,
               });
-            await setPresentationCloudState(
+            await applyCloudStateAfterPush(
               localId,
+              cloudRef2?.ownerUid ?? d.user.uid,
               cloudId,
               syncedAt,
               newRevision,
-              d.localAccountScope,
             );
             await setPresentationSyncState(
               localId,
@@ -195,12 +223,12 @@ export function usePresentationCloudPresentation(
                   existingCloudId != null ? (meta?.cloudRevision ?? 0) : null,
                 ownerUid: cloudRef?.ownerUid ?? d.user.uid,
               });
-            await setPresentationCloudState(
+            await applyCloudStateAfterPush(
               localId,
+              cloudRef?.ownerUid ?? d.user.uid,
               cloudId,
               syncedAt,
               newRevision,
-              d.localAccountScope,
             );
             await setPresentationSyncState(
               localId,
@@ -670,12 +698,12 @@ export function usePresentationCloudPresentation(
         force: true,
         ownerUid: cloudRef?.ownerUid ?? d.user.uid,
       });
-      await setPresentationCloudState(
+      await applyCloudStateAfterPush(
         localId,
+        cloudRef?.ownerUid ?? d.user.uid,
         outId,
         syncedAt,
         newRevision,
-        d.localAccountScope,
       );
       await setPresentationSyncState(
         localId,

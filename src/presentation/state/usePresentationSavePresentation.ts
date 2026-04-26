@@ -27,11 +27,6 @@ export function usePresentationSavePresentation(
     async (presentation: SavePresentationNowPayload): Promise<string | null> => {
       const d = depsRef.current;
       if (presentation.slides.length === 0) return null;
-      if (d.isCurrentPresentationReadOnly) {
-        d.setSaveMessage("Esta presentación está en modo lectura.");
-        setTimeout(() => d.setSaveMessage(null), 2500);
-        return null;
-      }
       const full: Presentation = {
         topic: presentation.topic,
         slides: presentation.slides,
