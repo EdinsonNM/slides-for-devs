@@ -8,11 +8,14 @@ import {
   CalendarDays,
   Eye,
   GraduationCap,
+  Layers3,
   LayoutGrid,
   Loader2,
   Palette,
   Search,
   Star,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { usePresentation } from "../../context/PresentationContext";
 import { useAuth } from "../../context/AuthContext";
@@ -161,6 +164,11 @@ function formatPublicDate(value: string | null | undefined): string {
   }).format(date);
 }
 
+function pseudoSocialCountFromUid(uid: string): number {
+  const checksum = [...uid].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return 120 + (checksum % 870);
+}
+
 export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMockProps) {
   const { user } = useAuth();
   const { handleDownloadFromCloud, setIsPreviewMode } = usePresentation();
@@ -183,6 +191,7 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
   const [detailReadme, setDetailReadme] = useState<string>("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [followedOwners, setFollowedOwners] = useState<Record<string, boolean>>({});
   const filteredRef = useRef<PublicPresentationExploreItem[]>([]);
 
   const load = useCallback(async () => {
@@ -275,6 +284,27 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
       ? detailItem.publicationCategories.join(" · ")
       : (categoryDefForPrimaryBucket(detailItem)?.label ?? "—")
     : "—";
+  const detailOwnerPublications = useMemo(
+    () => (detailItem ? allItems.filter((it) => it.ownerUid === detailItem.ownerUid) : []),
+    [allItems, detailItem],
+  );
+  const detailOwnerPublicationCount = detailOwnerPublications.length;
+  const detailOwnerCategoryCount = useMemo(() => {
+    const categories = new Set<string>();
+    detailOwnerPublications.forEach((item) => {
+      categories.add(categoryDefForPrimaryBucket(item)?.label ?? "General");
+    });
+    return categories.size;
+  }, [detailOwnerPublications]);
+  const detailOwnerTagCount = useMemo(() => {
+    const tags = new Set<string>();
+    detailOwnerPublications.forEach((item) => {
+      item.publicationTags.forEach((tag) => tags.add(tag));
+    });
+    return tags.size;
+  }, [detailOwnerPublications]);
+  const detailOwnerFollowers = detailItem ? pseudoSocialCountFromUid(detailItem.ownerUid) : 0;
+  const isFollowingDetailOwner = detailItem ? !!followedOwners[detailItem.ownerUid] : false;
 
   const destacados = useMemo(() => {
     const m = new Map<string, { ownerUid: string; count: number }>();
@@ -382,27 +412,115 @@ export function PublicPresentationsMock({ onOpenConfig }: PublicPresentationsMoc
               </div>
 
               <article className="overflow-hidden rounded-3xl border border-stone-300/70 bg-white dark:border-white/10 dark:bg-[#0f1118]">
-                <div className="relative aspect-video w-full overflow-hidden bg-stone-900">
-                  <PublicExploreItemPreviewMedia
-                    item={detailItem}
-                    className="absolute inset-0 h-full w-full"
-                    fit="cover"
-                    lockReplicaInteraction
-                  />
-                  <div className="absolute inset-0 bg-linear-to-t from-black/82 via-black/32 to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-stone-300">
-                      Presentación pública
-                    </p>
-                    <h2 className="mt-2 line-clamp-2 text-2xl font-semibold leading-tight text-white sm:text-4xl">
-                      {detailItem.topic}
-                    </h2>
-                    <p className="mt-2 line-clamp-3 text-sm text-stone-200 sm:text-base">
-                      {detailItem.description?.trim()
-                        ? detailItem.description
-                        : "Sin descripción publicada."}
-                    </p>
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="group relative aspect-video w-full overflow-hidden bg-stone-900">
+                    <PublicExploreItemPreviewMedia
+                      item={detailItem}
+                      className="absolute inset-0 h-full w-full"
+                      fit="cover"
+                      lockReplicaInteraction
+                      zoomClassName="scale-100 group-hover:scale-[1.08]"
+                    />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/82 via-black/32 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-stone-300">
+                        Presentación pública
+                      </p>
+                      <h2 className="mt-2 line-clamp-2 text-2xl font-semibold leading-tight text-white sm:text-4xl">
+                        {detailItem.topic}
+                      </h2>
+                      <p className="mt-2 line-clamp-3 text-sm text-stone-200 sm:text-base">
+                        {detailItem.description?.trim()
+                          ? detailItem.description
+                          : "Sin descripción publicada."}
+                      </p>
+                    </div>
                   </div>
+
+                  <aside className="border-t border-stone-200/80 bg-stone-50/80 p-4 dark:border-white/10 dark:bg-white/3 lg:border-t-0 lg:border-l">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">
+                      Perfil del autor
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-700 text-sm font-bold text-white">
+                        {detailItem.ownerUid.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-stone-900 dark:text-stone-100">
+                          {shortUid(detailItem.ownerUid, 12)}
+                        </p>
+                        <p className="text-xs text-stone-500 dark:text-stone-400">
+                          Creador de contenido técnico
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-xl border border-stone-200/80 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#0b0d13]">
+                        <p className="text-stone-500 dark:text-stone-400">Publicaciones</p>
+                        <p className="mt-1 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                          {detailOwnerPublicationCount}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-stone-200/80 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#0b0d13]">
+                        <p className="text-stone-500 dark:text-stone-400">Seguidores</p>
+                        <p className="mt-1 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                          {detailOwnerFollowers}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-stone-200/80 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#0b0d13]">
+                        <p className="text-stone-500 dark:text-stone-400">Categorías</p>
+                        <p className="mt-1 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                          {detailOwnerCategoryCount}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-stone-200/80 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#0b0d13]">
+                        <p className="text-stone-500 dark:text-stone-400">Etiquetas</p>
+                        <p className="mt-1 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                          {detailOwnerTagCount}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFollowedOwners((prev) => ({
+                          ...prev,
+                          [detailItem.ownerUid]: !prev[detailItem.ownerUid],
+                        }));
+                      }}
+                      className={cn(
+                        "mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                        isFollowingDetailOwner
+                          ? "border border-emerald-500/40 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                          : "bg-emerald-600 text-white hover:bg-emerald-500",
+                      )}
+                    >
+                      {isFollowingDetailOwner ? (
+                        <>
+                          <Users className="h-4 w-4" />
+                          Siguiendo
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4" />
+                          Seguir usuario
+                        </>
+                      )}
+                    </button>
+
+                    <div className="mt-4 space-y-2 rounded-xl border border-stone-200/80 bg-white p-3 text-xs text-stone-600 dark:border-white/10 dark:bg-[#0b0d13] dark:text-stone-300">
+                      <p className="inline-flex items-center gap-1.5">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Última publicación: {detailDate}
+                      </p>
+                      <p className="inline-flex items-center gap-1.5">
+                        <Layers3 className="h-3.5 w-3.5" />
+                        Nivel predominante: {detailItem.publicationLevel}
+                      </p>
+                    </div>
+                  </aside>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 border-t border-stone-200/80 bg-stone-50/80 p-4 text-sm text-stone-700 dark:border-white/10 dark:bg-white/3 dark:text-stone-200 sm:grid-cols-2 lg:grid-cols-4">
