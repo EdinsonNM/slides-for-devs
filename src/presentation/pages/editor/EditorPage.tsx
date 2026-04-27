@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { EditorSlideUrlSync } from "../../../components/layout/EditorSlideUrlSync";
-import { usePresentation } from "../../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { LoadingScreen } from "../../../components/shared/LoadingScreen";
 import { EditorShell } from "../../../components/layout/EditorShell";
 import { SavedListModal } from "../../../components/modals/SavedListModal";
@@ -18,7 +18,7 @@ import { SpeechModal } from "../../../components/modals/SpeechModal";
 import { GenerateFullDeckModal } from "../../../components/modals/GenerateFullDeckModal";
 import { GenerateSlideContentModal } from "../../../components/modals/GenerateSlideContentModal";
 import { PreviewOverlay } from "../../../components/preview/PreviewOverlay";
-import { useAppApiConfig } from "../../app/ApiConfigContext";
+import { useAppApiConfig } from "@/presentation/app/ApiConfigContext";
 
 function EditorLayout() {
   const { openApiConfigFromSettings } = useAppApiConfig();
@@ -102,9 +102,6 @@ function EditorRestoringRoute() {
   return <EditorLayout />;
 }
 
-/**
- * Ruta /editor o /editor/:presentationId: restaura presentación o abre por id.
- */
 export default function EditorPage() {
   return <EditorRestoringRoute />;
 }

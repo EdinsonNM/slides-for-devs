@@ -8,7 +8,7 @@ import {
   type PresentationSharePermission,
 } from "../../services/presentationCloud";
 import { formatCloudSyncUserMessage } from "../../utils/cloudSyncErrors";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "@/presentation/contexts/AuthContext";
 
 export interface SharePresentationModalProps {
   open: boolean;

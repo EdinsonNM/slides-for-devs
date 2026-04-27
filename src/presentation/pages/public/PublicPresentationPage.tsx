@@ -1,8 +1,12 @@
+import { PreviewOverlay } from "../../../components/preview/PreviewOverlay";
 import { PublicPresentationViewer } from "../../../components/public/PublicPresentationViewer";
+import { PublicPreviewDeckProvider } from "@/presentation/contexts/PublicPreviewDeckContext";
 
-/**
- * Ruta pública: ver presentación compartida por `ownerUid` y `cloudId`.
- */
 export default function PublicPresentationPage() {
-  return <PublicPresentationViewer />;
+  return (
+    <PublicPreviewDeckProvider>
+      <PublicPresentationViewer />
+      <PreviewOverlay />
+    </PublicPreviewDeckProvider>
+  );
 }

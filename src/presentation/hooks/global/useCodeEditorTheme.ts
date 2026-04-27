@@ -5,7 +5,6 @@ const THEME_EVENT = "slides-for-devs-code-editor-theme-change";
 
 export type CodeEditorTheme = "dark" | "light";
 
-/** Valor persistido global (fallback cuando un `mediaPanel` no define tema propio). */
 export function readPersistedCodeEditorTheme(): CodeEditorTheme {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
@@ -24,10 +23,6 @@ function notifyThemeChange() {
   }
 }
 
-/**
- * Alterna dark↔light en `localStorage` y emite `THEME_EVENT`.
- * Todas las instancias de `useCodeEditorTheme` se actualizan vía el listener.
- */
 export function cycleCodeEditorTheme(): void {
   const next: CodeEditorTheme =
     readPersistedCodeEditorTheme() === "dark" ? "light" : "dark";
@@ -39,11 +34,6 @@ export function cycleCodeEditorTheme(): void {
   notifyThemeChange();
 }
 
-/**
- * Tema del panel de código (independiente del tema global de la app).
- * Se persiste en localStorage. Varias instancias del hook (panel + vista previa)
- * se sincronizan al cambiar el tema.
- */
 export function useCodeEditorTheme() {
   const [theme, setThemeState] = useState<CodeEditorTheme>(
     readPersistedCodeEditorTheme,

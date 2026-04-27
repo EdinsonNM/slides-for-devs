@@ -3,13 +3,13 @@ import {
   clampCanvasRect,
   SLIDE_TYPE,
   type SlideCanvasRect,
-} from "../domain/entities";
-import type { Slide } from "../types";
+} from "../../../domain/entities";
+import type { Slide } from "../../../types";
 import {
   dragDataTransferHasFileOffer,
   isUsableSlideImageFile,
   pickImageFileFromClipboardData,
-} from "../utils/slideImageFile";
+} from "../../../utils/slideImageFile";
 
 type IngestImageFn = (
   file: File,

@@ -35,7 +35,7 @@ import {
   SlideChapterTitleReadOnly,
   SlideContentTitleReadOnly,
   SlideSubtitleMarkdownBody,
-} from "../../presentation/slide-elements";
+} from "@/presentation/slide-elements";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { SlideCanvasRichDescription } from "../canvas/SlideCanvasRichDescription";
 import { cn } from "../../utils/cn";

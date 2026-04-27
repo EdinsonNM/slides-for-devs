@@ -1,5 +1,5 @@
-import { usePresentation } from "../../context/PresentationContext";
-import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useMinWidthLg } from "@/presentation/hooks/global/useMatchMedia";
 import { cn } from "../../utils/cn";
 import type { Slide } from "../../types";
 import { SlideWebcamView } from "../shared/SlideWebcamView";

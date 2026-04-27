@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Pencil } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { SlideMarkdown } from "../shared/SlideMarkdown";
 import { CanvaSelectionFrame } from "./CanvaSelectionFrame";

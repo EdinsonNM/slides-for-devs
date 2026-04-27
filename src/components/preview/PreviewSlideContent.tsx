@@ -19,7 +19,7 @@ import {
   deckSectionLabelClass,
   deckSlideContentWrapperClass,
 } from "../../utils/deckSlideChrome";
-import { usePresentationOptional } from "../../context/PresentationContext";
+import { usePresentationOptional } from "@/presentation/contexts/PresentationContext";
 
 export interface PreviewSlideContentProps {
   slide: Slide;

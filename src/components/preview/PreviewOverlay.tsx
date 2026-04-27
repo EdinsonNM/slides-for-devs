@@ -7,9 +7,19 @@ import {
   useState,
   useCallback,
 } from "react";
-import { usePresentation } from "../../context/PresentationContext";
-import { useThemeOptional } from "../../context/ThemeContext";
-import { SLIDE_TYPE, type DeckContentTone } from "../../domain/entities";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { usePublicPreviewDeckOptional } from "@/presentation/contexts/PublicPreviewDeckContext";
+import {
+  DEFAULT_IMAGE_WIDTH_PERCENT,
+  DEFAULT_PANEL_HEIGHT_PERCENT,
+  PRESENTER_STATE_ONE_SHOT_SESSION_KEY,
+} from "@/presentation/state/presentationConstants";
+import { useThemeOptional } from "@/presentation/contexts/ThemeContext";
+import {
+  SLIDE_TYPE,
+  normalizeDeckVisualTheme,
+  type DeckContentTone,
+} from "../../domain/entities";
 import type { Slide } from "../../types";
 import { PRESENTER_MODES } from "../../constants/presenterModes";
 import { trackEvent, ANALYTICS_EVENTS } from "../../services/analytics";
@@ -21,6 +31,7 @@ import {
   getFullscreenElement,
   requestElementFullscreen,
 } from "../../utils/fullscreenApi";
+import { setPublicPreviewKeyboardActive } from "../../utils/publicPreviewKeyboardGuard";
 import { ClaudeDotFadeLayer } from "../shared/ClaudeDotFadeLayer";
 import { FirstPersonStage } from "./FirstPersonStage";
 import { PreviewToolbar } from "./PreviewToolbar";
@@ -269,26 +280,71 @@ function JarvisHaloStage({
 }
 
 export function PreviewOverlay() {
+  const publicCtx = usePublicPreviewDeckOptional();
+  const p = usePresentation();
+
+  const usingPublicDeck = Boolean(
+    publicCtx?.deck?.slides?.length && publicCtx.isPreviewOpen,
+  );
+
+  const slides = usingPublicDeck ? publicCtx!.deck!.slides : p.slides;
+  const currentIndex = usingPublicDeck ? publicCtx!.previewIndex : p.currentIndex;
+  const currentSlide = slides[currentIndex] ?? null;
+  const isPreviewMode = usingPublicDeck || p.isPreviewMode;
+  const topic = usingPublicDeck
+    ? (publicCtx!.deck!.topic?.trim() || "Presentación")
+    : p.topic;
+  const deckVisualTheme = usingPublicDeck
+    ? normalizeDeckVisualTheme(publicCtx!.deck!.deckVisualTheme)
+    : p.deckVisualTheme;
+  const effectiveGeminiModel = p.effectiveGeminiModel;
+  const imageWidthPercent = usingPublicDeck
+    ? (currentSlide?.imageWidthPercent ?? DEFAULT_IMAGE_WIDTH_PERCENT)
+    : p.imageWidthPercent;
+  const panelHeightPercent = usingPublicDeck
+    ? currentSlide?.type === SLIDE_TYPE.CONTENT || !currentSlide?.type
+      ? (currentSlide?.panelHeightPercent ?? DEFAULT_PANEL_HEIGHT_PERCENT)
+      : DEFAULT_PANEL_HEIGHT_PERCENT
+    : p.panelHeightPercent;
+
+  const prevSlide = useCallback(() => {
+    if (usingPublicDeck && publicCtx) {
+      publicCtx.setPreviewIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+    p.prevSlide();
+  }, [usingPublicDeck, publicCtx, p]);
+
+  const nextSlide = useCallback(() => {
+    if (usingPublicDeck && publicCtx) {
+      const n = publicCtx.deck?.slides.length ?? 0;
+      publicCtx.setPreviewIndex((i) => (n > 0 ? Math.min(n - 1, i + 1) : 0));
+      return;
+    }
+    p.nextSlide();
+  }, [usingPublicDeck, publicCtx, p]);
+
+  const applySetPreviewMode = useCallback(
+    (v: boolean) => {
+      if (!v && publicCtx?.isPreviewOpen) {
+        publicCtx.closePreview();
+        return;
+      }
+      if (!publicCtx?.isPreviewOpen) {
+        p.setIsPreviewMode(v);
+      }
+    },
+    [publicCtx, p],
+  );
+
   const {
-    isPreviewMode,
-    setIsPreviewMode,
-    currentSlide,
-    currentIndex,
-    slides,
-    topic,
-    deckVisualTheme,
-    imageWidthPercent,
-    panelHeightPercent,
-    prevSlide,
-    nextSlide,
-    effectiveGeminiModel,
     presenterMode,
     setPresenterMode,
     firstPersonLayout,
     setFirstPersonLayout,
     firstPersonKeyOrder,
     setFirstPersonKeyOrder,
-  } = usePresentation();
+  } = p;
   const nextSlideRef = useRef(nextSlide);
   const prevSlideRef = useRef(prevSlide);
   const stateRef = useRef({
@@ -381,11 +437,11 @@ export function PreviewOverlay() {
   const handleClosePreview = useCallback(() => {
     const el = overlayRootRef.current;
     if (el && getFullscreenElement() === el) {
-      void exitDocumentFullscreen().finally(() => setIsPreviewMode(false));
+      void exitDocumentFullscreen().finally(() => applySetPreviewMode(false));
       return;
     }
-    setIsPreviewMode(false);
-  }, [setIsPreviewMode]);
+    applySetPreviewMode(false);
+  }, [applySetPreviewMode]);
 
   const handlePrevSlide = useCallback(() => {
     setSlideDirection(-1);
@@ -396,6 +452,51 @@ export function PreviewOverlay() {
     setSlideDirection(1);
     nextSlide();
   }, [nextSlide]);
+
+  useEffect(() => {
+    if (!usingPublicDeck || !isPreviewMode) {
+      setPublicPreviewKeyboardActive(false);
+      return;
+    }
+    setPublicPreviewKeyboardActive(true);
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (t instanceof HTMLElement && t.isContentEditable) {
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || (e.key === " " && !e.repeat)) {
+        e.preventDefault();
+        handleNextSlide();
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        handlePrevSlide();
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        const el = overlayRootRef.current;
+        if (el && getFullscreenElement() === el) {
+          void exitDocumentFullscreen();
+          return;
+        }
+        handleClosePreview();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      setPublicPreviewKeyboardActive(false);
+    };
+  }, [usingPublicDeck, isPreviewMode, handleNextSlide, handlePrevSlide, handleClosePreview]);
 
   nextSlideRef.current = handleNextSlide;
   prevSlideRef.current = handlePrevSlide;
@@ -546,10 +647,27 @@ export function PreviewOverlay() {
         console.error("Error abriendo ventana presentador:", e);
       });
     } catch {
+      try {
+        const payload = stateRef.current;
+        if (payload?.slides?.length) {
+          sessionStorage.setItem(
+            PRESENTER_STATE_ONE_SHOT_SESSION_KEY,
+            JSON.stringify({
+              slides: payload.slides,
+              currentIndex: payload.currentIndex,
+              topic: payload.topic || "Presentación",
+              effectiveGeminiModel: payload.effectiveGeminiModel,
+              deckVisualTheme: payload.deckVisualTheme,
+            }),
+          );
+        }
+      } catch {
+        /* ignore */
+      }
       window.open(
         url,
         "presenter",
-        "width=900,height=700,menubar=no,toolbar=no,noopener,noreferrer"
+        "width=900,height=700,menubar=no,toolbar=yes",
       );
     }
   };

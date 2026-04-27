@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import { parseCanvas3dSceneData } from "../../domain/entities/Canvas3dSceneData";
 import {

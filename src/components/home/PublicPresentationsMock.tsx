@@ -18,8 +18,8 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
-import { useAuth } from "../../context/AuthContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useAuth } from "@/presentation/contexts/AuthContext";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { cn } from "../../utils/cn";
 import {

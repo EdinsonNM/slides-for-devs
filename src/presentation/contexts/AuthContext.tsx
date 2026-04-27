@@ -14,8 +14,8 @@ import {
   signInWithGoogle as firebaseSignInWithGoogle,
   signOut as firebaseSignOut,
   subscribeAuthState,
-} from "../services/firebase";
-import { setAnalyticsUserId } from "../services/analytics";
+} from "../../services/firebase";
+import { setAnalyticsUserId } from "../../services/analytics";
 
 interface AuthState {
   /** Si Firebase está configurado (Tauri: archivo en AppData; web: .env). */

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useSyncExternalStore } from "react";
 import type { DeckVisualTheme } from "../../domain/entities";
-import { useThemeOptional } from "../../context/ThemeContext";
+import { useThemeOptional } from "@/presentation/contexts/ThemeContext";
 import { cn } from "../../utils/cn";
 
 const LiquidEtherBackdropCanvas = lazy(

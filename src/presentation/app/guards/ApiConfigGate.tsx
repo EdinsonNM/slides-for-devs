@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { LoadingScreen } from "../../../components/shared/LoadingScreen";
-import { useApiConfigurationGate } from "../../hooks/app/useApiConfigurationGate";
+import { useApiConfigurationGate } from "@/presentation/hooks/app/useApiConfigurationGate";
 import { AppApiConfigProvider } from "../ApiConfigContext";
 
 type ApiConfigGateProps = {

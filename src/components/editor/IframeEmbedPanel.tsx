@@ -1,6 +1,6 @@
 import { Frame } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
-import { useMinWidthLg } from "../../hooks/useMatchMedia";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
+import { useMinWidthLg } from "@/presentation/hooks/global/useMatchMedia";
 import { cn } from "../../utils/cn";
 import { sanitizeIframeEmbedSrc } from "../../utils/iframeEmbedUrl";
 import type { Slide } from "../../types";

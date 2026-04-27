@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import { Canvas3DViewport } from "../shared/Canvas3DViewport";
 import { Canvas3dModelSourceActions } from "./Canvas3dModelSourceActions";

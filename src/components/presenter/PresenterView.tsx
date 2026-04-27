@@ -6,7 +6,8 @@ import {
   DEFAULT_DECK_VISUAL_THEME,
   normalizeDeckVisualTheme,
 } from "../../domain/entities";
-import { usePresentation } from "../../context/PresentationContext";
+import { PRESENTER_STATE_ONE_SHOT_SESSION_KEY } from "@/presentation/state/presentationConstants";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { presenterChat } from "../../services/gemini";
 import { PreviewSlideContent } from "../preview/PreviewSlideContent";
 import { PresenterHeader } from "./PresenterHeader";
@@ -64,6 +65,33 @@ export function PresenterView() {
         };
         await eventApi.emit("presenter-ready");
       } catch {
+        const applyOneShotFromSession = () => {
+          try {
+            const raw = sessionStorage.getItem(
+              PRESENTER_STATE_ONE_SHOT_SESSION_KEY,
+            );
+            if (!raw) return;
+            const parsed = JSON.parse(raw) as unknown;
+            if (
+              !parsed ||
+              typeof parsed !== "object" ||
+              !("slides" in parsed) ||
+              !Array.isArray(
+                (parsed as PresenterState).slides,
+              ) ||
+              (parsed as PresenterState).slides.length === 0
+            ) {
+              sessionStorage.removeItem(PRESENTER_STATE_ONE_SHOT_SESSION_KEY);
+              return;
+            }
+            setState(parsed as PresenterState);
+            sessionStorage.removeItem(PRESENTER_STATE_ONE_SHOT_SESSION_KEY);
+          } catch {
+            sessionStorage.removeItem(PRESENTER_STATE_ONE_SHOT_SESSION_KEY);
+          }
+        };
+        applyOneShotFromSession();
+
         const handler = (e: MessageEvent) => {
           if (e.origin !== getOrigin()) return;
           if (e.data?.type === "PRESENTATION_STATE" && e.data.payload) {

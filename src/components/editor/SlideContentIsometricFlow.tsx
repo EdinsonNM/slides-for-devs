@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import {
   parseIsometricFlowDiagram,
   serializeIsometricFlowDiagram,

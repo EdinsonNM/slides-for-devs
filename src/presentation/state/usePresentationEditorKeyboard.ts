@@ -5,6 +5,7 @@ import {
   exitDocumentFullscreen,
   getFullscreenElement,
 } from "../../utils/fullscreenApi";
+import { isPublicPreviewKeyboardActive } from "../../utils/publicPreviewKeyboardGuard";
 
 export type DeckNavigationActions = {
   nextSlide: () => void;
@@ -44,6 +45,9 @@ export function usePresentationEditorKeyboard(
           target.isContentEditable);
 
       const d = depsRef.current;
+      if (isPublicPreviewKeyboardActive()) {
+        return;
+      }
       const mod = e.ctrlKey || e.metaKey;
       if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
         if (inTextField) return;

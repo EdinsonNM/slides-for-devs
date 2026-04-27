@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { MapPin, Navigation, Plus, Route, Trash2 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { SLIDE_TYPE } from "../../domain/entities";
 import {
   parseSlideMapData,

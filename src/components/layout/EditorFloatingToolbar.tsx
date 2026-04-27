@@ -26,7 +26,7 @@ import {
   Webcam,
   type LucideIcon,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { cn } from "../../utils/cn";
 import {
   PANEL_CONTENT_KIND,

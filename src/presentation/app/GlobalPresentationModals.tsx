@@ -1,5 +1,5 @@
-import { useAuth } from "../../context/AuthContext";
-import { usePresentation } from "../../context/PresentationContext";
+import { useAuth } from "@/presentation/contexts/AuthContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { GeneratingPresentationModal } from "../../components/modals/GeneratingPresentationModal";
 import { SharePresentationModal } from "../../components/modals/SharePresentationModal";
 import { CloudSyncConflictModal } from "../../components/modals/CloudSyncConflictModal";

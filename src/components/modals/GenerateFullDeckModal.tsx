@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Loader2, Plus } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import { PromptAttachmentsRow } from "../shared/PromptAttachmentsRow";
 import {
   LARGE_PASTE_CHAR_THRESHOLD,

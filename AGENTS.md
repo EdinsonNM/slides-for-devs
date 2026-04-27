@@ -2,7 +2,7 @@
 
 ## Sincronización de esta guía
 
-**Última revisión alineada con commit:** `ddde224c7bd31d6e3a7fc6ecbe9896af2c061f87`  
+**Última revisión alineada con commit:** `d3473092e9eb30b50037b5509de476195742b0b5`  
 Al actualizar AGENTS.md tras cambios grandes en el repo, reemplaza este hash por el de `git rev-parse HEAD` en el momento de la edición.
 
 ## Propósito del proyecto
@@ -32,6 +32,8 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/`: aplicación frontend
 - `src/App.tsx`: composición de rutas (`Routes`), carga perezosa de páginas, gates de auth y API, y enlace a modales globales; sin lógica de feature ni estado local
 - `src/presentation/pages/`: entradas por ruta (home, editor, configure-ai, presenter, public)
+- **Imports a `src/presentation/`:** usa el alias TypeScript / Vite `@/presentation/...` (p. ej. `@/presentation/contexts/PresentationContext`) en lugar de rutas relativas largas; configurado en `tsconfig.json` y `vite.config.ts`
+- `src/presentation/contexts/`: `AuthContext`, `ThemeContext`, `PresentationContext`
 - `src/presentation/app/`: `GlobalPresentationModals`, contexto de configuración API y `guards/` (`AuthGate`, `ApiConfigGate`, `RequireAuth`)
 - `src/presentation/hooks/app/`: `useAppUpdaterCheck`, `useApiConfigurationGate` (composición de app)
 - `src/components/`: componentes organizados por feature
@@ -44,8 +46,8 @@ Usa `pnpm` como opción preferida. `npm` existe, pero este repo ya incluye `pnpm
 - `src/domain/`: entidades de dominio (`Slide`, `SlideCanvas`, `SlideMatrix`, `DeckVisualTheme`, `IsometricFlowDiagram`, …), `src/domain/slideCanvas/` (migración, escena, z-order), `src/domain/ports/` (contratos hacia IA y operaciones)
 - `src/application/use-cases/`: casos de uso (p. ej. generación de diagrama o matriz desde IA)
 - `src/composition/container.ts`: composición de adaptadores y casos de uso
-- `src/context/PresentationContext.tsx`: estado global principal de presentaciones
-- `src/hooks/`: hooks de estado y lógica UI
+- `src/presentation/contexts/PresentationContext.tsx`: estado global principal de presentaciones
+- `src/presentation/hooks/global/`: hooks UI globales (`usePresentationState`, `useMatchMedia`, …)
 - `src/services/`: integración con almacenamiento, IA, updater y config
 - `src/constants/`: catálogos y opciones del editor
 - `src/utils/`: helpers puros
@@ -110,8 +112,8 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 
 ### Estado y flujo de presentación
 
-- Revisa `src/context/PresentationContext.tsx`
-- Revisa hooks en `src/hooks/`; el borrador del título de la presentación y la barra superior viven en parte en `src/hooks/usePresentationState.ts` y `src/components/layout/Header.tsx`
+- Revisa `src/presentation/contexts/PresentationContext.tsx`
+- Revisa `src/presentation/hooks/global/usePresentationState.ts`; el borrador del título y la barra superior comparten lógica con `src/components/layout/Header.tsx`
 
 ### IA / generación de contenido
 
@@ -128,7 +130,7 @@ Si no puedes correr alguna validación, deja claro qué no se verificó.
 
 ### Firebase (Slaim en la nube)
 
-- Auth y config: `src/services/firebase.ts`, `src/context/AuthContext.tsx`
+- Auth y config: `src/services/firebase.ts`, `src/presentation/contexts/AuthContext.tsx`
 - Personajes en la nube: `src/services/charactersCloud.ts` (Firestore `users/{uid}/characters/{id}`, Storage `ref.webp`). Reglas en `docs/firebase-rules.md`. Los personajes comparten UUID entre dispositivos; las presentaciones enlazan por `characterId`.
 - **Compartir presentaciones**: además de `users/{uid}/presentations`, la app usa `presentationShareGrants`, `sharedPresentationIndex` y campos `sharedWith` / `shareInviteEmails` en sincronía con Storage. Reglas canónicas en `firestore.rules` y `firestore.indexes.json` (collection groups para listar compartidas). Guía operativa: `docs/firebase-rules.md`; despliega índices con `firebase deploy --only firestore:indexes` cuando cambien.
 - **Desarrollo (web y Tauri)**: usar un solo `.env` en la raíz con `VITE_FIREBASE_*`. Vite inyecta esas variables en el frontend; en `tauri dev` el frontend se sirve desde Vite, así que el mismo `.env` vale para ambos. No commitear `.env`.

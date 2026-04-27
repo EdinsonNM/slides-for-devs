@@ -16,7 +16,7 @@ import {
   Video,
   Frame,
 } from "lucide-react";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 import {
   PANEL_CONTENT_KIND,
   resolveMediaPanelDescriptor,

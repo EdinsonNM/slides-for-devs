@@ -6,7 +6,7 @@ import { SlideSidebar } from "./SlideSidebar";
 import { SlideEditor } from "../editor/SlideEditor";
 import { AvatarMenu } from "../shared/AvatarMenu";
 import { PresenterNotesPanel } from "../editor/PresenterNotesPanel";
-import { usePresentation } from "../../context/PresentationContext";
+import { usePresentation } from "@/presentation/contexts/PresentationContext";
 
 interface EditorShellProps {
   onOpenConfig: () => void;

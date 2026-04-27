@@ -61,7 +61,7 @@ import {
   hrefFromSimpleIconRelativePath,
 } from "../../../utils/isometricBrandIcon";
 import type { IsometricFlowDiagramCanvasProps } from "./isometricFlowDiagramCanvasTypes";
-import { useThemeOptional } from "../../../context/ThemeContext";
+import { useThemeOptional } from "@/presentation/contexts/ThemeContext";
 import type { IsoDiagramChrome } from "./canvasModel";
 
 export function useIsometricFlowCanvasController({
